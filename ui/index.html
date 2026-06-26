@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Bili Music</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar panel" aria-label="侧边栏">
+        <header class="brand">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v11.2a3 3 0 1 1-2-2.83V7.1l-6 1.2V17a3 3 0 1 1-2-2.83Z" /></svg>
+          </span>
+          <span>
+            <strong>Bili Music</strong>
+            <small>轻松听歌</small>
+          </span>
+        </header>
+
+        <nav class="side-nav" aria-label="主要区域">
+          <button class="nav-item active" type="button" data-view="home">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11.4 12 4l8 7.4V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z" /></svg>
+            <span>首页</span>
+          </button>
+          <button class="nav-item" type="button" data-view="search">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z" /></svg>
+            <span>搜索</span>
+          </button>
+          <button class="nav-item" type="button" data-view="favorites">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21.2 10.7 20C5.4 15.2 2 12.2 2 8.4A5.4 5.4 0 0 1 7.5 3c1.8 0 3.5.8 4.5 2.1A5.6 5.6 0 0 1 16.5 3 5.4 5.4 0 0 1 22 8.4c0 3.8-3.4 6.8-8.7 11.6Z" /></svg>
+            <span>我的收藏</span>
+          </button>
+          <button class="nav-item" type="button" data-view="playlists">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h10v2H4Zm0 5h10v2H4Zm0 5h7v2H4Zm13-3.2V5h2v7.1a3 3 0 1 1-2 .7Z" /></svg>
+            <span>我的歌单</span>
+          </button>
+          <button class="nav-item" type="button" data-view="local">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v12h14V6Zm2 3h10v2H7Zm0 4h7v2H7Z" /></svg>
+            <span>本地音乐</span>
+            <small>待开发</small>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <button id="open-settings-button" class="nav-item" type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19.4 13.5a7.8 7.8 0 0 0 .1-1.5 7.8 7.8 0 0 0-.1-1.5l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 3a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.8 7.8 0 0 0-.1 1.5c0 .5 0 1 .1 1.5l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5l.4 3h4l.4-3a8 8 0 0 0 2.6-1.5l2.4 1 2-3.5ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" /></svg>
+            <span>设置</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-panel panel" aria-labelledby="queue-heading">
+        <section id="view-home" class="view is-active">
+          <div class="home-stage">
+            <header class="list-head home-head">
+              <div class="home-title-block">
+                <span class="home-vinyl-mark" aria-hidden="true"></span>
+                <div class="home-title-copy">
+                  <span class="home-source-label">B站音乐区</span>
+                  <h1>音乐飙升榜</h1>
+                  <p id="home-ranking-status" class="search-status" role="status">正在拉取 B站音乐区热门内容…</p>
+                </div>
+              </div>
+              <div class="home-actions">
+                <span class="home-cache-note">游客榜单 · 本次运行缓存</span>
+                <button id="refresh-ranking-button" class="secondary-button home-refresh-button" type="button">刷新</button>
+              </div>
+            </header>
+
+            <section class="home-ranking-panel" aria-label="榜单列表">
+              <div class="home-ranking-bar" aria-hidden="true">
+                <span>上升中的音乐视频</span>
+                <span>点击条目开始播放</span>
+              </div>
+              <p id="home-ranking-error" class="home-error" role="status" aria-live="polite"></p>
+              <ul id="home-ranking-list" class="tracklist ranking-list" aria-label="音乐飙升榜"></ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-search" class="view" hidden>
+          <div class="search-stage">
+            <section class="search-command-panel" aria-label="搜索控制">
+              <div class="search-command-head">
+                <span class="search-vinyl-mark" aria-hidden="true"></span>
+                <div class="search-command-copy">
+                  <span class="search-source-label">关键词 / BV 直达</span>
+                  <h1>搜索音乐</h1>
+                  <p>输入关键词查找 B站音乐区内容，粘贴 BV 号可直接进入播放链路。</p>
+                </div>
+              </div>
+
+              <form id="search-form" class="searchbar" role="search">
+                <label class="sr-only" for="search-keyword">搜索歌曲、歌手，或粘贴 BV 号直接播放</label>
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z" /></svg>
+                <input id="search-keyword" required placeholder="搜索歌曲、歌手，或粘贴 BV 号直接播放" autocomplete="off" />
+                <span class="search-hint">BV 号自动识别</span>
+                <button id="search-button" class="search-submit" type="submit">搜索</button>
+              </form>
+            </section>
+
+            <section class="search-results-panel" aria-label="搜索结果">
+              <div class="search-tabs-row">
+                <span class="search-tabs-label">音乐分区</span>
+                <div id="music-tabs" class="music-tabs" role="tablist" aria-label="音乐子分区">
+                  <button class="music-tab is-active" type="button" role="tab" aria-selected="true" data-tids="3">全部</button>
+                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="28">原创</button>
+                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="31">翻唱</button>
+                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="30">VOCALOID</button>
+                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="59">演奏</button>
+                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="267">电台</button>
+                </div>
+              </div>
+
+              <header class="list-head search-results-head">
+                <div>
+                  <h1 id="queue-heading">搜索结果</h1>
+                  <p id="search-status" class="search-status" role="status">搜索结果会显示在这里。</p>
+                </div>
+                <span id="queue-count" class="queue-count">0 首</span>
+              </header>
+
+              <p id="playback-notice" class="playback-notice" role="status" aria-live="polite"></p>
+              <ul id="search-results" class="tracklist" aria-label="搜索结果和播放队列"></ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-favorites" class="view library-view" hidden>
+          <header class="list-head">
+            <div>
+              <h1>我的收藏</h1>
+              <p id="favorites-status" class="search-status" role="status">收藏的歌曲会显示在这里。</p>
+            </div>
+            <span id="favorites-count" class="queue-count">0 首</span>
+          </header>
+          <ul id="favorites-list" class="tracklist library-list" aria-label="我的收藏"></ul>
+        </section>
+
+        <section id="view-playlists" class="view library-view" hidden>
+          <header class="list-head library-head">
+            <div>
+              <h1>我的歌单</h1>
+              <p id="playlists-status" class="search-status" role="status">创建歌单，把喜欢的歌放在一起。</p>
+            </div>
+            <button id="create-playlist-button" class="secondary-button" type="button">新建歌单</button>
+          </header>
+          <div class="playlist-layout">
+            <ul id="playlists-list" class="playlist-list" aria-label="歌单列表"></ul>
+            <section class="playlist-detail" aria-label="歌单内容">
+              <header class="playlist-detail-head">
+                <div>
+                  <h2 id="playlist-title">选择一个歌单</h2>
+                  <p id="playlist-meta">歌单里的歌曲会显示在这里。</p>
+                </div>
+                <div id="playlist-actions" class="playlist-actions" hidden>
+                  <button id="rename-playlist-button" class="small-button quiet" type="button">改名</button>
+                  <button id="delete-playlist-button" class="small-button quiet danger" type="button">删除</button>
+                </div>
+              </header>
+              <ul id="playlist-tracks" class="tracklist library-list" aria-label="歌单歌曲"></ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-placeholder" class="view placeholder-view" hidden>
+          <div class="empty-state">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 5h8v2H8Zm0 4h5v2H8Z" /></svg>
+            <h2 id="placeholder-title">功能开发中</h2>
+            <p>这一入口先占位，不接真实数据。</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <section id="immersive-player" class="immersive-player" aria-label="沉浸播放页" aria-hidden="true" hidden>
+      <div class="immersive-backdrop" data-close-immersive="true"></div>
+      <div class="immersive-sheet panel" role="dialog" aria-modal="true" aria-labelledby="immersive-title">
+        <header class="immersive-header">
+          <span>正在播放</span>
+          <button id="close-immersive-button" class="small-button quiet" type="button">收起</button>
+        </header>
+
+        <div class="immersive-content">
+          <div class="immersive-art">
+            <img id="immersive-cover" alt="当前歌曲封面" referrerpolicy="no-referrer" />
+            <img id="immersive-reflection" alt="" aria-hidden="true" referrerpolicy="no-referrer" />
+          </div>
+
+          <div class="immersive-track">
+            <h2 id="immersive-title">尚未播放</h2>
+            <p id="immersive-uploader">—</p>
+          </div>
+
+          <div class="immersive-lyrics" aria-label="歌词">
+            <p>暂无歌词</p>
+          </div>
+
+          <div class="immersive-controls">
+            <div class="transport-controls" aria-label="沉浸播放控制">
+              <button id="immersive-previous-button" class="icon-button" type="button" aria-label="上一首">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6Zm3 7 9-7v14Z" /></svg>
+              </button>
+              <button id="immersive-play-pause-button" class="play-button" type="button" aria-label="播放">
+                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.6-6.4a1 1 0 0 0 0-1.7l-9.6-6.4A1 1 0 0 0 8 5.6Z" /></svg>
+                <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+              </button>
+              <button id="immersive-next-button" class="icon-button" type="button" aria-label="下一首">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2ZM15 12 6 5v14Z" /></svg>
+              </button>
+            </div>
+
+            <div class="timeline immersive-timeline">
+              <span id="immersive-current-time">0:00</span>
+              <input id="immersive-progress-slider" type="range" min="0" max="100" value="0" step="0.01" aria-label="沉浸播放进度" />
+              <span id="immersive-duration">0:00</span>
+            </div>
+
+            <button id="open-bilibili-button" class="secondary-button" type="button">在 B站打开</button>
+            <button id="immersive-favorite-button" class="secondary-button favorite-current-button" type="button" aria-label="收藏当前歌曲">♡ 收藏</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer id="result" class="player-bar panel" aria-label="当前播放">
+      <div class="now-playing">
+        <button id="open-immersive-button" class="cover-button" type="button" aria-label="打开沉浸播放页">
+          <img id="thumbnail" alt="视频封面" width="54" height="54" referrerpolicy="no-referrer" />
+        </button>
+        <div class="track-copy">
+          <strong id="title">尚未播放</strong>
+          <span id="uploader">—</span>
+        </div>
+      </div>
+
+      <div class="transport-area">
+        <div class="transport-controls" aria-label="播放控制">
+          <button id="loop-mode-button" class="mode-button icon-mode" type="button" aria-label="循环模式" title="循环模式">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h8.6l-2.3-2.3 1.4-1.4L19.4 8l-4.7 4.7-1.4-1.4L15.6 9H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H8.4l2.3 2.3-1.4 1.4L4.6 16l4.7-4.7 1.4 1.4L8.4 15H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z" /></svg>
+          </button>
+          <button id="previous-button" class="icon-button" type="button" aria-label="上一首">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6Zm3 7 9-7v14Z" /></svg>
+          </button>
+          <button id="play-pause-button" class="play-button" type="button" aria-label="播放">
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.6-6.4a1 1 0 0 0 0-1.7l-9.6-6.4A1 1 0 0 0 8 5.6Z" /></svg>
+            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+          </button>
+          <button id="next-button" class="icon-button" type="button" aria-label="下一首">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2ZM15 12 6 5v14Z" /></svg>
+          </button>
+          <label class="shuffle-control" aria-label="随机播放">
+            <input id="shuffle-toggle" type="checkbox" />
+            <span title="随机播放">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 4H21v3.4h-2V7.2l-4.1 4.1-1.4-1.4L17.4 6H17.6ZM3 7h3.1c1.5 0 2.9.6 3.9 1.7l1 1.1-1.4 1.4-1-1.1A3.4 3.4 0 0 0 6.1 9H3Zm13.6 10H17.4l-3.9-3.9 1.4-1.4 4.1 4.1V14h2v3.4H17.6ZM3 15h3.1c1 0 1.9-.4 2.5-1.1l7-7 1.4 1.4-7 7A5.4 5.4 0 0 1 6.1 17H3Z" /></svg>
+            </span>
+          </label>
+        </div>
+
+        <div class="timeline">
+          <span id="current-time">0:00</span>
+          <input id="progress-slider" type="range" min="0" max="100" value="0" step="0.01" aria-label="播放进度" />
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+
+      <div class="right-tools">
+        <span id="queue-position" class="queue-position">0 / 0</span>
+        <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
+        </button>
+        <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲">♡</button>
+        <label class="volume-control" aria-label="音量">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Zm12.5 6.5a5 5 0 0 0 0-7l1.4-1.4a7 7 0 0 1 0 9.8Z" /></svg>
+          <input id="volume-slider" type="range" min="0" max="1" value="1" step="0.01" />
+        </label>
+        <button id="open-immersive-icon-button" class="tool-button" type="button" aria-label="沉浸模式">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v2H6v5H4Zm9 0h7v7h-2V6h-5ZM6 13v5h5v2H4v-7Zm12 5v-5h2v7h-7v-2Z" /></svg>
+        </button>
+      </div>
+
+      <p id="status" class="player-status" role="status"></p>
+      <audio id="audio" preload="auto"></audio>
+    </footer>
+
+    <div id="settings-modal" class="settings-mask" aria-hidden="true" hidden>
+      <div class="settings-panel panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <header class="settings-header">
+          <div>
+            <h2 id="settings-title">设置</h2>
+            <p>主题、背景与播放取流方式</p>
+          </div>
+          <button id="close-settings-button" class="tool-button" type="button" aria-label="关闭设置">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" /></svg>
+          </button>
+        </header>
+
+        <section class="setting-group">
+          <h3>主题</h3>
+          <div class="theme-row" role="radiogroup" aria-label="主题">
+            <button class="theme-option" type="button" data-theme-option="dark">
+              <span class="swatch swatch-dark"></span>
+              深色
+            </button>
+            <button class="theme-option" type="button" data-theme-option="light">
+              <span class="swatch swatch-light"></span>
+              浅色
+            </button>
+            <button class="theme-option" type="button" data-theme-option="image">
+              <span class="swatch swatch-image"></span>
+              背景图
+            </button>
+          </div>
+        </section>
+
+        <section id="image-settings" class="setting-group image-only">
+          <h3>背景图</h3>
+          <div class="setting-actions">
+            <button id="choose-background-button" class="secondary-button" type="button">选择本地图片</button>
+            <button id="reset-background-button" class="small-button quiet" type="button">恢复默认</button>
+          </div>
+          <small id="background-name">使用默认背景</small>
+        </section>
+
+        <section id="texture-settings" class="setting-group image-only">
+          <h3>质感微调</h3>
+          <label class="slider-row">
+            <span>毛玻璃模糊 <output id="glass-blur-value">40px</output></span>
+            <input id="glass-blur-slider" type="range" min="0" max="80" value="40" />
+          </label>
+          <label class="slider-row">
+            <span>面板不透明度 <output id="panel-alpha-value">72%</output></span>
+            <input id="panel-alpha-slider" type="range" min="20" max="100" value="72" />
+          </label>
+          <label class="slider-row">
+            <span>背景暗化 <output id="background-dim-value">90%</output></span>
+            <input id="background-dim-slider" type="range" min="40" max="95" value="90" />
+          </label>
+        </section>
+
+        <section class="setting-group">
+          <h3>取流方案</h3>
+          <label class="select-row" for="stream-source-select">
+            <select id="stream-source-select" class="settings-select">
+              <option value="auto">自动（游客优先 + yt-dlp 兜底）</option>
+              <option value="guest">强制游客</option>
+              <option value="yt-dlp">强制 yt-dlp</option>
+            </select>
+          </label>
+          <small id="stream-source-status">默认使用自动模式</small>
+        </section>
+
+        <section class="setting-group">
+          <h3>搜索历史</h3>
+          <div class="setting-actions">
+            <button id="clear-search-history-button" class="small-button quiet" type="button">清空搜索历史</button>
+          </div>
+          <small>仅清空本地记录，不影响收藏、歌单或播放队列。</small>
+        </section>
+
+        <p id="appearance-status" class="appearance-status" role="status"></p>
+      </div>
+    </div>
+
+    <div id="library-modal" class="settings-mask" aria-hidden="true" hidden>
+      <div class="settings-panel panel library-modal-panel" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
+        <header class="settings-header">
+          <div>
+            <h2 id="library-modal-title">加入歌单</h2>
+            <p id="library-modal-subtitle">选择一个歌单，或新建后加入。</p>
+          </div>
+          <button id="close-library-modal-button" class="tool-button" type="button" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" /></svg>
+          </button>
+        </header>
+
+        <div id="library-modal-body" class="library-modal-body"></div>
+        <p id="library-modal-status" class="appearance-status" role="status"></p>
+      </div>
+    </div>
+
+    <script src="./main.js"></script>
+    <script src="./appearance.js"></script>
+  </body>
+</html>

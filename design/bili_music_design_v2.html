@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bili Music — 午夜黑胶 v2</title>
+<style>
+  :root{
+    --blur:40px;
+    --panel-alpha:.72;
+    --bg-dim:.84;
+    --accent:#FB7299;
+    --accent-dim:rgba(251,114,153,.14);
+    --radius:14px;
+    --radius-sm:10px;
+    --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+  }
+  /* ===== 三档主题 ===== */
+  [data-theme="image"]{
+    --text-1:#F5F5F7;--text-2:#98989D;--text-3:#636366;
+    --panel:rgba(32,32,36,var(--panel-alpha));
+    --line:rgba(255,255,255,.07);
+    --search-bg:rgba(0,0,0,.28);
+    --track-hover:rgba(255,255,255,.045);
+    --knob:#fff;--track-line:rgba(255,255,255,.12);
+    --nav-hover:rgba(255,255,255,.04);--nav-active:rgba(255,255,255,.06);
+    --play-btn-bg:#F5F5F7;--play-btn-fg:#0A0A0B;
+  }
+  [data-theme="dark"]{
+    --text-1:#F5F5F7;--text-2:#98989D;--text-3:#636366;
+    --panel:#1C1C1E;
+    --line:rgba(255,255,255,.08);
+    --search-bg:rgba(0,0,0,.3);
+    --track-hover:rgba(255,255,255,.05);
+    --knob:#fff;--track-line:rgba(255,255,255,.13);
+    --nav-hover:rgba(255,255,255,.045);--nav-active:rgba(255,255,255,.07);
+    --play-btn-bg:#F5F5F7;--play-btn-fg:#0A0A0B;
+  }
+  [data-theme="light"]{
+    --text-1:#1C1C1E;--text-2:#6E6E73;--text-3:#A0A0A5;
+    --panel:#FFFFFF;
+    --line:rgba(0,0,0,.09);
+    --search-bg:rgba(0,0,0,.04);
+    --track-hover:rgba(0,0,0,.035);
+    --knob:#fff;--track-line:rgba(0,0,0,.1);
+    --nav-hover:rgba(0,0,0,.04);--nav-active:rgba(0,0,0,.06);
+    --play-btn-bg:#1C1C1E;--play-btn-fg:#fff;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:var(--font);color:var(--text-1);overflow:hidden;-webkit-font-smoothing:antialiased;transition:background .3s}
+  /* 背景:三档不同 */
+  body[data-theme="image"]{
+    background:
+      linear-gradient(rgba(10,10,11,var(--bg-dim)),rgba(10,10,11,var(--bg-dim))),
+      url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1600&q=70') center/cover no-repeat,#0A0A0B;
+  }
+  body[data-theme="dark"]{background:#0A0A0B}
+  body[data-theme="light"]{background:#E8E8EA}
+
+  .app{height:100vh;display:grid;grid-template-columns:260px 1fr;grid-template-rows:1fr 92px;gap:14px;padding:14px}
+
+  .panel{
+    background:var(--panel);
+    border:.5px solid var(--line);
+    border-radius:var(--radius);
+    transition:background .3s,backdrop-filter .15s;
+  }
+  body[data-theme="image"] .panel{
+    backdrop-filter:blur(var(--blur)) saturate(140%);
+    -webkit-backdrop-filter:blur(var(--blur)) saturate(140%);
+  }
+
+  /* 侧边栏 */
+  .sidebar{grid-row:1 / 3;padding:22px 16px;display:flex;flex-direction:column;gap:6px}
+  .brand{display:flex;align-items:center;gap:11px;padding:4px 8px 20px}
+  .brand .logo{width:38px;height:38px;border-radius:11px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:19px}
+  .brand .name{font-size:16px;font-weight:600;letter-spacing:.2px}
+  .brand .sub{font-size:11.5px;color:var(--text-3);margin-top:1px}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--radius-sm);color:var(--text-2);font-size:14px;cursor:pointer;transition:background .15s,color .15s;position:relative}
+  .nav-item:hover{background:var(--nav-hover);color:var(--text-1)}
+  .nav-item.active{background:var(--nav-active);color:var(--text-1)}
+  .nav-item.active::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;border-radius:2px;background:var(--accent)}
+  .nav-item .ic{width:20px;text-align:center;font-size:16px;opacity:.9}
+  .placeholder-tag{margin-left:auto;font-size:10px;color:var(--text-3);border:.5px solid var(--line);border-radius:5px;padding:1px 6px}
+  .sidebar-foot{margin-top:auto;padding-top:14px;border-top:.5px solid var(--line)}
+
+  /* 主区 */
+  .main{padding:26px 28px 10px;display:flex;flex-direction:column;overflow:hidden}
+  .searchbar{display:flex;align-items:center;gap:10px;background:var(--search-bg);border:.5px solid var(--line);border-radius:12px;padding:0 14px;height:46px;margin-bottom:22px;transition:border-color .15s}
+  .searchbar:focus-within{border-color:rgba(251,114,153,.5)}
+  .searchbar .ic{color:var(--text-3);font-size:17px}
+  .searchbar input{flex:1;background:none;border:none;outline:none;color:var(--text-1);font-size:14.5px;font-family:var(--font)}
+  .searchbar input::placeholder{color:var(--text-3)}
+  .searchbar .hint{font-size:11px;color:var(--text-3);border:.5px solid var(--line);border-radius:5px;padding:2px 7px;white-space:nowrap}
+  .list-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .list-head h1{font-size:21px;font-weight:600;letter-spacing:.3px}
+  .list-head .count{font-size:13px;color:var(--text-2)}
+  .tracklist{flex:1;overflow-y:auto;margin:0 -8px;padding:8px 8px 0}
+  .tracklist::-webkit-scrollbar{width:8px}
+  .tracklist::-webkit-scrollbar-thumb{background:var(--track-line);border-radius:4px}
+  .track{display:flex;align-items:center;gap:14px;padding:9px 12px;border-radius:12px;cursor:pointer;transition:background .14s}
+  .track:hover{background:var(--track-hover)}
+  .track.playing{background:var(--accent-dim)}
+  .track .cover{width:46px;height:46px;border-radius:9px;flex-shrink:0;background-size:cover;background-position:center}
+  .track .meta{flex:1;min-width:0}
+  .track .title{font-size:14px;color:var(--text-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track.playing .title{color:var(--accent);font-weight:500}
+  .track .up{font-size:12px;color:var(--text-2);margin-top:3px}
+  .track .dur{font-size:12.5px;color:var(--text-3);font-variant-numeric:tabular-nums;flex-shrink:0}
+  .eq{display:flex;align-items:flex-end;gap:2px;height:14px;width:16px;flex-shrink:0}
+  .eq span{width:3px;background:var(--accent);border-radius:1px;animation:bounce 1s ease-in-out infinite}
+  .eq span:nth-child(1){height:40%;animation-delay:0s}
+  .eq span:nth-child(2){height:90%;animation-delay:.2s}
+  .eq span:nth-child(3){height:60%;animation-delay:.4s}
+  @keyframes bounce{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+
+  /* 播放条 */
+  .playbar{grid-column:2;padding:0 24px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:20px}
+  .np{display:flex;align-items:center;gap:14px;min-width:0}
+  .np .cover{width:54px;height:54px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#5a3a4a,#2a1a24);cursor:pointer}
+  .np .info{min-width:0}
+  .np .t{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np .u{font-size:12px;color:var(--text-2);margin-top:3px}
+  .controls{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .btns{display:flex;align-items:center;gap:20px}
+  .btns .b{color:var(--text-2);font-size:19px;cursor:pointer;transition:color .14s}
+  .btns .b:hover{color:var(--text-1)}
+  .btns .play{width:42px;height:42px;border-radius:50%;background:var(--play-btn-bg);color:var(--play-btn-fg);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .progress{display:flex;align-items:center;gap:9px;width:380px}
+  .progress .time{font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums;width:30px}
+  .bar{flex:1;height:4px;background:var(--track-line);border-radius:2px;position:relative;cursor:pointer}
+  .bar .fill{position:absolute;left:0;top:0;height:100%;width:32%;background:var(--accent);border-radius:2px}
+  .bar .knob{position:absolute;left:32%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:var(--knob);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .right-tools{display:flex;align-items:center;justify-content:flex-end;gap:18px}
+  .right-tools .b{color:var(--text-2);font-size:17px;cursor:pointer;transition:color .14s}
+  .right-tools .b:hover{color:var(--text-1)}
+  .vol{display:flex;align-items:center;gap:8px}
+  .vol .bar{width:84px}
+  .vol .fill{width:65%}
+  .vol .knob{left:65%}
+  .icon{font-style:normal}
+
+  /* ===== 设置面板(浮层) ===== */
+  .settings-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;z-index:10}
+  .settings-mask.show{display:flex}
+  .settings{
+    width:440px;max-height:84vh;overflow-y:auto;
+    background:var(--panel);border:.5px solid var(--line);border-radius:18px;
+    padding:26px 26px 28px;
+  }
+  body[data-theme="image"] .settings{backdrop-filter:blur(60px) saturate(140%);-webkit-backdrop-filter:blur(60px) saturate(140%)}
+  .settings h2{font-size:18px;font-weight:600;margin-bottom:4px}
+  .settings .desc{font-size:12.5px;color:var(--text-3);margin-bottom:22px}
+  .set-group{margin-bottom:24px}
+  .set-group .label{font-size:13px;color:var(--text-2);margin-bottom:11px;font-weight:500}
+  .theme-row{display:flex;gap:10px}
+  .theme-opt{flex:1;text-align:center;padding:13px 8px;border-radius:11px;border:.5px solid var(--line);font-size:13px;color:var(--text-2);cursor:pointer;transition:all .15s}
+  .theme-opt:hover{color:var(--text-1)}
+  .theme-opt.sel{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .theme-opt .swatch{width:100%;height:34px;border-radius:7px;margin-bottom:8px}
+  .sw-dark{background:#1C1C1E}
+  .sw-light{background:#fff;border:.5px solid rgba(0,0,0,.1)}
+  .sw-image{background:linear-gradient(135deg,#3a4a5a,#1a242a)}
+  .slider-row{margin-bottom:16px}
+  .slider-row .top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-2);margin-bottom:7px}
+  .slider-row .top .val{color:var(--text-3);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--track-line);outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer}
+  .img-disabled{opacity:.4;pointer-events:none}
+  .set-btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:10px;border:.5px solid var(--line);font-size:13px;color:var(--text-1);cursor:pointer;background:none}
+  .set-btn:hover{background:var(--nav-hover)}
+  .close-x{float:right;color:var(--text-3);cursor:pointer;font-size:20px;line-height:1}
+</style>
+</head>
+<body data-theme="image">
+<div class="app">
+
+  <aside class="sidebar panel">
+    <div class="brand">
+      <div class="logo"><span class="icon">♪</span></div>
+      <div><div class="name">Bili Music</div><div class="sub">轻松听歌</div></div>
+    </div>
+    <div class="nav-item active"><span class="ic icon">⌕</span>搜索</div>
+    <div class="nav-item"><span class="ic icon">♡</span>我的收藏<span class="placeholder-tag">待开发</span></div>
+    <div class="nav-item"><span class="ic icon">☰</span>我的歌单<span class="placeholder-tag">待开发</span></div>
+    <div class="nav-item"><span class="ic icon">♬</span>本地音乐<span class="placeholder-tag">待开发</span></div>
+    <div class="sidebar-foot">
+      <div class="nav-item" onclick="document.getElementById('settings').classList.add('show')"><span class="ic icon">⚙</span>设置</div>
+    </div>
+  </aside>
+
+  <section class="main panel">
+    <div class="searchbar">
+      <span class="ic icon">⌕</span>
+      <input placeholder="搜索歌曲、歌手,或粘贴 BV 号直接播放">
+      <span class="hint">BV 号自动识别</span>
+    </div>
+    <div class="list-head"><h1>播放队列</h1><span class="count">17 首</span></div>
+    <div class="tracklist">
+      <div class="track playing">
+        <div class="eq"><span></span><span></span><span></span></div>
+        <div class="cover" style="background-image:linear-gradient(135deg,#5a3a4a,#2a1a24)"></div>
+        <div class="meta"><div class="title">青春,属于表白的季节</div><div class="up">小雨儿音乐铺</div></div>
+        <div class="dur">4:12</div>
+      </div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#3a4a5a,#1a242a)"></div><div class="meta"><div class="title">晴天</div><div class="up">周杰伦音乐站</div></div><div class="dur">4:29</div></div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#4a5a3a,#242a1a)"></div><div class="meta"><div class="title">稻香</div><div class="up">华语流行精选</div></div><div class="dur">3:43</div></div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#5a4a3a,#2a241a)"></div><div class="meta"><div class="title">七里香</div><div class="up">经典老歌合集</div></div><div class="dur">4:59</div></div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#3a3a5a,#1a1a2a)"></div><div class="meta"><div class="title">夜曲</div><div class="up">周杰伦音乐站</div></div><div class="dur">3:48</div></div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#5a3a3a,#2a1a1a)"></div><div class="meta"><div class="title">告白气球</div><div class="up">华语流行精选</div></div><div class="dur">3:35</div></div>
+      <div class="track"><div class="eq" style="visibility:hidden"></div><div class="cover" style="background-image:linear-gradient(135deg,#3a5a4a,#1a2a24)"></div><div class="meta"><div class="title">蒲公英的约定</div><div class="up">经典老歌合集</div></div><div class="dur">4:02</div></div>
+    </div>
+  </section>
+
+  <div class="playbar panel">
+    <div class="np">
+      <div class="cover"></div>
+      <div class="info"><div class="t">青春,属于表白的季节</div><div class="u">小雨儿音乐铺</div></div>
+    </div>
+    <div class="controls">
+      <div class="btns">
+        <span class="b icon">⤺</span><span class="b icon">⏮</span>
+        <span class="b play icon">▶</span>
+        <span class="b icon">⏭</span><span class="b icon" style="color:var(--accent)">⤮</span>
+      </div>
+      <div class="progress"><span class="time">1:21</span><div class="bar"><div class="fill"></div><div class="knob"></div></div><span class="time">4:12</span></div>
+    </div>
+    <div class="right-tools">
+      <span class="b icon" title="在B站打开">⎋</span>
+      <div class="vol"><span class="b icon">🔊</span><div class="bar"><div class="fill"></div><div class="knob"></div></div></div>
+      <span class="b icon" title="沉浸模式">⤢</span>
+    </div>
+  </div>
+</div>
+
+<!-- 设置浮层 -->
+<div class="settings-mask" id="settings">
+  <div class="settings">
+    <span class="close-x" onclick="document.getElementById('settings').classList.remove('show')">×</span>
+    <h2>外观设置</h2>
+    <div class="desc">调整主题与界面质感</div>
+
+    <div class="set-group">
+      <div class="label">主题</div>
+      <div class="theme-row">
+        <div class="theme-opt" data-t="dark" onclick="setTheme('dark')"><div class="swatch sw-dark"></div>深色</div>
+        <div class="theme-opt" data-t="light" onclick="setTheme('light')"><div class="swatch sw-light"></div>浅色</div>
+        <div class="theme-opt sel" data-t="image" onclick="setTheme('image')"><div class="swatch sw-image"></div>背景图</div>
+      </div>
+    </div>
+
+    <div class="set-group" id="imgGroup">
+      <div class="label">背景图</div>
+      <button class="set-btn"><span class="icon">⊕</span> 选择本地图片</button>
+    </div>
+
+    <div class="set-group" id="glassGroup">
+      <div class="label">质感微调</div>
+      <div class="slider-row">
+        <div class="top"><span>毛玻璃模糊</span><span class="val" id="blurVal">40px</span></div>
+        <input type="range" min="0" max="80" value="40" id="blurSlider">
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>面板不透明度</span><span class="val" id="alphaVal">72%</span></div>
+        <input type="range" min="20" max="100" value="72" id="alphaSlider">
+      </div>
+      <div class="slider-row">
+        <div class="top"><span>背景暗化</span><span class="val" id="dimVal">84%</span></div>
+        <input type="range" min="40" max="95" value="84" id="dimSlider">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function setTheme(t){
+    document.body.setAttribute('data-theme',t);
+    document.querySelectorAll('.theme-opt').forEach(o=>o.classList.toggle('sel',o.dataset.t===t));
+    const imgOnly=document.getElementById('glassGroup');
+    const imgGroup=document.getElementById('imgGroup');
+    if(t==='image'){imgOnly.classList.remove('img-disabled');imgGroup.classList.remove('img-disabled')}
+    else{imgOnly.classList.add('img-disabled');imgGroup.classList.add('img-disabled')}
+  }
+  const root=document.documentElement.style;
+  document.getElementById('blurSlider').oninput=e=>{root.setProperty('--blur',e.target.value+'px');document.getElementById('blurVal').textContent=e.target.value+'px'};
+  document.getElementById('alphaSlider').oninput=e=>{root.setProperty('--panel-alpha',e.target.value/100);document.getElementById('alphaVal').textContent=e.target.value+'%'};
+  document.getElementById('dimSlider').oninput=e=>{root.setProperty('--bg-dim',e.target.value/100);document.getElementById('dimVal').textContent=e.target.value+'%'};
+</script>
+</body>
+</html>

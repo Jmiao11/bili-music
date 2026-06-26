@@ -1,0 +1,22 @@
+# 编译产物
+/target/
+*.exe
+
+# 下载/落盘的音频(违反不落盘原则,任何音频都不进库)
+*.m4a
+*.mp3
+*.flac
+*.aac
+*.wav
+
+# 敏感信息与运行时数据
+cookies.txt
+tools/
+.local-data/
+favorites.json
+playlists.json
+search-history.json
+
+# 依赖与杂项
+node_modules/
+.DS_Store
