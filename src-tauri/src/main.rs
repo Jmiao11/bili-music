@@ -16,7 +16,7 @@ use axum::http::{HeaderMap, Method, Request, Response, StatusCode};
 use axum::routing::get;
 use axum::Router;
 use bilibili_music_core::{
-    bilibili_cookie_path, resolve_bilibili_audio_cancellable, yt_dlp_path, AudioError,
+    bilibili_cookie_path, resolve_bilibili_audio_cancellable_with_page, yt_dlp_path, AudioError,
     StreamAudioInfo, BILIBILI_REFERER, DESKTOP_USER_AGENT,
 };
 use reqwest::redirect::Policy;
@@ -31,7 +31,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use appearance::{choose_background_image, load_background_image};
-use guest_playurl::GuestPlayurlClient;
+use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
     add_to_playlist, clear_search_history, create_playlist, delete_playlist, get_search_history,
     is_favorite, list_favorites, list_playlists, record_search_history, remove_from_playlist,
@@ -160,16 +160,30 @@ struct AudioResponse {
 async fn prepare_audio(
     state: tauri::State<'_, AppState>,
     bv_id: String,
+    cid: Option<u64>,
+    page: Option<u32>,
+    part: Option<String>,
+    duration_seconds: Option<f64>,
 ) -> Result<AudioResponse, String> {
     let job = state.resolver.begin();
     let job_id = job.id;
     let cancellation = job.cancellation;
     let result = async {
         let resolving_bv_id = bv_id.clone();
+        let page_hint = GuestPageHint {
+            cid,
+            page,
+            part,
+            duration_seconds: duration_seconds.map(|value| value.max(0.0).round() as u64),
+        };
         let source = *state.stream_source.read().await;
         let info = match source {
             StreamSource::Auto => {
-                match state.guest.resolve(&resolving_bv_id, &cancellation).await {
+                match state
+                    .guest
+                    .resolve(&resolving_bv_id, Some(page_hint.clone()), &cancellation)
+                    .await
+                {
                     Ok(info) => info,
                     Err(guest_error) => {
                         if guest_error == AUDIO_RESOLUTION_CANCELLED
@@ -180,24 +194,42 @@ async fn prepare_audio(
                         eprintln!(
                             "[prepare_audio][auto] guest failed for {bv_id}: {guest_error}; falling back to yt-dlp"
                         );
-                        resolve_with_ytdlp(&bv_id, &resolving_bv_id, cancellation.clone(), "auto fallback")
+                        resolve_with_ytdlp(
+                            &bv_id,
+                            &resolving_bv_id,
+                            page_hint.page,
+                            cancellation.clone(),
+                            "auto fallback",
+                        )
                             .await?
                     }
                 }
             }
             StreamSource::YtDlp => {
-                resolve_with_ytdlp(&bv_id, &resolving_bv_id, cancellation.clone(), "yt-dlp").await?
+                resolve_with_ytdlp(
+                    &bv_id,
+                    &resolving_bv_id,
+                    page_hint.page,
+                    cancellation.clone(),
+                    "yt-dlp",
+                )
+                .await?
             }
-            StreamSource::Guest => match state.guest.resolve(&resolving_bv_id, &cancellation).await
-            {
-                Ok(info) => info,
-                Err(error) => {
-                    if error != AUDIO_RESOLUTION_CANCELLED {
-                        eprintln!("[prepare_audio][guest] {bv_id}: {error}");
+            StreamSource::Guest => {
+                match state
+                    .guest
+                    .resolve(&resolving_bv_id, Some(page_hint.clone()), &cancellation)
+                    .await
+                {
+                    Ok(info) => info,
+                    Err(error) => {
+                        if error != AUDIO_RESOLUTION_CANCELLED {
+                            eprintln!("[prepare_audio][guest] {bv_id}: {error}");
+                        }
+                        return Err(error);
                     }
-                    return Err(error);
                 }
-            },
+            }
         };
 
         if !state.resolver.is_current(job_id) {
@@ -245,6 +277,14 @@ async fn prepare_audio(
 }
 
 #[tauri::command]
+async fn get_video_pages(
+    state: tauri::State<'_, AppState>,
+    bv_id: String,
+) -> Result<Vec<VideoPage>, String> {
+    state.guest.pages(&bv_id).await
+}
+
+#[tauri::command]
 fn cancel_prepare_audio(state: tauri::State<'_, AppState>) {
     state.resolver.cancel_current();
 }
@@ -282,12 +322,13 @@ async fn get_music_ranking(
 async fn resolve_with_ytdlp(
     bv_id_for_log: &str,
     resolving_bv_id: &str,
+    page: Option<u32>,
     cancellation: Arc<AtomicBool>,
     label: &str,
 ) -> Result<StreamAudioInfo, String> {
     let resolving_bv_id = resolving_bv_id.to_owned();
     let resolution = tauri::async_runtime::spawn_blocking(move || {
-        resolve_bilibili_audio_cancellable(&resolving_bv_id, &cancellation)
+        resolve_bilibili_audio_cancellable_with_page(&resolving_bv_id, page, &cancellation)
     })
     .await;
     match resolution {
@@ -541,6 +582,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             prepare_audio,
+            get_video_pages,
             cancel_prepare_audio,
             search_videos,
             get_music_ranking,

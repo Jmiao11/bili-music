@@ -235,6 +235,14 @@ pub fn resolve_bilibili_audio_cancellable(
     bv_id: &str,
     cancellation: &AtomicBool,
 ) -> Result<StreamAudioInfo, AudioError> {
+    resolve_bilibili_audio_cancellable_with_page(bv_id, None, cancellation)
+}
+
+pub fn resolve_bilibili_audio_cancellable_with_page(
+    bv_id: &str,
+    page: Option<u32>,
+    cancellation: &AtomicBool,
+) -> Result<StreamAudioInfo, AudioError> {
     let bv_id = bv_id.trim();
     if !is_valid_bv_id(bv_id) {
         return Err(AudioError::InvalidBvId(bv_id.to_owned()));
@@ -246,7 +254,7 @@ pub fn resolve_bilibili_audio_cancellable(
     let result_template = format!(
         "{STREAM_RESULT_PREFIX}{{\"audio_url\":%(url)j,\"title\":%(title)j,\"uploader\":%(uploader)j,\"thumbnail_url\":%(thumbnail)j,\"duration_seconds\":%(duration)j}}"
     );
-    let video_url = format!("https://www.bilibili.com/video/{bv_id}");
+    let video_url = bilibili_video_url(bv_id, page);
 
     let mut command = configured_yt_dlp(&cookie_path);
     command
@@ -282,6 +290,13 @@ pub fn resolve_bilibili_audio_cancellable(
         thumbnail_url: parsed.thumbnail_url,
         duration_seconds: parsed.duration_seconds,
     })
+}
+
+fn bilibili_video_url(bv_id: &str, page: Option<u32>) -> String {
+    match page.filter(|page| *page > 0) {
+        Some(page) => format!("https://www.bilibili.com/video/{bv_id}?p={page}"),
+        None => format!("https://www.bilibili.com/video/{bv_id}"),
+    }
 }
 
 fn configured_yt_dlp(cookie_path: &Path) -> Command {

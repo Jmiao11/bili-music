@@ -34,6 +34,23 @@ pub struct GuestAudioProbe {
     pub probe_bytes: usize,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct GuestPageHint {
+    pub cid: Option<u64>,
+    pub page: Option<u32>,
+    pub part: Option<String>,
+    pub duration_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoPage {
+    pub page: u32,
+    pub cid: u64,
+    pub part: String,
+    pub duration_seconds: u64,
+}
+
 pub struct GuestPlayurlClient {
     client: reqwest::Client,
     guest_identity: RwLock<Option<GuestIdentity>>,
@@ -58,6 +75,7 @@ impl GuestPlayurlClient {
     pub async fn resolve(
         &self,
         bvid: &str,
+        page_hint: Option<GuestPageHint>,
         cancellation: &AtomicBool,
     ) -> Result<StreamAudioInfo, String> {
         let bvid = bvid.trim();
@@ -81,21 +99,50 @@ impl GuestPlayurlClient {
         let mixin_key = self.wbi_key(&cookie_header, cancellation).await?;
         ensure_not_cancelled(cancellation)?;
 
+        let target_cid = page_hint
+            .as_ref()
+            .and_then(|hint| hint.cid)
+            .unwrap_or(view.cid);
         let playurl =
-            fetch_playurl(&self.client, bvid, view.cid, &cookie_header, &mixin_key).await?;
+            fetch_playurl(&self.client, bvid, target_cid, &cookie_header, &mixin_key).await?;
         ensure_not_cancelled(cancellation)?;
 
         let audio = select_audio(playurl.data.as_ref())?;
         let audio_url = first_working_audio_url(&self.client, audio).await?;
         ensure_not_cancelled(cancellation)?;
 
+        let title = page_hint
+            .as_ref()
+            .and_then(|hint| hint.part.as_deref())
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .map(str::to_owned)
+            .unwrap_or(view.title);
+        let duration_seconds = page_hint
+            .as_ref()
+            .and_then(|hint| hint.duration_seconds)
+            .unwrap_or(view.duration_seconds);
+
         Ok(StreamAudioInfo {
             audio_url: audio_url.to_owned(),
-            title: view.title,
+            title,
             uploader: view.uploader,
             thumbnail_url: normalize_url(&view.thumbnail_url),
-            duration_seconds: view.duration_seconds as f64,
+            duration_seconds: duration_seconds as f64,
         })
+    }
+
+    pub async fn pages(&self, bvid: &str) -> Result<Vec<VideoPage>, String> {
+        let bvid = bvid.trim();
+        if !is_valid_bvid(bvid) {
+            return Err(format!("invalid Bilibili BV ID: {bvid}"));
+        }
+
+        let cancellation = AtomicBool::new(false);
+        let guest = self.guest_identity(&cancellation).await?;
+        let cookie_header = guest.cookie_header();
+        let view = fetch_view(&self.client, bvid, &cookie_header).await?;
+        Ok(view.pages)
     }
 
     pub async fn guest_cookie_header(&self) -> Result<String, String> {
@@ -368,13 +415,50 @@ async fn fetch_view(
         .cid
         .or_else(|| data.pages.first().map(|page| page.cid))
         .ok_or_else(|| "Bilibili view response has no cid".to_owned())?;
+    let pages = normalize_view_pages(&data.pages, cid, &data.title, data.duration);
     Ok(ViewData {
         cid,
         title: data.title,
         uploader: data.owner.name,
         thumbnail_url: data.pic,
         duration_seconds: data.duration,
+        pages,
     })
+}
+
+fn normalize_view_pages(
+    pages: &[ViewPage],
+    fallback_cid: u64,
+    fallback_title: &str,
+    fallback_duration: u64,
+) -> Vec<VideoPage> {
+    if pages.is_empty() {
+        return vec![VideoPage {
+            page: 1,
+            cid: fallback_cid,
+            part: fallback_title.to_owned(),
+            duration_seconds: fallback_duration,
+        }];
+    }
+
+    pages
+        .iter()
+        .enumerate()
+        .map(|(index, page)| VideoPage {
+            page: if page.page == 0 {
+                (index + 1) as u32
+            } else {
+                page.page
+            },
+            cid: page.cid,
+            part: if page.part.trim().is_empty() {
+                fallback_title.to_owned()
+            } else {
+                page.part.clone()
+            },
+            duration_seconds: page.duration.unwrap_or(fallback_duration),
+        })
+        .collect()
 }
 
 async fn fetch_playurl(
@@ -565,6 +649,7 @@ struct ViewData {
     uploader: String,
     thumbnail_url: String,
     duration_seconds: u64,
+    pages: Vec<VideoPage>,
 }
 
 #[derive(Deserialize)]
@@ -592,7 +677,13 @@ struct ViewOwner {
 
 #[derive(Deserialize)]
 struct ViewPage {
+    #[serde(default)]
+    page: u32,
     cid: u64,
+    #[serde(default)]
+    part: String,
+    #[serde(default)]
+    duration: Option<u64>,
 }
 
 #[derive(Deserialize)]

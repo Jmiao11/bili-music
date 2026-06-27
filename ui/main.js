@@ -27,6 +27,9 @@ const playerState = {
   activeAudioUrl: "",
   audioActivatedAt: Number.POSITIVE_INFINITY,
   consecutiveResolveFailures: 0,
+  currentPages: [],
+  currentPageIndex: 0,
+  currentDisplayTrack: null,
 };
 
 const searchState = {
@@ -138,6 +141,18 @@ function snapshotForLibrary(video) {
 }
 
 function currentTrackSnapshot() {
+  if (
+    playerState.currentDisplayTrack &&
+    playerState.currentPages.length > 1 &&
+    playerState.currentIndex >= 0 &&
+    playerState.currentIndex < playerState.queue.length
+  ) {
+    return {
+      ...playerState.currentDisplayTrack,
+      hasCurrent: true,
+    };
+  }
+
   const video = playerState.queue[playerState.currentIndex];
   return {
     bvid: video?.bvid ?? "",
@@ -160,6 +175,67 @@ function currentPlayableTrack() {
   }
   const track = normalizeTrack(playerState.queue[playerState.currentIndex]);
   return track.bvid ? track : null;
+}
+
+function resetCurrentPageState() {
+  playerState.currentPages = [];
+  playerState.currentPageIndex = 0;
+  playerState.currentDisplayTrack = null;
+}
+
+function normalizeVideoPage(page, index) {
+  return {
+    page: Math.max(1, Math.round(Number(page?.page) || index + 1)),
+    cid: Number(page?.cid) || 0,
+    part: String(page?.part ?? "").trim(),
+    durationSeconds: Math.max(0, Math.round(Number(page?.durationSeconds) || 0)),
+  };
+}
+
+function hasMultipleCurrentPages() {
+  return playerState.currentPages.length > 1;
+}
+
+function currentVideoPage() {
+  if (!hasMultipleCurrentPages()) {
+    return null;
+  }
+  return playerState.currentPages[playerState.currentPageIndex] ?? null;
+}
+
+function buildDisplayTrack(video, info, page) {
+  const base = normalizeTrack(video);
+  if (!page) {
+    return null;
+  }
+  return {
+    bvid: base.bvid,
+    title: page.part || info.title || base.title,
+    uploader: info.uploader || base.uploader,
+    thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl || base.thumbnailUrl),
+    durationSeconds: page.durationSeconds || Math.round(Number(info.durationSeconds) || 0),
+    hasCurrent: true,
+  };
+}
+
+async function loadPagesForCurrentVideo(video, requestVersion) {
+  resetCurrentPageState();
+  try {
+    const pages = await invoke("get_video_pages", { bvId: video.bvid });
+    if (requestVersion !== playerState.requestVersion) {
+      return false;
+    }
+    playerState.currentPages = (Array.isArray(pages) ? pages : [])
+      .map(normalizeVideoPage)
+      .filter((page) => page.cid > 0);
+    playerState.currentPageIndex = 0;
+  } catch (error) {
+    if (requestVersion === playerState.requestVersion) {
+      console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
+      resetCurrentPageState();
+    }
+  }
+  return requestVersion === playerState.requestVersion;
 }
 
 function emitCurrentTrackChanged() {
@@ -250,6 +326,7 @@ function setQueue(videos) {
   playerState.currentIndex = -1;
   playerState.history = [];
   playerState.consecutiveResolveFailures = 0;
+  resetCurrentPageState();
   clearPlaybackNotice();
   resetRandomRemaining();
   updateQueueUi();
@@ -1068,7 +1145,7 @@ function selectedPlaylist() {
   );
 }
 
-async function loadCurrentTrack() {
+async function loadCurrentTrack({ keepPage = false } = {}) {
   const index = playerState.currentIndex;
   const video = playerState.queue[index];
   if (!video) {
@@ -1082,40 +1159,67 @@ async function loadCurrentTrack() {
   status.textContent = "正在解析音频…";
 
   try {
-    const info = await invoke("prepare_audio", { bvId: video.bvid });
+    if (!keepPage) {
+      const stillCurrent = await loadPagesForCurrentVideo(video, requestVersion);
+      if (!stillCurrent) {
+        return;
+      }
+    }
+
+    const page = currentVideoPage();
+    const info = await invoke("prepare_audio", {
+      bvId: video.bvid,
+      cid: page?.cid ?? null,
+      page: page?.page ?? null,
+      part: page?.part ?? null,
+      durationSeconds: page?.durationSeconds ?? null,
+    });
     if (requestVersion !== playerState.requestVersion) {
       return;
     }
     playerState.consecutiveResolveFailures = 0;
 
-    Object.assign(video, {
-      title: info.title,
-      uploader: info.uploader,
-      thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
-      durationSeconds: info.durationSeconds,
-    });
-    if (
-      playerState.queueSearchVersion === searchState.requestVersion &&
-      searchState.results[index]
-    ) {
-      Object.assign(searchState.results[index], {
+    const displayTrack = buildDisplayTrack(video, info, page);
+    playerState.currentDisplayTrack = displayTrack;
+    if (!displayTrack) {
+      Object.assign(video, {
         title: info.title,
         uploader: info.uploader,
         thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
         durationSeconds: info.durationSeconds,
       });
+      if (
+        playerState.queueSearchVersion === searchState.requestVersion &&
+        searchState.results[index]
+      ) {
+        Object.assign(searchState.results[index], {
+          title: info.title,
+          uploader: info.uploader,
+          thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
+          durationSeconds: info.durationSeconds,
+        });
+      }
     }
-    thumbnail.src = displayThumbnailUrl(info.thumbnailUrl);
-    title.textContent = info.title;
-    uploader.textContent = info.uploader;
-    duration.textContent = formatDuration(info.durationSeconds);
+    const visibleTrack = displayTrack ?? {
+      title: info.title,
+      uploader: info.uploader,
+      thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
+      durationSeconds: info.durationSeconds,
+    };
+    thumbnail.src = displayThumbnailUrl(visibleTrack.thumbnailUrl);
+    title.textContent = visibleTrack.title;
+    uploader.textContent = visibleTrack.uploader;
+    duration.textContent = formatDuration(visibleTrack.durationSeconds);
     emitCurrentTrackChanged();
     playerState.activeAudioVersion = requestVersion;
     playerState.activeAudioUrl = info.audioUrl;
     playerState.audioActivatedAt = performance.now();
     audio.src = info.audioUrl;
     audio.load();
-    renderSearchResults();
+    if (!displayTrack) {
+      renderSearchResults();
+      renderLibraryViews();
+    }
 
     try {
       await audio.play();
@@ -1142,6 +1246,11 @@ async function loadCurrentTrack() {
       const message = "队列中多首无法播放，已停止。";
       status.textContent = message;
       showPlaybackNotice(message, { persistent: true });
+      return;
+    }
+
+    if (advancePageWithinCurrentBv({ automatic: true, skipFailed: true })) {
+      showPlaybackNotice("璇ュ垎 P 鏃犳硶鎾斁锛屽凡鑷姩璺宠繃銆?");
       return;
     }
 
@@ -1203,6 +1312,7 @@ function playListItem(source, videos, index, { searchVersion = null, playlistId 
   playerState.currentIndex = -1;
   playerState.history = [];
   playerState.consecutiveResolveFailures = 0;
+  resetCurrentPageState();
   clearPlaybackNotice();
   resetRandomRemaining();
   playQueueIndex(index, { recordCurrent: false });
@@ -1230,6 +1340,7 @@ function playQueueIndex(
     playerState.history.push(previousIndex);
   }
   playerState.currentIndex = index;
+  resetCurrentPageState();
   markRandomIndexPlayed(index);
   updateQueueUi();
   emitCurrentTrackChanged();
@@ -1260,6 +1371,38 @@ function takeSequentialNext() {
   return playerState.loopMode === "list" && playerState.queue.length > 0
     ? 0
     : null;
+}
+
+function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = {}) {
+  if (!hasMultipleCurrentPages()) {
+    return false;
+  }
+
+  if (automatic && playerState.loopMode === "single" && !skipFailed) {
+    loadCurrentTrack({ keepPage: true });
+    return true;
+  }
+
+  const nextPageIndex = playerState.currentPageIndex + 1;
+  if (nextPageIndex >= playerState.currentPages.length) {
+    return false;
+  }
+
+  playerState.currentPageIndex = nextPageIndex;
+  playerState.currentDisplayTrack = null;
+  loadCurrentTrack({ keepPage: true });
+  return true;
+}
+
+function retreatPageWithinCurrentBv() {
+  if (!hasMultipleCurrentPages() || playerState.currentPageIndex <= 0) {
+    return false;
+  }
+
+  playerState.currentPageIndex -= 1;
+  playerState.currentDisplayTrack = null;
+  loadCurrentTrack({ keepPage: true });
+  return true;
 }
 
 function playNext({ automatic = false, skipFailed = false } = {}) {
@@ -1511,15 +1654,25 @@ searchResults.addEventListener("scroll", () => {
   }
 });
 
-previousButton.addEventListener("click", playPrevious);
-nextButton.addEventListener("click", () => playNext());
+previousButton.addEventListener("click", () => {
+  if (!retreatPageWithinCurrentBv()) {
+    playPrevious();
+  }
+});
+nextButton.addEventListener("click", () => {
+  if (!advancePageWithinCurrentBv()) {
+    playNext();
+  }
+});
 audio.addEventListener("ended", (event) => {
   const belongsToCurrentAudio =
     playerState.activeAudioVersion === playerState.requestVersion &&
     playerState.activeAudioUrl === audio.currentSrc &&
     event.timeStamp >= playerState.audioActivatedAt;
   if (belongsToCurrentAudio && audio.ended) {
-    playNext({ automatic: true });
+    if (!advancePageWithinCurrentBv({ automatic: true })) {
+      playNext({ automatic: true });
+    }
   }
 });
 
