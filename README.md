@@ -1,5 +1,6 @@
 <div align="center">
 <img src="design/app-icon.png" width="96" alt="Bili Music logo" />
+
 # Bili Music · 午夜黑胶
 **一个免登录、不落盘的 B 站音乐播放器。把哔哩哔哩当作你的曲库，听歌不必登录、不必下载。**
 ![platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
