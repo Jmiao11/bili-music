@@ -28,8 +28,11 @@
   --panel-raised: rgba(255, 255, 255, 0.035);
   --line-strong: rgba(255, 255, 255, 0.12);
   --shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+  --titlebar-height: 34px;
   --z-notice: 4;
   --z-player: 20;
+  --z-titlebar: 30;
+  --z-resize: 35;
   --z-immersive: 40;
   --z-modal: 50;
 }
@@ -177,13 +180,206 @@ svg {
   fill: currentColor;
 }
 
+.window-titlebar {
+  position: relative;
+  z-index: var(--z-titlebar);
+  display: flex;
+  height: var(--titlebar-height);
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 12px;
+  border-bottom: 0.5px solid var(--line);
+  background: rgba(18, 18, 20, 0.94);
+  color: var(--text-2);
+  user-select: none;
+}
+
+:root[data-theme="light"] .window-titlebar {
+  background: rgba(242, 242, 244, 0.96);
+}
+
+:root[data-theme="image"] .window-titlebar {
+  background: rgba(24, 24, 28, var(--panel-alpha));
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+}
+
+.window-titlebar-brand,
+.window-titlebar-spacer {
+  min-width: 0;
+}
+
+.window-titlebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+}
+
+.window-titlebar-mark {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.window-titlebar-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+.window-titlebar-name {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-titlebar-spacer {
+  flex: 1;
+  align-self: stretch;
+}
+
+.window-controls {
+  display: inline-flex;
+  height: 100%;
+  align-items: center;
+  gap: 1px;
+}
+
+.window-control-button {
+  display: grid;
+  width: 36px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.window-control-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.window-control-button:hover {
+  background: var(--nav-hover);
+  color: var(--text-1);
+}
+
+.window-control-close:hover {
+  background: rgba(251, 114, 153, 0.16);
+  color: var(--accent);
+}
+
+.window-icon-restore {
+  display: none;
+}
+
+:root[data-window-maximized="true"] .window-icon-maximize {
+  display: none;
+}
+
+:root[data-window-maximized="true"] .window-icon-restore {
+  display: block;
+}
+
+.window-resize-layer {
+  position: fixed;
+  z-index: var(--z-resize);
+  inset: 0;
+  pointer-events: none;
+}
+
+.window-resize-handle {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.window-resize-n,
+.window-resize-s {
+  right: 8px;
+  left: 8px;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.window-resize-e,
+.window-resize-w {
+  top: 8px;
+  bottom: 8px;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.window-resize-n {
+  top: 0;
+}
+
+.window-resize-e {
+  right: 0;
+}
+
+.window-resize-s {
+  bottom: 0;
+}
+
+.window-resize-w {
+  left: 0;
+}
+
+.window-resize-nw,
+.window-resize-ne,
+.window-resize-se,
+.window-resize-sw {
+  width: 10px;
+  height: 10px;
+}
+
+.window-resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.window-resize-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.window-resize-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+:root[data-window-maximized="true"] .window-resize-layer {
+  display: none;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 14px;
-  height: calc(100dvh - 120px);
-  padding: 14px 14px 0;
+  height: calc(100dvh - var(--titlebar-height) - 120px);
+  padding: 12px 14px 0;
 }
 
 .panel {
