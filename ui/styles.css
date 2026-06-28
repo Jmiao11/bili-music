@@ -2687,9 +2687,28 @@ input[type="range"]::-webkit-slider-thumb {
   outline: none;
   color: var(--text-1);
   background: var(--search-bg);
+  color-scheme: dark;
   transition:
     border-color 150ms ease,
     background 150ms ease;
+}
+
+.settings-select option {
+  color: var(--text-1);
+  background: #18181b;
+}
+
+:root[data-theme="light"] .settings-select {
+  color-scheme: light;
+}
+
+:root[data-theme="light"] .settings-select option {
+  color: #17171a;
+  background: #f3f0eb;
+}
+
+.settings-select option:disabled {
+  color: var(--text-3);
 }
 
 .settings-select:focus {

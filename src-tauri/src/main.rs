@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod appearance;
 mod guest_playurl;
 mod library;
@@ -352,6 +354,22 @@ async fn get_stream_source(state: tauri::State<'_, AppState>) -> Result<String, 
     Ok(state.stream_source.read().await.as_str().to_owned())
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct YtDlpAvailability {
+    available: bool,
+    path: String,
+}
+
+#[tauri::command]
+fn get_yt_dlp_availability() -> Result<YtDlpAvailability, String> {
+    let path = yt_dlp_path();
+    Ok(YtDlpAvailability {
+        available: path.is_file(),
+        path: path.display().to_string(),
+    })
+}
+
 #[tauri::command]
 async fn set_stream_source(
     state: tauri::State<'_, AppState>,
@@ -565,7 +583,7 @@ fn main() {
             ranking_cache: Arc::new(RwLock::new(None)),
             guest,
             resolver: Arc::new(ResolveCoordinator::default()),
-            stream_source: Arc::new(RwLock::new(StreamSource::Auto)),
+            stream_source: Arc::new(RwLock::new(StreamSource::Guest)),
         })
         .setup(move |_| {
             tauri::async_runtime::spawn(async move {
@@ -587,6 +605,7 @@ fn main() {
             search_videos,
             get_music_ranking,
             get_stream_source,
+            get_yt_dlp_availability,
             set_stream_source,
             open_bilibili_video,
             choose_background_image,

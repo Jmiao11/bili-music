@@ -376,12 +376,11 @@
           <h3>取流方案</h3>
           <label class="select-row" for="stream-source-select">
             <select id="stream-source-select" class="settings-select">
+              <option value="guest">游客</option>
               <option value="auto">自动（游客优先 + yt-dlp 兜底）</option>
-              <option value="guest">强制游客</option>
-              <option value="yt-dlp">强制 yt-dlp</option>
             </select>
           </label>
-          <small id="stream-source-status">默认使用自动模式</small>
+          <small id="stream-source-status">默认使用游客取流</small>
         </section>
 
         <section class="setting-group">

@@ -61,6 +61,7 @@ const nextButtonForImmersive = document.querySelector("#next-button");
 const volumeSlider = document.querySelector("#volume-slider");
 
 let isSeeking = false;
+let ytDlpAvailable = false;
 let currentTrack = {
   bvid: "",
   title: "尚未播放",
@@ -89,12 +90,39 @@ function clampNumber(value, min, max, fallback) {
 
 function streamSourceLabel(source) {
   if (source === "guest") {
-    return "当前：强制游客";
-  }
-  if (source === "yt-dlp") {
-    return "当前：强制 yt-dlp";
+    return "当前：游客";
   }
   return "当前：自动（游客优先 + yt-dlp 兜底）";
+}
+
+function streamSourceDisabledHint() {
+  return "自动模式需在程序目录放置 yt-dlp.exe 后启用";
+}
+
+function updateStreamSourceAvailability() {
+  if (!streamSourceSelect) {
+    return;
+  }
+  const autoOption = streamSourceSelect.querySelector('option[value="auto"]');
+  if (autoOption) {
+    autoOption.disabled = !ytDlpAvailable;
+    autoOption.title = ytDlpAvailable ? "" : streamSourceDisabledHint();
+  }
+}
+
+async function refreshYtDlpAvailability() {
+  if (!streamSourceSelect) {
+    return false;
+  }
+  try {
+    const status = await invokeAppearance("get_yt_dlp_availability");
+    ytDlpAvailable = Boolean(status?.available);
+  } catch (error) {
+    ytDlpAvailable = false;
+    console.warn("get_yt_dlp_availability failed:", error);
+  }
+  updateStreamSourceAvailability();
+  return ytDlpAvailable;
 }
 
 function formatPlaybackTime(value) {
@@ -181,6 +209,7 @@ function closeImmersive() {
 
 function openSettings() {
   settingsModal.hidden = false;
+  restoreStreamSource();
   requestAnimationFrame(() => {
     settingsModal.classList.add("is-open");
     settingsModal.setAttribute("aria-hidden", "false");
@@ -306,9 +335,18 @@ async function restoreStreamSource() {
   }
 
   try {
-    const source = await invokeAppearance("get_stream_source");
-    streamSourceSelect.value = source;
-    streamSourceStatus.textContent = streamSourceLabel(source);
+    await refreshYtDlpAvailability();
+    let source = await invokeAppearance("get_stream_source");
+    if (source === "yt-dlp" || (source === "auto" && !ytDlpAvailable)) {
+      source = await invokeAppearance("set_stream_source", { source: "guest" });
+    }
+    streamSourceSelect.value = source === "auto" && ytDlpAvailable ? "auto" : "guest";
+    streamSourceStatus.textContent =
+      source === "auto" && ytDlpAvailable
+        ? streamSourceLabel("auto")
+        : ytDlpAvailable
+          ? streamSourceLabel("guest")
+          : `${streamSourceLabel("guest")}；${streamSourceDisabledHint()}`;
   } catch (error) {
     streamSourceStatus.textContent = `取流方案读取失败：${error}`;
   }
@@ -384,6 +422,12 @@ chooseBackgroundButton.addEventListener("click", async () => {
 resetBackgroundButton.addEventListener("click", () => resetBackground());
 
 streamSourceSelect?.addEventListener("change", async () => {
+  if (streamSourceSelect.value === "auto" && !ytDlpAvailable) {
+    streamSourceSelect.value = "guest";
+    streamSourceStatus.textContent = `${streamSourceLabel("guest")}；${streamSourceDisabledHint()}`;
+    return;
+  }
+
   streamSourceSelect.disabled = true;
   streamSourceStatus.textContent = "正在切换取流方案…";
   try {
