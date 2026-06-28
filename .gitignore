@@ -20,3 +20,7 @@ search-history.json
 # 依赖与杂项
 node_modules/
 .DS_Store
+
+# Local cover drafts
+design/bilibili-cover-4x3.jpg
+design/bilibili-cover-4x3.png
