@@ -45,6 +45,10 @@
   const BLINK_SPREAD_MS = 8000;
   const BLINK_DURATION_MS = 170;
   const TRACKCHANGE_DURATION_MS = 520;
+  const POKE_DURATION_MS = 500;
+  const EAR_TWITCH_DURATION_MS = 500;
+  const LONG_LISTEN_MS = 60 * 60 * 1000;
+  const DOZE_MS = 10 * 60 * 1000;
 
   const stage = document.querySelector("#mascot-stage");
   const slot = document.querySelector("#mascot-slot");
@@ -57,8 +61,31 @@
 
   let currentMascot = null;
   let hasCurrentTrack = false;
+  let currentState = "";
   let blinkTimer = 0;
   let trackchangeTimer = 0;
+  let pokeTimer = 0;
+  let earTwitchTimer = 0;
+  let longListenTimer = 0;
+  let longListenStartedAt = 0;
+  let longListenElapsed = 0;
+  let dozeTimer = 0;
+
+  stage.style.pointerEvents = "auto";
+
+  function listen(target, eventName, handler) {
+    try {
+      target?.addEventListener(eventName, (event) => {
+        try {
+          handler(event);
+        } catch (_) {
+          // Ignore mascot-only event failures.
+        }
+      });
+    } catch (_) {
+      // Ignore mascot-only wiring failures.
+    }
+  }
 
   function renderMascot(mascot) {
     currentMascot = mascot;
@@ -72,10 +99,16 @@
   }
 
   function setState(state) {
+    const changed = currentState !== state;
+    currentState = state;
     stage.dataset.state = state;
     stage.classList.toggle("is-playing", state === "playing");
     stage.classList.toggle("is-paused", state === "paused");
     stage.classList.toggle("is-idle", state === "idle");
+    updateLongListenClock();
+    if (changed) {
+      markActivity();
+    }
   }
 
   function deriveAudioState() {
@@ -116,31 +149,104 @@
     }, TRACKCHANGE_DURATION_MS);
   }
 
+  function triggerPoke() {
+    window.clearTimeout(pokeTimer);
+    stage.classList.remove("is-poked");
+    void stage.offsetWidth;
+    stage.classList.add("is-poked");
+    pokeTimer = window.setTimeout(() => stage.classList.remove("is-poked"), POKE_DURATION_MS);
+  }
+
+  function triggerEarTwitch() {
+    window.clearTimeout(earTwitchTimer);
+    stage.classList.remove("is-ear-twitch");
+    void stage.offsetWidth;
+    stage.classList.add("is-ear-twitch");
+    earTwitchTimer = window.setTimeout(() => stage.classList.remove("is-ear-twitch"), EAR_TWITCH_DURATION_MS);
+  }
+
+  function updateLongListenClock() {
+    window.clearTimeout(longListenTimer);
+    if (longListenStartedAt) {
+      longListenElapsed += Date.now() - longListenStartedAt;
+      longListenStartedAt = 0;
+    }
+    if (currentState !== "playing" || document.hidden || stage.classList.contains("is-long-listen")) {
+      return;
+    }
+    if (longListenElapsed >= LONG_LISTEN_MS) {
+      stage.classList.add("is-long-listen");
+      return;
+    }
+    longListenStartedAt = Date.now();
+    longListenTimer = window.setTimeout(() => {
+      longListenElapsed = LONG_LISTEN_MS;
+      longListenStartedAt = 0;
+      stage.classList.add("is-long-listen");
+    }, LONG_LISTEN_MS - longListenElapsed);
+  }
+
+  function scheduleDoze() {
+    window.clearTimeout(dozeTimer);
+    if (document.hidden) {
+      return;
+    }
+    dozeTimer = window.setTimeout(() => stage.classList.add("is-dozing"), DOZE_MS);
+  }
+
+  function markActivity() {
+    stage.classList.remove("is-dozing");
+    scheduleDoze();
+  }
+
   renderMascot(MASCOTS.kuro);
   setState("idle");
   scheduleBlink();
 
   if (audio) {
-    audio.addEventListener("play", () => {
+    listen(audio, "play", () => {
       hasCurrentTrack = true;
       setState("playing");
     });
-    audio.addEventListener("pause", syncState);
-    audio.addEventListener("ended", () => setState("idle"));
+    listen(audio, "pause", syncState);
+    listen(audio, "ended", () => setState("idle"));
   }
 
-  window.addEventListener("bilibili-music-trackchange", (event) => {
+  listen(stage, "mouseenter", () => {
+    markActivity();
+    stage.classList.add("is-hovered");
+    triggerBlink();
+  });
+  listen(stage, "mouseleave", () => {
+    markActivity();
+    stage.classList.remove("is-hovered");
+  });
+  listen(stage, "click", () => {
+    markActivity();
+    triggerPoke();
+  });
+
+  listen(window, "bilibili-music-trackchange", (event) => {
+    markActivity();
     hasCurrentTrack = Boolean(event.detail?.hasCurrent);
     if (!hasCurrentTrack) {
       setState("idle");
       return;
     }
     triggerTrackChange();
+    triggerEarTwitch();
     syncState();
   });
 
-  document.addEventListener("visibilitychange", () => {
+  listen(document, "visibilitychange", () => {
     stage.classList.toggle("is-document-hidden", document.hidden);
+    updateLongListenClock();
+    if (document.hidden) {
+      window.clearTimeout(blinkTimer);
+      window.clearTimeout(dozeTimer);
+      return;
+    }
+    markActivity();
     if (!document.hidden) {
       scheduleBlink();
       syncState();

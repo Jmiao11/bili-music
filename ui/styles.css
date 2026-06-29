@@ -2300,9 +2300,12 @@ svg {
 }
 
 #mascot-slot svg #head,
-#mascot-slot svg #ears,
 #mascot-slot svg #whiskers {
   transform-origin: 50% 84%;
+}
+
+#mascot-slot svg #ears {
+  transform-origin: 50% 92%;
 }
 
 #mascot-slot svg #tail {
@@ -2324,7 +2327,7 @@ svg {
 #mascot-stage.is-playing #head,
 #mascot-stage.is-playing #ears,
 #mascot-stage.is-playing #whiskers {
-  animation: mascot-play-nod 2.1s ease-in-out infinite;
+  animation: mascot-play-nod 1.9s ease-in-out infinite;
 }
 
 #mascot-stage.is-playing #tail {
@@ -2349,6 +2352,47 @@ svg {
   animation:
     mascot-play-breathe 3.6s ease-in-out infinite,
     mascot-trackchange-settle 520ms ease-out 1;
+}
+
+#mascot-stage.is-hovered #head,
+#mascot-stage.is-hovered #whiskers {
+  animation: none;
+  transform: translateY(-4px) rotate(-10deg);
+  transition: transform 160ms ease-out;
+}
+
+#mascot-stage.is-hovered #eyes {
+  transform: scaleY(1.22);
+  transition: transform 160ms ease-out;
+}
+
+#mascot-stage.is-poked #mascot-slot {
+  animation: mascot-poked-hop 500ms ease-out 1;
+}
+
+#mascot-stage.is-ear-twitch #ears {
+  animation: mascot-ear-twitch 500ms ease-out 1;
+}
+
+#mascot-stage.is-long-listen #body {
+  animation: mascot-long-listen-stretch 2.8s ease-in-out 1 both;
+}
+
+#mascot-stage.is-long-listen #tail {
+  animation: mascot-long-listen-tail 2.8s ease-in-out 1 both;
+}
+
+#mascot-stage.is-dozing #body {
+  animation: mascot-dozing-breathe 8s ease-in-out infinite;
+}
+
+#mascot-stage.is-dozing #eyes {
+  animation: none;
+  transform: scaleY(0.1);
+  opacity: 0.82;
+  transition:
+    transform 180ms ease-out,
+    opacity 180ms ease-out;
 }
 
 #mascot-stage.is-document-hidden #body,
@@ -2396,11 +2440,11 @@ svg {
 @keyframes mascot-play-nod {
   0%,
   100% {
-    transform: rotate(-1deg);
+    transform: rotate(-3deg);
   }
 
   50% {
-    transform: rotate(3deg);
+    transform: rotate(5deg);
   }
 }
 
@@ -2456,6 +2500,77 @@ svg {
 
   72% {
     transform: translateY(0.6px) scaleY(0.996);
+  }
+}
+
+@keyframes mascot-poked-hop {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+
+  28% {
+    transform: translateY(-10px) scaleY(1.08);
+  }
+
+  58% {
+    transform: translateY(3px) scaleY(0.92);
+  }
+}
+
+@keyframes mascot-ear-twitch {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  22% {
+    transform: rotate(-14deg);
+  }
+
+  44% {
+    transform: rotate(12deg);
+  }
+
+  66% {
+    transform: rotate(-7deg);
+  }
+}
+
+@keyframes mascot-long-listen-stretch {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  42% {
+    transform: scaleY(1.055);
+  }
+
+  70% {
+    transform: scaleY(0.99);
+  }
+}
+
+@keyframes mascot-long-listen-tail {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  45% {
+    transform: rotate(5deg) translateX(-1px);
+  }
+}
+
+@keyframes mascot-dozing-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(1.01);
   }
 }
 
