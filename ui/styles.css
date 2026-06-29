@@ -2262,6 +2262,234 @@ svg {
   padding: 0 24px;
 }
 
+#mascot-stage {
+  position: fixed;
+  z-index: calc(var(--z-player) + 1);
+  left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(36px + env(safe-area-inset-bottom));
+  display: grid;
+  width: 70px;
+  height: 70px;
+  place-items: center;
+  pointer-events: none;
+}
+
+#mascot-slot {
+  width: 64px;
+  height: 64px;
+}
+
+#mascot-slot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.24));
+}
+
+#mascot-slot svg #body,
+#mascot-slot svg #head,
+#mascot-slot svg #tail,
+#mascot-slot svg #ears,
+#mascot-slot svg #eyes,
+#mascot-slot svg #whiskers {
+  transform-box: fill-box;
+}
+
+#mascot-slot svg #body {
+  transform-origin: 50% 92%;
+}
+
+#mascot-slot svg #head,
+#mascot-slot svg #ears,
+#mascot-slot svg #whiskers {
+  transform-origin: 50% 84%;
+}
+
+#mascot-slot svg #tail {
+  transform-origin: 72% 78%;
+}
+
+#mascot-slot svg #eyes {
+  transform-origin: 50% 50%;
+}
+
+#mascot-stage.is-idle #body {
+  animation: mascot-idle-breathe 3.8s ease-in-out infinite;
+}
+
+#mascot-stage.is-playing #body {
+  animation: mascot-play-breathe 3.6s ease-in-out infinite;
+}
+
+#mascot-stage.is-playing #head,
+#mascot-stage.is-playing #ears,
+#mascot-stage.is-playing #whiskers {
+  animation: mascot-play-nod 2.1s ease-in-out infinite;
+}
+
+#mascot-stage.is-playing #tail {
+  animation: mascot-tail-sway 2.8s ease-in-out infinite;
+}
+
+#mascot-stage.is-paused #body {
+  animation: mascot-paused-breathe 6s ease-in-out infinite;
+}
+
+#mascot-stage.is-blinking #eyes {
+  animation: mascot-blink 170ms ease-out 1;
+}
+
+#mascot-stage.is-trackchanging #head,
+#mascot-stage.is-trackchanging #ears,
+#mascot-stage.is-trackchanging #whiskers {
+  animation: mascot-trackchange-nod 520ms ease-out 1;
+}
+
+#mascot-stage.is-trackchanging #body {
+  animation:
+    mascot-play-breathe 3.6s ease-in-out infinite,
+    mascot-trackchange-settle 520ms ease-out 1;
+}
+
+#mascot-stage.is-document-hidden #body,
+#mascot-stage.is-document-hidden #head,
+#mascot-stage.is-document-hidden #tail,
+#mascot-stage.is-document-hidden #ears,
+#mascot-stage.is-document-hidden #eyes,
+#mascot-stage.is-document-hidden #whiskers {
+  animation-play-state: paused;
+}
+
+@keyframes mascot-idle-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(1.026);
+  }
+}
+
+@keyframes mascot-play-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(1.03);
+  }
+}
+
+@keyframes mascot-paused-breathe {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+
+  50% {
+    transform: scaleY(1.014);
+  }
+}
+
+@keyframes mascot-play-nod {
+  0%,
+  100% {
+    transform: rotate(-1deg);
+  }
+
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes mascot-tail-sway {
+  0%,
+  100% {
+    transform: rotate(-1deg);
+  }
+
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
+@keyframes mascot-blink {
+  0%,
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  45%,
+  55% {
+    transform: scaleY(0.1);
+    opacity: 0.82;
+  }
+}
+
+@keyframes mascot-trackchange-nod {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+
+  34% {
+    transform: rotate(4deg) translateY(0.8px);
+  }
+
+  68% {
+    transform: rotate(-2deg) translateY(0);
+  }
+}
+
+@keyframes mascot-trackchange-settle {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+
+  36% {
+    transform: translateY(-1px) scaleY(1.012);
+  }
+
+  72% {
+    transform: translateY(0.6px) scaleY(0.996);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mascot-stage #body,
+  #mascot-stage #head,
+  #mascot-stage #tail,
+  #mascot-stage #ears,
+  #mascot-stage #eyes,
+  #mascot-stage #whiskers {
+    animation: none !important;
+  }
+}
+
+#mascot-bubble {
+  position: absolute;
+  left: 78px;
+  bottom: 46px;
+  max-width: 180px;
+  padding: 8px 10px;
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  color: var(--text-1);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+#mascot-bubble[hidden] {
+  display: none;
+}
+
 .now-playing {
   display: flex;
   min-width: 0;
