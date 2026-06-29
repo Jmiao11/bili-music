@@ -2,7 +2,7 @@ use crate::guest_playurl::GuestPlayurlClient;
 use bilibili_music_core::{BILIBILI_REFERER, DESKTOP_USER_AGENT};
 use reqwest::header::{COOKIE, REFERER, USER_AGENT};
 use reqwest::redirect::Policy;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,6 +35,8 @@ pub struct SearchVideo {
     pub uploader: String,
     pub thumbnail_url: String,
     pub duration_seconds: u64,
+    pub play_count: Option<u64>,
+    pub pubdate: Option<u64>,
 }
 
 enum SearchAttemptError {
@@ -306,6 +308,8 @@ impl SearchVideo {
             uploader: raw.author?,
             thumbnail_url: normalize_thumbnail_url(&raw.pic?),
             duration_seconds: parse_duration(&raw.duration?)?,
+            play_count: raw.play,
+            pubdate: raw.pubdate,
         })
     }
 }
@@ -347,6 +351,32 @@ struct RawSearchVideo {
     author: Option<String>,
     pic: Option<String>,
     duration: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_u64_lossy")]
+    play: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_optional_u64_lossy")]
+    pubdate: Option<u64>,
+}
+
+fn deserialize_optional_u64_lossy<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let parsed = match value {
+        serde_json::Value::Number(number) => number
+            .as_u64()
+            .or_else(|| number.as_i64().and_then(|value| u64::try_from(value).ok())),
+        serde_json::Value::String(value) => value
+            .trim()
+            .parse::<i64>()
+            .ok()
+            .and_then(|value| u64::try_from(value).ok()),
+        _ => None,
+    };
+    Ok(parsed)
 }
 
 fn read_netscape_cookies(path: &Path, host: &str) -> Result<BTreeMap<String, String>, String> {
@@ -453,7 +483,9 @@ fn unix_timestamp() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{clean_title, parse_duration, read_optional_buvid_cookies};
+    use super::{
+        clean_title, parse_duration, read_optional_buvid_cookies, RawSearchVideo, SearchVideo,
+    };
     use crate::wbi::{gen_mixin_key, sign_parameters};
     use std::collections::BTreeMap;
     use std::fs;
@@ -497,6 +529,46 @@ mod tests {
         assert_eq!(parse_duration("03:07"), Some(187));
         assert_eq!(parse_duration("1:02:03"), Some(3723));
         assert_eq!(parse_duration("1:99"), None);
+    }
+
+    #[test]
+    fn parses_search_video_play_count_and_pubdate() {
+        let raw: RawSearchVideo = serde_json::from_str(
+            r#"{
+                "type": "video",
+                "bvid": "BV1xx411c7mD",
+                "title": "Song",
+                "author": "UP",
+                "pic": "//i0.hdslb.com/bfs/archive/cover.jpg",
+                "duration": "03:07",
+                "play": 12345,
+                "pubdate": "1712345678"
+            }"#,
+        )
+        .unwrap();
+        let video = SearchVideo::from_raw(raw).unwrap();
+
+        assert_eq!(video.play_count, Some(12_345));
+        assert_eq!(video.pubdate, Some(1_712_345_678));
+    }
+
+    #[test]
+    fn parses_search_video_without_play_count_and_pubdate() {
+        let raw: RawSearchVideo = serde_json::from_str(
+            r#"{
+                "type": "video",
+                "bvid": "BV1xx411c7mD",
+                "title": "Song",
+                "author": "UP",
+                "pic": "//i0.hdslb.com/bfs/archive/cover.jpg",
+                "duration": "03:07"
+            }"#,
+        )
+        .unwrap();
+        let video = SearchVideo::from_raw(raw).unwrap();
+
+        assert_eq!(video.play_count, None);
+        assert_eq!(video.pubdate, None);
     }
 
     #[test]

@@ -16,6 +16,7 @@ tools/
 favorites.json
 playlists.json
 search-history.json
+ai-config.json
 
 # 依赖与杂项
 node_modules/

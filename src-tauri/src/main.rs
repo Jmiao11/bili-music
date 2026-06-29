@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod appearance;
 mod guest_playurl;
 mod library;
@@ -321,6 +322,13 @@ async fn get_music_ranking(
     Ok(tracks)
 }
 
+#[tauri::command]
+async fn get_recommendations(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<SearchVideo>, String> {
+    ai::generate_recommendations(&state.search).await
+}
+
 async fn resolve_with_ytdlp(
     bv_id_for_log: &str,
     resolving_bv_id: &str,
@@ -621,7 +629,11 @@ fn main() {
             remove_from_playlist,
             record_search_history,
             get_search_history,
-            clear_search_history
+            clear_search_history,
+            ai::get_ai_config,
+            ai::set_ai_config,
+            ai::test_ai_connection,
+            get_recommendations
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Tauri application");

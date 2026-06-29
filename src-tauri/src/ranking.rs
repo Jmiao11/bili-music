@@ -1,7 +1,7 @@
 use crate::guest_playurl::GuestPlayurlClient;
 use bilibili_music_core::{BILIBILI_REFERER, DESKTOP_USER_AGENT};
 use reqwest::header::{COOKIE, REFERER, USER_AGENT};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,6 +18,7 @@ pub struct RankingTrack {
     pub uploader: String,
     pub thumbnail_url: String,
     pub duration_seconds: u64,
+    pub play_count: Option<u64>,
 }
 
 #[derive(Clone)]
@@ -129,6 +130,7 @@ impl RankingTrack {
                 .unwrap_or_else(|| "未知 UP 主".to_owned()),
             thumbnail_url: normalize_url(raw.pic),
             duration_seconds: raw.duration.unwrap_or_default(),
+            play_count: raw.stat.and_then(|stat| non_negative_i64_to_u64(stat.view)),
         })
     }
 
@@ -140,6 +142,7 @@ impl RankingTrack {
             uploader: clean_required(raw.author).unwrap_or_else(|| "未知 UP 主".to_owned()),
             thumbnail_url: normalize_url(raw.pic),
             duration_seconds: parse_duration(&raw.duration).unwrap_or_default(),
+            play_count: raw.play,
         })
     }
 }
@@ -201,11 +204,17 @@ struct RankingV2Item {
     owner: Option<RankingOwner>,
     pic: Option<String>,
     duration: Option<u64>,
+    stat: Option<RankingStat>,
 }
 
 #[derive(Deserialize)]
 struct RankingOwner {
     name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RankingStat {
+    view: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -222,13 +231,41 @@ struct RankingRegionItem {
     title: Option<String>,
     author: Option<String>,
     pic: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_optional_u64_lossy")]
+    play: Option<u64>,
     #[serde(default)]
     duration: String,
 }
 
+fn deserialize_optional_u64_lossy<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let parsed = match value {
+        serde_json::Value::Number(number) => number
+            .as_u64()
+            .or_else(|| number.as_i64().and_then(|value| u64::try_from(value).ok())),
+        serde_json::Value::String(value) => value
+            .trim()
+            .parse::<i64>()
+            .ok()
+            .and_then(|value| u64::try_from(value).ok()),
+        _ => None,
+    };
+    Ok(parsed)
+}
+
+fn non_negative_i64_to_u64(value: Option<i64>) -> Option<u64> {
+    value.and_then(|value| u64::try_from(value).ok())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_duration;
+    use super::{parse_duration, RankingTrack, RankingV2Item};
 
     #[test]
     fn parses_region_duration() {
@@ -236,5 +273,40 @@ mod tests {
         assert_eq!(parse_duration("3:33"), Some(213));
         assert_eq!(parse_duration("1:02:03"), Some(3723));
         assert_eq!(parse_duration("bad"), None);
+    }
+
+    #[test]
+    fn parses_v2_play_count_from_stat_view() {
+        let raw: RankingV2Item = serde_json::from_str(
+            r#"{
+                "bvid": "BV1xx411c7mD",
+                "title": "Song",
+                "owner": { "name": "UP" },
+                "pic": "//i0.hdslb.com/bfs/archive/cover.jpg",
+                "duration": 187,
+                "stat": { "view": 12345 }
+            }"#,
+        )
+        .unwrap();
+        let track = RankingTrack::from_v2(raw).unwrap();
+
+        assert_eq!(track.play_count, Some(12_345));
+    }
+
+    #[test]
+    fn parses_v2_without_stat_view() {
+        let raw: RankingV2Item = serde_json::from_str(
+            r#"{
+                "bvid": "BV1xx411c7mD",
+                "title": "Song",
+                "owner": { "name": "UP" },
+                "pic": "//i0.hdslb.com/bfs/archive/cover.jpg",
+                "duration": 187
+            }"#,
+        )
+        .unwrap();
+        let track = RankingTrack::from_v2(raw).unwrap();
+
+        assert_eq!(track.play_count, None);
     }
 }

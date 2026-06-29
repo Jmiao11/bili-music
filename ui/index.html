@@ -84,26 +84,30 @@
       </aside>
 
       <main class="main-panel panel" aria-labelledby="queue-heading">
-        <section id="view-home" class="view is-active">
+        <section id="view-home" class="view is-active" data-home-mode="ranking">
           <div class="home-stage">
             <header class="list-head home-head">
               <div class="home-title-block">
                 <span class="home-vinyl-mark" aria-hidden="true"></span>
                 <div class="home-title-copy">
-                  <span class="home-source-label">B站音乐区</span>
-                  <h1>音乐飙升榜</h1>
+                  <span id="home-source-label" class="home-source-label">B站音乐区</span>
+                  <h1 id="home-title">音乐飙升榜</h1>
                   <p id="home-ranking-status" class="search-status" role="status">正在拉取 B站音乐区热门内容…</p>
                 </div>
               </div>
               <div class="home-actions">
-                <span class="home-cache-note">游客榜单 · 本次运行缓存</span>
+                <div class="home-mode-tabs" role="tablist" aria-label="首页内容">
+                  <button class="home-mode-tab is-active" type="button" data-home-mode="ranking" role="tab" aria-selected="true">飙升榜</button>
+                  <button class="home-mode-tab" type="button" data-home-mode="recommendation" role="tab" aria-selected="false">为你推荐</button>
+                </div>
+                <span id="home-cache-note" class="home-cache-note">游客榜单 · 本次运行缓存</span>
                 <button id="refresh-ranking-button" class="secondary-button home-refresh-button" type="button">刷新</button>
               </div>
             </header>
 
             <section class="home-ranking-panel" aria-label="榜单列表">
               <div class="home-ranking-bar" aria-hidden="true">
-                <span>上升中的音乐视频</span>
+                <span id="home-list-label">上升中的音乐视频</span>
                 <span>点击条目开始播放</span>
               </div>
               <p id="home-ranking-error" class="home-error" role="status" aria-live="polite"></p>
@@ -381,6 +385,27 @@
             </select>
           </label>
           <small id="stream-source-status">默认使用游客取流</small>
+        </section>
+
+        <section class="setting-group ai-settings">
+          <h3>AI 推荐</h3>
+          <label class="settings-field" for="ai-base-url-input">
+            <span>Base URL</span>
+            <input id="ai-base-url-input" class="settings-input" type="url" autocomplete="off" placeholder="https://api.openai.com/v1" />
+          </label>
+          <label class="settings-field" for="ai-model-input">
+            <span>模型</span>
+            <input id="ai-model-input" class="settings-input" type="text" autocomplete="off" placeholder="gpt-4o-mini" />
+          </label>
+          <label class="settings-field" for="ai-api-key-input">
+            <span>API Key</span>
+            <input id="ai-api-key-input" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" />
+          </label>
+          <div class="setting-actions">
+            <button id="save-ai-config-button" class="secondary-button" type="button">保存 AI 配置</button>
+            <button id="test-ai-connection-button" class="small-button quiet" type="button">测试连接</button>
+          </div>
+          <small id="ai-config-status">尚未读取 AI 配置</small>
         </section>
 
         <section class="setting-group">

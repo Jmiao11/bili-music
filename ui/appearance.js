@@ -33,6 +33,12 @@ const backgroundDimValue = document.querySelector("#background-dim-value");
 const streamSourceSelect = document.querySelector("#stream-source-select");
 const streamSourceStatus = document.querySelector("#stream-source-status");
 const clearSearchHistoryButton = document.querySelector("#clear-search-history-button");
+const aiBaseUrlInput = document.querySelector("#ai-base-url-input");
+const aiModelInput = document.querySelector("#ai-model-input");
+const aiApiKeyInput = document.querySelector("#ai-api-key-input");
+const saveAiConfigButton = document.querySelector("#save-ai-config-button");
+const testAiConnectionButton = document.querySelector("#test-ai-connection-button");
+const aiConfigStatus = document.querySelector("#ai-config-status");
 
 const playerAudio = document.querySelector("#audio");
 const playPauseButton = document.querySelector("#play-pause-button");
@@ -167,6 +173,104 @@ function updatePlayPauseButton() {
   }
 }
 
+function withMediaSession(callback) {
+  try {
+    if (!("mediaSession" in navigator)) {
+      return;
+    }
+    callback(navigator.mediaSession);
+  } catch {
+    // Media Session is only a probe path; unsupported WebView2 builds must stay silent.
+  }
+}
+
+function syncMediaSessionTrack(track) {
+  withMediaSession((mediaSession) => {
+    if (!track?.hasCurrent) {
+      mediaSession.metadata = null;
+      return;
+    }
+    mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.uploader,
+      artwork: track.thumbnailUrl
+        ? [{ src: track.thumbnailUrl, sizes: "512x512", type: "image/jpeg" }]
+        : [],
+    });
+  });
+}
+
+function syncMediaSessionPlaybackState(state) {
+  withMediaSession((mediaSession) => {
+    mediaSession.playbackState = state;
+  });
+}
+
+function syncMediaSessionPosition() {
+  withMediaSession((mediaSession) => {
+    if (typeof mediaSession.setPositionState !== "function") {
+      return;
+    }
+    if (!Number.isFinite(playerAudio.duration) || playerAudio.duration <= 0) {
+      return;
+    }
+    const position = Math.min(Math.max(playerAudio.currentTime, 0), playerAudio.duration);
+    const playbackRate =
+      Number.isFinite(playerAudio.playbackRate) && playerAudio.playbackRate > 0
+        ? playerAudio.playbackRate
+        : 1;
+    mediaSession.setPositionState({
+      duration: playerAudio.duration,
+      playbackRate,
+      position,
+    });
+  });
+}
+
+function registerMediaSessionActionHandlers() {
+  withMediaSession((mediaSession) => {
+    mediaSession.setActionHandler("play", () => playPauseButton.click());
+    mediaSession.setActionHandler("pause", () => playPauseButton.click());
+    mediaSession.setActionHandler("previoustrack", () => previousButtonForImmersive.click());
+    mediaSession.setActionHandler("nexttrack", () => nextButtonForImmersive.click());
+    mediaSession.setActionHandler("seekto", (details) => {
+      withMediaSession(() => {
+        if (!Number.isFinite(playerAudio.duration) || playerAudio.duration <= 0) {
+          return;
+        }
+        if (details.seekTime != null) {
+          playerAudio.currentTime = details.seekTime;
+          syncMediaSessionPosition();
+        }
+      });
+    });
+    mediaSession.setActionHandler("seekbackward", (details) => {
+      withMediaSession(() => {
+        if (!Number.isFinite(playerAudio.duration) || playerAudio.duration <= 0) {
+          return;
+        }
+        playerAudio.currentTime = Math.max(
+          0,
+          playerAudio.currentTime - (details.seekOffset || 10),
+        );
+        syncMediaSessionPosition();
+      });
+    });
+    mediaSession.setActionHandler("seekforward", (details) => {
+      withMediaSession(() => {
+        if (!Number.isFinite(playerAudio.duration) || playerAudio.duration <= 0) {
+          return;
+        }
+        playerAudio.currentTime = Math.min(
+          playerAudio.duration,
+          playerAudio.currentTime + (details.seekOffset || 10),
+        );
+        syncMediaSessionPosition();
+      });
+    });
+  });
+}
+
 function syncImmersiveTrack(track = currentTrack) {
   currentTrack = {
     ...currentTrack,
@@ -210,6 +314,7 @@ function closeImmersive() {
 function openSettings() {
   settingsModal.hidden = false;
   restoreStreamSource();
+  restoreAiConfig();
   requestAnimationFrame(() => {
     settingsModal.classList.add("is-open");
     settingsModal.setAttribute("aria-hidden", "false");
@@ -352,6 +457,76 @@ async function restoreStreamSource() {
   }
 }
 
+function updateAiConfigStatus(config) {
+  if (!aiConfigStatus) {
+    return;
+  }
+  const keyText = config?.hasKey
+    ? `API Key 已配置${config.keyHint ? `（${config.keyHint}）` : ""}`
+    : "API Key 未配置";
+  aiConfigStatus.textContent = keyText;
+}
+
+async function restoreAiConfig() {
+  if (!aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !aiConfigStatus) {
+    return;
+  }
+
+  aiConfigStatus.textContent = "正在读取 AI 配置…";
+  try {
+    const config = await invokeAppearance("get_ai_config");
+    aiBaseUrlInput.value = config.baseUrl ?? "";
+    aiModelInput.value = config.model ?? "";
+    aiApiKeyInput.value = "";
+    updateAiConfigStatus(config);
+  } catch (error) {
+    aiConfigStatus.textContent = `AI 配置读取失败：${error}`;
+  }
+}
+
+async function saveAiConfig() {
+  if (!aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) {
+    return;
+  }
+
+  saveAiConfigButton.disabled = true;
+  aiConfigStatus.textContent = "正在保存 AI 配置…";
+  try {
+    const config = await invokeAppearance("set_ai_config", {
+      baseUrl: aiBaseUrlInput.value,
+      model: aiModelInput.value,
+      apiKey: aiApiKeyInput.value,
+    });
+    aiApiKeyInput.value = "";
+    updateAiConfigStatus(config);
+  } catch (error) {
+    aiConfigStatus.textContent = `AI 配置保存失败：${error}`;
+  } finally {
+    saveAiConfigButton.disabled = false;
+  }
+}
+
+async function testAiConnection() {
+  if (!testAiConnectionButton || !aiConfigStatus || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) {
+    return;
+  }
+
+  testAiConnectionButton.disabled = true;
+  aiConfigStatus.textContent = "正在测试 AI 连接…";
+  try {
+    const result = await invokeAppearance("test_ai_connection", {
+      baseUrl: aiBaseUrlInput.value,
+      model: aiModelInput.value,
+      apiKey: aiApiKeyInput.value,
+    });
+    aiConfigStatus.textContent = result.ok ? "AI 连接正常。" : `AI 连接失败：${result.message}`;
+  } catch (error) {
+    aiConfigStatus.textContent = `AI 连接测试失败：${error}`;
+  } finally {
+    testAiConnectionButton.disabled = false;
+  }
+}
+
 async function openCurrentBilibiliVideo() {
   if (!currentTrack.bvid) {
     playbackStatus.textContent = "当前没有可打开的 B 站视频。";
@@ -420,6 +595,8 @@ chooseBackgroundButton.addEventListener("click", async () => {
 });
 
 resetBackgroundButton.addEventListener("click", () => resetBackground());
+saveAiConfigButton?.addEventListener("click", saveAiConfig);
+testAiConnectionButton?.addEventListener("click", testAiConnection);
 
 streamSourceSelect?.addEventListener("change", async () => {
   if (streamSourceSelect.value === "auto" && !ytDlpAvailable) {
@@ -482,6 +659,7 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("bilibili-music-trackchange", (event) => {
   syncImmersiveTrack(event.detail);
+  syncMediaSessionTrack(event.detail);
 });
 
 playPauseButton.addEventListener("click", async () => {
@@ -538,17 +716,34 @@ immersiveProgressSlider.addEventListener("change", () => {
 playerAudio.addEventListener("timeupdate", () => {
   if (!isSeeking) {
     updateProgress();
+    syncMediaSessionPosition();
   }
 });
-playerAudio.addEventListener("durationchange", () => updateProgress());
-playerAudio.addEventListener("loadedmetadata", () => updateProgress());
-playerAudio.addEventListener("play", updatePlayPauseButton);
-playerAudio.addEventListener("pause", updatePlayPauseButton);
-playerAudio.addEventListener("ended", updatePlayPauseButton);
+playerAudio.addEventListener("durationchange", () => {
+  updateProgress();
+  syncMediaSessionPosition();
+});
+playerAudio.addEventListener("loadedmetadata", () => {
+  updateProgress();
+  syncMediaSessionPosition();
+});
+playerAudio.addEventListener("play", () => {
+  updatePlayPauseButton();
+  syncMediaSessionPlaybackState("playing");
+});
+playerAudio.addEventListener("pause", () => {
+  updatePlayPauseButton();
+  syncMediaSessionPlaybackState("paused");
+});
+playerAudio.addEventListener("ended", () => {
+  updatePlayPauseButton();
+  syncMediaSessionPlaybackState("none");
+});
 playerAudio.addEventListener("emptied", () => {
   isSeeking = false;
   updateProgress(0);
   updatePlayPauseButton();
+  syncMediaSessionPlaybackState("none");
 });
 
 applyTheme(localStorage.getItem(THEME_KEY), false);
@@ -559,5 +754,6 @@ applyVolume(localStorage.getItem(VOLUME_KEY), false);
 updateProgress(0);
 updatePlayPauseButton();
 syncImmersiveTrack();
+registerMediaSessionActionHandlers();
 restoreBackground();
 restoreStreamSource();

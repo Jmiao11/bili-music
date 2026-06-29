@@ -45,10 +45,15 @@ const searchState = {
 };
 
 const homeState = {
+  mode: "ranking",
   ranking: [],
+  recommendations: [],
   loaded: false,
   loading: false,
   error: "",
+  recommendationLoaded: false,
+  recommendationLoading: false,
+  recommendationError: "",
 };
 
 const libraryState = {
@@ -66,6 +71,12 @@ const musicTabs = [...document.querySelectorAll(".music-tab[data-tids]")];
 const searchStatus = document.querySelector("#search-status");
 const playbackNotice = document.querySelector("#playback-notice");
 const searchResults = document.querySelector("#search-results");
+const homePanel = document.querySelector("#view-home");
+const homeModeTabs = [...document.querySelectorAll(".home-mode-tab[data-home-mode]")];
+const homeSourceLabel = document.querySelector("#home-source-label");
+const homeTitle = document.querySelector("#home-title");
+const homeCacheNote = document.querySelector("#home-cache-note");
+const homeListLabel = document.querySelector("#home-list-label");
 const homeRankingStatus = document.querySelector("#home-ranking-status");
 const homeRankingError = document.querySelector("#home-ranking-error");
 const homeRankingList = document.querySelector("#home-ranking-list");
@@ -119,12 +130,22 @@ function displayThumbnailUrl(url) {
 }
 
 function normalizeTrack(video) {
+  const playCount = Number(video?.playCount);
+  const pubdate = Number(video?.pubdate);
   return {
     bvid: String(video?.bvid ?? "").trim(),
     title: String(video?.title ?? video?.bvid ?? "未命名视频"),
     uploader: String(video?.uploader ?? "未知 UP 主"),
     thumbnailUrl: displayThumbnailUrl(video?.thumbnailUrl ?? ""),
     durationSeconds: Math.max(0, Math.round(Number(video?.durationSeconds) || 0)),
+    playCount:
+      video?.playCount === null || video?.playCount === undefined || !Number.isFinite(playCount) || playCount < 0
+        ? null
+        : Math.round(playCount),
+    pubdate:
+      video?.pubdate === null || video?.pubdate === undefined || !Number.isFinite(pubdate) || pubdate < 0
+        ? null
+        : Math.round(pubdate),
     addedAt: video?.addedAt ?? "",
   };
 }
@@ -430,7 +451,9 @@ function updateQueueUi() {
   if (homeRankingList) {
     for (const rankingButton of homeRankingList.querySelectorAll("button.track")) {
       const index = Number(rankingButton.dataset.libraryIndex);
-      if (playerState.queueSource === "ranking" && index === playerState.currentIndex) {
+      const activeHomeSource =
+        homeState.mode === "recommendation" ? "recommendation" : "ranking";
+      if (playerState.queueSource === activeHomeSource && index === playerState.currentIndex) {
         rankingButton.setAttribute("aria-current", "true");
       } else {
         rankingButton.removeAttribute("aria-current");
@@ -448,6 +471,40 @@ function formatDuration(seconds) {
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`
     : `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
+
+function formatPlayCount(value) {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    return "—";
+  }
+  if (number >= 100_000_000) {
+    return `${(number / 100_000_000).toFixed(1)}亿`;
+  }
+  if (number >= 10_000) {
+    return `${(number / 10_000).toFixed(1)}万`;
+  }
+  return String(Math.round(number));
+}
+
+function formatPubdate(value) {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp)) {
+    return "—";
+  }
+  const date = new Date(timestamp * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
 }
 
 function isFavorited(bvid) {
@@ -535,6 +592,7 @@ function createTrackRow(video, index, onPlay, options = {}) {
   const meta = document.createElement("span");
   const trackTitle = document.createElement("span");
   const trackUp = document.createElement("span");
+  const trackPlay = document.createElement("span");
   const trackDuration = document.createElement("span");
 
   playButton.type = "button";
@@ -569,6 +627,12 @@ function createTrackRow(video, index, onPlay, options = {}) {
   meta.append(trackTitle, trackUp);
   playButton.append(meta);
 
+  if (options.showPlayCount) {
+    trackPlay.className = "track-play";
+    trackPlay.textContent = formatPlayCount(video.playCount);
+    playButton.append(trackPlay);
+  }
+
   trackDuration.className = "track-duration";
   trackDuration.textContent = video.durationSeconds
     ? formatDuration(video.durationSeconds)
@@ -592,6 +656,8 @@ function renderSearchResults() {
     const meta = document.createElement("span");
     const trackTitle = document.createElement("span");
     const trackUp = document.createElement("span");
+    const trackPlay = document.createElement("span");
+    const trackPubdate = document.createElement("span");
     const trackDuration = document.createElement("span");
 
     playButton.type = "button";
@@ -625,6 +691,14 @@ function renderSearchResults() {
     trackUp.textContent = video.uploader || video.bvid;
     meta.append(trackTitle, trackUp);
     playButton.append(meta);
+
+    trackPlay.className = "track-play";
+    trackPlay.textContent = formatPlayCount(video.playCount);
+    playButton.append(trackPlay);
+
+    trackPubdate.className = "track-pubdate";
+    trackPubdate.textContent = formatPubdate(video.pubdate);
+    playButton.append(trackPubdate);
 
     trackDuration.className = "track-duration";
     trackDuration.textContent = video.durationSeconds
@@ -660,10 +734,36 @@ function renderRankingSkeleton() {
   }
 }
 
+function updateHomeModeUi() {
+  const isRecommendation = homeState.mode === "recommendation";
+  homePanel?.setAttribute("data-home-mode", homeState.mode);
+  for (const tab of homeModeTabs) {
+    const active = tab.dataset.homeMode === homeState.mode;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+  }
+  if (homeSourceLabel) {
+    homeSourceLabel.textContent = isRecommendation ? "AI 推荐" : "B站音乐区";
+  }
+  if (homeTitle) {
+    homeTitle.textContent = isRecommendation ? "为你推荐" : "音乐飙升榜";
+  }
+  if (homeCacheNote) {
+    homeCacheNote.textContent = "";
+  }
+  refreshRankingButton.title = isRecommendation
+    ? "本次会话缓存，手动刷新会重新生成推荐"
+    : "游客榜单，本次运行缓存";
+  if (homeListLabel) {
+    homeListLabel.textContent = isRecommendation ? "按你的口味生成" : "上升中的音乐视频";
+  }
+}
+
 function renderHomeRanking() {
   if (!homeRankingList) {
     return;
   }
+  updateHomeModeUi();
   homeRankingList.replaceChildren();
   if (homeState.loading) {
     renderRankingSkeleton();
@@ -680,10 +780,61 @@ function renderHomeRanking() {
         video,
         index,
         (targetIndex) => playListItem("ranking", homeState.ranking, targetIndex),
+        { showPlayCount: true },
       ),
     );
   }
   updateQueueUi();
+}
+
+function renderRecommendations() {
+  if (!homeRankingList) {
+    return;
+  }
+  updateHomeModeUi();
+  homeRankingList.replaceChildren();
+  if (homeState.recommendationLoading) {
+    renderRankingSkeleton();
+    return;
+  }
+  if (homeState.recommendationError) {
+    homeRankingError.textContent = homeState.recommendationError;
+    return;
+  }
+  if (homeState.recommendations.length === 0) {
+    homeRankingError.textContent = "收藏或搜索一些歌曲后，这里会生成为你推荐";
+    return;
+  }
+  homeRankingError.textContent = "";
+  for (const [index, video] of homeState.recommendations.entries()) {
+    homeRankingList.append(
+      createTrackRow(
+        video,
+        index,
+        (targetIndex) => playListItem("recommendation", homeState.recommendations, targetIndex),
+        { showPlayCount: true },
+      ),
+    );
+  }
+  updateQueueUi();
+}
+
+function renderHomeContent() {
+  if (homeState.mode === "recommendation") {
+    renderRecommendations();
+  } else {
+    renderHomeRanking();
+  }
+}
+
+function invokeWithTimeout(command, args, timeoutMs) {
+  let timeoutId = 0;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error("request timeout")), timeoutMs);
+  });
+  return Promise.race([invoke(command, args), timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
 }
 
 async function loadHomeRanking({ forceRefresh = false } = {}) {
@@ -697,7 +848,9 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
     ? "正在刷新音乐飙升榜…"
     : "正在拉取 B站音乐区热门内容…";
   refreshRankingButton.disabled = true;
-  renderHomeRanking();
+  if (homeState.mode === "ranking") {
+    renderHomeRanking();
+  }
   try {
     const tracks = await invoke("get_music_ranking", { forceRefresh });
     homeState.ranking = tracks.map(normalizeTrack);
@@ -712,7 +865,60 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
   } finally {
     homeState.loading = false;
     refreshRankingButton.disabled = false;
-    renderHomeRanking();
+    if (homeState.mode === "ranking") {
+      renderHomeRanking();
+    }
+  }
+}
+
+async function loadRecommendations({ forceRefresh = false } = {}) {
+  if (!forceRefresh && homeState.recommendationLoaded) {
+    renderRecommendations();
+    return;
+  }
+  homeState.recommendationLoading = true;
+  homeState.recommendationError = "";
+  homeRankingStatus.textContent = forceRefresh
+    ? "正在重新生成推荐…"
+    : "正在根据搜索与收藏生成推荐…";
+  refreshRankingButton.disabled = true;
+  if (homeState.mode === "recommendation") {
+    renderRecommendations();
+  }
+  try {
+    const tracks = await invokeWithTimeout("get_recommendations", {}, 45000);
+    homeState.recommendations = tracks.map(normalizeTrack);
+    homeState.recommendationLoaded = true;
+    homeState.recommendationError = "";
+    homeRankingStatus.textContent = homeState.recommendations.length > 0
+      ? `已生成 ${homeState.recommendations.length} 首推荐。`
+      : "暂无推荐结果。";
+  } catch (error) {
+    homeState.recommendationError = "推荐暂不可用，可在设置检查 AI 配置";
+    homeRankingStatus.textContent = "为你推荐生成失败。";
+    console.warn("recommendations load failed:", error);
+  } finally {
+    homeState.recommendationLoading = false;
+    refreshRankingButton.disabled = false;
+    if (homeState.mode === "recommendation") {
+      renderRecommendations();
+    }
+  }
+}
+
+function setHomeMode(mode) {
+  const nextMode = mode === "recommendation" ? "recommendation" : "ranking";
+  if (homeState.mode === nextMode) {
+    renderHomeContent();
+  } else {
+    homeState.mode = nextMode;
+    homeRankingError.textContent = "";
+    updateHomeModeUi();
+  }
+  if (homeState.mode === "recommendation") {
+    loadRecommendations();
+  } else {
+    loadHomeRanking();
   }
 }
 
@@ -1700,7 +1906,16 @@ immersiveFavoriteButton?.addEventListener("click", () => toggleFavorite());
 createPlaylistButton?.addEventListener("click", createPlaylist);
 renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
 deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);
-refreshRankingButton?.addEventListener("click", () => loadHomeRanking({ forceRefresh: true }));
+refreshRankingButton?.addEventListener("click", () => {
+  if (homeState.mode === "recommendation") {
+    loadRecommendations({ forceRefresh: true });
+  } else {
+    loadHomeRanking({ forceRefresh: true });
+  }
+});
+for (const tab of homeModeTabs) {
+  tab.addEventListener("click", () => setHomeMode(tab.dataset.homeMode));
+}
 for (const tab of musicTabs) {
   tab.addEventListener("click", () => {
     const tids = Number(tab.dataset.tids) || DEFAULT_MUSIC_TIDS;
@@ -1713,7 +1928,9 @@ for (const tab of musicTabs) {
   });
 }
 homeRankingError?.addEventListener("click", () => {
-  if (homeState.error) {
+  if (homeState.mode === "recommendation" && homeState.recommendationError) {
+    loadRecommendations({ forceRefresh: true });
+  } else if (homeState.error) {
     loadHomeRanking({ forceRefresh: true });
   }
 });
@@ -1736,13 +1953,18 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
-    loadHomeRanking();
+    if (homeState.mode === "recommendation") {
+      loadRecommendations();
+    } else {
+      loadHomeRanking();
+    }
   }
   if (["favorites", "playlists"].includes(event.detail?.view)) {
     loadLibrary();
   }
 });
 
+updateHomeModeUi();
 loadHomeRanking();
 loadLibrary();
 updateMusicTabs();
