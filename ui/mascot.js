@@ -39,8 +39,77 @@
         </svg>
       `,
     },
+    nuomi: {
+      id: "nuomi",
+      name: "糯米飘",
+      personality: "轻飘飘地待着，情绪稳定但很会凑热闹。",
+      svg: `
+          <svg class="mascot-svg mascot-nuomi" viewBox="0 0 100 100" role="img" aria-label="糯米飘大图">
+            <g id="cape">
+              <path d="M22 54 C22 38 34 25 50 25 C66 25 78 38 78 54 V80 C72 76 66 84 60 79 C54 75 49 86 43 79 C38 73 31 84 25 78 C22 75 22 66 22 54Z" fill="#F7F3FF"/>
+              <path d="M28 67 C35 72 43 72 50 67 C57 72 65 72 72 67 V80 C66 76 60 83 55 78 C50 73 44 84 38 78 C34 74 29 80 25 76 Z" fill="#D8C7FF"/>
+            </g>
+            <g id="body">
+              <path d="M27 45 C29 33 39 27 50 27 C61 27 71 33 73 45 C76 62 66 73 50 73 C34 73 24 62 27 45Z" fill="#F7F3FF"/>
+              <circle cx="35" cy="56" r="5" fill="#FB7299"/>
+              <circle cx="65" cy="56" r="5" fill="#FB7299"/>
+            </g>
+            <g id="head">
+              <path d="M31 34 C36 24 45 20 50 20 C55 20 64 24 69 34 C61 31 39 31 31 34Z" fill="#CDB8FF"/>
+              <circle cx="39" cy="26" r="4" fill="#FFE36E"/>
+              <circle cx="61" cy="26" r="4" fill="#80E36A"/>
+            </g>
+            <g id="eyes">
+              <path d="M39 47 Q43 51 47 47" fill="none" stroke="#3F3657" stroke-width="3" stroke-linecap="round"/>
+              <path d="M53 47 Q57 51 61 47" fill="none" stroke="#3F3657" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            <g id="paws">
+              <circle cx="30" cy="61" r="4" fill="#E4D9FF"/>
+              <circle cx="70" cy="61" r="4" fill="#E4D9FF"/>
+            </g>
+          </svg>
+      `,
+    },
+    juzi: {
+      id: "juzi",
+      name: "橘子汪",
+      personality: "反应很快，听到下一首就先精神起来。",
+      svg: `
+          <svg class="mascot-svg mascot-juzi" viewBox="0 0 100 100" role="img" aria-label="橘子汪大图">
+            <g id="tail">
+              <path d="M72 60 C88 55 87 39 76 43" fill="none" stroke="#FF9F43" stroke-width="9" stroke-linecap="round"/>
+            </g>
+            <g id="body">
+              <path d="M25 49 C25 38 34 31 50 31 C66 31 75 38 75 49 V70 C75 80 66 87 50 87 C34 87 25 80 25 70Z" fill="#FFB55A"/>
+              <path d="M37 64 C40 58 60 58 63 64 C66 74 59 81 50 81 C41 81 34 74 37 64Z" fill="#FFF1D4"/>
+              <circle cx="34" cy="74" r="5" fill="#8FD466"/>
+              <circle cx="66" cy="74" r="5" fill="#8FD466"/>
+            </g>
+            <g id="ears">
+              <path d="M31 35 C21 25 20 13 32 15 C42 17 41 29 36 38Z" fill="#E77E35"/>
+              <path d="M69 35 C79 25 80 13 68 15 C58 17 59 29 64 38Z" fill="#E77E35"/>
+            </g>
+            <g id="head">
+              <path d="M28 28 C34 17 44 14 50 14 C56 14 66 17 72 28 C79 43 70 58 50 58 C30 58 21 43 28 28Z" fill="#FFC06B"/>
+              <path d="M42 43 C45 39 55 39 58 43 C58 49 42 49 42 43Z" fill="#FFF1D4"/>
+              <circle cx="50" cy="42" r="3" fill="#5A3320"/>
+            </g>
+            <g id="eyes">
+              <circle cx="40" cy="34" r="3.8" fill="#382317"/>
+              <circle cx="60" cy="34" r="3.8" fill="#382317"/>
+              <circle cx="41.5" cy="32.5" r="1.2" fill="#FFFFFF"/>
+              <circle cx="61.5" cy="32.5" r="1.2" fill="#FFFFFF"/>
+            </g>
+            <g id="scarf">
+              <path d="M38 57 H62" stroke="#FB7299" stroke-width="5" stroke-linecap="round"/>
+              <circle cx="50" cy="60" r="3" fill="#FFE36E"/>
+            </g>
+          </svg>
+      `,
+    },
   };
 
+  const MASCOT_KEY = "bili-music-mascot";
   const BLINK_MIN_MS = 6500;
   const BLINK_SPREAD_MS = 8000;
   const BLINK_DURATION_MS = 170;
@@ -199,7 +268,39 @@
     scheduleDoze();
   }
 
-  renderMascot(MASCOTS.kuro);
+  function getSavedMascot() {
+    try {
+      return MASCOTS[localStorage.getItem(MASCOT_KEY)] ?? MASCOTS.kuro;
+    } catch (_) {
+      return MASCOTS.kuro;
+    }
+  }
+
+  function saveMascot(id) {
+    try {
+      localStorage.setItem(MASCOT_KEY, id);
+    } catch (_) {
+      // Ignore mascot preference persistence failures.
+    }
+  }
+
+  window.BiliMascot = {
+    list() {
+      return Object.values(MASCOTS).map(({ id, name, svg }) => ({ id, name, svg }));
+    },
+    getActive() {
+      return currentMascot?.id;
+    },
+    setActive(id) {
+      const mascot = MASCOTS[id] ?? MASCOTS.kuro;
+      renderMascot(mascot);
+      saveMascot(mascot.id);
+      syncState();
+      return mascot.id;
+    },
+  };
+
+  renderMascot(getSavedMascot());
   setState("idle");
   scheduleBlink();
 
