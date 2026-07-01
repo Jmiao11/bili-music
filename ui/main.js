@@ -31,6 +31,7 @@ const playerState = {
   currentPageIndex: 0,
   currentDisplayTrack: null,
 };
+let playRecordedForCurrentTrack = false;
 
 const searchState = {
   results: [],
@@ -260,15 +261,13 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
 }
 
 function emitCurrentTrackChanged() {
+  playRecordedForCurrentTrack = false;
   const snapshot = currentTrackSnapshot();
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
       detail: snapshot,
     }),
   );
-  if (snapshot.bvid) {
-    invoke("record_play", { track: snapshot }).catch(() => {});
-  }
 }
 
 function clearPlaybackNotice() {
@@ -1884,6 +1883,17 @@ audio.addEventListener("ended", (event) => {
       playNext({ automatic: true });
     }
   }
+});
+
+audio.addEventListener("timeupdate", () => {
+  if (playRecordedForCurrentTrack) return;
+  const dur = Number(audio.duration);
+  const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
+  if (audio.currentTime < threshold) return;
+  const snapshot = currentTrackSnapshot();
+  if (!snapshot.bvid) return;
+  playRecordedForCurrentTrack = true;
+  invoke("record_play", { track: snapshot }).catch(() => {});
 });
 
 loopModeButton.addEventListener("click", () => {
