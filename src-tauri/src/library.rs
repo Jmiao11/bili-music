@@ -9,7 +9,9 @@ const VERSION: u32 = 1;
 const FAVORITES_FILE: &str = "favorites.json";
 const PLAYLISTS_FILE: &str = "playlists.json";
 const SEARCH_HISTORY_FILE: &str = "search-history.json";
+const PLAY_HISTORY_FILE: &str = "play-history.json";
 const MAX_SEARCH_HISTORY_ITEMS: usize = 100;
+const MAX_PLAY_HISTORY_ITEMS: usize = 200;
 #[cfg(debug_assertions)]
 const DEV_LIBRARY_DIR: &str = ".local-data";
 
@@ -70,10 +72,28 @@ pub struct SearchHistoryItem {
     pub count: u64,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayHistoryItem {
+    pub bvid: String,
+    pub title: String,
+    pub uploader: String,
+    pub thumbnail_url: String,
+    pub duration_seconds: u64,
+    pub last_played_at: String,
+    pub count: u64,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct SearchHistoryFile {
     version: u32,
     items: Vec<SearchHistoryItem>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct PlayHistoryFile {
+    version: u32,
+    items: Vec<PlayHistoryItem>,
 }
 
 impl Default for FavoritesFile {
@@ -95,6 +115,15 @@ impl Default for PlaylistsFile {
 }
 
 impl Default for SearchHistoryFile {
+    fn default() -> Self {
+        Self {
+            version: VERSION,
+            items: Vec::new(),
+        }
+    }
+}
+
+impl Default for PlayHistoryFile {
     fn default() -> Self {
         Self {
             version: VERSION,
@@ -259,6 +288,52 @@ pub fn clear_search_history() -> Result<(), String> {
     write_json_atomic(&search_history_path()?, &SearchHistoryFile::default())
 }
 
+#[tauri::command]
+pub fn record_play(track: TrackSnapshotInput) -> Result<(), String> {
+    let mut file = read_play_history()?;
+    let bvid = normalize_bvid(&track.bvid)?;
+    let now = now_string();
+
+    if let Some(index) = file
+        .items
+        .iter()
+        .position(|item| item.bvid.eq_ignore_ascii_case(&bvid))
+    {
+        let mut item = file.items.remove(index);
+        item.bvid = bvid;
+        item.title = clean_text(&track.title, "Untitled video");
+        item.uploader = clean_text(&track.uploader, "Unknown UP");
+        item.thumbnail_url = track.thumbnail_url.trim().to_owned();
+        item.duration_seconds = track.duration_seconds;
+        item.last_played_at = now;
+        item.count = item.count.saturating_add(1);
+        file.items.insert(0, item);
+    } else {
+        file.items.insert(
+            0,
+            PlayHistoryItem {
+                bvid,
+                title: clean_text(&track.title, "Untitled video"),
+                uploader: clean_text(&track.uploader, "Unknown UP"),
+                thumbnail_url: track.thumbnail_url.trim().to_owned(),
+                duration_seconds: track.duration_seconds,
+                last_played_at: now,
+                count: 1,
+            },
+        );
+    }
+
+    if file.items.len() > MAX_PLAY_HISTORY_ITEMS {
+        file.items.truncate(MAX_PLAY_HISTORY_ITEMS);
+    }
+    write_json_atomic(&play_history_path()?, &file)
+}
+
+#[tauri::command]
+pub fn get_play_history() -> Result<Vec<PlayHistoryItem>, String> {
+    Ok(read_play_history()?.items)
+}
+
 fn read_favorites() -> Result<FavoritesFile, String> {
     read_json_or_default(&favorites_path()?)
 }
@@ -269,6 +344,10 @@ fn read_playlists() -> Result<PlaylistsFile, String> {
 
 fn read_search_history() -> Result<SearchHistoryFile, String> {
     read_json_or_default(&search_history_path()?)
+}
+
+fn read_play_history() -> Result<PlayHistoryFile, String> {
+    read_json_or_default(&play_history_path()?)
 }
 
 fn read_json_or_default<T>(path: &Path) -> Result<T, String>
@@ -315,6 +394,12 @@ impl Versioned for PlaylistsFile {
 }
 
 impl Versioned for SearchHistoryFile {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
+
+impl Versioned for PlayHistoryFile {
     fn version(&self) -> u32 {
         self.version
     }
@@ -442,6 +527,10 @@ fn playlists_path() -> Result<PathBuf, String> {
 
 fn search_history_path() -> Result<PathBuf, String> {
     library_file_path(SEARCH_HISTORY_FILE)
+}
+
+fn play_history_path() -> Result<PathBuf, String> {
+    library_file_path(PLAY_HISTORY_FILE)
 }
 
 fn library_file_path(file_name: &str) -> Result<PathBuf, String> {

@@ -36,9 +36,9 @@ use uuid::Uuid;
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
-    add_to_playlist, clear_search_history, create_playlist, delete_playlist, get_search_history,
-    is_favorite, list_favorites, list_playlists, record_search_history, remove_from_playlist,
-    rename_playlist, toggle_favorite,
+    add_to_playlist, clear_search_history, create_playlist, delete_playlist, get_play_history,
+    get_search_history, is_favorite, list_favorites, list_playlists, record_play,
+    record_search_history, remove_from_playlist, rename_playlist, toggle_favorite,
 };
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
@@ -630,6 +630,8 @@ fn main() {
             record_search_history,
             get_search_history,
             clear_search_history,
+            record_play,
+            get_play_history,
             ai::get_ai_config,
             ai::set_ai_config,
             ai::test_ai_connection,
