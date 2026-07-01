@@ -2316,6 +2316,26 @@ svg {
   transform-origin: 50% 50%;
 }
 
+.mascot-tun .tun-eye-open {
+  opacity: 0;
+}
+
+#mascot-stage.is-playing .mascot-tun .tun-eye-closed,
+#mascot-stage.is-hovered .mascot-tun .tun-eye-closed,
+#mascot-stage.is-poked .mascot-tun .tun-eye-closed,
+#mascot-stage.is-trackchanging .mascot-tun .tun-eye-closed,
+#mascot-stage.is-ear-twitch .mascot-tun .tun-eye-closed {
+  opacity: 0;
+}
+
+#mascot-stage.is-playing .mascot-tun .tun-eye-open,
+#mascot-stage.is-hovered .mascot-tun .tun-eye-open,
+#mascot-stage.is-poked .mascot-tun .tun-eye-open,
+#mascot-stage.is-trackchanging .mascot-tun .tun-eye-open,
+#mascot-stage.is-ear-twitch .mascot-tun .tun-eye-open {
+  opacity: 1;
+}
+
 #mascot-stage.is-idle #body {
   animation: mascot-idle-breathe 3.8s ease-in-out infinite;
 }
@@ -2327,11 +2347,19 @@ svg {
 #mascot-stage.is-playing #head,
 #mascot-stage.is-playing #ears,
 #mascot-stage.is-playing #whiskers {
-  animation: mascot-play-nod 1.9s ease-in-out infinite;
+  animation: mascot-play-nod 1.4s ease-in-out infinite;
+}
+
+#mascot-stage.is-playing .mascot-nuomi #head {
+  animation: none;
 }
 
 #mascot-stage.is-playing #tail {
-  animation: mascot-tail-sway 2.8s ease-in-out infinite;
+  animation: mascot-tail-sway 1.4s ease-in-out infinite;
+}
+
+#mascot-stage.is-playing #mascot-slot svg {
+  animation: mascot-play-bob 0.9s ease-in-out infinite;
 }
 
 #mascot-stage.is-paused #body {
@@ -2422,7 +2450,18 @@ svg {
   }
 
   50% {
-    transform: scaleY(1.03);
+    transform: scaleY(1.045);
+  }
+}
+
+@keyframes mascot-play-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
   }
 }
 
@@ -2451,11 +2490,11 @@ svg {
 @keyframes mascot-tail-sway {
   0%,
   100% {
-    transform: rotate(-1deg);
+    transform: rotate(-3deg);
   }
 
   50% {
-    transform: rotate(2.5deg);
+    transform: rotate(5deg);
   }
 }
 
@@ -2575,6 +2614,7 @@ svg {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  #mascot-stage #mascot-slot svg,
   #mascot-stage #body,
   #mascot-stage #head,
   #mascot-stage #tail,
@@ -2971,6 +3011,53 @@ input[type="range"]::-webkit-slider-thumb {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+.mascot-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mascot-tile {
+  display: grid;
+  width: 82px;
+  min-height: 82px;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px 8px;
+  border: 0.5px solid var(--line);
+  border-radius: 11px;
+  color: var(--text-2);
+  background: var(--panel-raised);
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.mascot-tile:hover {
+  color: var(--text-1);
+}
+
+.mascot-tile.is-selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.mascot-tile-preview,
+.mascot-tile-preview svg {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
+.mascot-tile-name {
+  color: currentColor;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .swatch {
