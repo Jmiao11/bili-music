@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::library::{get_search_history, list_favorites};
+use crate::library::{get_play_history, get_search_history, list_favorites, list_playlists};
 use crate::search::{SearchClient, SearchVideo};
 
 const VERSION: u32 = 1;
@@ -324,6 +324,30 @@ fn build_taste_profile() -> String {
         .collect();
     if !favorites.is_empty() {
         lines.push(format!("收藏歌曲: {}", favorites.join(" | ")));
+    }
+
+    let mut seen_playlist_bvids = HashSet::new();
+    let playlist_tracks: Vec<String> = list_playlists()
+        .unwrap_or_default()
+        .into_iter()
+        .flat_map(|playlist| playlist.items)
+        .filter(|track| seen_playlist_bvids.insert(track.bvid.to_lowercase()))
+        .take(12)
+        .map(|track| format!("{} - {}", track.title, track.uploader))
+        .collect();
+    if !playlist_tracks.is_empty() {
+        lines.push(format!("歌单收藏: {}", playlist_tracks.join(" | ")));
+    }
+
+    let mut play_history = get_play_history().unwrap_or_default();
+    play_history.sort_by(|left, right| right.count.cmp(&left.count));
+    let play_history: Vec<String> = play_history
+        .into_iter()
+        .take(10)
+        .map(|track| format!("{} - {} x{}", track.title, track.uploader, track.count))
+        .collect();
+    if !play_history.is_empty() {
+        lines.push(format!("常听: {}", play_history.join(" | ")));
     }
     lines.join("\n")
 }
