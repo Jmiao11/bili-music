@@ -19,6 +19,7 @@ const settingsModal = document.querySelector("#settings-modal");
 const openSettingsButton = document.querySelector("#open-settings-button");
 const closeSettingsButton = document.querySelector("#close-settings-button");
 const themeOptions = [...document.querySelectorAll("[data-theme-option]")];
+const mascotPicker = document.querySelector("#mascot-picker");
 const chooseBackgroundButton = document.querySelector("#choose-background-button");
 const resetBackgroundButton = document.querySelector("#reset-background-button");
 const backgroundName = document.querySelector("#background-name");
@@ -311,10 +312,50 @@ function closeImmersive() {
   immersivePlayer.setAttribute("aria-hidden", "true");
 }
 
+function syncMascotPickerSelection() {
+  const activeId = window.BiliMascot?.getActive?.();
+  for (const tile of mascotPicker?.querySelectorAll(".mascot-tile") ?? []) {
+    const selected = tile.dataset.mascotId === activeId;
+    tile.classList.toggle("is-selected", selected);
+    tile.setAttribute("aria-pressed", String(selected));
+  }
+}
+
+function renderMascotPicker() {
+  if (!mascotPicker || !window.BiliMascot) {
+    return;
+  }
+  mascotPicker.textContent = "";
+  for (const mascot of window.BiliMascot.list()) {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "mascot-tile";
+    tile.dataset.mascotId = mascot.id;
+    tile.setAttribute("aria-label", mascot.name);
+
+    const preview = document.createElement("span");
+    preview.className = "mascot-tile-preview";
+    preview.innerHTML = mascot.svg.replace(/\s+id="[^"]*"/g, "");
+
+    const label = document.createElement("span");
+    label.className = "mascot-tile-name";
+    label.textContent = mascot.name;
+
+    tile.append(preview, label);
+    tile.addEventListener("click", () => {
+      window.BiliMascot.setActive(mascot.id);
+      syncMascotPickerSelection();
+    });
+    mascotPicker.append(tile);
+  }
+  syncMascotPickerSelection();
+}
+
 function openSettings() {
   settingsModal.hidden = false;
   restoreStreamSource();
   restoreAiConfig();
+  renderMascotPicker();
   requestAnimationFrame(() => {
     settingsModal.classList.add("is-open");
     settingsModal.setAttribute("aria-hidden", "false");
