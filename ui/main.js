@@ -260,11 +260,15 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
 }
 
 function emitCurrentTrackChanged() {
+  const snapshot = currentTrackSnapshot();
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
-      detail: currentTrackSnapshot(),
+      detail: snapshot,
     }),
   );
+  if (snapshot.bvid) {
+    invoke("record_play", { track: snapshot }).catch(() => {});
+  }
 }
 
 function clearPlaybackNotice() {
