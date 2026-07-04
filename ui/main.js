@@ -46,7 +46,7 @@ const searchState = {
 };
 
 const homeState = {
-  mode: "ranking",
+  mode: "recommendation",
   ranking: [],
   recommendations: [],
   loaded: false,
