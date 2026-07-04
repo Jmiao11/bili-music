@@ -51,6 +51,14 @@
       id: "nuomi",
       name: "糯米飘",
       personality: "轻飘飘地待着，情绪稳定但很会凑热闹。",
+      lines: {
+        greet: ["你来啦~软软等你好久了。", "呀,是你!"],
+        play: ["这首暖暖的~", "一起听嘛。"],
+        favorite: ["收藏啦,我也喜欢这首!", "嘿嘿,好听吧~"],
+        longListen: ["陪你听了好久呢,好舒服。", "靠着一起听会儿吧。"],
+        lateNight: ["夜深啦,轻轻的陪你。", "困了就靠着我睡吧~"],
+        poke: ["呀~痒痒的。", "戳我做什么呀~"],
+      },
       svg: `
           <svg class="mascot-svg mascot-nuomi" viewBox="0 0 100 100" role="img" aria-label="糯米飘大图">
             <g id="cape">
@@ -82,6 +90,14 @@
       id: "juzi",
       name: "橘子汪",
       personality: "反应很快，听到下一首就先精神起来。",
+      lines: {
+        greet: ["汪!你回来啦!", "等你好久啦!"],
+        play: ["这首带劲!", "一起摇起来!"],
+        favorite: ["好歌!必须收藏!汪!", "眼光真棒!"],
+        longListen: ["陪你听一整天都行!", "还有好多好歌,继续!"],
+        lateNight: ["这么晚啦?我守着你。", "夜里也陪你听,汪。"],
+        poke: ["汪汪!再摸摸!", "嘿嘿,你戳我啦!"],
+      },
       svg: `
           <svg class="mascot-svg mascot-juzi" viewBox="0 0 100 100" role="img" aria-label="橘子汪大图">
             <g id="tail">
