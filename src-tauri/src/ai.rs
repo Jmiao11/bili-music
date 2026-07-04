@@ -176,8 +176,22 @@ pub async fn test_ai_connection(
     }
 }
 
-pub async fn generate_recommendations(search: &SearchClient) -> Result<Vec<SearchVideo>, String> {
-    let profile = build_taste_profile();
+pub async fn generate_recommendations(
+    search: &SearchClient,
+    user_hint: Option<String>,
+) -> Result<Vec<SearchVideo>, String> {
+    let mut profile = build_taste_profile();
+    if let Some(hint) = user_hint {
+        let hint = hint.trim();
+        if !hint.is_empty() {
+            if !profile.is_empty() {
+                profile.push('\n');
+            }
+            profile.push_str(&format!(
+                "【本次想听】{hint}（请优先按这个方向生成检索关键词）"
+            ));
+        }
+    }
     if profile.is_empty() {
         return Ok(Vec::new());
     }

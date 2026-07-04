@@ -325,8 +325,9 @@ async fn get_music_ranking(
 #[tauri::command]
 async fn get_recommendations(
     state: tauri::State<'_, AppState>,
+    user_hint: Option<String>,
 ) -> Result<Vec<SearchVideo>, String> {
-    ai::generate_recommendations(&state.search).await
+    ai::generate_recommendations(&state.search, user_hint).await
 }
 
 async fn resolve_with_ytdlp(
