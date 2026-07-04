@@ -2667,8 +2667,9 @@ svg {
 
 #mascot-bubble {
   position: absolute;
-  left: 78px;
-  bottom: 46px;
+  left: 74px;
+  bottom: 18px;
+  width: max-content;
   max-width: 180px;
   padding: 8px 10px;
   border: 0.5px solid var(--line);
@@ -2679,10 +2680,18 @@ svg {
   font-size: 12px;
   line-height: 1.45;
   white-space: normal;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 #mascot-bubble[hidden] {
-  display: none;
+  display: block !important;
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
 }
 
 .now-playing {

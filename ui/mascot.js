@@ -4,6 +4,14 @@
       id: "kuro",
       name: "小黑咪",
       personality: "放歌就眯眼点头，收藏时尾巴卷成粉色小圈。",
+      lines: {
+        greet: ["……回来了。", "今天也来听歌?"],
+        play: ["嗯,这首。", "♪"],
+        favorite: ["哼,眼光不错。", "记下了。"],
+        longListen: ["听了好一会儿了呢。", "还在呢,我也在。"],
+        lateNight: ["夜深了,音量小点陪你。", "这么晚还不睡……我陪着就是了。"],
+        poke: ["干、干嘛啦。", "喵?!"],
+      },
       svg: `
         <svg class="mascot-svg mascot-kuro" viewBox="0 0 100 100" role="img" aria-label="小黑咪">
           <g id="tail">
@@ -118,6 +126,8 @@
   const EAR_TWITCH_DURATION_MS = 500;
   const LONG_LISTEN_MS = 60 * 60 * 1000;
   const DOZE_MS = 10 * 60 * 1000;
+  const BUBBLE_SHOW_MS = 4000;
+  const BUBBLE_COOLDOWN_MS = 90000;
 
   const stage = document.querySelector("#mascot-stage");
   const slot = document.querySelector("#mascot-slot");
@@ -139,6 +149,8 @@
   let longListenStartedAt = 0;
   let longListenElapsed = 0;
   let dozeTimer = 0;
+  let bubbleTimer = 0;
+  let lastBubbleAt = 0;
 
   stage.style.pointerEvents = "auto";
 
@@ -161,10 +173,33 @@
     slot.innerHTML = mascot.svg;
     stage.dataset.mascotId = mascot.id;
     stage.dataset.mascotName = mascot.name;
+    window.clearTimeout(bubbleTimer);
     if (bubble) {
       bubble.hidden = true;
       bubble.textContent = "";
     }
+  }
+
+  function speak(category, { force = false } = {}) {
+    if (!bubble) {
+      return;
+    }
+    const pool = currentMascot?.lines?.[category];
+    if (!Array.isArray(pool) || pool.length === 0) {
+      return;
+    }
+    const now = Date.now();
+    if (!force && now - lastBubbleAt < BUBBLE_COOLDOWN_MS) {
+      return;
+    }
+    lastBubbleAt = now;
+    bubble.textContent = pool[Math.floor(Math.random() * pool.length)];
+    bubble.hidden = false;
+    window.clearTimeout(bubbleTimer);
+    bubbleTimer = window.setTimeout(() => {
+      bubble.hidden = true;
+      bubble.textContent = "";
+    }, BUBBLE_SHOW_MS);
   }
 
   function setState(state) {
@@ -223,6 +258,7 @@
     stage.classList.remove("is-poked");
     void stage.offsetWidth;
     stage.classList.add("is-poked");
+    speak("poke", { force: true });
     pokeTimer = window.setTimeout(() => stage.classList.remove("is-poked"), POKE_DURATION_MS);
   }
 
@@ -245,6 +281,7 @@
     }
     if (longListenElapsed >= LONG_LISTEN_MS) {
       stage.classList.add("is-long-listen");
+      speak("longListen");
       return;
     }
     longListenStartedAt = Date.now();
@@ -252,6 +289,7 @@
       longListenElapsed = LONG_LISTEN_MS;
       longListenStartedAt = 0;
       stage.classList.add("is-long-listen");
+      speak("longListen");
     }, LONG_LISTEN_MS - longListenElapsed);
   }
 
@@ -303,6 +341,9 @@
   renderMascot(getSavedMascot());
   setState("idle");
   scheduleBlink();
+  speak(new Date().getHours() >= 23 || new Date().getHours() < 5 ? "lateNight" : "greet", {
+    force: true,
+  });
 
   if (audio) {
     listen(audio, "play", () => {
@@ -336,8 +377,13 @@
     }
     triggerTrackChange();
     triggerEarTwitch();
+    if (event.detail?.bvid && Math.random() < 0.25) {
+      speak("play");
+    }
     syncState();
   });
+
+  listen(window, "bilibili-music-favorite", () => speak("favorite"));
 
   listen(document, "visibilitychange", () => {
     stage.classList.toggle("is-document-hidden", document.hidden);
