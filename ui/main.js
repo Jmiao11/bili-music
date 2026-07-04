@@ -1101,6 +1101,9 @@ async function toggleFavorite(video = currentPlayableTrack()) {
     );
     renderLibraryViews();
     status.textContent = result.favorited ? "已加入收藏。" : "已取消收藏。";
+    if (result.favorited) {
+      window.dispatchEvent(new CustomEvent("bilibili-music-favorite", { detail: { bvid: track.bvid, title: track.title } }));
+    }
   } catch (error) {
     status.textContent = `收藏操作失败：${error}`;
   }
