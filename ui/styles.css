@@ -827,6 +827,46 @@ svg {
   cursor: default;
 }
 
+#view-home .home-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+#view-home .home-hint-input {
+  min-width: 0;
+  height: 36px;
+  flex: 1;
+  padding: 0 12px;
+  border: 0.5px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  color: var(--text-1);
+  background: var(--search-bg);
+  font-size: 13px;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+#view-home .home-hint-input::placeholder {
+  color: var(--text-3);
+}
+
+#view-home .home-hint-input:focus {
+  border-color: rgba(251, 114, 153, 0.48);
+  background: var(--panel-raised);
+}
+
+#view-home .home-hint-row .secondary-button {
+  min-height: 36px;
+  flex: 0 0 auto;
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-1);
+}
+
 #view-home .home-ranking-panel {
   display: flex;
   min-height: 0;

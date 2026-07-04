@@ -55,6 +55,7 @@ const homeState = {
   recommendationLoaded: false,
   recommendationLoading: false,
   recommendationError: "",
+  userHint: "",
 };
 
 const libraryState = {
@@ -82,6 +83,9 @@ const homeRankingStatus = document.querySelector("#home-ranking-status");
 const homeRankingError = document.querySelector("#home-ranking-error");
 const homeRankingList = document.querySelector("#home-ranking-list");
 const refreshRankingButton = document.querySelector("#refresh-ranking-button");
+const homeHintRow = document.querySelector("#home-hint-row");
+const homeHintInput = document.querySelector("#home-hint-input");
+const homeHintApply = document.querySelector("#home-hint-apply");
 const queueCount = document.querySelector("#queue-count");
 const status = document.querySelector("#status");
 const result = document.querySelector("#result");
@@ -754,6 +758,9 @@ function updateHomeModeUi() {
   if (homeCacheNote) {
     homeCacheNote.textContent = "";
   }
+  if (homeHintRow) {
+    homeHintRow.hidden = !isRecommendation;
+  }
   refreshRankingButton.title = isRecommendation
     ? "本次会话缓存，手动刷新会重新生成推荐"
     : "游客榜单，本次运行缓存";
@@ -875,6 +882,9 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
 }
 
 async function loadRecommendations({ forceRefresh = false } = {}) {
+  if (homeHintInput) {
+    homeState.userHint = homeHintInput.value;
+  }
   if (!forceRefresh && homeState.recommendationLoaded) {
     renderRecommendations();
     return;
@@ -889,7 +899,12 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
     renderRecommendations();
   }
   try {
-    const tracks = await invokeWithTimeout("get_recommendations", {}, 45000);
+    const hint = homeState.userHint.trim();
+    const tracks = await invokeWithTimeout(
+      "get_recommendations",
+      hint ? { userHint: hint } : {},
+      45000,
+    );
     homeState.recommendations = tracks.map(normalizeTrack);
     homeState.recommendationLoaded = true;
     homeState.recommendationError = "";
@@ -1926,6 +1941,18 @@ refreshRankingButton?.addEventListener("click", () => {
   } else {
     loadHomeRanking({ forceRefresh: true });
   }
+});
+homeHintApply?.addEventListener("click", () => {
+  homeState.userHint = homeHintInput.value;
+  loadRecommendations({ forceRefresh: true });
+});
+homeHintInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+  event.preventDefault();
+  homeState.userHint = homeHintInput.value;
+  loadRecommendations({ forceRefresh: true });
 });
 for (const tab of homeModeTabs) {
   tab.addEventListener("click", () => setHomeMode(tab.dataset.homeMode));
