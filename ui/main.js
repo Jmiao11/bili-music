@@ -765,7 +765,7 @@ function updateHomeModeUi() {
     ? "本次会话缓存，手动刷新会重新生成推荐"
     : "游客榜单，本次运行缓存";
   if (homeListLabel) {
-    homeListLabel.textContent = isRecommendation ? "按你的口味生成" : "上升中的音乐视频";
+    homeListLabel.textContent = isRecommendation ? "推荐列表" : "上升中的音乐视频";
   }
 }
 
@@ -812,7 +812,7 @@ function renderRecommendations() {
     return;
   }
   if (homeState.recommendations.length === 0) {
-    homeRankingError.textContent = "收藏或搜索一些歌曲后，这里会生成为你推荐";
+    homeRankingError.textContent = "";
     return;
   }
   homeRankingError.textContent = "";
