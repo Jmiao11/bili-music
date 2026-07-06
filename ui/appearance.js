@@ -34,6 +34,8 @@ const backgroundDimValue = document.querySelector("#background-dim-value");
 const streamSourceSelect = document.querySelector("#stream-source-select");
 const streamSourceStatus = document.querySelector("#stream-source-status");
 const clearSearchHistoryButton = document.querySelector("#clear-search-history-button");
+const exportDataButton = document.querySelector("#export-data-button");
+const importDataButton = document.querySelector("#import-data-button");
 const aiBaseUrlInput = document.querySelector("#ai-base-url-input");
 const aiModelInput = document.querySelector("#ai-model-input");
 const aiApiKeyInput = document.querySelector("#ai-api-key-input");
@@ -673,6 +675,36 @@ clearSearchHistoryButton?.addEventListener("click", async () => {
   } finally {
     clearSearchHistoryButton.disabled = false;
   }
+});
+
+exportDataButton.addEventListener("click", async () => {
+  exportDataButton.disabled = true;
+  try {
+    const saved = await invokeAppearance("export_data");
+    appearanceStatus.textContent = saved ? `已导出到：${saved}` : "";
+  } catch (error) {
+    appearanceStatus.textContent = `导出失败：${error}`;
+  } finally {
+    exportDataButton.disabled = false;
+  }
+});
+
+importDataButton.addEventListener("click", async () => {
+  const ok = window.confirm("导入会用所选备份覆盖当前的收藏、歌单、听歌记录、AI 配置与背景，且不可撤销。确定继续？");
+  if (!ok) return;
+  importDataButton.disabled = true;
+  try {
+    const result = await invokeAppearance("import_data");
+    if (result) {
+      appearanceStatus.textContent = "导入完成，正在刷新…";
+      window.location.reload();
+      return;
+    }
+    appearanceStatus.textContent = "";
+  } catch (error) {
+    appearanceStatus.textContent = `导入失败：${error}`;
+  }
+  importDataButton.disabled = false;
 });
 
 openImmersiveButton.addEventListener("click", openImmersive);
