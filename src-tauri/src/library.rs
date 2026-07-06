@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+use zip::write::SimpleFileOptions;
 
 const VERSION: u32 = 1;
 const FAVORITES_FILE: &str = "favorites.json";
@@ -334,6 +335,109 @@ pub fn record_play(track: TrackSnapshotInput) -> Result<(), String> {
 #[tauri::command]
 pub fn get_play_history() -> Result<Vec<PlayHistoryItem>, String> {
     Ok(read_play_history()?.items)
+}
+
+#[tauri::command]
+pub async fn export_data() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(export_data_blocking)
+        .await
+        .map_err(|error| format!("数据导出任务失败：{error}"))?
+}
+
+#[tauri::command]
+pub async fn import_data() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(import_data_blocking)
+        .await
+        .map_err(|error| format!("数据导入任务失败：{error}"))?
+}
+
+fn export_data_blocking() -> Result<Option<String>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .set_file_name("bili-music-backup.zip")
+        .add_filter("Zip", &["zip"])
+        .save_file()
+    else {
+        return Ok(None);
+    };
+
+    let root = library_root()?;
+    let file = File::create(&path)
+        .map_err(|error| format!("无法创建备份文件 {}：{error}", path.display()))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    if root.exists() {
+        for entry in fs::read_dir(&root)
+            .map_err(|error| format!("无法读取数据目录 {}：{error}", root.display()))?
+        {
+            let path = entry
+                .map_err(|error| format!("无法读取数据目录项：{error}"))?
+                .path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(file_name) = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+            else {
+                continue;
+            };
+            if file_name.contains(".tmp") || file_name.ends_with(".backup") {
+                continue;
+            }
+            zip.start_file(&file_name, options)
+                .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+            let mut input = File::open(&path)
+                .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
+            std::io::copy(&mut input, &mut zip)
+                .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+        }
+    }
+
+    zip.finish()
+        .map_err(|error| format!("无法完成备份文件 {}：{error}", path.display()))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+fn import_data_blocking() -> Result<Option<String>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter("Zip", &["zip"])
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+
+    let root = library_root()?;
+    fs::create_dir_all(&root)
+        .map_err(|error| format!("无法创建数据目录 {}：{error}", root.display()))?;
+    let file = File::open(&path)
+        .map_err(|error| format!("无法打开备份文件 {}：{error}", path.display()))?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|error| format!("备份文件不是有效 zip {}：{error}", path.display()))?;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("无法读取备份条目 #{index}：{error}"))?;
+        if entry.is_dir() {
+            continue;
+        }
+        let Some(file_name) = Path::new(entry.name())
+            .file_name()
+            .and_then(|name| name.to_str())
+            .filter(|name| !name.is_empty())
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        let target = root.join(&file_name);
+        let mut output = File::create(&target)
+            .map_err(|error| format!("无法写入数据文件 {}：{error}", target.display()))?;
+        std::io::copy(&mut entry, &mut output)
+            .map_err(|error| format!("无法解压备份条目 {file_name}：{error}"))?;
+    }
+
+    Ok(Some("导入完成".to_owned()))
 }
 
 fn read_favorites() -> Result<FavoritesFile, String> {
