@@ -10,6 +10,8 @@ const FAVORITES_FILE: &str = "favorites.json";
 const PLAYLISTS_FILE: &str = "playlists.json";
 const SEARCH_HISTORY_FILE: &str = "search-history.json";
 const PLAY_HISTORY_FILE: &str = "play-history.json";
+const DATA_SUBDIR: &str = "data";
+const APP_DATA_DIR: &str = "bili-music";
 const MAX_SEARCH_HISTORY_ITEMS: usize = 100;
 const MAX_PLAY_HISTORY_ITEMS: usize = 200;
 #[cfg(debug_assertions)]
@@ -536,7 +538,7 @@ fn play_history_path() -> Result<PathBuf, String> {
 fn library_file_path(file_name: &str) -> Result<PathBuf, String> {
     let root = library_root()?;
     let target = root.join(file_name);
-    migrate_legacy_dev_file(file_name, &target)?;
+    migrate_legacy_file(file_name, &target)?;
     Ok(target)
 }
 
@@ -553,15 +555,19 @@ fn library_root() -> Result<PathBuf, String> {
 
     #[cfg(not(debug_assertions))]
     {
-        let exe =
-            std::env::current_exe().map_err(|error| format!("无法定位当前 exe 路径：{error}"))?;
-        exe.parent()
-            .map(Path::to_path_buf)
-            .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())
+        let base = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|path| path.parent().map(Path::to_path_buf))
+            })
+            .ok_or_else(|| "无法定位用户数据目录。".to_owned())?;
+        Ok(base.join(APP_DATA_DIR))
     }
 }
 
-fn migrate_legacy_dev_file(file_name: &str, target: &Path) -> Result<(), String> {
+fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
     #[cfg(debug_assertions)]
     {
         if target.exists() {
@@ -587,6 +593,55 @@ fn migrate_legacy_dev_file(file_name: &str, target: &Path) -> Result<(), String>
                 target.display()
             )
         })?;
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        if target.exists() {
+            return Ok(());
+        }
+        let exe =
+            std::env::current_exe().map_err(|error| format!("无法定位当前 exe 路径：{error}"))?;
+        let exe_parent = exe
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
+        let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
+        let legacy = [legacy_data_dir.join(file_name), exe_parent.join(file_name)]
+            .into_iter()
+            .find(|path| path.exists());
+        let Some(legacy) = legacy else {
+            return Ok(());
+        };
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("无法创建资料库目录 {}：{error}", parent.display()))?;
+        }
+        fs::rename(&legacy, target).map_err(|error| {
+            format!(
+                "无法迁移旧资料库 {} 到 {}：{error}",
+                legacy.display(),
+                target.display()
+            )
+        })?;
+        if legacy_data_dir.exists()
+            && legacy_data_dir
+                .read_dir()
+                .map_err(|error| {
+                    format!(
+                        "无法读取旧资料库目录 {}：{error}",
+                        legacy_data_dir.display()
+                    )
+                })?
+                .next()
+                .is_none()
+        {
+            fs::remove_dir(&legacy_data_dir).map_err(|error| {
+                format!(
+                    "无法删除空旧资料库目录 {}：{error}",
+                    legacy_data_dir.display()
+                )
+            })?;
+        }
     }
     let _ = (file_name, target);
     Ok(())

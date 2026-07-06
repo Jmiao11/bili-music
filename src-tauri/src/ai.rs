@@ -11,6 +11,8 @@ use crate::search::{SearchClient, SearchVideo};
 
 const VERSION: u32 = 1;
 const AI_CONFIG_FILE: &str = "ai-config.json";
+const DATA_SUBDIR: &str = "data";
+const APP_DATA_DIR: &str = "bili-music";
 #[cfg(debug_assertions)]
 const DEV_DATA_DIR: &str = ".local-data";
 
@@ -557,7 +559,9 @@ fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), Strin
 }
 
 fn ai_config_path() -> Result<PathBuf, String> {
-    Ok(data_root()?.join(AI_CONFIG_FILE))
+    let target = data_root()?.join(AI_CONFIG_FILE);
+    migrate_legacy_ai_config(&target)?;
+    Ok(target)
 }
 
 fn data_root() -> Result<PathBuf, String> {
@@ -573,12 +577,73 @@ fn data_root() -> Result<PathBuf, String> {
 
     #[cfg(not(debug_assertions))]
     {
+        let base = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|path| path.parent().map(Path::to_path_buf))
+            })
+            .ok_or_else(|| "无法定位用户数据目录。".to_owned())?;
+        Ok(base.join(APP_DATA_DIR))
+    }
+}
+
+fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
+    #[cfg(not(debug_assertions))]
+    {
+        if target.exists() {
+            return Ok(());
+        }
         let exe =
             std::env::current_exe().map_err(|error| format!("无法定位当前 exe 路径：{error}"))?;
-        exe.parent()
+        let exe_parent = exe
+            .parent()
             .map(Path::to_path_buf)
-            .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())
+            .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
+        let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
+        let legacy = [
+            legacy_data_dir.join(AI_CONFIG_FILE),
+            exe_parent.join(AI_CONFIG_FILE),
+        ]
+        .into_iter()
+        .find(|path| path.exists());
+        let Some(legacy) = legacy else {
+            return Ok(());
+        };
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("无法创建 AI 配置目录 {}：{error}", parent.display()))?;
+        }
+        fs::rename(&legacy, target).map_err(|error| {
+            format!(
+                "无法迁移旧 AI 配置 {} 到 {}：{error}",
+                legacy.display(),
+                target.display()
+            )
+        })?;
+        if legacy_data_dir.exists()
+            && legacy_data_dir
+                .read_dir()
+                .map_err(|error| {
+                    format!(
+                        "无法读取旧 AI 配置目录 {}：{error}",
+                        legacy_data_dir.display()
+                    )
+                })?
+                .next()
+                .is_none()
+        {
+            fs::remove_dir(&legacy_data_dir).map_err(|error| {
+                format!(
+                    "无法删除空旧 AI 配置目录 {}：{error}",
+                    legacy_data_dir.display()
+                )
+            })?;
+        }
     }
+    let _ = target;
+    Ok(())
 }
 
 fn normalize_required(name: &str, value: &str) -> Result<String, String> {
