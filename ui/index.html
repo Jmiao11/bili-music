@@ -86,33 +86,35 @@
       <main class="main-panel panel" aria-labelledby="queue-heading">
         <section id="view-home" class="view is-active" data-home-mode="ranking">
           <div class="home-stage">
-            <header class="list-head home-head">
+            <header class="home-head">
               <div class="home-title-block">
-                <span class="home-vinyl-mark" aria-hidden="true"></span>
                 <div class="home-title-copy">
-                  <span id="home-source-label" class="home-source-label">B站音乐区</span>
-                  <h1 id="home-title">音乐飙升榜</h1>
-                  <p id="home-ranking-status" class="search-status" role="status">正在拉取 B站音乐区热门内容…</p>
+                  <span id="home-source-label" class="home-source-label" hidden></span>
+                  <h1 id="home-title">为你推荐</h1>
+                  <p class="home-subtitle">根据收藏、搜索、歌单和听歌记录生成</p>
                 </div>
               </div>
               <div class="home-actions">
-                <span id="home-cache-note" class="home-cache-note">游客榜单 · 本次运行缓存</span>
+                <span id="home-cache-note" class="home-cache-note" hidden></span>
                 <button id="refresh-ranking-button" class="secondary-button home-refresh-button" type="button">刷新</button>
               </div>
             </header>
 
             <div id="home-hint-row" class="home-hint-row" hidden>
-              <input id="home-hint-input" class="home-hint-input" type="text" maxlength="60" placeholder="用一句话描述你现在想听什么（可留空）" />
-              <button id="home-hint-apply" class="secondary-button" type="button">按这个推荐</button>
+              <div class="home-hint-controls">
+                <input id="home-hint-input" class="home-hint-input" type="text" maxlength="60" aria-label="用一句话描述你现在想听什么" placeholder="用一句话描述你现在想听什么，可留空" />
+                <button id="home-hint-apply" class="primary-cta" type="button">生成推荐</button>
+              </div>
             </div>
 
-            <section class="home-ranking-panel" aria-label="榜单列表">
-              <div class="home-ranking-bar" aria-hidden="true">
-                <span id="home-list-label">上升中的音乐视频</span>
-                <span>点击条目开始播放</span>
+            <section class="home-ranking-panel" aria-label="推荐列表">
+              <div class="home-ranking-bar">
+                <span id="home-list-label">按你的口味生成</span>
+                <span class="home-ranking-hint">点击条目开始播放</span>
               </div>
+              <p id="home-ranking-status" class="home-status-live" role="status" aria-live="polite"></p>
               <p id="home-ranking-error" class="home-error" role="status" aria-live="polite"></p>
-              <ul id="home-ranking-list" class="tracklist ranking-list" aria-label="音乐飙升榜"></ul>
+              <ul id="home-ranking-list" class="tracklist ranking-list" aria-label="推荐列表"></ul>
             </section>
           </div>
         </section>
