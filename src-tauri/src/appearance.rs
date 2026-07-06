@@ -10,6 +10,10 @@ use std::path::{Path, PathBuf};
 const MAX_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_IMAGE_EDGE: u32 = 2560;
 const JPEG_QUALITY: u8 = 86;
+const APP_DATA_DIR: &str = "bili-music";
+const BACKGROUND_FILE_STEM: &str = "background";
+#[cfg(debug_assertions)]
+const DEV_DATA_DIR: &str = ".local-data";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +37,14 @@ pub async fn choose_background_image() -> Result<Option<BackgroundImage>, String
     .map_err(|error| format!("背景选择器启动失败：{error}"))?;
 
     match path {
-        Some(path) => load_background_path(path).await.map(Some),
+        Some(path) => tauri::async_runtime::spawn_blocking(move || {
+            let mut image = prepare_background(&path)?;
+            let internal = store_background_copy(&path)?;
+            image.path = internal.to_string_lossy().into_owned();
+            Ok(Some(image))
+        })
+        .await
+        .map_err(|error| format!("背景处理任务失败：{error}"))?,
         None => Ok(None),
     }
 }
@@ -90,6 +101,74 @@ fn prepare_background(path: &Path) -> Result<BackgroundImage, String> {
         width,
         height,
     })
+}
+
+fn store_background_copy(source: &Path) -> Result<PathBuf, String> {
+    let dir = background_store_dir()?;
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("无法创建背景图片目录 {}：{error}", dir.display()))?;
+    remove_existing_background_copies(&dir)?;
+
+    let ext = source
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_ascii_lowercase())
+        .filter(|ext| !ext.is_empty())
+        .unwrap_or_else(|| "img".to_owned());
+    let internal = dir.join(BACKGROUND_FILE_STEM).with_extension(ext);
+    fs::copy(source, &internal).map_err(|error| {
+        format!(
+            "无法保存背景图片副本 {} 到 {}：{error}",
+            source.display(),
+            internal.display()
+        )
+    })?;
+    Ok(internal)
+}
+
+fn remove_existing_background_copies(dir: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(dir)
+        .map_err(|error| format!("无法读取背景图片目录 {}：{error}", dir.display()))?
+    {
+        let path = entry
+            .map_err(|error| format!("无法读取背景图片目录项：{error}"))?
+            .path();
+        if path.is_file()
+            && path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(|stem| stem == BACKGROUND_FILE_STEM)
+        {
+            fs::remove_file(&path)
+                .map_err(|error| format!("无法删除旧背景图片副本 {}：{error}", path.display()))?;
+        }
+    }
+    Ok(())
+}
+
+fn background_store_dir() -> Result<PathBuf, String> {
+    #[cfg(debug_assertions)]
+    {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let project_root = manifest_dir
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "无法从 CARGO_MANIFEST_DIR 定位项目根目录。".to_owned())?;
+        return Ok(project_root.join(DEV_DATA_DIR));
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let base = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::current_exe()
+                    .ok()
+                    .and_then(|path| path.parent().map(Path::to_path_buf))
+            })
+            .ok_or_else(|| "无法定位用户数据目录。".to_owned())?;
+        Ok(base.join(APP_DATA_DIR))
+    }
 }
 
 #[cfg(test)]
