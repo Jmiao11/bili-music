@@ -890,6 +890,10 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
     return;
   }
   homeState.recommendationLoading = true;
+  if (homeHintApply) {
+    homeHintApply.disabled = true;
+    homeHintApply.textContent = "生成中…";
+  }
   homeState.recommendationError = "";
   homeRankingStatus.textContent = forceRefresh
     ? "正在重新生成推荐…"
@@ -918,6 +922,10 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
   } finally {
     homeState.recommendationLoading = false;
     refreshRankingButton.disabled = false;
+    if (homeHintApply) {
+      homeHintApply.disabled = false;
+      homeHintApply.textContent = "生成推荐";
+    }
     if (homeState.mode === "recommendation") {
       renderRecommendations();
     }
