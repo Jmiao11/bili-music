@@ -3154,6 +3154,26 @@ input[type="range"]::-webkit-slider-thumb {
   gap: 8px;
 }
 
+.advanced-settings {
+  margin-top: 4px;
+}
+
+.advanced-settings summary {
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.advanced-settings[open] summary {
+  color: var(--text-2);
+}
+
+.advanced-settings > .settings-field {
+  margin-top: 8px;
+}
+
 .secondary-button,
 .small-button {
   min-height: 34px;
