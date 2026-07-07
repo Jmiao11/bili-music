@@ -3145,8 +3145,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .image-only.is-disabled {
-  opacity: 0.4;
-  pointer-events: none;
+  display: none;
 }
 
 .setting-actions {
