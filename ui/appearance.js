@@ -99,9 +99,9 @@ function clampNumber(value, min, max, fallback) {
 
 function streamSourceLabel(source) {
   if (source === "guest") {
-    return "当前：游客";
+    return "当前：游客直连";
   }
-  return "当前：自动（游客优先 + yt-dlp 兜底）";
+  return "当前：自动（游客优先，yt-dlp 兜底）";
 }
 
 function streamSourceDisabledHint() {

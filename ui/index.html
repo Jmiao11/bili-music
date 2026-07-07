@@ -390,14 +390,15 @@
         </section>
 
         <section class="setting-group">
-          <h3>取流方案</h3>
+          <h3>音频获取方式</h3>
           <label class="select-row" for="stream-source-select">
             <select id="stream-source-select" class="settings-select">
-              <option value="guest">游客</option>
-              <option value="auto">自动（游客优先 + yt-dlp 兜底）</option>
+              <option value="guest">游客直连（免登录，推荐）</option>
+              <option value="auto">自动（游客优先，失败用 yt-dlp 兜底）</option>
             </select>
           </label>
-          <small id="stream-source-status">默认使用游客取流</small>
+          <small id="stream-source-status"></small>
+          <small class="setting-note">决定从 B 站获取音频的方式。游客直连免登录、开箱即用；自动模式在获取失败时用 yt-dlp 兜底，需自备 yt-dlp.exe。</small>
         </section>
 
         <section class="setting-group ai-settings">
