@@ -185,10 +185,22 @@
   }
 
   function renderMascot(mascot) {
+    stage.classList.remove("is-hidden");
     currentMascot = mascot;
     slot.innerHTML = mascot.svg;
     stage.dataset.mascotId = mascot.id;
     stage.dataset.mascotName = mascot.name;
+    window.clearTimeout(bubbleTimer);
+    if (bubble) {
+      bubble.hidden = true;
+      bubble.textContent = "";
+    }
+  }
+
+  function hideMascot() {
+    currentMascot = null;
+    slot.innerHTML = "";
+    stage.classList.add("is-hidden");
     window.clearTimeout(bubbleTimer);
     if (bubble) {
       bubble.hidden = true;
@@ -322,11 +334,11 @@
     scheduleDoze();
   }
 
-  function getSavedMascot() {
+  function getSavedMascotId() {
     try {
-      return MASCOTS[localStorage.getItem(MASCOT_KEY)] ?? MASCOTS.kuro;
+      return localStorage.getItem(MASCOT_KEY);
     } catch (_) {
-      return MASCOTS.kuro;
+      return "";
     }
   }
 
@@ -343,9 +355,14 @@
       return Object.values(MASCOTS).map(({ id, name, svg }) => ({ id, name, svg }));
     },
     getActive() {
-      return currentMascot?.id;
+      return currentMascot?.id ?? "none";
     },
     setActive(id) {
+      if (id === "none") {
+        hideMascot();
+        saveMascot("none");
+        return "none";
+      }
       const mascot = MASCOTS[id] ?? MASCOTS.kuro;
       renderMascot(mascot);
       saveMascot(mascot.id);
@@ -354,7 +371,12 @@
     },
   };
 
-  renderMascot(getSavedMascot());
+  const savedMascotId = getSavedMascotId();
+  if (savedMascotId === "none") {
+    hideMascot();
+  } else {
+    renderMascot(MASCOTS[savedMascotId] ?? MASCOTS.kuro);
+  }
   setState("idle");
   scheduleBlink();
   speak(new Date().getHours() >= 23 || new Date().getHours() < 5 ? "lateNight" : "greet", {

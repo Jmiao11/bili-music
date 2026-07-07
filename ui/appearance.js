@@ -350,6 +350,28 @@ function renderMascotPicker() {
     });
     mascotPicker.append(tile);
   }
+
+  const noneTile = document.createElement("button");
+  noneTile.type = "button";
+  noneTile.className = "mascot-tile mascot-tile-none";
+  noneTile.dataset.mascotId = "none";
+  noneTile.setAttribute("aria-label", "不显示桌宠");
+
+  const nonePreview = document.createElement("span");
+  nonePreview.className = "mascot-tile-preview";
+  nonePreview.textContent = "—";
+
+  const noneLabel = document.createElement("span");
+  noneLabel.className = "mascot-tile-name";
+  noneLabel.textContent = "不显示";
+
+  noneTile.append(nonePreview, noneLabel);
+  noneTile.addEventListener("click", () => {
+    window.BiliMascot.setActive("none");
+    syncMascotPickerSelection();
+  });
+  mascotPicker.append(noneTile);
+
   syncMascotPickerSelection();
 }
 
