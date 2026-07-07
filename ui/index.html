@@ -401,8 +401,8 @@
           <small class="setting-note">决定从 B 站获取音频的方式。游客直连免登录、开箱即用；自动模式在获取失败时用 yt-dlp 兜底，需自备 yt-dlp.exe。</small>
         </section>
 
-        <section class="setting-group ai-settings">
-          <h3>AI 推荐</h3>
+        <details class="setting-group ai-settings collapsible-group">
+          <summary><h3>AI 推荐</h3></summary>
           <label class="settings-field" for="ai-model-input">
             <span>模型</span>
             <input id="ai-model-input" class="settings-input" type="text" autocomplete="off" placeholder="gpt-4o-mini" />
@@ -423,10 +423,10 @@
             <button id="test-ai-connection-button" class="small-button quiet" type="button">测试连接</button>
           </div>
           <small id="ai-config-status">尚未读取 AI 配置</small>
-        </section>
+        </details>
 
-        <section class="setting-group">
-          <h3>数据与隐私</h3>
+        <details class="setting-group collapsible-group">
+          <summary><h3>数据与隐私</h3></summary>
           <div class="setting-subgroup">
             <h4>数据备份</h4>
             <div class="setting-actions">
@@ -441,7 +441,7 @@
             </div>
           </div>
           <small class="setting-note">导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。</small>
-        </section>
+        </details>
 
         <p id="appearance-status" class="appearance-status" role="status"></p>
       </div>
