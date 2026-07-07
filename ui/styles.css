@@ -3176,9 +3176,10 @@ input[type="range"]::-webkit-slider-thumb {
 
 .setting-subgroup h4 {
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--text-2);
+  color: var(--text-3);
+  letter-spacing: 0.03em;
 }
 
 .setting-note {
@@ -3201,6 +3202,9 @@ input[type="range"]::-webkit-slider-thumb {
 
 .collapsible-group > summary h3 {
   margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
 }
 
 .collapsible-group[open] > summary {
@@ -3226,7 +3230,7 @@ input[type="range"]::-webkit-slider-thumb {
 .advanced-settings summary {
   cursor: pointer;
   color: var(--text-3);
-  font-size: 13px;
+  font-size: 12px;
   padding: 4px 0;
   user-select: none;
 }
