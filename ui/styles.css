@@ -3154,6 +3154,27 @@ input[type="range"]::-webkit-slider-thumb {
   gap: 8px;
 }
 
+.setting-subgroup {
+  margin-top: 10px;
+}
+
+.setting-subgroup:first-of-type {
+  margin-top: 0;
+}
+
+.setting-subgroup h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.setting-note {
+  color: var(--text-3);
+  font-size: 12px;
+  opacity: 0.85;
+}
+
 .advanced-settings {
   margin-top: 4px;
 }

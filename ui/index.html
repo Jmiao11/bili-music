@@ -425,20 +425,21 @@
         </section>
 
         <section class="setting-group">
-          <h3>数据备份</h3>
-          <div class="setting-actions">
-            <button id="export-data-button" class="secondary-button" type="button">导出数据</button>
-            <button id="import-data-button" class="secondary-button" type="button">导入数据</button>
+          <h3>数据与隐私</h3>
+          <div class="setting-subgroup">
+            <h4>数据备份</h4>
+            <div class="setting-actions">
+              <button id="export-data-button" class="secondary-button" type="button">导出数据</button>
+              <button id="import-data-button" class="secondary-button" type="button">导入数据</button>
+            </div>
           </div>
-          <small>导出会把收藏、歌单、听歌记录、AI 配置与背景打包成一个 zip；导入会用所选 zip 覆盖当前数据并刷新界面。</small>
-        </section>
-
-        <section class="setting-group">
-          <h3>搜索历史</h3>
-          <div class="setting-actions">
-            <button id="clear-search-history-button" class="small-button quiet" type="button">清空搜索历史</button>
+          <div class="setting-subgroup">
+            <h4>搜索历史</h4>
+            <div class="setting-actions">
+              <button id="clear-search-history-button" class="small-button quiet" type="button">清空搜索历史</button>
+            </div>
           </div>
-          <small>仅清空本地记录，不影响收藏、歌单或播放队列。</small>
+          <small class="setting-note">导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。</small>
         </section>
 
         <p id="appearance-status" class="appearance-status" role="status"></p>
