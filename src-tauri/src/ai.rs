@@ -200,7 +200,7 @@ pub async fn generate_recommendations(
 
     let intents = match generate_search_intents(&profile).await {
         Ok(intents) => intents,
-        Err(_) => return Ok(Vec::new()),
+        Err(error) => return Err(error),
     };
     if intents.is_empty() {
         return Ok(Vec::new());
