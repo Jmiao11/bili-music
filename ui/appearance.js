@@ -564,6 +564,7 @@ async function saveAiConfig() {
     });
     aiApiKeyInput.value = "";
     updateAiConfigStatus(config);
+    window.dispatchEvent(new Event("ai-config-updated"));
   } catch (error) {
     aiConfigStatus.textContent = `AI 配置保存失败：${error}`;
   } finally {

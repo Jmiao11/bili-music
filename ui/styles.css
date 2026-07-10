@@ -944,6 +944,34 @@ svg {
   font-size: 13px;
 }
 
+#view-home .home-setup-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+#view-home .home-setup-title {
+  margin: 0;
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+#view-home .home-setup-sub {
+  margin: 0;
+  max-width: 420px;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+#view-home.needs-setup .ranking-list:empty::before {
+  content: none;
+}
+
 #view-home[data-home-mode="recommendation"] .ranking-list:empty::before {
   content: "暂无推荐 · 先收藏、搜索或播放几首，也可以直接输入一句话生成";
 }

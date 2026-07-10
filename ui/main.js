@@ -56,6 +56,7 @@ const homeState = {
   recommendationLoading: false,
   recommendationError: "",
   userHint: "",
+  aiHasKey: null,
 };
 
 const libraryState = {
@@ -82,6 +83,8 @@ const homeListLabel = document.querySelector("#home-list-label");
 const homeRankingStatus = document.querySelector("#home-ranking-status");
 const homeRankingError = document.querySelector("#home-ranking-error");
 const homeRankingList = document.querySelector("#home-ranking-list");
+const homeSetupHint = document.querySelector("#home-setup-hint");
+const homeSetupSettings = document.querySelector("#home-setup-settings");
 const refreshRankingButton = document.querySelector("#refresh-ranking-button");
 const homeHintRow = document.querySelector("#home-hint-row");
 const homeHintInput = document.querySelector("#home-hint-input");
@@ -775,6 +778,10 @@ function renderHomeRanking() {
   }
   updateHomeModeUi();
   homeRankingList.replaceChildren();
+  if (homeSetupHint) {
+    homeSetupHint.hidden = true;
+  }
+  homePanel?.classList.remove("needs-setup");
   if (homeState.loading) {
     renderRankingSkeleton();
     return;
@@ -803,6 +810,10 @@ function renderRecommendations() {
   }
   updateHomeModeUi();
   homeRankingList.replaceChildren();
+  if (homeSetupHint) {
+    homeSetupHint.hidden = true;
+  }
+  homePanel?.classList.remove("needs-setup");
   if (homeState.recommendationLoading) {
     renderRankingSkeleton();
     return;
@@ -812,6 +823,12 @@ function renderRecommendations() {
     return;
   }
   if (homeState.recommendations.length === 0) {
+    if (homeState.aiHasKey === false) {
+      if (homeSetupHint) {
+        homeSetupHint.hidden = false;
+      }
+      homePanel?.classList.add("needs-setup");
+    }
     homeRankingError.textContent = "";
     return;
   }
@@ -834,6 +851,18 @@ function renderHomeContent() {
     renderRecommendations();
   } else {
     renderHomeRanking();
+  }
+}
+
+async function refreshAiKeyState() {
+  try {
+    const config = await invoke("get_ai_config");
+    homeState.aiHasKey = !!config.hasKey;
+  } catch (error) {
+    homeState.aiHasKey = null;
+  }
+  if (homeState.mode === "recommendation") {
+    renderRecommendations();
   }
 }
 
@@ -1965,6 +1994,14 @@ homeHintInput?.addEventListener("keydown", (event) => {
   homeState.userHint = homeHintInput.value;
   loadRecommendations({ forceRefresh: true });
 });
+homeSetupSettings?.addEventListener("click", () => {
+  document.querySelector("#open-settings-button")?.click();
+  const ai = document.querySelector(".ai-settings");
+  if (ai) {
+    ai.setAttribute("open", "");
+    ai.scrollIntoView({ block: "center" });
+  }
+});
 for (const tab of homeModeTabs) {
   tab.addEventListener("click", () => setHomeMode(tab.dataset.homeMode));
 }
@@ -2015,8 +2052,10 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
     loadLibrary();
   }
 });
+window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 updateHomeModeUi();
+refreshAiKeyState();
 loadHomeRanking();
 loadLibrary();
 updateMusicTabs();
