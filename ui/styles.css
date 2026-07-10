@@ -945,6 +945,7 @@ svg {
 }
 
 #view-home .home-setup-hint {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -952,6 +953,10 @@ svg {
   gap: 10px;
   padding: 40px 24px;
   text-align: center;
+}
+
+#view-home .home-setup-hint[hidden] {
+  display: none;
 }
 
 #view-home .home-setup-title {
@@ -968,8 +973,9 @@ svg {
   line-height: 1.6;
 }
 
-#view-home.needs-setup .ranking-list:empty::before {
-  content: none;
+#view-home.needs-setup .home-ranking-bar,
+#view-home.needs-setup .ranking-list {
+  display: none;
 }
 
 #view-home[data-home-mode="recommendation"] .ranking-list:empty::before {
