@@ -84,6 +84,8 @@ const homeRankingStatus = document.querySelector("#home-ranking-status");
 const homeRankingError = document.querySelector("#home-ranking-error");
 const homeRankingList = document.querySelector("#home-ranking-list");
 const homeSetupHint = document.querySelector("#home-setup-hint");
+const homeSetupTitle = document.querySelector("#home-setup-title");
+const homeSetupSub = document.querySelector("#home-setup-sub");
 const homeSetupSettings = document.querySelector("#home-setup-settings");
 const refreshRankingButton = document.querySelector("#refresh-ranking-button");
 const homeHintRow = document.querySelector("#home-hint-row");
@@ -804,6 +806,13 @@ function renderHomeRanking() {
   updateQueueUi();
 }
 
+function showHomeNotice(title, sub) {
+  homeSetupTitle.textContent = title;
+  homeSetupSub.textContent = sub;
+  homeSetupHint.hidden = false;
+  homePanel?.classList.add("needs-setup");
+}
+
 function renderRecommendations() {
   if (!homeRankingList) {
     return;
@@ -819,15 +828,19 @@ function renderRecommendations() {
     return;
   }
   if (homeState.recommendationError) {
-    homeRankingError.textContent = homeState.recommendationError;
+    showHomeNotice(
+      "推荐生成失败",
+      `${homeState.recommendationError}｜请在「设置 → AI 推荐」检查 API Key 与模型配置`,
+    );
+    homeRankingError.textContent = "";
     return;
   }
   if (homeState.recommendations.length === 0) {
     if (homeState.aiHasKey === false) {
-      if (homeSetupHint) {
-        homeSetupHint.hidden = false;
-      }
-      homePanel?.classList.add("needs-setup");
+      showHomeNotice(
+        "「为你推荐」需要你自己的大模型 API Key",
+        "在「设置 → AI 推荐」填入 API Key，即可根据你的收藏、歌单与听歌记录生成推荐。不配置也能正常搜索与播放。",
+      );
     }
     homeRankingError.textContent = "";
     return;
@@ -945,7 +958,7 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
       ? `已生成 ${homeState.recommendations.length} 首推荐。`
       : "暂无推荐结果。";
   } catch (error) {
-    homeState.recommendationError = "推荐暂不可用，可在设置检查 AI 配置";
+    homeState.recommendationError = String(error?.message ?? error);
     homeRankingStatus.textContent = "为你推荐生成失败。";
     console.warn("recommendations load failed:", error);
   } finally {
