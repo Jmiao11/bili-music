@@ -555,8 +555,17 @@ async function saveAiConfig() {
   }
 
   saveAiConfigButton.disabled = true;
-  aiConfigStatus.textContent = "正在保存 AI 配置…";
+  aiConfigStatus.textContent = "正在验证并保存 AI 配置…";
   try {
+    const test = await invokeAppearance("test_ai_connection", {
+      baseUrl: aiBaseUrlInput.value,
+      model: aiModelInput.value,
+      apiKey: aiApiKeyInput.value,
+    });
+    if (!test.ok) {
+      aiConfigStatus.textContent = `连接测试未通过，未保存：${test.message}`;
+      return;
+    }
     const config = await invokeAppearance("set_ai_config", {
       baseUrl: aiBaseUrlInput.value,
       model: aiModelInput.value,
@@ -564,6 +573,7 @@ async function saveAiConfig() {
     });
     aiApiKeyInput.value = "";
     updateAiConfigStatus(config);
+    aiConfigStatus.textContent = "连接正常，配置已保存。";
     window.dispatchEvent(new Event("ai-config-updated"));
   } catch (error) {
     aiConfigStatus.textContent = `AI 配置保存失败：${error}`;
