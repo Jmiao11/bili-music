@@ -879,6 +879,10 @@ svg {
   background: transparent;
 }
 
+:root[data-theme="image"] #view-home .home-ranking-panel {
+  background: rgba(24, 24, 28, var(--content-panel-alpha, 0));
+}
+
 #view-home .home-ranking-bar {
   display: flex;
   justify-content: space-between;
@@ -1486,7 +1490,7 @@ svg {
 
 :root[data-theme="image"] #view-search .search-command-panel,
 :root[data-theme="image"] #view-search .search-results-panel {
-  background: rgba(24, 24, 28, var(--panel-alpha));
+  background: rgba(24, 24, 28, var(--content-panel-alpha, 0));
 }
 
 #view-favorites,
@@ -1770,7 +1774,7 @@ svg {
 :root[data-theme="image"] #view-favorites #favorites-list,
 :root[data-theme="image"] #view-playlists .playlist-detail,
 :root[data-theme="image"] #view-playlists #playlists-list {
-  background: rgba(24, 24, 28, var(--panel-alpha));
+  background: rgba(24, 24, 28, var(--content-panel-alpha, 0));
 }
 
 .tracklist {

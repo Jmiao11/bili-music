@@ -4,6 +4,7 @@ const BACKGROUND_PATH_KEY = "bilibili-music.background-path";
 const THEME_KEY = "bilibili-music.theme";
 const GLASS_BLUR_KEY = "bilibili-music.glass-blur";
 const PANEL_ALPHA_KEY = "bilibili-music.panel-alpha";
+const CONTENT_ALPHA_KEY = "bilibili-music.content-alpha";
 const BACKGROUND_DIM_KEY = "bilibili-music.background-dim";
 const VOLUME_KEY = "bilibili-music.volume";
 
@@ -29,6 +30,8 @@ const glassBlurSlider = document.querySelector("#glass-blur-slider");
 const glassBlurValue = document.querySelector("#glass-blur-value");
 const panelAlphaSlider = document.querySelector("#panel-alpha-slider");
 const panelAlphaValue = document.querySelector("#panel-alpha-value");
+const contentAlphaSlider = document.querySelector("#content-alpha-slider");
+const contentAlphaValue = document.querySelector("#content-alpha-value");
 const backgroundDimSlider = document.querySelector("#background-dim-slider");
 const backgroundDimValue = document.querySelector("#background-dim-value");
 const streamSourceSelect = document.querySelector("#stream-source-select");
@@ -456,6 +459,16 @@ function setPanelAlpha(value, persist = true) {
   }
 }
 
+function setContentAlpha(value, persist = true) {
+  const safeValue = clampNumber(value, 0, 100, 0);
+  root.style.setProperty("--content-panel-alpha", String(safeValue / 100));
+  contentAlphaSlider.value = String(safeValue);
+  contentAlphaValue.textContent = `${safeValue}%`;
+  if (persist) {
+    localStorage.setItem(CONTENT_ALPHA_KEY, String(safeValue));
+  }
+}
+
 function setBackgroundDim(value, persist = true) {
   const safeValue = clampNumber(value, 40, 95, 90);
   root.style.setProperty("--background-dim", String(safeValue / 100));
@@ -648,6 +661,7 @@ for (const option of themeOptions) {
 
 glassBlurSlider.addEventListener("input", () => setGlassBlur(glassBlurSlider.value));
 panelAlphaSlider.addEventListener("input", () => setPanelAlpha(panelAlphaSlider.value));
+contentAlphaSlider.addEventListener("input", () => setContentAlpha(contentAlphaSlider.value));
 backgroundDimSlider.addEventListener("input", () => setBackgroundDim(backgroundDimSlider.value));
 
 chooseBackgroundButton.addEventListener("click", async () => {
@@ -855,6 +869,7 @@ playerAudio.addEventListener("emptied", () => {
 applyTheme(localStorage.getItem(THEME_KEY), false);
 setGlassBlur(localStorage.getItem(GLASS_BLUR_KEY), false);
 setPanelAlpha(localStorage.getItem(PANEL_ALPHA_KEY), false);
+setContentAlpha(localStorage.getItem(CONTENT_ALPHA_KEY), false);
 setBackgroundDim(localStorage.getItem(BACKGROUND_DIM_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);
 updateProgress(0);
