@@ -53,6 +53,8 @@ struct ChatChoice {
 #[derive(Deserialize)]
 struct ChatMessageResponse {
     content: Option<String>,
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -166,7 +168,7 @@ pub async fn test_ai_connection(
         content: "ping".to_owned(),
     }];
 
-    match chat_completion_with_config(&config, messages, 1).await {
+    match chat_completion_with_config(&config, messages, 16).await {
         Ok(_) => Ok(AiConnectionTestResult {
             ok: true,
             message: "连接成功。".to_owned(),
@@ -314,7 +316,14 @@ async fn chat_completion_with_config(
         })?;
     body.choices
         .into_iter()
-        .find_map(|choice| choice.message.and_then(|message| message.content))
+        .find_map(|choice| {
+            choice.message.and_then(|message| {
+                message
+                    .content
+                    .filter(|content| !content.trim().is_empty())
+                    .or(message.reasoning_content)
+            })
+        })
         .filter(|content| !content.trim().is_empty())
         .ok_or_else(|| "响应缺少 content。".to_owned())
 }
