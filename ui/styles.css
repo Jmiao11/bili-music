@@ -3503,9 +3503,13 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .immersive-lyrics {
-  display: grid;
-  min-height: 120px;
-  place-items: center start;
+  display: flex;
+  max-height: 34vh;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
   color: var(--text-3);
   font-size: 16px;
   line-height: 1.6;
@@ -3588,4 +3592,50 @@ input[type="range"]::-webkit-slider-thumb {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+.lyrics-lines {
+  position: relative;
+  display: flex;
+  max-height: 100%;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+}
+
+.lyrics-lines::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.lyrics-line {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 14px;
+  line-height: 1.6;
+  transition:
+    color 0.2s,
+    font-size 0.2s;
+}
+
+.lyrics-line.is-active {
+  color: var(--text-1);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lyrics-placeholder {
+  color: var(--text-3);
+  text-align: center;
+}
+
+.immersive-lyrics.has-lyrics .lyrics-placeholder {
+  display: none;
+}
+
+.immersive-lyrics:not(.has-lyrics) .lyrics-lines {
+  display: none;
 }

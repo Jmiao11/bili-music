@@ -4,6 +4,7 @@ mod ai;
 mod appearance;
 mod guest_playurl;
 mod library;
+mod lyrics;
 mod ranking;
 mod search;
 mod wbi;
@@ -636,6 +637,7 @@ fn main() {
             ai::get_ai_config,
             ai::set_ai_config,
             ai::test_ai_connection,
+            lyrics::get_lyrics_by_id,
             get_recommendations,
             export_data,
             import_data
