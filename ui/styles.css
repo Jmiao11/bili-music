@@ -3502,6 +3502,14 @@ input[type="range"]::-webkit-slider-thumb {
   line-height: 1.5;
 }
 
+.lyrics-pane {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .immersive-lyrics {
   display: flex;
   max-height: 34vh;
@@ -3582,6 +3590,11 @@ input[type="range"]::-webkit-slider-thumb {
     text-align: center;
     place-items: center;
   }
+
+  .lyrics-pane {
+    height: auto;
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3641,7 +3654,10 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .immersive-player .lyrics-match {
+  flex: 0 0 auto;
   width: 100%;
+  max-height: 38%;
+  overflow-y: auto;
   color: var(--text-3);
   font-size: 12.5px;
   line-height: 1.45;
@@ -3654,8 +3670,6 @@ input[type="range"]::-webkit-slider-thumb {
 
 .immersive-player .lyrics-candidates {
   display: flex;
-  max-height: 18vh;
-  overflow-y: auto;
   flex-direction: column;
   gap: 3px;
   margin-top: 7px;
@@ -3664,10 +3678,11 @@ input[type="range"]::-webkit-slider-thumb {
 .immersive-player .lyrics-candidate {
   width: 100%;
   min-height: 30px;
-  padding: 5px 8px;
+  padding: 6px 10px;
   border-radius: 8px;
   color: var(--text-2);
   background: transparent;
+  cursor: pointer;
   line-height: 1.4;
   text-align: left;
   transition:
@@ -3731,7 +3746,7 @@ input[type="range"]::-webkit-slider-thumb {
   grid-column: -2 / -1;
 }
 
-.immersive-lyrics.has-lyrics ~ .lyrics-controls {
+.lyrics-pane:has(.immersive-lyrics.has-lyrics) + .lyrics-controls {
   display: flex;
 }
 
@@ -3755,18 +3770,25 @@ input[type="range"]::-webkit-slider-thumb {
   font-weight: inherit;
 }
 
+@media (max-width: 980px) {
+  .immersive-player .lyrics-match {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
 @media (min-width: 981px) {
   .immersive-content {
     --immersive-col-gap: 40px;
     --immersive-cover-max: 300px;
     --lyrics-max-width: 560px;
     grid-template-areas:
-      ". lyrics"
-      "art lyrics"
-      "track lyrics"
-      "player lyrics"
-      "lyric-tools lyrics"
-      ". lyric-match";
+      ". lyrics-pane"
+      "art lyrics-pane"
+      "track lyrics-pane"
+      "player lyrics-pane"
+      "lyric-tools lyrics-pane"
+      ". lyrics-pane";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows:
       minmax(0, 1fr)
@@ -3816,21 +3838,25 @@ input[type="range"]::-webkit-slider-thumb {
     margin-top: 10px;
   }
 
-  .immersive-lyrics {
+  .lyrics-pane {
     width: 100%;
     height: 100%;
-    max-height: none;
-    grid-area: lyrics;
+    grid-area: lyrics-pane;
     align-self: stretch;
+    justify-self: stretch;
+  }
+
+  .immersive-lyrics {
+    width: 100%;
+    height: auto;
+    max-height: none;
     justify-items: start;
     justify-content: center;
   }
 
   .immersive-player .lyrics-match {
     max-width: var(--lyrics-max-width);
-    grid-area: lyric-match;
-    align-self: start;
-    justify-self: start;
+    align-self: flex-start;
   }
 
   .immersive-controls {
