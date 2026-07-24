@@ -1,9 +1,32 @@
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 const LYRIC_API_BASE: &str = "https://api.vkeys.cn/v2";
 const REQUEST_TIMEOUT_SECS: u64 = 5;
+const LYRICS_OFFSETS_FILE: &str = "lyrics-offsets.json";
+const OFFSETS_VERSION: u32 = 1;
+
+#[derive(Debug, Deserialize, Serialize)]
+struct LyricsOffsetsFile {
+    version: u32,
+    offsets: HashMap<String, i64>,
+}
+
+impl Default for LyricsOffsetsFile {
+    fn default() -> Self {
+        Self {
+            version: OFFSETS_VERSION,
+            offsets: HashMap::new(),
+        }
+    }
+}
+
+impl crate::library::Versioned for LyricsOffsetsFile {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,9 +114,46 @@ pub async fn get_lyrics_by_id(song_id: String) -> Result<Lyrics, String> {
     fetch_lyrics_by_id(song_id).await
 }
 
+fn offsets_path() -> Result<PathBuf, String> {
+    Ok(crate::library::library_root()?.join(LYRICS_OFFSETS_FILE))
+}
+
+fn offset_key(bvid: &str, cid: i64) -> String {
+    format!("{}:{}", bvid.trim(), cid)
+}
+
+#[tauri::command]
+pub async fn get_lyrics_offset(bvid: String, cid: i64) -> Result<i64, String> {
+    let file = crate::library::read_json_or_default::<LyricsOffsetsFile>(&offsets_path()?)?;
+    Ok(file
+        .offsets
+        .get(&offset_key(&bvid, cid))
+        .copied()
+        .unwrap_or(0))
+}
+
+#[tauri::command]
+pub async fn set_lyrics_offset(bvid: String, cid: i64, offset_ms: i64) -> Result<(), String> {
+    if bvid.trim().is_empty() || cid <= 0 {
+        return Ok(());
+    }
+
+    let path = offsets_path()?;
+    let mut file = crate::library::read_json_or_default::<LyricsOffsetsFile>(&path)?;
+    let key = offset_key(&bvid, cid);
+    if offset_ms == 0 {
+        file.offsets.remove(&key);
+    } else {
+        file.offsets.insert(key, offset_ms);
+    }
+    crate::library::write_json_atomic(&path, &file)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{lyrics_from_response, LyricApiResponse};
+    use super::{
+        lyrics_from_response, offset_key, LyricApiResponse, LyricsOffsetsFile, OFFSETS_VERSION,
+    };
 
     #[test]
     fn missing_lyrics_is_a_successful_empty_result() {
@@ -107,5 +167,13 @@ mod tests {
             assert!(lyrics.lrc.is_empty());
             assert!(lyrics.trans.is_empty());
         }
+    }
+
+    #[test]
+    fn lyric_offsets_default_cleanly_and_trim_the_bvid_key() {
+        let file = LyricsOffsetsFile::default();
+        assert_eq!(file.version, OFFSETS_VERSION);
+        assert!(file.offsets.is_empty());
+        assert_eq!(offset_key("  BV1xx411c7mD  ", 123), "BV1xx411c7mD:123");
     }
 }

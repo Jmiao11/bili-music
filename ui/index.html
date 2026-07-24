@@ -243,6 +243,14 @@
             <p id="lyrics-placeholder" class="lyrics-placeholder">暂无歌词</p>
           </div>
 
+          <div class="lyrics-controls" aria-label="歌词控制">
+            <span class="lyrics-controls-label">歌词校准</span>
+            <button id="lyrics-offset-minus" class="small-button quiet" type="button" aria-label="歌词提前 0.5 秒">−0.5s</button>
+            <span id="lyrics-offset-value" class="lyrics-offset-value">0.0s</span>
+            <button id="lyrics-offset-plus" class="small-button quiet" type="button" aria-label="歌词延后 0.5 秒">+0.5s</button>
+            <button id="lyrics-mode-toggle" class="small-button quiet" type="button">全文</button>
+          </div>
+
           <div class="immersive-controls">
             <div class="transport-controls" aria-label="沉浸播放控制">
               <button id="immersive-previous-button" class="icon-button" type="button" aria-label="上一首">
@@ -265,6 +273,7 @@
 
             <button id="open-bilibili-button" class="secondary-button" type="button">在 B站打开</button>
             <button id="immersive-favorite-button" class="secondary-button favorite-current-button" type="button" aria-label="收藏当前歌曲">♡ 收藏</button>
+            <button id="immersive-add-playlist-button" class="secondary-button" type="button">+ 加入歌单</button>
           </div>
         </div>
       </div>

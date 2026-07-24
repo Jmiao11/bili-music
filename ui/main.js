@@ -1985,6 +1985,7 @@ shuffleToggle.addEventListener("change", () => {
 
 favoriteCurrentButton?.addEventListener("click", () => toggleFavorite());
 immersiveFavoriteButton?.addEventListener("click", () => toggleFavorite());
+document.querySelector("#immersive-add-playlist-button")?.addEventListener("click", () => choosePlaylistAndAdd());
 createPlaylistButton?.addEventListener("click", createPlaylist);
 renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
 deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);

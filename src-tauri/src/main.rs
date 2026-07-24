@@ -638,6 +638,8 @@ fn main() {
             ai::set_ai_config,
             ai::test_ai_connection,
             lyrics::get_lyrics_by_id,
+            lyrics::get_lyrics_offset,
+            lyrics::set_lyrics_offset,
             get_recommendations,
             export_data,
             import_data

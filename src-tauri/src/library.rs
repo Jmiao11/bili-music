@@ -456,7 +456,7 @@ fn read_play_history() -> Result<PlayHistoryFile, String> {
     read_json_or_default(&play_history_path()?)
 }
 
-fn read_json_or_default<T>(path: &Path) -> Result<T, String>
+pub(crate) fn read_json_or_default<T>(path: &Path) -> Result<T, String>
 where
     T: for<'de> Deserialize<'de> + Default + Versioned,
 {
@@ -471,7 +471,7 @@ where
     Ok(parsed)
 }
 
-trait Versioned {
+pub(crate) trait Versioned {
     fn version(&self) -> u32;
 
     fn ensure_supported_version(&self, path: &Path) -> Result<(), String> {
@@ -511,7 +511,7 @@ impl Versioned for PlayHistoryFile {
     }
 }
 
-fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
+pub(crate) fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
     let parent = target
         .parent()
         .ok_or_else(|| format!("无法确定 {} 的父目录。", target.display()))?;
@@ -646,7 +646,7 @@ fn library_file_path(file_name: &str) -> Result<PathBuf, String> {
     Ok(target)
 }
 
-fn library_root() -> Result<PathBuf, String> {
+pub(crate) fn library_root() -> Result<PathBuf, String> {
     #[cfg(debug_assertions)]
     {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
