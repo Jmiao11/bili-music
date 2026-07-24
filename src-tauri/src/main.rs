@@ -289,6 +289,26 @@ async fn get_video_pages(
 }
 
 #[tauri::command]
+async fn get_video_meta(
+    state: tauri::State<'_, AppState>,
+    bvid: String,
+) -> Result<lyrics::VideoMeta, String> {
+    let cookie_header = state.guest.guest_cookie_header().await?;
+    lyrics::fetch_video_meta(&bvid, &cookie_header).await
+}
+
+#[tauri::command]
+async fn resolve_lyrics(
+    state: tauri::State<'_, AppState>,
+    bvid: String,
+    cid: i64,
+    force: Option<bool>,
+) -> Result<lyrics::ResolveOutcome, String> {
+    let cookie_header = state.guest.guest_cookie_header().await?;
+    lyrics::resolve_lyrics(&bvid, cid, force.unwrap_or(false), &cookie_header).await
+}
+
+#[tauri::command]
 fn cancel_prepare_audio(state: tauri::State<'_, AppState>) {
     state.resolver.cancel_current();
 }
@@ -611,6 +631,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             prepare_audio,
             get_video_pages,
+            get_video_meta,
             cancel_prepare_audio,
             search_videos,
             get_music_ranking,
@@ -640,6 +661,10 @@ fn main() {
             lyrics::get_lyrics_by_id,
             lyrics::get_lyrics_offset,
             lyrics::set_lyrics_offset,
+            resolve_lyrics,
+            lyrics::get_lyrics_binding,
+            lyrics::set_lyrics_binding,
+            lyrics::clear_lyrics_binding,
             get_recommendations,
             export_data,
             import_data
