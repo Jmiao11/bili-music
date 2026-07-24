@@ -1488,6 +1488,7 @@ async function loadCurrentTrack({ keepPage = false } = {}) {
     uploader.textContent = visibleTrack.uploader;
     duration.textContent = formatDuration(visibleTrack.durationSeconds);
     emitCurrentTrackChanged();
+    (page?.cid ?? playerState.currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? playerState.currentPages[0].cid } }));
     playerState.activeAudioVersion = requestVersion;
     playerState.activeAudioUrl = info.audioUrl;
     playerState.audioActivatedAt = performance.now();

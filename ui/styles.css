@@ -3640,6 +3640,84 @@ input[type="range"]::-webkit-slider-thumb {
   display: none;
 }
 
+.immersive-player .lyrics-match {
+  width: 100%;
+  color: var(--text-3);
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.immersive-player .lyrics-match-hint {
+  margin: 0;
+}
+
+.immersive-player .lyrics-candidates {
+  display: flex;
+  max-height: 18vh;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.immersive-player .lyrics-candidate {
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: var(--text-2);
+  background: transparent;
+  line-height: 1.4;
+  text-align: left;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.immersive-player .lyrics-candidate:hover {
+  color: var(--text-1);
+  background: var(--track-hover);
+}
+
+.immersive-player .lyrics-candidate-none {
+  color: var(--text-3);
+}
+
+.immersive-player .lyrics-match-actions,
+.immersive-player .lyrics-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.immersive-player .lyrics-match-actions {
+  flex-wrap: wrap;
+}
+
+.immersive-player .lyrics-match-actions .small-button,
+.immersive-player .lyrics-manual-row .small-button {
+  min-height: 30px;
+  padding-inline: 9px;
+  font-size: 12px;
+}
+
+.immersive-player .lyrics-manual-row input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 0.5px solid var(--line);
+  border-radius: 8px;
+  flex: 1;
+  color: var(--text-2);
+  background: var(--search-bg);
+}
+
+.immersive-player .lyrics-manual-row input::placeholder {
+  color: var(--text-2);
+}
+
 .lyrics-controls {
   display: none;
   align-items: center;
@@ -3653,7 +3731,7 @@ input[type="range"]::-webkit-slider-thumb {
   grid-column: -2 / -1;
 }
 
-.immersive-lyrics.has-lyrics + .lyrics-controls {
+.immersive-lyrics.has-lyrics ~ .lyrics-controls {
   display: flex;
 }
 
@@ -3688,7 +3766,7 @@ input[type="range"]::-webkit-slider-thumb {
       "track lyrics"
       "player lyrics"
       "lyric-tools lyrics"
-      ". lyrics";
+      ". lyric-match";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows:
       minmax(0, 1fr)
@@ -3746,6 +3824,13 @@ input[type="range"]::-webkit-slider-thumb {
     align-self: stretch;
     justify-items: start;
     justify-content: center;
+  }
+
+  .immersive-player .lyrics-match {
+    max-width: var(--lyrics-max-width);
+    grid-area: lyric-match;
+    align-self: start;
+    justify-self: start;
   }
 
   .immersive-controls {

@@ -243,6 +243,19 @@
             <p id="lyrics-placeholder" class="lyrics-placeholder">暂无歌词</p>
           </div>
 
+          <div id="lyrics-match" class="lyrics-match" hidden>
+            <p id="lyrics-match-hint" class="lyrics-match-hint"></p>
+            <div id="lyrics-candidates" class="lyrics-candidates"></div>
+            <div class="lyrics-match-actions">
+              <button id="lyrics-match-manual" class="small-button quiet" type="button">手动匹配</button>
+              <button id="lyrics-match-rematch" class="small-button quiet" type="button">重新匹配</button>
+            </div>
+            <div id="lyrics-manual-row" class="lyrics-manual-row" hidden>
+              <input id="lyrics-manual-input" type="text" placeholder="输入 QQ 音乐歌曲 id" />
+              <button id="lyrics-manual-apply" class="small-button" type="button">应用</button>
+            </div>
+          </div>
+
           <div class="lyrics-controls" aria-label="歌词控制">
             <span class="lyrics-controls-label">歌词校准</span>
             <button id="lyrics-offset-minus" class="small-button quiet" type="button" aria-label="歌词提前 0.5 秒">−0.5s</button>
