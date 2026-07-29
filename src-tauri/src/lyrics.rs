@@ -2,6 +2,7 @@ use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
+    fs,
     path::PathBuf,
     time::Duration,
 };
@@ -14,6 +15,8 @@ const OFFSETS_VERSION: u32 = 1;
 const LYRICS_BINDINGS_FILE: &str = "lyrics-bindings.json";
 const BINDINGS_VERSION: u32 = 1;
 const NEGATIVE_TTL_SECS: i64 = 7 * 24 * 3600;
+const CACHE_VERSION: u32 = 1;
+const LYRICS_CACHE_TTL_SECS: i64 = 30 * 24 * 3600;
 const NOISE_WORDS: &[&str] = &[
     "4k",
     "60fps",
@@ -71,6 +74,15 @@ pub struct Lyrics {
     pub lrc: String,
     pub trans: String,
     pub has_lyric: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct CachedLyrics {
+    version: u32,
+    song_id: String,
+    lrc: String,
+    trans: String,
+    cached_at: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -264,34 +276,142 @@ struct SongSearchItem {
     grp: Option<Vec<SongSearchItem>>,
 }
 
-pub async fn fetch_lyrics_by_id(song_id: String) -> Result<Lyrics, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .build()
-        .map_err(|error| format!("无法创建歌词请求客户端：{error}"))?;
-    let url = format!(
-        "{LYRIC_API_BASE}/music/tencent/lyric?id={}",
-        utf8_percent_encode(&song_id, NON_ALPHANUMERIC)
-    );
+fn lyrics_cache_dir() -> Result<PathBuf, String> {
+    let dir = crate::library::library_root()?.join("lyrics");
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("无法创建歌词缓存目录 {}：{error}", dir.display()))?;
+    Ok(dir)
+}
 
-    let response = match client.get(&url).send().await {
-        Ok(response) => response,
-        Err(error) if error.is_timeout() || error.is_connect() || error.is_request() => client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|error| format!("歌词请求失败：{error}"))?,
-        Err(error) => return Err(format!("歌词请求失败：{error}")),
-    };
-    if !response.status().is_success() {
-        return Ok(no_lyrics());
+fn is_safe_song_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+fn read_lyrics_cache(song_id: &str) -> Option<Lyrics> {
+    read_lyrics_cache_inner(song_id, false)
+}
+
+fn read_lyrics_cache_allow_expired(song_id: &str) -> Option<Lyrics> {
+    read_lyrics_cache_inner(song_id, true)
+}
+
+fn read_lyrics_cache_inner(song_id: &str, allow_expired: bool) -> Option<Lyrics> {
+    if !is_safe_song_id(song_id) {
+        return None;
+    }
+    let path = lyrics_cache_dir().ok()?.join(format!("{song_id}.json"));
+    let cached = serde_json::from_str::<CachedLyrics>(&fs::read_to_string(path).ok()?).ok()?;
+    if cached.version != CACHE_VERSION
+        || cached.song_id != song_id
+        || cached.lrc.trim().is_empty()
+        || (!allow_expired && unix_now().saturating_sub(cached.cached_at) >= LYRICS_CACHE_TTL_SECS)
+    {
+        return None;
+    }
+    Some(Lyrics {
+        lrc: cached.lrc,
+        trans: cached.trans,
+        has_lyric: true,
+    })
+}
+
+fn write_lyrics_cache(song_id: &str, lyrics: &Lyrics) {
+    if !is_safe_song_id(song_id) || !lyrics.has_lyric || lyrics.lrc.trim().is_empty() {
+        return;
     }
 
-    let response = response
-        .json::<LyricApiResponse>()
-        .await
-        .map_err(|error| format!("歌词服务响应解析失败：{error}"))?;
-    Ok(lyrics_from_response(response))
+    let dir = match lyrics_cache_dir() {
+        Ok(dir) => dir,
+        Err(error) => {
+            eprintln!("歌词缓存写入失败：{error}");
+            return;
+        }
+    };
+    let target = dir.join(format!("{song_id}.json"));
+    let tmp = dir.join(format!("{song_id}.json.tmp"));
+    let backup = dir.join(format!("{song_id}.old.json.tmp"));
+    let cached = CachedLyrics {
+        version: CACHE_VERSION,
+        song_id: song_id.to_string(),
+        lrc: lyrics.lrc.clone(),
+        trans: lyrics.trans.clone(),
+        cached_at: unix_now(),
+    };
+    let result = (|| -> Result<(), String> {
+        let json = serde_json::to_vec_pretty(&cached)
+            .map_err(|error| format!("歌词缓存序列化失败：{error}"))?;
+        fs::write(&tmp, json).map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
+        if target.exists() {
+            if backup.exists() {
+                fs::remove_file(&backup)
+                    .map_err(|error| format!("无法清理 {}：{error}", backup.display()))?;
+            }
+            fs::rename(&target, &backup)
+                .map_err(|error| format!("无法备份 {}：{error}", target.display()))?;
+        }
+        if let Err(error) = fs::rename(&tmp, &target) {
+            if backup.exists() {
+                let _ = fs::rename(&backup, &target);
+            }
+            return Err(format!("无法保存歌词缓存 {}：{error}", target.display()));
+        }
+        if backup.exists() {
+            let _ = fs::remove_file(backup);
+        }
+        Ok(())
+    })();
+    if let Err(error) = result {
+        let _ = fs::remove_file(&tmp);
+        eprintln!("歌词缓存写入失败：{error}");
+    }
+}
+
+pub async fn fetch_lyrics_by_id(song_id: String) -> Result<Lyrics, String> {
+    if let Some(lyrics) = read_lyrics_cache(&song_id) {
+        return Ok(lyrics);
+    }
+
+    let result = async {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+            .build()
+            .map_err(|error| format!("无法创建歌词请求客户端：{error}"))?;
+        let url = format!(
+            "{LYRIC_API_BASE}/music/tencent/lyric?id={}",
+            utf8_percent_encode(&song_id, NON_ALPHANUMERIC)
+        );
+
+        let response = match client.get(&url).send().await {
+            Ok(response) => response,
+            Err(error) if error.is_timeout() || error.is_connect() || error.is_request() => client
+                .get(&url)
+                .send()
+                .await
+                .map_err(|error| format!("歌词请求失败：{error}"))?,
+            Err(error) => return Err(format!("歌词请求失败：{error}")),
+        };
+        if !response.status().is_success() {
+            return Ok(no_lyrics());
+        }
+
+        let response = response
+            .json::<LyricApiResponse>()
+            .await
+            .map_err(|error| format!("歌词服务响应解析失败：{error}"))?;
+        Ok(lyrics_from_response(response))
+    }
+    .await;
+
+    match result {
+        Ok(lyrics) => {
+            write_lyrics_cache(&song_id, &lyrics);
+            Ok(lyrics)
+        }
+        Err(error) => read_lyrics_cache_allow_expired(&song_id).ok_or(error),
+    }
 }
 
 pub async fn fetch_video_meta(bvid: &str, cookie_header: &str) -> Result<VideoMeta, String> {
@@ -910,6 +1030,37 @@ pub async fn get_lyrics_by_id(song_id: String) -> Result<Lyrics, String> {
     fetch_lyrics_by_id(song_id).await
 }
 
+#[tauri::command]
+pub async fn clear_lyrics_cache() -> Result<u32, String> {
+    let dir = crate::library::library_root()?.join("lyrics");
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => {
+            return Err(format!("无法读取歌词缓存目录 {}：{error}", dir.display()));
+        }
+    };
+    let mut removed = 0u32;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("无法读取歌词缓存目录项：{error}"))?;
+        if !entry
+            .file_type()
+            .map_err(|error| format!("无法读取歌词缓存文件类型：{error}"))?
+            .is_file()
+        {
+            continue;
+        }
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.ends_with(".json") || name.ends_with(".json.tmp") {
+            fs::remove_file(entry.path())
+                .map_err(|error| format!("无法删除歌词缓存文件 {name}：{error}"))?;
+            removed = removed.saturating_add(1);
+        }
+    }
+    Ok(removed)
+}
+
 fn offsets_path() -> Result<PathBuf, String> {
     Ok(crate::library::library_root()?.join(LYRICS_OFFSETS_FILE))
 }
@@ -1141,6 +1292,32 @@ pub async fn resolve_lyrics(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn song_id_cache_keys_reject_unsafe_paths() {
+        assert!(is_safe_song_id("107192078"));
+        for song_id in ["../etc", "a/b", "", "a b"] {
+            assert!(!is_safe_song_id(song_id), "{song_id}");
+        }
+    }
+
+    #[test]
+    fn cached_lyrics_json_round_trips() {
+        let cached = CachedLyrics {
+            version: CACHE_VERSION,
+            song_id: "107192078".to_string(),
+            lrc: "[00:00.00]歌词".to_string(),
+            trans: "[00:00.00]translation".to_string(),
+            cached_at: 123456789,
+        };
+        let json = serde_json::to_string(&cached).unwrap();
+        let decoded = serde_json::from_str::<CachedLyrics>(&json).unwrap();
+        assert_eq!(decoded.version, cached.version);
+        assert_eq!(decoded.song_id, cached.song_id);
+        assert_eq!(decoded.lrc, cached.lrc);
+        assert_eq!(decoded.trans, cached.trans);
+        assert_eq!(decoded.cached_at, cached.cached_at);
+    }
 
     #[test]
     fn missing_lyrics_is_a_successful_empty_result() {
