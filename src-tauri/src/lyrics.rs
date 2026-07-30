@@ -1031,6 +1031,14 @@ pub async fn get_lyrics_by_id(song_id: String) -> Result<Lyrics, String> {
 }
 
 #[tauri::command]
+pub async fn search_lyrics_songs(keyword: String) -> Result<Vec<Candidate>, String> {
+    if keyword.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    search_songs(&keyword).await
+}
+
+#[tauri::command]
 pub async fn clear_lyrics_cache() -> Result<u32, String> {
     let dir = crate::library::library_root()?.join("lyrics");
     let entries = match fs::read_dir(&dir) {
