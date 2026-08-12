@@ -949,7 +949,7 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
     const tracks = await invokeWithTimeout(
       "get_recommendations",
       hint ? { userHint: hint } : {},
-      45000,
+      95000,
     );
     homeState.recommendations = tracks.map(normalizeTrack);
     homeState.recommendationLoaded = true;
