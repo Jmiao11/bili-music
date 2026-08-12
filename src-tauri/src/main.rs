@@ -348,7 +348,13 @@ async fn get_recommendations(
     state: tauri::State<'_, AppState>,
     user_hint: Option<String>,
 ) -> Result<Vec<SearchVideo>, String> {
-    ai::generate_recommendations(&state.search, user_hint).await
+    let recommendations = ai::generate_recommendations(&state.search, user_hint).await?;
+    if !recommendations.is_empty() {
+        if let Err(error) = ai::save_recommendations(&recommendations) {
+            eprintln!("failed to save recommendations: {error}");
+        }
+    }
+    Ok(recommendations)
 }
 
 async fn resolve_with_ytdlp(
@@ -658,6 +664,7 @@ fn main() {
             ai::get_ai_config,
             ai::set_ai_config,
             ai::test_ai_connection,
+            ai::get_saved_recommendations,
             lyrics::get_lyrics_by_id,
             lyrics::search_lyrics_songs,
             lyrics::clear_lyrics_cache,

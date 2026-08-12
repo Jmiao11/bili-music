@@ -6,11 +6,16 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::library::{get_play_history, get_search_history, list_favorites, list_playlists};
+use crate::library::{
+    get_play_history, get_search_history, library_root, list_favorites, list_playlists,
+    read_json_or_default, write_json_atomic as write_library_json_atomic, Versioned,
+};
 use crate::search::{SearchClient, SearchVideo};
 
 const VERSION: u32 = 1;
 const AI_CONFIG_FILE: &str = "ai-config.json";
+const RECOMMENDATIONS_FILE: &str = "recommendations.json";
+const RECOMMENDATIONS_VERSION: u32 = 1;
 const DATA_SUBDIR: &str = "data";
 const APP_DATA_DIR: &str = "bili-music";
 const AI_TIMEOUT_SHORT_SECS: u64 = 15;
@@ -73,6 +78,74 @@ struct SearchIntent {
     reason: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+struct RecommendationsFile {
+    version: u32,
+    items: Vec<SearchVideo>,
+    generated_at: i64,
+}
+
+#[derive(Deserialize)]
+struct StoredRecommendationsFile {
+    version: u32,
+    items: Vec<StoredSearchVideo>,
+    generated_at: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredSearchVideo {
+    bvid: String,
+    title: String,
+    uploader: String,
+    thumbnail_url: String,
+    duration_seconds: u64,
+    play_count: Option<u64>,
+    pubdate: Option<u64>,
+}
+
+impl Default for RecommendationsFile {
+    fn default() -> Self {
+        Self {
+            version: RECOMMENDATIONS_VERSION,
+            items: Vec::new(),
+            generated_at: 0,
+        }
+    }
+}
+
+impl Versioned for RecommendationsFile {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
+
+impl<'de> Deserialize<'de> for RecommendationsFile {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let stored = StoredRecommendationsFile::deserialize(deserializer)?;
+        Ok(Self {
+            version: stored.version,
+            items: stored
+                .items
+                .into_iter()
+                .map(|video| SearchVideo {
+                    bvid: video.bvid,
+                    title: video.title,
+                    uploader: video.uploader,
+                    thumbnail_url: video.thumbnail_url,
+                    duration_seconds: video.duration_seconds,
+                    play_count: video.play_count,
+                    pubdate: video.pubdate,
+                })
+                .collect(),
+            generated_at: stored.generated_at,
+        })
+    }
+}
+
 impl Default for AiConfig {
     fn default() -> Self {
         Self {
@@ -110,6 +183,17 @@ impl AiConfig {
 #[tauri::command]
 pub fn get_ai_config() -> Result<AiConfigView, String> {
     Ok(read_ai_config()?.view())
+}
+
+#[tauri::command]
+pub fn get_saved_recommendations() -> Result<Vec<SearchVideo>, String> {
+    let path = library_root()?.join(RECOMMENDATIONS_FILE);
+    Ok(read_saved_recommendations_from_path(&path))
+}
+
+pub(crate) fn save_recommendations(items: &[SearchVideo]) -> Result<(), String> {
+    let path = library_root()?.join(RECOMMENDATIONS_FILE);
+    write_recommendations_to_path(&path, items)
 }
 
 #[tauri::command]
@@ -528,6 +612,30 @@ fn write_ai_config(path: &Path, config: &AiConfig) -> Result<(), String> {
     write_json_atomic(path, config)
 }
 
+fn read_saved_recommendations_from_path(path: &Path) -> Vec<SearchVideo> {
+    read_json_or_default::<RecommendationsFile>(path)
+        .map(|file| file.items)
+        .unwrap_or_default()
+}
+
+fn write_recommendations_to_path(path: &Path, items: &[SearchVideo]) -> Result<(), String> {
+    #[derive(Serialize)]
+    struct RecommendationsFileRef<'a> {
+        version: u32,
+        items: &'a [SearchVideo],
+        generated_at: i64,
+    }
+
+    write_library_json_atomic(
+        path,
+        &RecommendationsFileRef {
+            version: RECOMMENDATIONS_VERSION,
+            items,
+            generated_at: now_unix_seconds(),
+        },
+    )
+}
+
 fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
     let parent = target
         .parent()
@@ -713,11 +821,18 @@ fn now_millis() -> u128 {
         .as_millis()
 }
 
+fn now_unix_seconds() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs().min(i64::MAX as u64) as i64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         ai_request_error, filter_known_bvids, key_hint, parse_search_intents,
-        read_ai_config_from_path, write_ai_config, AiConfig, AI_CONFIG_FILE, VERSION,
+        read_ai_config_from_path, read_saved_recommendations_from_path, write_ai_config,
+        write_recommendations_to_path, AiConfig, AI_CONFIG_FILE, VERSION,
     };
     use crate::search::SearchVideo;
     use std::fs;
@@ -783,6 +898,29 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(contents, "{ not json");
+    }
+
+    #[test]
+    fn recommendations_round_trip_and_bad_file_falls_back_to_empty() {
+        let path = unique_temp_path("recommendations");
+        let items = [SearchVideo {
+            bvid: "BV1xx411c7mD".to_owned(),
+            title: "Real A".to_owned(),
+            uploader: "UP A".to_owned(),
+            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
+            duration_seconds: 180,
+            play_count: Some(100),
+            pubdate: Some(1_700_000_000),
+        }];
+
+        write_recommendations_to_path(&path, &items).unwrap();
+        let saved = read_saved_recommendations_from_path(&path);
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].bvid, items[0].bvid);
+
+        fs::write(&path, "{ not json").unwrap();
+        assert!(read_saved_recommendations_from_path(&path).is_empty());
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
