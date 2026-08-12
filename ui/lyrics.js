@@ -15,7 +15,11 @@
   const matchRematchButton = document.querySelector("#lyrics-match-rematch");
   const manualRowElement = document.querySelector("#lyrics-manual-row");
   const manualInputElement = document.querySelector("#lyrics-manual-input");
-  const manualApplyButton = document.querySelector("#lyrics-manual-apply");
+  const manualSearchButton = document.querySelector("#lyrics-manual-search");
+  const manualResultsElement = document.querySelector(
+    "#lyrics-manual-results",
+  );
+  const immersiveTitleElement = document.querySelector("#immersive-title");
   const audio = document.querySelector("#audio");
   const invoke = window.__TAURI__?.core?.invoke;
   const timestampPattern = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
@@ -30,6 +34,8 @@
   let offsetSaveTimer = 0;
   let lyricsRequestVersion = 0;
   let lastTrackKey = "";
+  let matchIdleTimer = 0;
+  let matchCanIdle = false;
 
   function parseLrc(text) {
     if (typeof text !== "string") return [];
@@ -204,42 +210,107 @@
     showPlaceholder();
   }
 
+  function setMatchHint(message) {
+    if (!matchHintElement) return;
+    matchHintElement.textContent = message;
+    matchHintElement.hidden = !message;
+  }
+
+  function keepMatchVisible() {
+    window.clearTimeout(matchIdleTimer);
+    matchIdleTimer = 0;
+    matchElement?.classList.remove("is-idle");
+  }
+
+  function disableMatchIdle() {
+    matchCanIdle = false;
+    keepMatchVisible();
+  }
+
+  function isMatchInteractionActive() {
+    return Boolean(
+      matchElement?.matches(":hover") ||
+        matchElement?.contains(document.activeElement),
+    );
+  }
+
+  function scheduleMatchIdle(delayMs) {
+    keepMatchVisible();
+    if (
+      !matchElement ||
+      !matchCanIdle ||
+      matchElement.hidden ||
+      !manualRowElement?.hidden ||
+      isMatchInteractionActive()
+    ) {
+      return;
+    }
+    matchIdleTimer = window.setTimeout(() => {
+      matchIdleTimer = 0;
+      if (
+        matchElement &&
+        matchCanIdle &&
+        !matchElement.hidden &&
+        manualRowElement?.hidden &&
+        !isMatchInteractionActive()
+      ) {
+        matchElement.classList.add("is-idle");
+      }
+    }, delayMs);
+  }
+
+  function resetManualSearchUi() {
+    if (manualRowElement) manualRowElement.hidden = true;
+    if (manualInputElement) manualInputElement.value = "";
+    if (manualResultsElement) {
+      manualResultsElement.hidden = true;
+      manualResultsElement.replaceChildren();
+    }
+    if (manualSearchButton) {
+      manualSearchButton.disabled = false;
+      manualSearchButton.textContent = "搜索";
+    }
+  }
+
   function resetMatchUi() {
+    disableMatchIdle();
     if (matchElement) matchElement.hidden = true;
-    if (matchHintElement) matchHintElement.textContent = "";
+    setMatchHint("");
     if (candidatesElement) {
       candidatesElement.hidden = true;
       candidatesElement.replaceChildren();
     }
-    if (manualRowElement) manualRowElement.hidden = true;
-    if (manualInputElement) manualInputElement.value = "";
+    resetManualSearchUi();
   }
 
   function showMatchActions(message) {
     if (matchElement) matchElement.hidden = false;
-    if (matchHintElement) matchHintElement.textContent = message;
+    setMatchHint(message);
     if (candidatesElement) {
       candidatesElement.hidden = true;
       candidatesElement.replaceChildren();
     }
-    if (manualRowElement) manualRowElement.hidden = true;
+    resetManualSearchUi();
   }
 
   function showNoLyrics(message) {
+    disableMatchIdle();
     setPlaceholder(message);
-    showMatchActions("可手动指定 QQ 音乐歌曲 id。");
+    showMatchActions("");
   }
 
-  function candidateDetails(scored) {
-    const candidate = scored?.candidate ?? {};
+  function candidateDetails(value) {
+    const candidate = value?.candidate ?? value ?? {};
     return {
       songId: String(candidate.songId ?? candidate.song_id ?? "").trim(),
       name: String(candidate.name ?? "").trim(),
       singer: String(candidate.singer ?? "").trim(),
+      duration: Number(candidate.duration) || 0,
     };
   }
 
   function showCandidates(result) {
+    disableMatchIdle();
     setPlaceholder("未自动匹配到歌词");
     const candidates = Array.isArray(result?.candidates)
       ? result.candidates
@@ -254,11 +325,11 @@
     const usedKeyword = String(
       result?.usedKeyword ?? result?.used_keyword ?? "",
     ).trim();
-    if (matchHintElement) {
-      matchHintElement.textContent = usedKeyword
+    setMatchHint(
+      usedKeyword
         ? `“${usedKeyword}”有多个可能结果`
-        : "请选择匹配的歌词版本";
-    }
+        : "请选择匹配的歌词版本",
+    );
 
     const fragment = document.createDocumentFragment();
     for (const scored of candidates) {
@@ -283,9 +354,7 @@
     rejectButton.addEventListener("click", () => {
       candidatesElement.hidden = true;
       candidatesElement.replaceChildren();
-      if (matchHintElement) {
-        matchHintElement.textContent = "可手动指定 QQ 音乐歌曲 id。";
-      }
+      setMatchHint("");
       setPlaceholder("未自动匹配到歌词");
     });
     fragment.append(rejectButton);
@@ -302,6 +371,8 @@
         ? `已匹配：${songName}${singer ? ` - ${singer}` : ""}`
         : "歌词已匹配",
     );
+    matchCanIdle = true;
+    scheduleMatchIdle(3000);
   }
 
   function applyOutcome(result) {
@@ -408,16 +479,106 @@
     }
   }
 
-  async function applyManualSongId() {
-    const songId = manualInputElement?.value.trim() ?? "";
-    if (!songId) {
-      if (matchHintElement) {
-        matchHintElement.textContent = "请输入 QQ 音乐歌曲 id。";
+  function showManualMessage(message) {
+    if (!manualResultsElement) return;
+    const element = document.createElement("p");
+    element.className = "lyrics-manual-empty";
+    element.textContent = message;
+    manualResultsElement.replaceChildren(element);
+    manualResultsElement.hidden = false;
+  }
+
+  function formatDuration(duration) {
+    const seconds = Math.max(0, Math.floor(Number(duration) || 0));
+    if (!seconds) return "";
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+
+  function renderManualResults(result) {
+    if (!manualResultsElement) return;
+    const candidates = (Array.isArray(result) ? result : [])
+      .map(candidateDetails)
+      .filter((candidate) => candidate.songId && candidate.name)
+      .slice(0, 10);
+    if (!candidates.length) {
+      showManualMessage("没有找到相关歌曲");
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    for (const candidate of candidates) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "lyrics-manual-result";
+
+      const name = document.createElement("span");
+      name.textContent = candidate.name;
+      button.append(name);
+
+      const duration = formatDuration(candidate.duration);
+      const details = [
+        candidate.singer ? `- ${candidate.singer}` : "",
+        duration ? `· ${duration}` : "",
+      ].filter(Boolean);
+      if (details.length) {
+        const meta = document.createElement("span");
+        meta.className = "lyrics-manual-result-meta";
+        meta.textContent = details.join(" ");
+        button.append(meta);
       }
+
+      button.addEventListener("click", () => {
+        if (!currentBvid || currentCid <= 0) {
+          showManualMessage("当前没有可绑定的播放曲目");
+          return;
+        }
+        void bindSong(candidate);
+      });
+      fragment.append(button);
+    }
+    manualResultsElement.replaceChildren(fragment);
+    manualResultsElement.hidden = false;
+  }
+
+  async function searchManualSongs() {
+    if (manualSearchButton?.disabled) return;
+    const keyword = manualInputElement?.value.trim() ?? "";
+    if (!keyword) {
+      showManualMessage("请输入歌名或歌手");
       manualInputElement?.focus();
       return;
     }
-    await bindSong({ songId, name: songId, singer: "" });
+    if (!invoke) {
+      console.warn("歌词手动搜索失败：Tauri invoke 不可用");
+      showManualMessage("搜索失败，请稍后重试");
+      return;
+    }
+
+    const version = lyricsRequestVersion;
+    const bvid = currentBvid;
+    const cid = currentCid;
+    if (manualSearchButton) {
+      manualSearchButton.disabled = true;
+      manualSearchButton.textContent = "搜索中…";
+    }
+    if (manualResultsElement) {
+      manualResultsElement.hidden = true;
+      manualResultsElement.replaceChildren();
+    }
+    try {
+      const result = await invoke("search_lyrics_songs", { keyword });
+      if (!isCurrentRequest(version, bvid, cid)) return;
+      renderManualResults(result);
+    } catch (error) {
+      if (!isCurrentRequest(version, bvid, cid)) return;
+      console.warn("歌词手动搜索失败：", error);
+      showManualMessage("搜索失败，请稍后重试");
+    } finally {
+      if (isCurrentRequest(version, bvid, cid) && manualSearchButton) {
+        manualSearchButton.disabled = false;
+        manualSearchButton.textContent = "搜索";
+      }
+    }
   }
 
   async function rematchCurrentTrack() {
@@ -448,19 +609,42 @@
   });
   matchManualButton?.addEventListener("click", () => {
     if (!manualRowElement) return;
-    manualRowElement.hidden = !manualRowElement.hidden;
-    if (!manualRowElement.hidden) manualInputElement?.focus();
+    keepMatchVisible();
+    if (!manualRowElement.hidden) {
+      resetManualSearchUi();
+      return;
+    }
+    manualRowElement.hidden = false;
+    if (manualInputElement) {
+      manualInputElement.value = String(
+        immersiveTitleElement?.textContent ?? "",
+      )
+        .replace(/【[^】]*】|\[[^\]]*\]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      manualInputElement.focus();
+      manualInputElement.select();
+    }
   });
   matchRematchButton?.addEventListener("click", () => {
     void rematchCurrentTrack();
   });
-  manualApplyButton?.addEventListener("click", () => {
-    void applyManualSongId();
+  manualSearchButton?.addEventListener("click", () => {
+    void searchManualSongs();
   });
   manualInputElement?.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    void applyManualSongId();
+    void searchManualSongs();
+  });
+  matchElement?.addEventListener("mouseenter", keepMatchVisible);
+  matchElement?.addEventListener("mouseleave", () => {
+    scheduleMatchIdle(1500);
+  });
+  matchElement?.addEventListener("focusin", keepMatchVisible);
+  matchElement?.addEventListener("focusout", (event) => {
+    if (matchElement.contains(event.relatedTarget)) return;
+    scheduleMatchIdle(1500);
   });
 
   window.BiliLyrics = {
