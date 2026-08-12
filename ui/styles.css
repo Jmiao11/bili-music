@@ -963,6 +963,41 @@ svg {
   display: none;
 }
 
+#view-home .home-setup-hint.is-inline {
+  flex: none;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px 4px 2px;
+  text-align: left;
+}
+
+#view-home .home-setup-hint.is-inline .home-setup-title {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+#view-home .home-setup-hint.is-inline .home-setup-sub:empty {
+  display: none;
+}
+
+#view-home .home-setup-hint.is-inline #home-setup-settings {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#view-home .home-setup-hint.is-inline #home-setup-settings:hover {
+  background: transparent;
+  color: var(--text-1);
+}
+
 #view-home .home-setup-title {
   margin: 0;
   color: var(--text-1);
@@ -983,7 +1018,7 @@ svg {
 }
 
 #view-home[data-home-mode="recommendation"] .ranking-list:empty::before {
-  content: "暂无推荐 · 先收藏、搜索或播放几首，也可以直接输入一句话生成";
+  content: "点击「生成推荐」获取你的专属推荐";
 }
 
 #view-home #home-ranking-error:not(:empty) ~ .ranking-list:empty::before {

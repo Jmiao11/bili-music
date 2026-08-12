@@ -78,6 +78,7 @@ const homePanel = document.querySelector("#view-home");
 const homeModeTabs = [...document.querySelectorAll(".home-mode-tab[data-home-mode]")];
 const homeSourceLabel = document.querySelector("#home-source-label");
 const homeTitle = document.querySelector("#home-title");
+const homeSubtitle = homePanel?.querySelector(".home-subtitle");
 const homeCacheNote = document.querySelector("#home-cache-note");
 const homeListLabel = document.querySelector("#home-list-label");
 const homeRankingStatus = document.querySelector("#home-ranking-status");
@@ -746,31 +747,47 @@ function renderRankingSkeleton() {
   }
 }
 
+function isPopularFallback() {
+  return homeState.mode === "recommendation" && homeState.aiHasKey === false;
+}
+
 function updateHomeModeUi() {
   const isRecommendation = homeState.mode === "recommendation";
-  homePanel?.setAttribute("data-home-mode", homeState.mode);
+  const showPopular = isPopularFallback();
+  homePanel?.setAttribute("data-home-mode", showPopular ? "popular" : homeState.mode);
   for (const tab of homeModeTabs) {
     const active = tab.dataset.homeMode === homeState.mode;
     tab.classList.toggle("is-active", active);
     tab.setAttribute("aria-selected", String(active));
   }
   if (homeSourceLabel) {
-    homeSourceLabel.textContent = isRecommendation ? "AI 推荐" : "B站音乐区";
+    homeSourceLabel.textContent = isRecommendation && !showPopular ? "AI 推荐" : "B站音乐区";
   }
   if (homeTitle) {
-    homeTitle.textContent = isRecommendation ? "为你推荐" : "音乐飙升榜";
+    homeTitle.textContent = showPopular ? "热门音乐" : isRecommendation ? "为你推荐" : "音乐飙升榜";
+  }
+  if (homeSubtitle) {
+    homeSubtitle.textContent = showPopular
+      ? "未配置 AI 推荐 · 展示 B站 音乐热门榜"
+      : isRecommendation
+        ? "根据收藏、搜索、歌单和听歌记录生成"
+        : "B站音乐区热门视频";
   }
   if (homeCacheNote) {
     homeCacheNote.textContent = "";
   }
   if (homeHintRow) {
-    homeHintRow.hidden = !isRecommendation;
+    homeHintRow.hidden = !isRecommendation || showPopular;
   }
-  refreshRankingButton.title = isRecommendation
+  refreshRankingButton.title = isRecommendation && !showPopular
     ? "本次会话缓存，手动刷新会重新生成推荐"
     : "游客榜单，本次运行缓存";
   if (homeListLabel) {
-    homeListLabel.textContent = isRecommendation ? "推荐列表" : "上升中的音乐视频";
+    homeListLabel.textContent = showPopular
+      ? "热门音乐榜"
+      : isRecommendation
+        ? "推荐列表"
+        : "上升中的音乐视频";
   }
 }
 
@@ -782,6 +799,7 @@ function renderHomeRanking() {
   homeRankingList.replaceChildren();
   if (homeSetupHint) {
     homeSetupHint.hidden = true;
+    homeSetupHint.classList.remove("is-inline");
   }
   homePanel?.classList.remove("needs-setup");
   if (homeState.loading) {
@@ -803,14 +821,18 @@ function renderHomeRanking() {
       ),
     );
   }
+  if (isPopularFallback()) {
+    showHomeNotice("配置 API Key 后可生成专属推荐", "", true);
+  }
   updateQueueUi();
 }
 
-function showHomeNotice(title, sub) {
+function showHomeNotice(title, sub, inline = false) {
   homeSetupTitle.textContent = title;
   homeSetupSub.textContent = sub;
   homeSetupHint.hidden = false;
-  homePanel?.classList.add("needs-setup");
+  homeSetupHint.classList.toggle("is-inline", inline);
+  homePanel?.classList.toggle("needs-setup", !inline);
 }
 
 function renderRecommendations() {
@@ -821,6 +843,7 @@ function renderRecommendations() {
   homeRankingList.replaceChildren();
   if (homeSetupHint) {
     homeSetupHint.hidden = true;
+    homeSetupHint.classList.remove("is-inline");
   }
   homePanel?.classList.remove("needs-setup");
   if (homeState.recommendationLoading) {
@@ -836,12 +859,6 @@ function renderRecommendations() {
     return;
   }
   if (homeState.recommendations.length === 0) {
-    if (homeState.aiHasKey === false) {
-      showHomeNotice(
-        "「为你推荐」需要你自己的大模型 API Key",
-        "在「设置 → AI 推荐」填入 API Key，即可根据你的收藏、歌单与听歌记录生成推荐。不配置也能正常搜索与播放。",
-      );
-    }
     homeRankingError.textContent = "";
     return;
   }
@@ -860,7 +877,7 @@ function renderRecommendations() {
 }
 
 function renderHomeContent() {
-  if (homeState.mode === "recommendation") {
+  if (homeState.mode === "recommendation" && !isPopularFallback()) {
     renderRecommendations();
   } else {
     renderHomeRanking();
@@ -875,7 +892,7 @@ async function refreshAiKeyState() {
     homeState.aiHasKey = null;
   }
   if (homeState.mode === "recommendation") {
-    renderRecommendations();
+    await loadRecommendationHome();
   }
 }
 
@@ -900,7 +917,7 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
     ? "正在刷新音乐飙升榜…"
     : "正在拉取 B站音乐区热门内容…";
   refreshRankingButton.disabled = true;
-  if (homeState.mode === "ranking") {
+  if (homeState.mode === "ranking" || isPopularFallback()) {
     renderHomeRanking();
   }
   try {
@@ -910,17 +927,58 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
     homeState.error = "";
     homeRankingStatus.textContent = `已加载 ${homeState.ranking.length} 首音乐区热门视频。`;
   } catch (error) {
-    homeState.error = String(error);
-    homeRankingStatus.textContent = "音乐飙升榜拉取失败。";
-    homeRankingError.textContent = "拉取失败，点击重试";
-    console.error("music ranking load failed:", error);
+    if (isPopularFallback()) {
+      homeState.error = "";
+      homeRankingStatus.textContent = "";
+    } else {
+      homeState.error = String(error);
+      homeRankingStatus.textContent = "音乐飙升榜拉取失败。";
+      homeRankingError.textContent = "拉取失败，点击重试";
+      console.error("music ranking load failed:", error);
+    }
   } finally {
     homeState.loading = false;
     refreshRankingButton.disabled = false;
-    if (homeState.mode === "ranking") {
+    if (homeState.mode === "ranking" || isPopularFallback()) {
       renderHomeRanking();
     }
   }
+}
+
+async function loadSavedRecommendations() {
+  if (homeState.recommendationLoaded || homeState.recommendationLoading) {
+    renderRecommendations();
+    return;
+  }
+  homeState.recommendationLoading = true;
+  homeState.recommendationError = "";
+  homeHintApply.disabled = true;
+  refreshRankingButton.disabled = true;
+  homeRankingStatus.textContent = "正在读取上次推荐…";
+  renderRecommendations();
+  try {
+    const tracks = await invoke("get_saved_recommendations");
+    homeState.recommendations = tracks.map(normalizeTrack);
+    homeState.recommendationLoaded = true;
+    homeRankingStatus.textContent = homeState.recommendations.length > 0
+      ? `已加载 ${homeState.recommendations.length} 首上次推荐。`
+      : "点击「生成推荐」获取你的专属推荐";
+  } catch (_error) {
+    homeState.recommendationLoaded = true;
+    homeState.recommendationError = "";
+    homeRankingStatus.textContent = "";
+  } finally {
+    homeState.recommendationLoading = false;
+    homeHintApply.disabled = false;
+    refreshRankingButton.disabled = false;
+    if (homeState.mode === "recommendation" && !isPopularFallback()) {
+      renderRecommendations();
+    }
+  }
+}
+
+function loadRecommendationHome() {
+  return homeState.aiHasKey === false ? loadHomeRanking() : loadSavedRecommendations();
 }
 
 async function loadRecommendations({ forceRefresh = false } = {}) {
@@ -984,7 +1042,7 @@ function setHomeMode(mode) {
     updateHomeModeUi();
   }
   if (homeState.mode === "recommendation") {
-    loadRecommendations();
+    loadRecommendationHome();
   } else {
     loadHomeRanking();
   }
@@ -1992,7 +2050,11 @@ renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
 deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);
 refreshRankingButton?.addEventListener("click", () => {
   if (homeState.mode === "recommendation") {
-    loadRecommendations({ forceRefresh: true });
+    if (homeState.aiHasKey === false) {
+      loadHomeRanking({ forceRefresh: true });
+    } else {
+      loadRecommendations({ forceRefresh: true });
+    }
   } else {
     loadHomeRanking({ forceRefresh: true });
   }
@@ -2006,8 +2068,7 @@ homeHintInput?.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  homeState.userHint = homeHintInput.value;
-  loadRecommendations({ forceRefresh: true });
+  homeHintApply?.click();
 });
 homeSetupSettings?.addEventListener("click", () => {
   document.querySelector("#open-settings-button")?.click();
@@ -2032,9 +2093,7 @@ for (const tab of musicTabs) {
   });
 }
 homeRankingError?.addEventListener("click", () => {
-  if (homeState.mode === "recommendation" && homeState.recommendationError) {
-    loadRecommendations({ forceRefresh: true });
-  } else if (homeState.error) {
+  if (homeState.error) {
     loadHomeRanking({ forceRefresh: true });
   }
 });
@@ -2058,7 +2117,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
     if (homeState.mode === "recommendation") {
-      loadRecommendations();
+      loadRecommendationHome();
     } else {
       loadHomeRanking();
     }
@@ -2071,7 +2130,6 @@ window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 updateHomeModeUi();
 refreshAiKeyState();
-loadHomeRanking();
 loadLibrary();
 updateMusicTabs();
 updateQueueUi();
