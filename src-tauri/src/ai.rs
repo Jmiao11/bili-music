@@ -13,6 +13,9 @@ const VERSION: u32 = 1;
 const AI_CONFIG_FILE: &str = "ai-config.json";
 const DATA_SUBDIR: &str = "data";
 const APP_DATA_DIR: &str = "bili-music";
+const AI_TIMEOUT_SHORT_SECS: u64 = 15;
+const AI_TIMEOUT_LONG_SECS: u64 = 90;
+const AI_CONNECT_TIMEOUT_SECS: u64 = 10;
 #[cfg(debug_assertions)]
 const DEV_DATA_DIR: &str = ".local-data";
 
@@ -168,7 +171,7 @@ pub async fn test_ai_connection(
         content: "ping".to_owned(),
     }];
 
-    match chat_completion_with_config(&config, messages, 16).await {
+    match chat_completion_with_config(&config, messages, 16, AI_TIMEOUT_SHORT_SECS).await {
         Ok(_) => Ok(AiConnectionTestResult {
             ok: true,
             message: "连接成功。".to_owned(),
@@ -255,13 +258,14 @@ fn read_ai_config() -> Result<AiConfig, String> {
 
 async fn chat_completion(messages: Vec<ChatMessage>, max_tokens: u32) -> Result<String, String> {
     let config = read_ai_config()?;
-    chat_completion_with_config(&config, messages, max_tokens).await
+    chat_completion_with_config(&config, messages, max_tokens, AI_TIMEOUT_LONG_SECS).await
 }
 
 async fn chat_completion_with_config(
     config: &AiConfig,
     messages: Vec<ChatMessage>,
     max_tokens: u32,
+    timeout_secs: u64,
 ) -> Result<String, String> {
     if config.base_url.trim().is_empty()
         || config.model.trim().is_empty()
@@ -275,7 +279,8 @@ async fn chat_completion_with_config(
         config.base_url.trim().trim_end_matches('/')
     );
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
+        .connect_timeout(Duration::from_secs(AI_CONNECT_TIMEOUT_SECS))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()
         .map_err(|error| {
             format!(
@@ -295,9 +300,11 @@ async fn chat_completion_with_config(
         .send()
         .await
         .map_err(|error| {
-            format!(
-                "AI 请求失败：{}",
-                safe_error(&error.to_string(), &config.api_key)
+            ai_request_error(
+                error.is_timeout(),
+                &error.to_string(),
+                "AI 请求失败：",
+                &config.api_key,
             )
         })?;
 
@@ -309,9 +316,11 @@ async fn chat_completion_with_config(
         .json::<ChatCompletionResponse>()
         .await
         .map_err(|error| {
-            format!(
-                "响应不是有效的 chat completion：{}",
-                safe_error(&error.to_string(), &config.api_key)
+            ai_request_error(
+                error.is_timeout(),
+                &error.to_string(),
+                "响应不是有效的 chat completion：",
+                &config.api_key,
             )
         })?;
     body.choices
@@ -689,6 +698,14 @@ fn safe_error(message: &str, api_key: &str) -> String {
     message.replace(api_key, "[redacted]")
 }
 
+fn ai_request_error(is_timeout: bool, message: &str, context: &str, api_key: &str) -> String {
+    if is_timeout {
+        "AI 请求超时，模型响应过慢或网络不稳定，请稍后重试或更换模型。".to_owned()
+    } else {
+        format!("{context}{}", safe_error(message, api_key))
+    }
+}
+
 fn now_millis() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -699,8 +716,8 @@ fn now_millis() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::{
-        filter_known_bvids, key_hint, parse_search_intents, read_ai_config_from_path,
-        write_ai_config, AiConfig, AI_CONFIG_FILE, VERSION,
+        ai_request_error, filter_known_bvids, key_hint, parse_search_intents,
+        read_ai_config_from_path, write_ai_config, AiConfig, AI_CONFIG_FILE, VERSION,
     };
     use crate::search::SearchVideo;
     use std::fs;
@@ -766,6 +783,14 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(contents, "{ not json");
+    }
+
+    #[test]
+    fn timeout_errors_are_explained_in_chinese() {
+        assert_eq!(
+            ai_request_error(true, "error sending request", "AI 请求失败：", "sk-secret"),
+            "AI 请求超时，模型响应过慢或网络不稳定，请稍后重试或更换模型。"
+        );
     }
 
     #[test]
