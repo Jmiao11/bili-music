@@ -68,7 +68,21 @@ const libraryState = {
 };
 
 const videoPageCounts = new Map();
+const pageModalOpeners = new WeakMap();
+const failedPageCountBvids = new Set();
+const queuedPageCountBvids = new Set();
+const activePageCountBvids = new Set();
+const observedPageCountTargets = new Map();
+const visiblePageCountTargets = new Map();
+const pageCountLookupQueue = [];
+const PAGE_COUNT_LOOKUP_CONCURRENCY = 2;
+const PAGE_COUNT_LOOKUP_INTERVAL_MS = 300;
+let pageCountObserver;
+let activePageCountLookups = 0;
+let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
+let pageCountLookupTimer = null;
 let pagesMetaRequestVersion = 0;
+let pagesMetaStatusBeforeLoad = null;
 let pagesModalContext = null;
 let pagesModalReturnFocus = null;
 
@@ -105,6 +119,7 @@ const title = document.querySelector("#title");
 const uploader = document.querySelector("#uploader");
 const duration = document.querySelector("#duration");
 const queuePosition = document.querySelector("#queue-position");
+const playerPagesButton = document.querySelector("#player-pages-button");
 const previousButton = document.querySelector("#previous-button");
 const nextButton = document.querySelector("#next-button");
 const loopModeButton = document.querySelector("#loop-mode-button");
@@ -223,6 +238,7 @@ function resetCurrentPageState() {
   playerState.currentPages = [];
   playerState.currentPageIndex = 0;
   playerState.currentDisplayTrack = null;
+  updatePlayerPagesButton();
 }
 
 function normalizeVideoPage(page, index) {
@@ -246,6 +262,23 @@ function currentVideoPage() {
     return null;
   }
   return playerState.currentPages[playerState.currentPageIndex] ?? null;
+}
+
+function updatePlayerPagesButton() {
+  const pageCount = playerState.currentPages.length;
+  const hasCurrent =
+    playerState.currentIndex >= 0 &&
+    playerState.currentIndex < playerState.queue.length;
+  playerPagesButton.hidden = !hasCurrent || pageCount <= 1;
+  if (!playerPagesButton.hidden) {
+    const currentPage = Math.min(playerState.currentPageIndex + 1, pageCount);
+    playerPagesButton.textContent = `${currentPage}/${pageCount}`;
+    playerPagesButton.title = "查看分P";
+    playerPagesButton.setAttribute(
+      "aria-label",
+      `查看分P，当前第 ${currentPage} 个，共 ${pageCount} 个`,
+    );
+  }
 }
 
 function buildDisplayTrack(video, info, page) {
@@ -274,6 +307,7 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
       .map(normalizeVideoPage)
       .filter((page) => page.cid > 0);
     playerState.currentPageIndex = 0;
+    updatePlayerPagesButton();
   } catch (error) {
     if (requestVersion === playerState.requestVersion) {
       console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
@@ -536,18 +570,30 @@ function formatPubdate(value) {
 function updatePageCountBadge(playButton, bvid) {
   playButton.dataset.bvid = bvid;
   const count = videoPageCounts.get(bvid);
-  let badge = playButton.querySelector(".page-count-badge");
+  const actions = playButton.parentElement?.querySelector(".track-actions");
+  let badge = actions?.querySelector(".page-count-badge");
   if (!(count > 1)) {
     badge?.remove();
     return;
   }
-  if (!badge) {
-    badge = document.createElement("span");
+  if (!badge && actions) {
+    badge = document.createElement("button");
+    badge.type = "button";
     badge.className = "page-count-badge";
-    playButton.append(badge);
+    badge.title = "查看分P";
+    badge.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      pageModalOpeners.get(playButton)?.(badge);
+    });
+    badge.addEventListener("dblclick", (event) => event.stopPropagation());
+    actions.prepend(badge);
+  }
+  if (!badge) {
+    return;
   }
   badge.textContent = `${count}P`;
-  badge.setAttribute("aria-label", `${count} 个分P`);
+  badge.setAttribute("aria-label", `查看 ${count} 个分P`);
 }
 
 function refreshPageCountBadges(bvid) {
@@ -558,8 +604,164 @@ function refreshPageCountBadges(bvid) {
   }
 }
 
+function stopObservingPageCountBvid(bvid) {
+  for (const target of observedPageCountTargets.get(bvid) ?? []) {
+    pageCountObserver?.unobserve(target);
+  }
+  observedPageCountTargets.delete(bvid);
+  visiblePageCountTargets.delete(bvid);
+}
+
+function hasVisiblePageCountTarget(bvid) {
+  const targets = visiblePageCountTargets.get(bvid);
+  if (!targets) {
+    return false;
+  }
+  for (const target of [...targets]) {
+    if (!target.isConnected) {
+      targets.delete(target);
+      observedPageCountTargets.get(bvid)?.delete(target);
+      pageCountObserver?.unobserve(target);
+    }
+  }
+  if (targets.size === 0) {
+    visiblePageCountTargets.delete(bvid);
+    return false;
+  }
+  return true;
+}
+
+function schedulePageCountLookups() {
+  if (
+    pageCountLookupTimer !== null ||
+    activePageCountLookups >= PAGE_COUNT_LOOKUP_CONCURRENCY
+  ) {
+    return;
+  }
+
+  while (pageCountLookupQueue.length > 0) {
+    const bvid = pageCountLookupQueue[0];
+    if (
+      videoPageCounts.has(bvid) ||
+      failedPageCountBvids.has(bvid) ||
+      activePageCountBvids.has(bvid) ||
+      !hasVisiblePageCountTarget(bvid)
+    ) {
+      pageCountLookupQueue.shift();
+      queuedPageCountBvids.delete(bvid);
+      continue;
+    }
+
+    const elapsed = performance.now() - lastPageCountLookupStartedAt;
+    const delay = Math.max(0, PAGE_COUNT_LOOKUP_INTERVAL_MS - elapsed);
+    if (delay > 0) {
+      pageCountLookupTimer = window.setTimeout(() => {
+        pageCountLookupTimer = null;
+        schedulePageCountLookups();
+      }, Math.ceil(delay));
+      return;
+    }
+
+    pageCountLookupQueue.shift();
+    queuedPageCountBvids.delete(bvid);
+    activePageCountBvids.add(bvid);
+    activePageCountLookups += 1;
+    lastPageCountLookupStartedAt = performance.now();
+    void fetchPageCount(bvid);
+    schedulePageCountLookups();
+    return;
+  }
+}
+
+function queuePageCountLookup(bvid) {
+  if (
+    videoPageCounts.has(bvid) ||
+    failedPageCountBvids.has(bvid) ||
+    queuedPageCountBvids.has(bvid) ||
+    activePageCountBvids.has(bvid)
+  ) {
+    return;
+  }
+  queuedPageCountBvids.add(bvid);
+  pageCountLookupQueue.push(bvid);
+  schedulePageCountLookups();
+}
+
+async function fetchPageCount(bvid) {
+  try {
+    const meta = await invoke("get_video_meta", { bvid });
+    const videos = Math.max(0, Math.round(Number(meta?.videos) || 0));
+    videoPageCounts.set(bvid, videos);
+    refreshPageCountBadges(bvid);
+  } catch {
+    failedPageCountBvids.add(bvid);
+  } finally {
+    stopObservingPageCountBvid(bvid);
+    activePageCountBvids.delete(bvid);
+    activePageCountLookups -= 1;
+    schedulePageCountLookups();
+  }
+}
+
+function observePageCount(item, bvid) {
+  if (!bvid || videoPageCounts.has(bvid) || failedPageCountBvids.has(bvid)) {
+    return;
+  }
+  if (pageCountObserver === undefined) {
+    pageCountObserver = typeof window.IntersectionObserver === "function"
+      ? new window.IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            const targetBvid = entry.target.dataset.pageCountBvid;
+            if (!targetBvid) {
+              continue;
+            }
+            if (
+              videoPageCounts.has(targetBvid) ||
+              failedPageCountBvids.has(targetBvid)
+            ) {
+              stopObservingPageCountBvid(targetBvid);
+              continue;
+            }
+            let visibleTargets = visiblePageCountTargets.get(targetBvid);
+            if (entry.isIntersecting && entry.target.isConnected) {
+              if (!visibleTargets) {
+                visibleTargets = new Set();
+                visiblePageCountTargets.set(targetBvid, visibleTargets);
+              }
+              visibleTargets.add(entry.target);
+              queuePageCountLookup(targetBvid);
+            } else {
+              visibleTargets?.delete(entry.target);
+              if (visibleTargets?.size === 0) {
+                visiblePageCountTargets.delete(targetBvid);
+              }
+              if (!entry.target.isConnected) {
+                observedPageCountTargets.get(targetBvid)?.delete(entry.target);
+                pageCountObserver.unobserve(entry.target);
+              }
+            }
+          }
+        }, { threshold: 0.01 })
+      : null;
+  }
+  if (!pageCountObserver) {
+    return;
+  }
+  item.dataset.pageCountBvid = bvid;
+  let observedTargets = observedPageCountTargets.get(bvid);
+  if (!observedTargets) {
+    observedTargets = new Set();
+    observedPageCountTargets.set(bvid, observedTargets);
+  }
+  observedTargets.add(item);
+  pageCountObserver.observe(item);
+}
+
 async function loadVideoPagesForModal(video, onPlay, trigger) {
   const requestVersion = ++pagesMetaRequestVersion;
+  if (pagesMetaStatusBeforeLoad === null) {
+    pagesMetaStatusBeforeLoad = status.textContent;
+  }
   trigger.setAttribute("aria-busy", "true");
   trigger.dataset.pagesRequestVersion = String(requestVersion);
   status.textContent = "正在获取分P信息…";
@@ -578,7 +780,7 @@ async function loadVideoPagesForModal(video, onPlay, trigger) {
       status.textContent = "该视频只有一个分P";
       return;
     }
-    status.textContent = `已获取 ${videos} 个分P。`;
+    status.textContent = pagesMetaStatusBeforeLoad;
     openPagesModal(video, videos, pages, onPlay, trigger);
   } catch (error) {
     if (requestVersion === pagesMetaRequestVersion) {
@@ -586,6 +788,9 @@ async function loadVideoPagesForModal(video, onPlay, trigger) {
       status.textContent = "获取分P信息失败";
     }
   } finally {
+    if (requestVersion === pagesMetaRequestVersion) {
+      pagesMetaStatusBeforeLoad = null;
+    }
     if (trigger.dataset.pagesRequestVersion === String(requestVersion)) {
       trigger.removeAttribute("aria-busy");
       delete trigger.dataset.pagesRequestVersion;
@@ -595,6 +800,9 @@ async function loadVideoPagesForModal(video, onPlay, trigger) {
 
 function bindTrackActivation(item, playButton, video, onPlay) {
   let clickTimer = null;
+  pageModalOpeners.set(playButton, (trigger) => {
+    void loadVideoPagesForModal(video, onPlay, trigger);
+  });
   updatePageCountBadge(playButton, video.bvid);
   playButton.addEventListener("click", (event) => {
     if (event.detail === 0) {
@@ -618,8 +826,9 @@ function bindTrackActivation(item, playButton, video, onPlay) {
       window.clearTimeout(clickTimer);
       clickTimer = null;
     }
-    void loadVideoPagesForModal(video, onPlay, playButton);
+    pageModalOpeners.get(playButton)?.(playButton);
   });
+  observePageCount(item, video.bvid);
 }
 
 function isFavorited(bvid) {
@@ -753,10 +962,10 @@ function createTrackRow(video, index, onPlay, options = {}) {
     ? formatDuration(video.durationSeconds)
     : "0:00";
   playButton.append(trackDuration);
+  item.append(playButton, createTrackActions(video, options));
   bindTrackActivation(item, playButton, video, (pageSelection) =>
     onPlay(index, pageSelection));
 
-  item.append(playButton, createTrackActions(video, options));
   return item;
 }
 
@@ -822,9 +1031,9 @@ function renderSearchResults() {
       : "0:00";
     playButton.append(trackDuration);
 
+    item.append(playButton, createTrackActions(video));
     bindTrackActivation(item, playButton, video, (pageSelection) =>
       playSearchResult(index, pageSelection));
-    item.append(playButton, createTrackActions(video));
     searchResults.append(item);
   });
   updateQueueUi();
@@ -1331,13 +1540,27 @@ function openPagesModal(video, videos, pages, onPlay, trigger) {
   pagesModalTitle.textContent = "选择分P";
   pagesModalSub.textContent = `${video.title || video.bvid} · 共 ${videos}P`;
   pagesModalList.replaceChildren();
+  const currentTrack = currentPlayableTrack();
+  const currentPage =
+    currentTrack?.bvid.toLowerCase() === String(video.bvid).toLowerCase()
+      ? currentVideoPage()
+      : null;
+  let currentPageButton = null;
 
   for (const page of pages) {
     const item = document.createElement("li");
     const button = document.createElement("button");
+    const isCurrent = currentPage?.cid === page.cid;
     button.type = "button";
     button.className = "pages-list-button";
-    button.textContent = `${page.page} · ${page.part || `第 ${page.page} P`} · ${formatDuration(page.durationSeconds)}`;
+    button.classList.toggle("is-current", isCurrent);
+    button.textContent =
+      `${page.page} · ${page.part || `第 ${page.page} P`} · ` +
+      `${formatDuration(page.durationSeconds)}${isCurrent ? " · 当前" : ""}`;
+    if (isCurrent) {
+      button.setAttribute("aria-current", "true");
+      currentPageButton = button;
+    }
     button.addEventListener("click", () => {
       const context = pagesModalContext;
       closePagesModal();
@@ -1351,8 +1574,38 @@ function openPagesModal(video, videos, pages, onPlay, trigger) {
   requestAnimationFrame(() => {
     pagesModal.classList.add("is-open");
     pagesModal.setAttribute("aria-hidden", "false");
-    (pagesModalList.querySelector("button") ?? pagesModalClose).focus();
+    const focusTarget =
+      currentPageButton ?? pagesModalList.querySelector("button") ?? pagesModalClose;
+    currentPageButton?.scrollIntoView({ block: "nearest" });
+    focusTarget.focus();
   });
+}
+
+function playCurrentVideoPage(page) {
+  const pageIndex = playerState.currentPages.findIndex(
+    (candidate) => candidate.cid === page.cid || candidate.page === page.page,
+  );
+  if (pageIndex < 0 || pageIndex === playerState.currentPageIndex) {
+    return;
+  }
+  playerState.currentPageIndex = pageIndex;
+  playerState.currentDisplayTrack = null;
+  updatePlayerPagesButton();
+  loadCurrentTrack({ keepPage: true });
+}
+
+function openCurrentPagesModal() {
+  const video = currentPlayableTrack();
+  if (!video || !hasMultipleCurrentPages()) {
+    return;
+  }
+  openPagesModal(
+    video,
+    playerState.currentPages.length,
+    playerState.currentPages,
+    ({ startPage }) => playCurrentVideoPage(startPage),
+    playerPagesButton,
+  );
 }
 
 function closePagesModal() {
@@ -1883,6 +2136,7 @@ function playQueueIndex(
       playerState.currentPageIndex = startPageIndex;
     }
   }
+  updatePlayerPagesButton();
   markRandomIndexPlayed(index);
   updateQueueUi();
   emitCurrentTrackChanged();
@@ -1936,6 +2190,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
 
   playerState.currentPageIndex = nextPageIndex;
   playerState.currentDisplayTrack = null;
+  updatePlayerPagesButton();
   loadCurrentTrack({ keepPage: true });
   return true;
 }
@@ -1947,6 +2202,7 @@ function retreatPageWithinCurrentBv() {
 
   playerState.currentPageIndex -= 1;
   playerState.currentDisplayTrack = null;
+  updatePlayerPagesButton();
   loadCurrentTrack({ keepPage: true });
   return true;
 }
@@ -2200,6 +2456,7 @@ searchResults.addEventListener("scroll", () => {
   }
 });
 
+playerPagesButton?.addEventListener("click", openCurrentPagesModal);
 previousButton.addEventListener("click", () => {
   if (!retreatPageWithinCurrentBv()) {
     playPrevious();
