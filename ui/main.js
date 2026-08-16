@@ -67,6 +67,11 @@ const libraryState = {
   loadError: "",
 };
 
+const videoPageCounts = new Map();
+let pagesMetaRequestVersion = 0;
+let pagesModalContext = null;
+let pagesModalReturnFocus = null;
+
 const searchForm = document.querySelector("#search-form");
 const searchKeyword = document.querySelector("#search-keyword");
 const searchButton = document.querySelector("#search-button");
@@ -125,6 +130,11 @@ const libraryModalTitle = document.querySelector("#library-modal-title");
 const libraryModalSubtitle = document.querySelector("#library-modal-subtitle");
 const libraryModalBody = document.querySelector("#library-modal-body");
 const libraryModalStatus = document.querySelector("#library-modal-status");
+const pagesModal = document.querySelector("#pages-modal");
+const pagesModalTitle = document.querySelector("#pages-modal-title");
+const pagesModalSub = document.querySelector("#pages-modal-sub");
+const pagesModalList = document.querySelector("#pages-modal-list");
+const pagesModalClose = document.querySelector("#pages-modal-close");
 let playbackNoticeTimer = null;
 
 function isBvId(value) {
@@ -220,7 +230,10 @@ function normalizeVideoPage(page, index) {
     page: Math.max(1, Math.round(Number(page?.page) || index + 1)),
     cid: Number(page?.cid) || 0,
     part: String(page?.part ?? "").trim(),
-    durationSeconds: Math.max(0, Math.round(Number(page?.durationSeconds) || 0)),
+    durationSeconds: Math.max(
+      0,
+      Math.round(Number(page?.durationSeconds ?? page?.duration) || 0),
+    ),
   };
 }
 
@@ -520,6 +533,95 @@ function formatPubdate(value) {
   ).padStart(2, "0")}`;
 }
 
+function updatePageCountBadge(playButton, bvid) {
+  playButton.dataset.bvid = bvid;
+  const count = videoPageCounts.get(bvid);
+  let badge = playButton.querySelector(".page-count-badge");
+  if (!(count > 1)) {
+    badge?.remove();
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "page-count-badge";
+    playButton.append(badge);
+  }
+  badge.textContent = `${count}P`;
+  badge.setAttribute("aria-label", `${count} 个分P`);
+}
+
+function refreshPageCountBadges(bvid) {
+  for (const playButton of document.querySelectorAll("button.track[data-bvid]")) {
+    if (playButton.dataset.bvid === bvid) {
+      updatePageCountBadge(playButton, bvid);
+    }
+  }
+}
+
+async function loadVideoPagesForModal(video, onPlay, trigger) {
+  const requestVersion = ++pagesMetaRequestVersion;
+  trigger.setAttribute("aria-busy", "true");
+  trigger.dataset.pagesRequestVersion = String(requestVersion);
+  status.textContent = "正在获取分P信息…";
+  try {
+    const meta = await invoke("get_video_meta", { bvid: video.bvid });
+    if (requestVersion !== pagesMetaRequestVersion) {
+      return;
+    }
+    const videos = Math.max(0, Math.round(Number(meta?.videos) || 0));
+    const pages = (Array.isArray(meta?.pages) ? meta.pages : [])
+      .map(normalizeVideoPage)
+      .filter((page) => page.cid > 0);
+    videoPageCounts.set(video.bvid, videos);
+    refreshPageCountBadges(video.bvid);
+    if (videos <= 1) {
+      status.textContent = "该视频只有一个分P";
+      return;
+    }
+    status.textContent = `已获取 ${videos} 个分P。`;
+    openPagesModal(video, videos, pages, onPlay, trigger);
+  } catch (error) {
+    if (requestVersion === pagesMetaRequestVersion) {
+      console.warn(`get_video_meta failed for ${video.bvid}:`, error);
+      status.textContent = "获取分P信息失败";
+    }
+  } finally {
+    if (trigger.dataset.pagesRequestVersion === String(requestVersion)) {
+      trigger.removeAttribute("aria-busy");
+      delete trigger.dataset.pagesRequestVersion;
+    }
+  }
+}
+
+function bindTrackActivation(item, playButton, video, onPlay) {
+  let clickTimer = null;
+  updatePageCountBadge(playButton, video.bvid);
+  playButton.addEventListener("click", (event) => {
+    if (event.detail === 0) {
+      onPlay();
+      return;
+    }
+    if (clickTimer !== null) {
+      window.clearTimeout(clickTimer);
+    }
+    clickTimer = window.setTimeout(() => {
+      clickTimer = null;
+      onPlay();
+    }, 250);
+  });
+  item.addEventListener("dblclick", (event) => {
+    if (event.target.closest(".track-actions")) {
+      return;
+    }
+    event.preventDefault();
+    if (clickTimer !== null) {
+      window.clearTimeout(clickTimer);
+      clickTimer = null;
+    }
+    void loadVideoPagesForModal(video, onPlay, playButton);
+  });
+}
+
 function isFavorited(bvid) {
   return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
@@ -651,7 +753,8 @@ function createTrackRow(video, index, onPlay, options = {}) {
     ? formatDuration(video.durationSeconds)
     : "0:00";
   playButton.append(trackDuration);
-  playButton.addEventListener("click", () => onPlay(index));
+  bindTrackActivation(item, playButton, video, (pageSelection) =>
+    onPlay(index, pageSelection));
 
   item.append(playButton, createTrackActions(video, options));
   return item;
@@ -719,7 +822,8 @@ function renderSearchResults() {
       : "0:00";
     playButton.append(trackDuration);
 
-    playButton.addEventListener("click", () => playSearchResult(index));
+    bindTrackActivation(item, playButton, video, (pageSelection) =>
+      playSearchResult(index, pageSelection));
     item.append(playButton, createTrackActions(video));
     searchResults.append(item);
   });
@@ -816,7 +920,8 @@ function renderHomeRanking() {
       createTrackRow(
         video,
         index,
-        (targetIndex) => playListItem("ranking", homeState.ranking, targetIndex),
+        (targetIndex, pageSelection) =>
+          playListItem("ranking", homeState.ranking, targetIndex, pageSelection),
         { showPlayCount: true },
       ),
     );
@@ -868,7 +973,8 @@ function renderRecommendations() {
       createTrackRow(
         video,
         index,
-        (targetIndex) => playListItem("recommendation", homeState.recommendations, targetIndex),
+        (targetIndex, pageSelection) =>
+          playListItem("recommendation", homeState.recommendations, targetIndex, pageSelection),
         { showPlayCount: true },
       ),
     );
@@ -1073,7 +1179,8 @@ function renderFavorites() {
       createTrackRow(
         video,
         index,
-        (targetIndex) => playListItem("favorites", libraryState.favorites, targetIndex),
+        (targetIndex, pageSelection) =>
+          playListItem("favorites", libraryState.favorites, targetIndex, pageSelection),
       ),
     );
   }
@@ -1125,9 +1232,10 @@ function renderPlaylists() {
       createTrackRow(
         video,
         index,
-        (targetIndex) =>
+        (targetIndex, pageSelection) =>
           playListItem("playlist", selectedPlaylist.items, targetIndex, {
             playlistId: selectedPlaylist.id,
+            ...(pageSelection ?? {}),
           }),
         { playlistId: selectedPlaylist.id },
       ),
@@ -1214,6 +1322,66 @@ async function toggleFavorite(video = currentPlayableTrack()) {
     }
   } catch (error) {
     status.textContent = `收藏操作失败：${error}`;
+  }
+}
+
+function openPagesModal(video, videos, pages, onPlay, trigger) {
+  pagesModalContext = { pages, onPlay };
+  pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+  pagesModalTitle.textContent = "选择分P";
+  pagesModalSub.textContent = `${video.title || video.bvid} · 共 ${videos}P`;
+  pagesModalList.replaceChildren();
+
+  for (const page of pages) {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pages-list-button";
+    button.textContent = `${page.page} · ${page.part || `第 ${page.page} P`} · ${formatDuration(page.durationSeconds)}`;
+    button.addEventListener("click", () => {
+      const context = pagesModalContext;
+      closePagesModal();
+      context?.onPlay({ startPage: page, pages: context.pages });
+    });
+    item.append(button);
+    pagesModalList.append(item);
+  }
+
+  pagesModal.hidden = false;
+  requestAnimationFrame(() => {
+    pagesModal.classList.add("is-open");
+    pagesModal.setAttribute("aria-hidden", "false");
+    (pagesModalList.querySelector("button") ?? pagesModalClose).focus();
+  });
+}
+
+function closePagesModal() {
+  pagesModal.classList.remove("is-open");
+  pagesModal.setAttribute("aria-hidden", "true");
+  pagesModalContext = null;
+  const returnFocus = pagesModalReturnFocus;
+  pagesModalReturnFocus = null;
+  if (returnFocus instanceof HTMLElement && returnFocus.isConnected) {
+    returnFocus.focus({ preventScroll: true });
+  }
+}
+
+function keepFocusInPagesModal(event) {
+  if (event.key !== "Tab" || !pagesModal.classList.contains("is-open")) {
+    return;
+  }
+  const focusable = [...pagesModal.querySelectorAll("button:not([disabled])")];
+  if (focusable.length === 0) {
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
   }
 }
 
@@ -1626,18 +1794,41 @@ function playBvId(bvId) {
   playQueueIndex(0);
 }
 
-function playSearchResult(index) {
+function playSearchResult(index, pageSelection = null) {
   if (index < 0 || index >= searchState.results.length) {
     return;
   }
 
   playListItem("search", searchState.results, index, {
     searchVersion: searchState.requestVersion,
+    ...(pageSelection ?? {}),
   });
 }
 
-function playListItem(source, videos, index, { searchVersion = null, playlistId = null } = {}) {
+function playListItem(
+  source,
+  videos,
+  index,
+  { searchVersion = null, playlistId = null, startPage = null, pages = [] } = {},
+) {
   if (index < 0 || index >= videos.length) {
+    return;
+  }
+
+  const currentVideo = playerState.queue[playerState.currentIndex];
+  const targetBvid = String(videos[index]?.bvid ?? "").toLowerCase();
+  const isCurrentQueueItem =
+    !startPage &&
+    targetBvid &&
+    playerState.queueSource === source &&
+    playerState.currentIndex === index &&
+    String(currentVideo?.bvid ?? "").toLowerCase() === targetBvid &&
+    (source !== "search" || playerState.queueSearchVersion === searchVersion) &&
+    (source !== "playlist" || playerState.queuePlaylistId === playlistId);
+  if (isCurrentQueueItem) {
+    if (audio.paused) {
+      void audio.play().catch(() => {});
+    }
     return;
   }
 
@@ -1651,12 +1842,17 @@ function playListItem(source, videos, index, { searchVersion = null, playlistId 
   resetCurrentPageState();
   clearPlaybackNotice();
   resetRandomRemaining();
-  playQueueIndex(index, { recordCurrent: false });
+  playQueueIndex(index, { recordCurrent: false, startPage, pages });
 }
 
 function playQueueIndex(
   index,
-  { recordCurrent = true, preserveFailureStreak = false } = {},
+  {
+    recordCurrent = true,
+    preserveFailureStreak = false,
+    startPage = null,
+    pages = [],
+  } = {},
 ) {
   if (index < 0 || index >= playerState.queue.length) {
     return;
@@ -1677,10 +1873,24 @@ function playQueueIndex(
   }
   playerState.currentIndex = index;
   resetCurrentPageState();
+  if (startPage) {
+    const normalizedPages = pages.map(normalizeVideoPage).filter((page) => page.cid > 0);
+    const startPageIndex = normalizedPages.findIndex(
+      (page) => page.cid === startPage.cid || page.page === startPage.page,
+    );
+    if (normalizedPages.length > 1 && startPageIndex >= 0) {
+      playerState.currentPages = normalizedPages;
+      playerState.currentPageIndex = startPageIndex;
+    }
+  }
   markRandomIndexPlayed(index);
   updateQueueUi();
   emitCurrentTrackChanged();
-  loadCurrentTrack();
+  if (currentVideoPage()) {
+    loadCurrentTrack({ keepPage: true });
+  } else {
+    loadCurrentTrack();
+  }
 }
 
 function takeRandomNext() {
@@ -2108,9 +2318,25 @@ libraryModal?.addEventListener("transitionend", (event) => {
     libraryModal.hidden = true;
   }
 });
+pagesModalClose?.addEventListener("click", closePagesModal);
+pagesModal?.addEventListener("click", (event) => {
+  if (event.target === pagesModal) {
+    closePagesModal();
+  }
+});
+pagesModal?.addEventListener("keydown", keepFocusInPagesModal);
+pagesModal?.addEventListener("transitionend", (event) => {
+  if (event.target === pagesModal && !pagesModal.classList.contains("is-open")) {
+    pagesModal.hidden = true;
+  }
+});
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && libraryModal?.classList.contains("is-open")) {
-    closeLibraryModal();
+  if (event.key === "Escape") {
+    if (pagesModal?.classList.contains("is-open")) {
+      closePagesModal();
+    } else if (libraryModal?.classList.contains("is-open")) {
+      closeLibraryModal();
+    }
   }
 });
 
