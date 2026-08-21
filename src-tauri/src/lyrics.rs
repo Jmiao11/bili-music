@@ -17,6 +17,10 @@ const BINDINGS_VERSION: u32 = 1;
 const NEGATIVE_TTL_SECS: i64 = 7 * 24 * 3600;
 const CACHE_VERSION: u32 = 1;
 const LYRICS_CACHE_TTL_SECS: i64 = 30 * 24 * 3600;
+const VIDEO_PAGES_CACHE_FILE: &str = "video-pages-cache.json";
+const VIDEO_PAGES_CACHE_VERSION: u32 = 1;
+const VIDEO_PAGES_TTL_SECS: i64 = 30 * 24 * 3600;
+static VIDEO_PAGES_CACHE_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 const NOISE_WORDS: &[&str] = &[
     "4k",
     "60fps",
@@ -85,12 +89,40 @@ struct CachedLyrics {
     cached_at: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PageMeta {
     pub cid: i64,
     pub page: i64,
     pub part: String,
     pub duration: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CachedVideoPages {
+    pub videos: i64,
+    pub pages: Vec<PageMeta>,
+    pub cached_at: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct VideoPagesCacheFile {
+    version: u32,
+    entries: HashMap<String, CachedVideoPages>,
+}
+
+impl Default for VideoPagesCacheFile {
+    fn default() -> Self {
+        Self {
+            version: VIDEO_PAGES_CACHE_VERSION,
+            entries: HashMap::new(),
+        }
+    }
+}
+
+impl crate::library::Versioned for VideoPagesCacheFile {
+    fn version(&self) -> u32 {
+        self.version
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -471,6 +503,77 @@ pub async fn fetch_video_meta(bvid: &str, cookie_header: &str) -> Result<VideoMe
         }
     };
     video_meta_from_response(response)
+}
+
+#[tauri::command]
+pub fn get_cached_video_pages(
+    bvids: Vec<String>,
+) -> Result<HashMap<String, CachedVideoPages>, String> {
+    let Ok(path) = video_pages_cache_path() else {
+        return Ok(HashMap::new());
+    };
+    let Ok(file) = crate::library::read_json_or_default::<VideoPagesCacheFile>(&path) else {
+        return Ok(HashMap::new());
+    };
+    Ok(fresh_video_pages_entries(file, bvids, unix_now()))
+}
+
+pub fn cache_video_pages(bvid: String, videos: i64, pages: Vec<PageMeta>) -> Result<(), String> {
+    if bvid.trim().is_empty() || videos < 1 {
+        return Ok(());
+    }
+    let _guard = VIDEO_PAGES_CACHE_WRITE_LOCK
+        .lock()
+        .map_err(|_| "分P缓存写入锁已损坏。".to_owned())?;
+    let path = video_pages_cache_path()?;
+    let mut file =
+        crate::library::read_json_or_default::<VideoPagesCacheFile>(&path).unwrap_or_default();
+    file.entries.insert(
+        bvid.trim().to_owned(),
+        CachedVideoPages {
+            videos,
+            pages,
+            cached_at: unix_now(),
+        },
+    );
+    crate::library::write_json_atomic(&path, &file)
+}
+
+#[tauri::command]
+pub fn clear_video_pages_cache() -> Result<u32, String> {
+    let _guard = VIDEO_PAGES_CACHE_WRITE_LOCK
+        .lock()
+        .map_err(|_| "分P缓存写入锁已损坏。".to_owned())?;
+    let path = video_pages_cache_path()?;
+    let count = crate::library::read_json_or_default::<VideoPagesCacheFile>(&path)
+        .unwrap_or_default()
+        .entries
+        .len()
+        .min(u32::MAX as usize) as u32;
+    crate::library::write_json_atomic(&path, &VideoPagesCacheFile::default())?;
+    Ok(count)
+}
+
+fn video_pages_cache_path() -> Result<PathBuf, String> {
+    Ok(crate::library::library_root()?.join(VIDEO_PAGES_CACHE_FILE))
+}
+
+fn fresh_video_pages_entries(
+    file: VideoPagesCacheFile,
+    bvids: Vec<String>,
+    now: i64,
+) -> HashMap<String, CachedVideoPages> {
+    let requested = bvids
+        .into_iter()
+        .map(|bvid| bvid.trim().to_owned())
+        .filter(|bvid| !bvid.is_empty())
+        .collect::<HashSet<_>>();
+    file.entries
+        .into_iter()
+        .filter(|(bvid, entry)| {
+            requested.contains(bvid) && now.saturating_sub(entry.cached_at) < VIDEO_PAGES_TTL_SECS
+        })
+        .collect()
 }
 
 fn video_meta_from_response(response: ViewDetailResponse) -> Result<VideoMeta, String> {
@@ -1325,6 +1428,41 @@ mod tests {
         assert_eq!(decoded.lrc, cached.lrc);
         assert_eq!(decoded.trans, cached.trans);
         assert_eq!(decoded.cached_at, cached.cached_at);
+    }
+
+    #[test]
+    fn video_pages_cache_only_returns_requested_fresh_entries() {
+        let page = PageMeta {
+            cid: 1,
+            page: 1,
+            part: "P1".to_owned(),
+            duration: 60,
+        };
+        let file = VideoPagesCacheFile {
+            version: VIDEO_PAGES_CACHE_VERSION,
+            entries: HashMap::from([
+                (
+                    "BVfresh".to_owned(),
+                    CachedVideoPages {
+                        videos: 1,
+                        pages: vec![page.clone()],
+                        cached_at: 100,
+                    },
+                ),
+                (
+                    "BVstale".to_owned(),
+                    CachedVideoPages {
+                        videos: 1,
+                        pages: vec![page],
+                        cached_at: 100 - VIDEO_PAGES_TTL_SECS,
+                    },
+                ),
+            ]),
+        };
+        let entries =
+            fresh_video_pages_entries(file, vec!["BVfresh".to_owned(), "BVstale".to_owned()], 100);
+        assert_eq!(entries.len(), 1);
+        assert!(entries.contains_key("BVfresh"));
     }
 
     #[test]

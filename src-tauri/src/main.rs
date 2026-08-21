@@ -294,7 +294,17 @@ async fn get_video_meta(
     bvid: String,
 ) -> Result<lyrics::VideoMeta, String> {
     let cookie_header = state.guest.guest_cookie_header().await?;
-    lyrics::fetch_video_meta(&bvid, &cookie_header).await
+    let meta = lyrics::fetch_video_meta(&bvid, &cookie_header).await?;
+    if meta.videos >= 1 {
+        let videos = meta.videos;
+        let pages = meta.pages.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Err(error) = lyrics::cache_video_pages(bvid, videos, pages) {
+                eprintln!("[video-pages-cache] write failed: {error}");
+            }
+        });
+    }
+    Ok(meta)
 }
 
 #[tauri::command]
@@ -638,6 +648,8 @@ fn main() {
             prepare_audio,
             get_video_pages,
             get_video_meta,
+            lyrics::get_cached_video_pages,
+            lyrics::clear_video_pages_cache,
             cancel_prepare_audio,
             search_videos,
             get_music_ranking,

@@ -68,6 +68,7 @@ const libraryState = {
 };
 
 const videoPageCounts = new Map();
+const videoPagesByBvid = new Map();
 const pageModalOpeners = new WeakMap();
 const failedPageCountBvids = new Set();
 const queuedPageCountBvids = new Set();
@@ -81,6 +82,8 @@ let pageCountObserver;
 let activePageCountLookups = 0;
 let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
 let pageCountLookupTimer = null;
+const pendingPageCacheTargets = new Map();
+let pageCacheLookupScheduled = false;
 let pagesMetaRequestVersion = 0;
 let pagesMetaStatusBeforeLoad = null;
 let pagesModalContext = null;
@@ -604,6 +607,63 @@ function refreshPageCountBadges(bvid) {
   }
 }
 
+function rememberVideoPages(bvid, value) {
+  const videos = Math.max(0, Math.round(Number(value?.videos) || 0));
+  const pages = (Array.isArray(value?.pages) ? value.pages : [])
+    .map(normalizeVideoPage)
+    .filter((page) => page.cid > 0);
+  videoPageCounts.set(bvid, videos);
+  if (videos >= 1 && pages.length > 0) {
+    videoPagesByBvid.set(bvid, { videos, pages });
+  }
+  refreshPageCountBadges(bvid);
+  return { videos, pages };
+}
+
+function queueCachedVideoPagesLookup(item, bvid) {
+  if (!bvid || videoPageCounts.has(bvid) || failedPageCountBvids.has(bvid)) {
+    return;
+  }
+  let targets = pendingPageCacheTargets.get(bvid);
+  if (!targets) {
+    targets = new Set();
+    pendingPageCacheTargets.set(bvid, targets);
+  }
+  targets.add(item);
+  if (pageCacheLookupScheduled) {
+    return;
+  }
+  pageCacheLookupScheduled = true;
+  window.setTimeout(loadCachedVideoPagesBatch, 0);
+}
+
+async function loadCachedVideoPagesBatch() {
+  pageCacheLookupScheduled = false;
+  const batch = new Map(pendingPageCacheTargets);
+  pendingPageCacheTargets.clear();
+  const bvids = [...batch.keys()].filter((bvid) => !videoPageCounts.has(bvid));
+  let cached = {};
+  if (bvids.length > 0) {
+    try {
+      cached = await invoke("get_cached_video_pages", { bvids });
+    } catch {
+      cached = {};
+    }
+  }
+  for (const [bvid, targets] of batch) {
+    if (cached?.[bvid]) {
+      rememberVideoPages(bvid, cached[bvid]);
+      stopObservingPageCountBvid(bvid);
+      continue;
+    }
+    for (const target of targets) {
+      if (target.isConnected) {
+        observePageCount(target, bvid);
+      }
+    }
+  }
+}
+
 function stopObservingPageCountBvid(bvid) {
   for (const target of observedPageCountTargets.get(bvid) ?? []) {
     pageCountObserver?.unobserve(target);
@@ -690,9 +750,7 @@ function queuePageCountLookup(bvid) {
 async function fetchPageCount(bvid) {
   try {
     const meta = await invoke("get_video_meta", { bvid });
-    const videos = Math.max(0, Math.round(Number(meta?.videos) || 0));
-    videoPageCounts.set(bvid, videos);
-    refreshPageCountBadges(bvid);
+    rememberVideoPages(bvid, meta);
   } catch {
     failedPageCountBvids.add(bvid);
   } finally {
@@ -758,6 +816,15 @@ function observePageCount(item, bvid) {
 }
 
 async function loadVideoPagesForModal(video, onPlay, trigger) {
+  const cached = videoPagesByBvid.get(video.bvid);
+  if (cached) {
+    if (cached.videos <= 1) {
+      status.textContent = "该视频只有一个分P";
+      return;
+    }
+    openPagesModal(video, cached.videos, cached.pages, onPlay, trigger);
+    return;
+  }
   const requestVersion = ++pagesMetaRequestVersion;
   if (pagesMetaStatusBeforeLoad === null) {
     pagesMetaStatusBeforeLoad = status.textContent;
@@ -770,12 +837,7 @@ async function loadVideoPagesForModal(video, onPlay, trigger) {
     if (requestVersion !== pagesMetaRequestVersion) {
       return;
     }
-    const videos = Math.max(0, Math.round(Number(meta?.videos) || 0));
-    const pages = (Array.isArray(meta?.pages) ? meta.pages : [])
-      .map(normalizeVideoPage)
-      .filter((page) => page.cid > 0);
-    videoPageCounts.set(video.bvid, videos);
-    refreshPageCountBadges(video.bvid);
+    const { videos, pages } = rememberVideoPages(video.bvid, meta);
     if (videos <= 1) {
       status.textContent = "该视频只有一个分P";
       return;
@@ -828,7 +890,7 @@ function bindTrackActivation(item, playButton, video, onPlay) {
     }
     pageModalOpeners.get(playButton)?.(playButton);
   });
-  observePageCount(item, video.bvid);
+  queueCachedVideoPagesLookup(item, video.bvid);
 }
 
 function isFavorited(bvid) {
