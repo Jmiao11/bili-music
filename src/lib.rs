@@ -16,6 +16,39 @@ AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const RESULT_PREFIX: &str = "__BILIBILI_AUDIO_RESULT__=";
 const STREAM_RESULT_PREFIX: &str = "__BILIBILI_AUDIO_STREAM__=";
 
+/// 返回应用数据根目录（不含应用子目录名）。
+pub fn user_data_base() -> Result<PathBuf, String> {
+    platform_user_data_base(
+        env::var_os("APPDATA"),
+        env::var_os("HOME"),
+        env::var_os("XDG_DATA_HOME"),
+    )
+    .or_else(|| {
+        env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(Path::to_path_buf))
+    })
+    .ok_or_else(|| "无法定位用户数据目录。".to_owned())
+}
+
+fn platform_user_data_base(
+    appdata: Option<std::ffi::OsString>,
+    home: Option<std::ffi::OsString>,
+    xdg_data_home: Option<std::ffi::OsString>,
+) -> Option<PathBuf> {
+    if cfg!(target_os = "windows") {
+        appdata.map(PathBuf::from)
+    } else if cfg!(target_os = "macos") {
+        home.map(PathBuf::from)
+            .map(|path| path.join("Library").join("Application Support"))
+    } else {
+        xdg_data_home.map(PathBuf::from).or_else(|| {
+            home.map(PathBuf::from)
+                .map(|path| path.join(".local").join("share"))
+        })
+    }
+}
+
 pub fn bilibili_cookie_path() -> PathBuf {
     if cfg!(debug_assertions) {
         return PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("cookies.txt");
@@ -478,9 +511,10 @@ fn parse_session_cookie(line: &str) -> Option<(u64, &str)> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bilibili_cookie_path, is_valid_bv_id, run_yt_dlp_cancellable, validate_cookie_contents,
-        yt_dlp_path, AudioError,
+        bilibili_cookie_path, is_valid_bv_id, platform_user_data_base, run_yt_dlp_cancellable,
+        user_data_base, validate_cookie_contents, yt_dlp_path, AudioError,
     };
+    use std::ffi::OsString;
     use std::path::PathBuf;
     use std::process::Command;
     use std::sync::atomic::AtomicBool;
@@ -504,6 +538,40 @@ mod tests {
                 "yt-dlp"
             })
         );
+    }
+
+    #[test]
+    fn configured_user_data_base_matches_platform_conventions() {
+        let appdata = PathBuf::from("appdata-root");
+        let home = PathBuf::from("home-root");
+        let xdg = PathBuf::from("xdg-root");
+        let resolved = platform_user_data_base(
+            Some(OsString::from(&appdata)),
+            Some(OsString::from(&home)),
+            Some(OsString::from(&xdg)),
+        )
+        .unwrap();
+
+        if cfg!(target_os = "windows") {
+            assert_eq!(resolved, appdata);
+        } else if cfg!(target_os = "macos") {
+            assert_eq!(resolved, home.join("Library").join("Application Support"));
+        } else {
+            assert_eq!(resolved, xdg);
+            assert_eq!(
+                platform_user_data_base(
+                    Some(OsString::from("appdata-root")),
+                    Some(OsString::from(&home)),
+                    None,
+                ),
+                Some(home.join(".local").join("share"))
+            );
+        }
+    }
+
+    #[test]
+    fn user_data_base_does_not_panic() {
+        assert!(std::panic::catch_unwind(user_data_base).is_ok());
     }
 
     #[test]

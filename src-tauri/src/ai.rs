@@ -703,15 +703,7 @@ fn data_root() -> Result<PathBuf, String> {
 
     #[cfg(not(debug_assertions))]
     {
-        let base = std::env::var_os("APPDATA")
-            .map(PathBuf::from)
-            .or_else(|| {
-                std::env::current_exe()
-                    .ok()
-                    .and_then(|path| path.parent().map(Path::to_path_buf))
-            })
-            .ok_or_else(|| "无法定位用户数据目录。".to_owned())?;
-        Ok(base.join(APP_DATA_DIR))
+        Ok(bilibili_music_core::user_data_base()?.join(APP_DATA_DIR))
     }
 }
 
