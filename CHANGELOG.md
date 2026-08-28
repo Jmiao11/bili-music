@@ -4,17 +4,17 @@
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [0.4.0] - 2026-08-28
+
+### 新增
+
+- **分P 级收藏**：多P 视频可在分P 面板中单独收藏某一分P；底部播放条 / 沉浸页的收藏按钮收藏当前正在播放的分P。收藏与歌单列表中的分P 条目带「P号 · 分P名」标记，点击直接从该分P起播；同一视频的整视频收藏与各分P收藏互不覆盖（#8）。
+- **单P 长合集按简介时间轴分段匹配歌词**：单P 长视频简介含合法章节时间轴时，自动按章节逐段匹配歌词，播放时高亮当前章节；结果缓存 7 天，未命中章节宁缺毋错（#9）。
 
 ### 变更
 
+- 收藏与歌单数据文件版本升级至 v2，旧 v1 文件自动兼容读取、写入时自然迁移（#8）。
 - 项目许可协议由 PolyForm Strict 1.0.0 变更为 MIT License。
-
-### 计划中
-
-- 分P 级收藏（收藏单个分P，而非整个视频）
-- 单P 长合集按简介时间轴分段匹配歌词
-- 跨平台支持（macOS）
 
 ## [0.3.4] - 2026-08-04
 
@@ -113,7 +113,8 @@
 - 沉浸播放页、SMTC 系统媒体控件集成。
 - 多主题外观（深色 / 浅色 / 背景图）与质感微调。
 
-[未发布]: https://github.com/Jmiao11/bili-music/compare/v0.3.4...HEAD
+[未发布]: https://github.com/Jmiao11/bili-music/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Jmiao11/bili-music/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/Jmiao11/bili-music/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/Jmiao11/bili-music/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/Jmiao11/bili-music/compare/v0.3.1...v0.3.2

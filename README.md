@@ -11,7 +11,7 @@
     <img alt="platform" src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" />
     <img alt="tauri" src="https://img.shields.io/badge/Tauri-v2-24C8DB?logo=tauri&logoColor=white" />
     <img alt="rust" src="https://img.shields.io/badge/Rust-backend-000000?logo=rust&logoColor=white" />
-    <img alt="license" src="https://img.shields.io/badge/license-PolyForm%20Strict%201.0.0-orange" />
+    <img alt="license" src="https://img.shields.io/badge/license-MIT-green" />
   </p>
   <img src="screenshots/home-placeholder.png" width="760" alt="Bili Music 主界面截图" />
 </div>
