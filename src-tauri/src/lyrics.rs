@@ -15,6 +15,13 @@ const OFFSETS_VERSION: u32 = 1;
 const LYRICS_BINDINGS_FILE: &str = "lyrics-bindings.json";
 const BINDINGS_VERSION: u32 = 1;
 const NEGATIVE_TTL_SECS: i64 = 7 * 24 * 3600;
+// 单P 长合集章节歌词：简介时间轴解析门槛
+const CHAPTER_MIN_COUNT: usize = 3;
+const CHAPTER_MAX_COUNT: usize = 40;
+const CHAPTER_MIN_VIDEO_DURATION: i64 = 600;
+const CHAPTER_MIN_GAP: i64 = 30;
+const CHAPTER_FIRST_START_MAX: i64 = 45;
+const CHAPTER_LAST_GAP_CAP: i64 = 600;
 const CACHE_VERSION: u32 = 1;
 const LYRICS_CACHE_TTL_SECS: i64 = 30 * 24 * 3600;
 const VIDEO_PAGES_CACHE_FILE: &str = "video-pages-cache.json";
@@ -180,6 +187,9 @@ pub struct LyricsBinding {
     pub source: String,
     pub confidence: f64,
     pub checked_at: i64,
+    /// 单P 长合集按简介时间轴逐章匹配的结果缓存（source = "chapters"）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapters: Option<Vec<ChapterBinding>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -203,6 +213,39 @@ impl crate::library::Versioned for LyricsBindingsFile {
     }
 }
 
+/// 简介时间轴中的一章（用于单P 长合集）
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Chapter {
+    pub start_seconds: i64,
+    pub title: String,
+}
+
+/// 章节匹配结果的持久化形态（存入 LyricsBinding.chapters）
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ChapterBinding {
+    pub start_seconds: i64,
+    pub title: String,
+    pub status: String,
+    #[serde(default)]
+    pub song_id: String,
+    #[serde(default)]
+    pub song_name: String,
+    #[serde(default)]
+    pub singer: String,
+}
+
+/// 返回给前端的章节匹配结果
+#[derive(Serialize)]
+pub struct ChapterMatch {
+    pub start_seconds: i64,
+    pub title: String,
+    pub status: String,
+    pub song_id: String,
+    pub song_name: String,
+    pub singer: String,
+    pub lyrics: Option<Lyrics>,
+}
+
 #[derive(Serialize)]
 pub struct ResolveOutcome {
     pub status: String,
@@ -213,6 +256,8 @@ pub struct ResolveOutcome {
     pub offset_ms: i64,
     pub used_keyword: String,
     pub candidates: Vec<ScoredCandidate>,
+    #[serde(default)]
+    pub chapters: Vec<ChapterMatch>,
 }
 
 #[derive(Deserialize)]
@@ -1211,6 +1256,137 @@ fn bindings_path() -> Result<PathBuf, String> {
     Ok(crate::library::library_root()?.join(LYRICS_BINDINGS_FILE))
 }
 
+fn read_digit_run(text: &str, from: usize) -> (i64, usize) {
+    let mut value: u64 = 0;
+    let mut end = from;
+    for (offset, character) in text[from..].char_indices() {
+        if let Some(digit) = character.to_digit(10) {
+            value = value.saturating_mul(10).saturating_add(u64::from(digit));
+            end = from + offset + character.len_utf8();
+        } else {
+            break;
+        }
+    }
+    (i64::try_from(value).unwrap_or(i64::MAX), end)
+}
+
+/// 从行首解析时间戳（支持 mm:ss / hh:mm:ss，也允许 mm > 59 的长合集写法），
+/// 返回 (秒，剩余文本)。时间戳前仅允许空白、标点或编号数字（如 "01. "），
+/// 一旦出现字母 / 汉字则判定非行首时间戳（如 "活动 12:30 开始"）。
+fn parse_leading_stamp(line: &str) -> Option<(i64, &str)> {
+    let trimmed = line.trim_start();
+    let mut index = 0usize;
+    while index < trimmed.len() {
+        if let Some((seconds, consumed)) = parse_stamp_at(&trimmed[index..]) {
+            return Some((seconds, &trimmed[index + consumed..]));
+        }
+        let character = trimmed[index..].chars().next()?;
+        if character.is_whitespace()
+            || character.is_ascii_punctuation()
+            || character.is_ascii_digit()
+        {
+            index += character.len_utf8();
+        } else {
+            return None;
+        }
+    }
+    None
+}
+
+fn parse_stamp_at(text: &str) -> Option<(i64, usize)> {
+    let (first, mut cursor) = read_digit_run(text, 0);
+    if cursor == 0 {
+        return None;
+    }
+    let mut groups = vec![first];
+    while text[cursor..].starts_with(':') {
+        let (next, end) = read_digit_run(text, cursor + 1);
+        if end == cursor + 1 {
+            break;
+        }
+        groups.push(next);
+        cursor = end;
+    }
+    let total = match groups.as_slice() {
+        // mm:ss（允许长合集里的 mm > 59，如 "75:30"）
+        [minutes, seconds] => {
+            if *seconds >= 60 || *minutes > 599 {
+                return None;
+            }
+            i64::from(*minutes) * 60 + i64::from(*seconds)
+        }
+        // hh:mm:ss
+        [hours, minutes, seconds] => {
+            if *minutes >= 60 || *seconds >= 60 || *hours > 23 {
+                return None;
+            }
+            i64::from(*hours) * 3600 + i64::from(*minutes) * 60 + i64::from(*seconds)
+        }
+        _ => return None,
+    };
+    Some((total, cursor))
+}
+
+/// 清洗章节标题：去时间戳后的分隔符，复用 clean_keyword 去噪声词与括号内容
+fn clean_chapter_title(value: &str) -> String {
+    let stripped = value.trim_start_matches(|character: char| {
+        character.is_whitespace()
+            || matches!(
+                character,
+                '-' | '—' | '–' | ':' | '：' | '|' | '、' | '.' | '。' | '·'
+            )
+    });
+    clean_keyword(stripped)
+        .trim_matches(|character: char| {
+            character.is_whitespace() || matches!(character, '-' | '—' | '–' | '|' | '·')
+        })
+        .to_string()
+}
+
+/// 从简介解析章节时间轴：至少 CHAPTER_MIN_COUNT 章且时间严格递增、
+/// 首章贴近开头、末章不越过视频总时长；任一条件不满足则视为无章节。
+/// 只信任行首时间戳：标题行中间的时间引用（如 "活动 12:30 开始"）不算章节。
+pub fn parse_chapters(desc: &str, duration_seconds: i64) -> Option<Vec<Chapter>> {
+    if duration_seconds > 0 && duration_seconds < CHAPTER_MIN_VIDEO_DURATION {
+        return None;
+    }
+    let mut chapters: Vec<Chapter> = Vec::new();
+    for raw_line in desc.lines() {
+        let Some((start, rest)) = parse_leading_stamp(raw_line) else {
+            continue;
+        };
+        let title = clean_chapter_title(rest);
+        if title.is_empty() {
+            continue;
+        }
+        if let Some(last) = chapters.last() {
+            if start < last.start_seconds + CHAPTER_MIN_GAP {
+                continue;
+            }
+        } else if start > CHAPTER_FIRST_START_MAX {
+            continue;
+        }
+        chapters.push(Chapter {
+            start_seconds: start,
+            title,
+        });
+        if chapters.len() >= CHAPTER_MAX_COUNT {
+            break;
+        }
+    }
+    if chapters.len() < CHAPTER_MIN_COUNT {
+        return None;
+    }
+    if duration_seconds > 0
+        && chapters
+            .last()
+            .is_some_and(|last| last.start_seconds >= duration_seconds)
+    {
+        return None;
+    }
+    Some(chapters)
+}
+
 fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1254,6 +1430,7 @@ pub async fn set_lyrics_binding(
             source: "manual".to_string(),
             confidence: 1.0,
             checked_at: unix_now(),
+            chapters: None,
         },
     )
 }
@@ -1287,7 +1464,167 @@ fn empty_resolve_outcome(status: &str, offset_ms: i64) -> ResolveOutcome {
         offset_ms,
         used_keyword: String::new(),
         candidates: Vec::new(),
+        chapters: Vec::new(),
     }
+}
+
+fn chapters_binding_is_fresh(binding: &LyricsBinding, now: i64) -> bool {
+    binding.chapters.is_some()
+        && binding.source == "chapters"
+        && now.saturating_sub(binding.checked_at) < NEGATIVE_TTL_SECS
+}
+
+/// 从缓存的章节绑定恢复 ResolveOutcome（歌词按 song_id 走磁盘缓存）
+async fn chapters_outcome_from_binding(
+    bindings: &[ChapterBinding],
+    offset_ms: i64,
+) -> ResolveOutcome {
+    let mut chapters = Vec::with_capacity(bindings.len());
+    for binding in bindings {
+        let lyrics = if binding.status == "auto" && !binding.song_id.is_empty() {
+            fetch_lyrics_by_id(binding.song_id.clone()).await.ok()
+        } else {
+            None
+        };
+        chapters.push(ChapterMatch {
+            start_seconds: binding.start_seconds,
+            title: binding.title.clone(),
+            status: binding.status.clone(),
+            song_id: binding.song_id.clone(),
+            song_name: binding.song_name.clone(),
+            singer: binding.singer.clone(),
+            lyrics,
+        });
+    }
+    ResolveOutcome {
+        status: "chapters".to_string(),
+        song_id: String::new(),
+        song_name: String::new(),
+        singer: String::new(),
+        lyrics: None,
+        offset_ms,
+        used_keyword: String::new(),
+        candidates: Vec::new(),
+        chapters,
+    }
+}
+
+fn unmatched_chapter(chapter: &Chapter) -> ChapterMatch {
+    ChapterMatch {
+        start_seconds: chapter.start_seconds,
+        title: chapter.title.clone(),
+        status: "none".to_string(),
+        song_id: String::new(),
+        song_name: String::new(),
+        singer: String::new(),
+        lyrics: None,
+    }
+}
+
+/// 单P 长合集：按简介时间轴逐章搜索匹配歌词。
+/// 每章用章节标题作关键词（复用 match_song），章长（到下一章的间隔）参与时长评分；
+/// high / medium 均直接采纳，未命中章节记为 "none"（不给交互候选，宁缺毋错）。
+/// 结果写入 LyricsBinding.chapters（source = "chapters"），7 天内直接复用。
+async fn resolve_chapter_lyrics(
+    bvid: &str,
+    cid: i64,
+    chapters: &[Chapter],
+    offset_ms: i64,
+) -> Result<ResolveOutcome, String> {
+    let mut resolved: Vec<ChapterMatch> = Vec::with_capacity(chapters.len());
+    let mut searched = 0usize;
+    let mut last_error: Option<String> = None;
+
+    for (index, chapter) in chapters.iter().enumerate() {
+        let next_start = chapters
+            .get(index + 1)
+            .map_or(chapter.start_seconds + CHAPTER_LAST_GAP_CAP, |next| {
+                next.start_seconds
+            });
+        let gap = (next_start - chapter.start_seconds).clamp(CHAPTER_MIN_GAP, CHAPTER_LAST_GAP_CAP);
+        let input = MatchInput {
+            title: chapter.title.clone(),
+            desc: String::new(),
+            bgm_name: None,
+            videos: 1,
+            page_part: None,
+            page_duration: gap,
+        };
+        let matched = match match_song(input).await {
+            Ok(outcome) if matches!(outcome.confidence.as_str(), "high" | "medium") => {
+                searched += 1;
+                outcome.candidates.into_iter().next()
+            }
+            Ok(_) => {
+                searched += 1;
+                None
+            }
+            Err(error) => {
+                last_error = Some(format!("章节“{}”搜索失败：{error}", chapter.title));
+                resolved.push(unmatched_chapter(chapter));
+                continue;
+            }
+        };
+        let Some(scored) = matched else {
+            resolved.push(unmatched_chapter(chapter));
+            continue;
+        };
+        let lyrics = fetch_lyrics_by_id(scored.candidate.song_id.clone())
+            .await
+            .ok();
+        resolved.push(ChapterMatch {
+            start_seconds: chapter.start_seconds,
+            title: chapter.title.clone(),
+            status: "auto".to_string(),
+            song_id: scored.candidate.song_id,
+            song_name: scored.candidate.name,
+            singer: scored.candidate.singer,
+            lyrics,
+        });
+    }
+
+    if searched == 0 {
+        return Err(last_error.unwrap_or_else(|| "章节歌词搜索全部失败".to_string()));
+    }
+
+    let bindings: Vec<ChapterBinding> = resolved
+        .iter()
+        .map(|chapter| ChapterBinding {
+            start_seconds: chapter.start_seconds,
+            title: chapter.title.clone(),
+            status: chapter.status.clone(),
+            song_id: chapter.song_id.clone(),
+            song_name: chapter.song_name.clone(),
+            singer: chapter.singer.clone(),
+        })
+        .collect();
+    if let Err(error) = write_binding(
+        bvid,
+        cid,
+        LyricsBinding {
+            song_id: String::new(),
+            song_name: String::new(),
+            singer: String::new(),
+            source: "chapters".to_string(),
+            confidence: 0.0,
+            checked_at: unix_now(),
+            chapters: Some(bindings),
+        },
+    ) {
+        eprintln!("[lyrics] 写入章节绑定失败：{error}");
+    }
+
+    Ok(ResolveOutcome {
+        status: "chapters".to_string(),
+        song_id: String::new(),
+        song_name: String::new(),
+        singer: String::new(),
+        lyrics: None,
+        offset_ms,
+        used_keyword: String::new(),
+        candidates: Vec::new(),
+        chapters: resolved,
+    })
 }
 
 pub async fn resolve_lyrics(
@@ -1315,7 +1652,14 @@ pub async fn resolve_lyrics(
                 offset_ms,
                 used_keyword: String::new(),
                 candidates: Vec::new(),
+                chapters: Vec::new(),
             });
+        }
+        if let Some(chapter_bindings) = binding.chapters.as_deref() {
+            if chapters_binding_is_fresh(&binding, unix_now()) {
+                let outcome = chapters_outcome_from_binding(chapter_bindings, offset_ms).await;
+                return Ok(outcome);
+            }
         }
         if negative_binding_is_fresh(&binding, unix_now()) {
             return Ok(empty_resolve_outcome("none", offset_ms));
@@ -1326,6 +1670,12 @@ pub async fn resolve_lyrics(
     let page = meta.pages.iter().find(|page| page.cid == cid);
     let page_part = page.map(|page| page.part.clone());
     let page_duration = page.map_or(meta.duration, |page| page.duration);
+    // 单P 长合集：简介含合法时间轴章节时，按章节逐段匹配歌词
+    if meta.videos <= 1 && page_duration > CHAPTER_MIN_VIDEO_DURATION {
+        if let Some(chapters) = parse_chapters(&meta.desc, page_duration) {
+            return resolve_chapter_lyrics(bvid, cid, &chapters, offset_ms).await;
+        }
+    }
     let matched = match_song(MatchInput {
         title: meta.title,
         desc: meta.desc,
@@ -1356,6 +1706,7 @@ pub async fn resolve_lyrics(
                     source: "auto".to_string(),
                     confidence: scored.score,
                     checked_at: unix_now(),
+                    chapters: None,
                 },
             )?;
             let lyrics = fetch_lyrics_by_id(song_id.clone()).await.ok();
@@ -1368,6 +1719,7 @@ pub async fn resolve_lyrics(
                 offset_ms,
                 used_keyword: matched.used_keyword,
                 candidates: Vec::new(),
+                chapters: Vec::new(),
             })
         }
         "medium" => Ok(ResolveOutcome {
@@ -1379,6 +1731,7 @@ pub async fn resolve_lyrics(
             offset_ms,
             used_keyword: matched.used_keyword,
             candidates: matched.candidates,
+            chapters: Vec::new(),
         }),
         "low" => {
             write_binding(
@@ -1391,6 +1744,7 @@ pub async fn resolve_lyrics(
                     source: "none".to_string(),
                     confidence: 0.0,
                     checked_at: unix_now(),
+                    chapters: None,
                 },
             )?;
             Ok(empty_resolve_outcome("none", offset_ms))
@@ -1403,6 +1757,44 @@ pub async fn resolve_lyrics(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_chapters_accepts_timestamped_compilation() {
+        let desc = "曲目录\n00:00 开场曲\n03:21 第二首歌\n01:02:03 压轴曲目\n封面见评论区";
+        let chapters = parse_chapters(desc, 4500).unwrap();
+        assert_eq!(chapters.len(), 3);
+        assert_eq!(chapters[0].start_seconds, 0);
+        assert_eq!(chapters[0].title, "开场曲");
+        assert_eq!(chapters[1].start_seconds, 201);
+        assert_eq!(chapters[1].title, "第二首歌");
+        assert_eq!(chapters[2].start_seconds, 3723);
+        assert_eq!(chapters[2].title, "压轴曲目");
+    }
+
+    #[test]
+    fn parse_chapters_accepts_numbered_and_long_minute_stamps() {
+        let desc = "01. 00:05 第一首\n02. 75:30 第二首\n03. 150:00 第三首";
+        let chapters = parse_chapters(desc, 10000).unwrap();
+        assert_eq!(chapters.len(), 3);
+        assert_eq!(chapters[1].start_seconds, 4530);
+        assert_eq!(chapters[2].start_seconds, 9000);
+    }
+
+    #[test]
+    fn parse_chapters_rejects_invalid_or_non_chapter_timelines() {
+        // 少于 3 章
+        assert!(parse_chapters("00:00 A\n03:00 B", 4000).is_none());
+        // 时间戳非递增（30s 处与首章间隔过近被丢弃后只剩两章）
+        assert!(parse_chapters("00:00 A\n01:00 B\n00:30 C", 4000).is_none());
+        // 首章距开头太远
+        assert!(parse_chapters("05:00 A\n10:00 B\n15:00 C", 2000).is_none());
+        // 行中间的时间引用不算章节
+        assert!(parse_chapters("活动 12:30 开始\n奖品 13:00 发放\n结束 14:00", 4000).is_none());
+        // 视频总时长不足合集门槛
+        assert!(parse_chapters("00:00 A\n03:00 B\n06:00 C", 300).is_none());
+        // 末章越过视频总时长
+        assert!(parse_chapters("00:00 A\n03:00 B\n06:00 C", 360).is_none());
+    }
 
     #[test]
     fn song_id_cache_keys_reject_unsafe_paths() {
@@ -1705,6 +2097,7 @@ mod tests {
             source: "none".to_string(),
             confidence: 0.0,
             checked_at: 100,
+            chapters: None,
         };
         assert!(negative_binding_is_fresh(
             &binding,

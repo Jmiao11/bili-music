@@ -26,6 +26,8 @@
 
   let lines = [];
   let lineElements = [];
+  let chapterElements = [];
+  let chapterStarts = [];
   let lastActiveIndex = -1;
   let currentOffsetMs = 0;
   let currentBvid = "";
@@ -64,26 +66,42 @@
   function showPlaceholder() {
     lines = [];
     lineElements = [];
+    chapterElements = [];
+    chapterStarts = [];
     lastActiveIndex = -1;
     linesElement?.replaceChildren();
     container?.classList.remove("has-lyrics");
   }
 
-  function render(nextLines) {
-    if (!container || !linesElement || !nextLines.length) {
+  function render(nextRows) {
+    if (!container || !linesElement || !nextRows.length) {
       showPlaceholder();
       return;
     }
 
     const fragment = document.createDocumentFragment();
-    lineElements = nextLines.map((line, index) => {
+    const nextLines = [];
+    lineElements = [];
+    chapterElements = [];
+    chapterStarts = [];
+    for (const row of nextRows) {
+      if (row.chapter) {
+        const header = document.createElement("p");
+        header.className = "lyrics-chapter";
+        header.textContent = row.text;
+        fragment.append(header);
+        chapterElements.push(header);
+        chapterStarts.push(row.time);
+        continue;
+      }
       const element = document.createElement("p");
       element.className = "lyrics-line";
-      element.dataset.index = String(index);
-      element.textContent = line.text;
+      element.dataset.index = String(nextLines.length);
+      element.textContent = row.text;
       fragment.append(element);
-      return element;
-    });
+      lineElements.push(element);
+      nextLines.push(row);
+    }
     lines = nextLines;
     lastActiveIndex = -1;
     linesElement.replaceChildren(fragment);
@@ -163,6 +181,22 @@
     });
   }
 
+  // 章节头高亮：找到最后一个 start <= 当前时间的章节
+  function updateActiveChapter(effectiveTime) {
+    if (!chapterElements.length) return;
+    let active = -1;
+    for (let index = 0; index < chapterStarts.length; index += 1) {
+      if (chapterStarts[index] <= effectiveTime) {
+        active = index;
+      } else {
+        break;
+      }
+    }
+    chapterElements.forEach((element, index) =>
+      element.classList.toggle("is-active", index === active),
+    );
+  }
+
   function updateActiveLine() {
     if (
       displayMode !== "synced" ||
@@ -173,6 +207,7 @@
     }
 
     const effective = audio.currentTime - currentOffsetMs / 1000;
+    updateActiveChapter(effective);
     const index = activeIndexAt(effective);
     if (index === lastActiveIndex) return;
 
@@ -375,6 +410,16 @@
     scheduleMatchIdle(3000);
   }
 
+  function formatStamp(totalSeconds) {
+    const seconds = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const rest = seconds % 60;
+    return hours > 0
+      ? `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`
+      : `${minutes}:${String(rest).padStart(2, "0")}`;
+  }
+
   function applyOutcome(result) {
     const status = String(result?.status ?? "");
     if (status === "bound" || status === "auto") {
@@ -395,6 +440,50 @@
         console.warn("歌词中没有可显示的时间行");
       }
       showNoLyrics("暂无歌词");
+      return;
+    }
+    if (status === "chapters") {
+      const chapters = Array.isArray(result?.chapters) ? result.chapters : [];
+      if (!chapters.length) {
+        showNoLyrics("暂无歌词");
+        return;
+      }
+      const rows = [];
+      let matched = 0;
+      for (const chapter of chapters) {
+        const start = Number(chapter?.startSeconds ?? chapter?.start_seconds) || 0;
+        const title = String(chapter?.title ?? "").trim();
+        rows.push({
+          chapter: true,
+          time: start,
+          text: `${formatStamp(start)} ${title || "未命名章节"}`,
+        });
+        const lyric = chapter?.lyrics;
+        const hasLyric = lyric?.hasLyric ?? lyric?.has_lyric;
+        if (chapter?.status === "auto" && hasLyric && lyric?.lrc?.trim()) {
+          const parsed = parseLrc(lyric.lrc);
+          if (parsed.length) {
+            matched += 1;
+            for (const line of parsed) {
+              rows.push({ time: start + line.time, text: line.text });
+            }
+          }
+        }
+      }
+      if (!matched) {
+        showNoLyrics("合集未匹配到歌词");
+        return;
+      }
+      rows.sort((left, right) => left.time - right.time);
+      render(rows);
+      currentOffsetMs = clampOffset(
+        Number(result?.offsetMs ?? result?.offset_ms) || 0,
+      );
+      updateOffsetValue();
+      updateActiveLine();
+      showMatchActions(`合集 ${matched}/${chapters.length} 章已匹配歌词`);
+      matchCanIdle = true;
+      scheduleMatchIdle(3000);
       return;
     }
     if (status === "candidates") {

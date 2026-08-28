@@ -3810,6 +3810,23 @@ input[type="range"]::-webkit-slider-thumb {
   font-weight: 600;
 }
 
+.lyrics-chapter {
+  margin: 18px 0 6px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  transition: color 0.2s;
+}
+
+.lyrics-chapter.is-active {
+  color: var(--text-2);
+}
+
+.lyrics-lines.mode-full .lyrics-chapter.is-active {
+  color: var(--text-2);
+}
+
 .lyrics-placeholder {
   color: var(--text-3);
   text-align: center;
