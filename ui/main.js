@@ -30,6 +30,7 @@ const playerState = {
   currentPages: [],
   currentPageIndex: 0,
   currentDisplayTrack: null,
+  pendingStartPage: null,
 };
 let playRecordedForCurrentTrack = false;
 
@@ -186,6 +187,18 @@ function normalizeTrack(video) {
         ? null
         : Math.round(pubdate),
     addedAt: video?.addedAt ?? "",
+    page:
+      Number.isFinite(Number(video?.page)) && Number(video.page) > 0
+        ? Math.round(Number(video.page))
+        : null,
+    cid:
+      Number.isFinite(Number(video?.cid)) && Number(video.cid) > 0
+        ? Number(video.cid)
+        : null,
+    partTitle:
+      typeof video?.partTitle === "string" && video.partTitle.trim()
+        ? video.partTitle.trim()
+        : "",
   };
 }
 
@@ -197,6 +210,9 @@ function snapshotForLibrary(video) {
     uploader: track.uploader,
     thumbnailUrl: track.thumbnailUrl,
     durationSeconds: track.durationSeconds,
+    ...(track.cid
+      ? { page: track.page, cid: track.cid, partTitle: track.partTitle }
+      : {}),
   };
 }
 
@@ -241,6 +257,7 @@ function resetCurrentPageState() {
   playerState.currentPages = [];
   playerState.currentPageIndex = 0;
   playerState.currentDisplayTrack = null;
+  playerState.pendingStartPage = null;
   updatePlayerPagesButton();
 }
 
@@ -310,6 +327,17 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
       .map(normalizeVideoPage)
       .filter((page) => page.cid > 0);
     playerState.currentPageIndex = 0;
+    // 有待起播的分P（如点击收藏的分P）：全量列表返回后定位到该分P
+    const pending = playerState.pendingStartPage;
+    playerState.pendingStartPage = null;
+    if (pending) {
+      const startPageIndex = playerState.currentPages.findIndex(
+        (page) => page.cid === pending.cid || page.page === pending.page,
+      );
+      if (startPageIndex >= 0) {
+        playerState.currentPageIndex = startPageIndex;
+      }
+    }
     updatePlayerPagesButton();
   } catch (error) {
     if (requestVersion === playerState.requestVersion) {
@@ -893,12 +921,17 @@ function bindTrackActivation(item, playButton, video, onPlay) {
   queueCachedVideoPagesLookup(item, video.bvid);
 }
 
-function isFavorited(bvid) {
-  return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
+// 收藏 / 歌单条目的去重键：bvid + 分P cid（cid 为 0/null 表示整视频条目）
+function favoriteKey(bvid, cid = null) {
+  return `${String(bvid ?? "").toLowerCase()}::${Number(cid) || 0}`;
 }
 
-function setFavoriteButtonState(button, bvid) {
-  const favorited = isFavorited(bvid);
+function isFavorited(bvid, cid = null) {
+  return libraryState.favoriteBvids.has(favoriteKey(bvid, cid));
+}
+
+function setFavoriteButtonState(button, bvid, cid = null) {
+  const favorited = isFavorited(bvid, cid);
   button.classList.toggle("is-favorited", favorited);
   button.textContent = favorited ? "♥" : "♡";
   button.title = favorited ? "取消收藏" : "收藏";
@@ -907,21 +940,33 @@ function setFavoriteButtonState(button, bvid) {
 
 function updateFavoriteButtons() {
   for (const button of document.querySelectorAll("[data-favorite-bvid]")) {
-    setFavoriteButtonState(button, button.dataset.favoriteBvid);
+    const rowCid = button.dataset.favoriteCid
+      ? Number(button.dataset.favoriteCid)
+      : null;
+    setFavoriteButtonState(button, button.dataset.favoriteBvid, rowCid);
+  }
+  for (const heart of document.querySelectorAll("[data-page-favorite-bvid]")) {
+    setFavoriteButtonState(
+      heart,
+      heart.dataset.pageFavoriteBvid,
+      Number(heart.dataset.pageFavoriteCid) || null,
+    );
   }
   const current = currentPlayableTrack();
+  const currentCid = currentVideoPage()?.cid ?? null;
   for (const button of [favoriteCurrentButton, immersiveFavoriteButton]) {
     if (!button) {
       continue;
     }
     button.disabled = !current;
     button.dataset.favoriteBvid = current?.bvid ?? "";
-    const favorited = current ? isFavorited(current.bvid) : false;
+    const favorited = current ? isFavorited(current.bvid, currentCid) : false;
+    const currentPageLabel = currentCid ? "当前分P" : "当前歌曲";
     button.classList.toggle("is-favorited", favorited);
     button.textContent = button === immersiveFavoriteButton
       ? `${favorited ? "♥" : "♡"} ${favorited ? "已收藏" : "收藏"}`
       : favorited ? "♥" : "♡";
-    button.title = favorited ? "取消收藏当前歌曲" : "收藏当前歌曲";
+    button.title = favorited ? `取消收藏${currentPageLabel}` : `收藏${currentPageLabel}`;
   }
 }
 
@@ -933,10 +978,13 @@ function createTrackActions(video, { playlistId = "" } = {}) {
   favoriteButton.type = "button";
   favoriteButton.className = "track-action favorite-button";
   favoriteButton.dataset.favoriteBvid = video.bvid;
-  setFavoriteButtonState(favoriteButton, video.bvid);
+  if (video.cid) {
+    favoriteButton.dataset.favoriteCid = String(video.cid);
+  }
+  setFavoriteButtonState(favoriteButton, video.bvid, video.cid ?? null);
   favoriteButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    toggleFavorite(video);
+    toggleFavorite(withCurrentPage(video));
   });
   actions.append(favoriteButton);
 
@@ -949,7 +997,7 @@ function createTrackActions(video, { playlistId = "" } = {}) {
     removeButton.setAttribute("aria-label", "从歌单移除");
     removeButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      removeTrackFromPlaylist(playlistId, video.bvid);
+      removeTrackFromPlaylist(playlistId, video.bvid, video.cid ?? null);
     });
     actions.append(removeButton);
   } else {
@@ -1448,10 +1496,10 @@ function renderFavorites() {
   for (const [index, video] of libraryState.favorites.entries()) {
     favoritesList.append(
       createTrackRow(
-        video,
+        withPageLabel(video),
         index,
         (targetIndex, pageSelection) =>
-          playListItem("favorites", libraryState.favorites, targetIndex, pageSelection),
+          playListItem("favorites", libraryState.favorites, targetIndex, pageSelection ?? startPageFromTrack(video)),
       ),
     );
   }
@@ -1501,12 +1549,12 @@ function renderPlaylists() {
   for (const [index, video] of selectedPlaylist.items.entries()) {
     playlistTracks.append(
       createTrackRow(
-        video,
+        withPageLabel(video),
         index,
         (targetIndex, pageSelection) =>
           playListItem("playlist", selectedPlaylist.items, targetIndex, {
             playlistId: selectedPlaylist.id,
-            ...(pageSelection ?? {}),
+            ...(pageSelection ?? startPageFromTrack(video) ?? {}),
           }),
         { playlistId: selectedPlaylist.id },
       ),
@@ -1549,6 +1597,50 @@ function escapeText(value) {
     .replaceAll('"', "&quot;");
 }
 
+// 当前播放多P视频时，把当前分P信息附到快照上（cid 已存在则不动，尊重显式条目）
+function withCurrentPage(track) {
+  if (!track || track.cid) {
+    return track;
+  }
+  const page = currentVideoPage();
+  const current = currentPlayableTrack();
+  if (!page || !current) {
+    return track;
+  }
+  if (String(track.bvid).toLowerCase() !== String(current.bvid).toLowerCase()) {
+    return track;
+  }
+  return {
+    ...track,
+    page: page.page,
+    cid: page.cid,
+    partTitle: page.part,
+    durationSeconds: page.durationSeconds || track.durationSeconds,
+  };
+}
+
+// 收藏 / 歌单里的分P条目在列表中展示时分P标记
+function withPageLabel(video) {
+  if (!video?.cid || !video?.partTitle) {
+    return video;
+  }
+  return {
+    ...video,
+    title: `${video.title}（P${video.page ?? "?"} · ${video.partTitle}）`,
+  };
+}
+
+// 点击带分P信息的条目时，默认从该分P起播（完整分P列表待加载后定位）
+function startPageFromTrack(video) {
+  if (!video?.cid) {
+    return undefined;
+  }
+  return {
+    startPage: { cid: video.cid, page: video.page ?? 1, part: video.partTitle ?? "" },
+    pages: [],
+  };
+}
+
 async function loadLibrary() {
   try {
     const [favorites, playlists] = await Promise.all([
@@ -1557,7 +1649,7 @@ async function loadLibrary() {
     ]);
     libraryState.favorites = favorites.map(normalizeTrack);
     libraryState.favoriteBvids = new Set(
-      libraryState.favorites.map((track) => track.bvid.toLowerCase()),
+      libraryState.favorites.map((track) => favoriteKey(track.bvid, track.cid)),
     );
     libraryState.playlists = playlists.map((playlist) => ({
       ...playlist,
@@ -1575,7 +1667,7 @@ async function loadLibrary() {
 }
 
 async function toggleFavorite(video = currentPlayableTrack()) {
-  const track = video ? snapshotForLibrary(video) : null;
+  const track = withCurrentPage(video ? snapshotForLibrary(video) : null);
   if (!track?.bvid) {
     status.textContent = "请先选择一首歌曲。";
     return;
@@ -1584,7 +1676,7 @@ async function toggleFavorite(video = currentPlayableTrack()) {
     const result = await invoke("toggle_favorite", { track });
     libraryState.favorites = result.items.map(normalizeTrack);
     libraryState.favoriteBvids = new Set(
-      libraryState.favorites.map((item) => item.bvid.toLowerCase()),
+      libraryState.favorites.map((item) => favoriteKey(item.bvid, item.cid)),
     );
     renderLibraryViews();
     status.textContent = result.favorited ? "已加入收藏。" : "已取消收藏。";
@@ -1628,7 +1720,23 @@ function openPagesModal(video, videos, pages, onPlay, trigger) {
       closePagesModal();
       context?.onPlay({ startPage: page, pages: context.pages });
     });
-    item.append(button);
+    const heart = document.createElement("button");
+    heart.type = "button";
+    heart.className = "pages-favorite-button";
+    heart.dataset.pageFavoriteBvid = String(video.bvid);
+    heart.dataset.pageFavoriteCid = String(page.cid);
+    setFavoriteButtonState(heart, video.bvid, page.cid);
+    heart.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void toggleFavorite({
+        ...video,
+        cid: page.cid,
+        page: page.page,
+        partTitle: page.part,
+        durationSeconds: page.durationSeconds,
+      });
+    });
+    item.append(button, heart);
     pagesModalList.append(item);
   }
 
@@ -1870,7 +1978,7 @@ function deleteSelectedPlaylist() {
 }
 
 function choosePlaylistAndAdd(video = currentPlayableTrack()) {
-  const track = video ? snapshotForLibrary(video) : null;
+  const track = withCurrentPage(video ? snapshotForLibrary(video) : null);
   if (!track?.bvid) {
     status.textContent = "请先选择一首歌曲。";
     return;
@@ -1948,9 +2056,9 @@ async function addTrackToPlaylist(playlist, track) {
   }
 }
 
-async function removeTrackFromPlaylist(id, bvid) {
+async function removeTrackFromPlaylist(id, bvid, cid = null) {
   try {
-    libraryState.playlists = await invoke("remove_from_playlist", { id, bvid });
+    libraryState.playlists = await invoke("remove_from_playlist", { id, bvid, cid });
     renderLibraryViews();
   } catch (error) {
     playlistsStatus.textContent = `移除失败：${error}`;
@@ -2029,6 +2137,8 @@ async function loadCurrentTrack({ keepPage = false } = {}) {
     uploader.textContent = visibleTrack.uploader;
     duration.textContent = formatDuration(visibleTrack.durationSeconds);
     emitCurrentTrackChanged();
+    // 切换分P后播放条 / 沉浸页的收藏态跟随当前 cid 刷新
+    updateFavoriteButtons();
     (page?.cid ?? playerState.currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? playerState.currentPages[0].cid } }));
     playerState.activeAudioVersion = requestVersion;
     playerState.activeAudioUrl = info.audioUrl;
@@ -2196,6 +2306,12 @@ function playQueueIndex(
     if (normalizedPages.length > 1 && startPageIndex >= 0) {
       playerState.currentPages = normalizedPages;
       playerState.currentPageIndex = startPageIndex;
+    } else if (normalizedPages.length === 0) {
+      // 没有完整分P列表（如点击收藏的分P）：记住起点，待 get_video_pages 返回后定位
+      const pending = normalizeVideoPage(startPage, 0);
+      if (pending.cid > 0) {
+        playerState.pendingStartPage = pending;
+      }
     }
   }
   updatePlayerPagesButton();

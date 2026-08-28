@@ -2219,9 +2219,45 @@ svg {
   margin-top: 7px;
 }
 
+.pages-list li {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.pages-favorite-button {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.pages-favorite-button:hover {
+  border-color: var(--line-strong);
+  color: var(--text-1);
+}
+
+.pages-favorite-button.is-favorited {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .pages-list-button {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
   padding: 11px 12px;
   overflow: hidden;
   border: 0.5px solid var(--line);
