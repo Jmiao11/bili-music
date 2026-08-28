@@ -1,0 +1,236 @@
+name: Release
+
+# 跨平台产物自动构建流水线（Windows + macOS）：
+#
+# 触发方式：
+# - push 到 master（PR 合并后自动触发）：按 tauri.conf.json 的版本号创建/更新 Draft Release，
+#   不会触碰已正式发布的版本
+# - push tag v*（显式发版/重建）：校验 tag 与配置版本一致后构建并上传（允许覆盖产物）
+# - workflow_dispatch：手动触发，等同 master push
+#
+# 产物（命名沿用既有发布规范）：
+# - Bili-Music-v{版本}-windows-x64.zip（zip 根目录单个 bili-music.exe，与 v0.3.4 实测形态一致）
+# - Bili-Music-v{版本}-macos-arm64.dmg（Apple Silicon）
+# - Bili-Music-v{版本}-macos-x64.dmg（Intel）
+#
+# 说明：
+# - macOS 暂不做 Apple 签名/公证（无付费开发者账号），Draft 说明里写明首次打开方式
+# - 全程只依赖自带 GITHUB_TOKEN，无需配置任何 secrets
+
+"on":
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-metadata:
+    name: 准备 Draft Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      version: ${{ steps.meta.outputs.version }}
+      allow_upload: ${{ steps.meta.outputs.allow_upload }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 解析版本并决定是否上传
+        id: meta
+        run: |
+          set -euo pipefail
+          conf_version="$(jq -r '.version' src-tauri/tauri.conf.json)"
+          tag_name="v${conf_version}"
+          is_tag_run=false
+
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
+            is_tag_run=true
+            tag_name="${GITHUB_REF#refs/tags/}"
+            if [[ ! "${tag_name}" =~ ^v[0-9]+ ]]; then
+              echo "::error::tag 必须以 v 加数字开头，实际收到：${tag_name}"
+              exit 1
+            fi
+            version="${tag_name#v}"
+            if [[ "${version}" != "${conf_version}" ]]; then
+              echo "::error::tag 版本(${version}) 与 src-tauri/tauri.conf.json 版本(${conf_version}) 不一致，请先统一版本号"
+              exit 1
+            fi
+          else
+            version="${conf_version}"
+          fi
+
+          # 已正式发布的版本只允许 tag 触发覆盖，自动构建绝不碰正式产物
+          allow_upload=true
+          view_json="$(gh release view "${tag_name}" --repo "${GITHUB_REPOSITORY}" --json isDraft 2>/dev/null || true)"
+          if [[ -n "${view_json}" ]] && [[ "$(echo "${view_json}" | jq -r '.isDraft')" == "false" ]]; then
+            if [[ "${is_tag_run}" != "true" ]]; then
+              allow_upload=false
+              echo "::notice::${tag_name} 已正式发布，本次自动构建仅验证、不上传（重建正式版请用 tag 触发）"
+            fi
+          fi
+
+          echo "tag_name=${tag_name}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "allow_upload=${allow_upload}" >> "${GITHUB_OUTPUT}"
+          echo "is_tag_run=${is_tag_run}" >> "${GITHUB_OUTPUT}"
+
+      - name: 生成 Release 说明
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          > 本 Release 由 CI 自动构建，产物清单见下方；发布前请核对三份产物完整性。
+
+          ## 下载
+
+          | 平台 | 文件 |
+          | --- | --- |
+          | Windows x64（免安装） | `Bili-Music-v__VERSION__-windows-x64.zip` |
+          | macOS Apple Silicon（M1/M2/M3/M4） | `Bili-Music-v__VERSION__-macos-arm64.dmg` |
+          | macOS Intel | `Bili-Music-v__VERSION__-macos-x64.dmg` |
+
+          ## macOS 首次打开说明
+
+          安装包暂未做 Apple 公证（需要付费开发者账号）。首次打开若提示「无法验证开发者」：
+
+          - 在 Finder 中**右键 App → 打开 → 再点「打开」**；
+          - 或到 系统设置 → 隐私与安全性 → 点击「仍要打开」。
+
+          ## 变更内容
+
+          见 [CHANGELOG.md](https://github.com/__REPO__/blob/master/CHANGELOG.md)。
+          NOTES
+          short_sha="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          sed "s/__VERSION__/${VERSION}/g; s|__REPO__|${GITHUB_REPOSITORY}|g" release-notes.md \
+            | sed "1s|自动构建|自动构建（commit ${short_sha}）|" > release-notes.rendered.md
+          mv release-notes.rendered.md release-notes.md
+
+      - name: 创建 Draft Release（已存在则复用）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          IS_TAG_RUN: ${{ steps.meta.outputs.is_tag_run }}
+        run: |
+          set -euo pipefail
+          if gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${TAG_NAME} 已存在，复用"
+            exit 0
+          fi
+          # tag 触发时 tag 已存在；master/手动触发时在发布草稿时自动落 tag
+          extra_args=()
+          if [[ "${IS_TAG_RUN}" != "true" ]]; then
+            extra_args+=(--target "${GITHUB_SHA}")
+          fi
+          gh release create "${TAG_NAME}" \
+            --draft \
+            --title "Bili Music ${TAG_NAME}" \
+            --notes-file release-notes.md \
+            "${extra_args[@]}"
+
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    needs: release-metadata
+    if: needs.release-metadata.outputs.allow_upload == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 tauri-cli（官方 npm 预编译渠道）
+        run: npm install -g @tauri-apps/cli@^2
+
+      - name: 构建（免安装形态，只出 exe 不打包安装器）
+        run: tauri build --no-bundle
+
+      - name: 打包 zip（与既有发布形态一致：zip 根目录单个 exe）
+        env:
+          VERSION: ${{ needs.release-metadata.outputs.version }}
+        shell: pwsh
+        run: |
+          $exe = "target/release/bili-music.exe"
+          if (-not (Test-Path $exe)) { Write-Error "未找到构建产物：$exe"; exit 1 }
+          $zip = "Bili-Music-v$env:VERSION-windows-x64.zip"
+          Compress-Archive -Path $exe -DestinationPath $zip -Force
+          Write-Host "已生成 $zip"
+
+      - name: 上传到 Draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-metadata.outputs.tag_name }}
+          ASSET: Bili-Music-v${{ needs.release-metadata.outputs.version }}-windows-x64.zip
+        run: gh release upload "$env:TAG_NAME" "$env:ASSET" --repo "$env:GITHUB_REPOSITORY" --clobber
+
+  build-macos:
+    name: macOS ${{ matrix.label }}
+    runs-on: macos-latest
+    needs: release-metadata
+    if: needs.release-metadata.outputs.allow_upload == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Apple Silicon
+            target: aarch64-apple-darwin
+            asset_arch: arm64
+          - label: Intel
+            target: x86_64-apple-darwin
+            asset_arch: x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: 缓存 Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 tauri-cli（官方 npm 预编译渠道）
+        run: npm install -g @tauri-apps/cli@^2
+
+      - name: 构建 ${{ matrix.target }}
+        run: tauri build --target ${{ matrix.target }}
+
+      - name: 按项目规范重命名产物
+        id: rename
+        env:
+          VERSION: ${{ needs.release-metadata.outputs.version }}
+        run: |
+          set -euo pipefail
+          bundle_dir="target/${{ matrix.target }}/release/bundle/dmg"
+          dmg_file="$(find "${bundle_dir}" -name '*.dmg' -maxdepth 1 | head -1)"
+          if [[ -z "${dmg_file}" ]]; then
+            echo "::error::未找到 dmg 产物：${bundle_dir}"
+            exit 1
+          fi
+          asset="Bili-Music-v${VERSION}-macos-${{ matrix.asset_arch }}.dmg"
+          mv "${dmg_file}" "${asset}"
+          echo "asset=${asset}" >> "${GITHUB_OUTPUT}"
+
+      - name: 上传到 Draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.release-metadata.outputs.tag_name }}
+        run: |
+          gh release upload "${TAG_NAME}" "${{ steps.rename.outputs.asset }}" \
+            --repo "${GITHUB_REPOSITORY}" --clobber
