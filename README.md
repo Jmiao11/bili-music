@@ -192,9 +192,11 @@ cargo tauri build
 - 数据来源于公开接口；使用时须遵守哔哩哔哩的《用户协议》《社区规则》及相关法律法规，不得用于批量爬取、恶意抓取等违反平台规则的行为。
 - 使用本项目所产生的一切风险与责任由使用者自行承担；如权利人认为项目存在侵权或合规问题，请通过 Issue 联系，我会及时处理。
 
-## 📜 许可证
+## 许可
 
-本项目采用 **[PolyForm Strict License 1.0.0](https://polyformproject.org/licenses/strict/1.0.0/)** 发布，仅限个人非商业使用，不允许商业用途、再分发或修改后再分发。
+本项目采用 [MIT License](LICENSE)。
+
+本项目为非官方的第三方客户端，与 bilibili 无关，仅供学习研究。使用者需自行遵守 B站 及相关第三方接口的服务条款。
 
 <div align="center">
   <sub>由 Tauri + Rust 构建 · 仅供学习研究 · 如果这个项目对你有帮助，欢迎 Star</sub>
