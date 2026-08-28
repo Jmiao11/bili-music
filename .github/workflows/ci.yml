@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: 缓存 Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: 安装 Linux 系统依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: 检查格式
+        run: cargo fmt --all -- --check
+
+      - name: 构建
+        run: cargo build --workspace
+
+      - name: 测试
+        run: cargo test --workspace
+
+      - name: 校验前端脚本语法
+        shell: bash
+        run: |
+          for f in ui/*.js; do
+            node --check "$f"
+          done
