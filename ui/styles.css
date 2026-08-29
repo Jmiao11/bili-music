@@ -293,6 +293,21 @@ svg {
   display: block;
 }
 
+/* macOS：系统原生红绿灯（tauri.macos.conf.json 的 Overlay 形态），
+   隐藏 Windows 风格三键与自绘 resize 热区（系统边缘缩放接管），
+   标题栏左侧留出红绿灯避让宽度。Windows 路径零改动。 */
+:root[data-platform="macos"] .window-controls {
+  display: none;
+}
+
+:root[data-platform="macos"] .window-resize-layer {
+  display: none;
+}
+
+:root[data-platform="macos"] .window-titlebar {
+  padding-left: 96px;
+}
+
 .window-resize-layer {
   position: fixed;
   z-index: var(--z-resize);
