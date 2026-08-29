@@ -3,5 +3,23 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"]
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Bili Music",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 1080,
+        "minHeight": 600,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 20, "y": 18 },
+        "resizable": true,
+        "shadow": true
+      }
+    ]
   }
 }
