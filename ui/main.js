@@ -11,6 +11,7 @@ const SEARCH_PAGE_SIZE = 20;
 const LOAD_MORE_THRESHOLD_PX = 96;
 const DEFAULT_MUSIC_TIDS = 3;
 const MUSIC_HOT_KEYWORD = "音乐";
+const PLAYBACK_STATE_SAVE_INTERVAL_MS = 15_000;
 
 const playerState = {
   queue: [],
@@ -32,6 +33,9 @@ const playerState = {
   currentDisplayTrack: null,
 };
 let playRecordedForCurrentTrack = false;
+let pendingResume = null;
+let resumeInProgress = false;
+let lastPlaybackStateSavedAt = Number.NEGATIVE_INFINITY;
 
 const searchState = {
   results: [],
@@ -128,6 +132,12 @@ const nextButton = document.querySelector("#next-button");
 const loopModeButton = document.querySelector("#loop-mode-button");
 const shuffleToggle = document.querySelector("#shuffle-toggle");
 const audio = document.querySelector("#audio");
+const resumePlayPauseButton = document.querySelector("#play-pause-button");
+const resumeProgressSlider = document.querySelector("#progress-slider");
+const resumeCurrentTimeLabel = document.querySelector("#current-time");
+const immersiveResumeProgressSlider = document.querySelector("#immersive-progress-slider");
+const immersiveResumeCurrentTimeLabel = document.querySelector("#immersive-current-time");
+const immersiveResumeDurationLabel = document.querySelector("#immersive-duration");
 const favoritesStatus = document.querySelector("#favorites-status");
 const favoritesCount = document.querySelector("#favorites-count");
 const favoritesList = document.querySelector("#favorites-list");
@@ -402,7 +412,119 @@ async function cancelCurrentPlayback() {
   }
 }
 
-function setQueue(videos) {
+function clearPendingResume() {
+  pendingResume = null;
+  resumeInProgress = false;
+}
+
+function playbackTrackSnapshot(video) {
+  return {
+    ...snapshotForLibrary(video),
+    addedAt: String(video?.addedAt ?? ""),
+  };
+}
+
+function savePlaybackState() {
+  lastPlaybackStateSavedAt = Date.now();
+  if (playerState.queue.length === 0) {
+    invoke("clear_playback_state").catch((error) => {
+      console.warn("clear playback state failed:", error);
+    });
+    return;
+  }
+
+  const page = currentVideoPage();
+  const resume = pendingResume;
+  const currentTime = Number(audio.currentTime);
+  invoke("save_playback_state", {
+    state: {
+      version: 1,
+      queue: playerState.queue.map(playbackTrackSnapshot),
+      currentIndex: Math.max(
+        0,
+        Math.min(playerState.currentIndex, playerState.queue.length - 1),
+      ),
+      positionSeconds: resume?.positionSeconds ??
+        (Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0),
+      page: resume?.page ?? page?.page ?? null,
+      cid: resume?.cid ?? page?.cid ?? null,
+      savedAt: Math.floor(Date.now() / 1000),
+    },
+  }).catch((error) => {
+    console.warn("save playback state failed:", error);
+  });
+}
+
+function renderRestoredPlaybackUi(track, positionSeconds) {
+  const totalSeconds = Math.max(0, Number(track.durationSeconds) || 0);
+  const safePosition = Math.max(
+    0,
+    Math.min(Number(positionSeconds) || 0, totalSeconds || Number(positionSeconds) || 0),
+  );
+  const sliderMax = Math.max(totalSeconds, safePosition);
+  const progress = `${sliderMax > 0 ? (safePosition / sliderMax) * 100 : 0}%`;
+
+  thumbnail.src = displayThumbnailUrl(track.thumbnailUrl);
+  title.textContent = track.title;
+  uploader.textContent = track.uploader;
+  duration.textContent = formatDuration(totalSeconds);
+  for (const slider of [resumeProgressSlider, immersiveResumeProgressSlider]) {
+    if (!slider) continue;
+    slider.max = String(sliderMax);
+    slider.value = String(safePosition);
+    slider.style.setProperty("--progress", progress);
+  }
+  if (resumeCurrentTimeLabel) resumeCurrentTimeLabel.textContent = formatDuration(safePosition);
+  if (immersiveResumeCurrentTimeLabel) {
+    immersiveResumeCurrentTimeLabel.textContent = formatDuration(safePosition);
+  }
+  if (immersiveResumeDurationLabel) {
+    immersiveResumeDurationLabel.textContent = formatDuration(totalSeconds);
+  }
+  status.textContent = "已恢复上次播放，点击播放继续。";
+}
+
+async function restorePlaybackState() {
+  try {
+    const state = await invoke("get_playback_state");
+    if (
+      !state ||
+      !Array.isArray(state.queue) ||
+      state.queue.length === 0 ||
+      playerState.queue.length > 0 ||
+      playerState.currentIndex >= 0 ||
+      audio.currentSrc
+    ) {
+      return;
+    }
+
+    setQueue(state.queue, { save: false });
+    playerState.queueSource = "restored";
+    playerState.currentIndex = Math.max(
+      0,
+      Math.min(Math.round(Number(state.currentIndex) || 0), playerState.queue.length - 1),
+    );
+    resetRandomRemaining();
+    updateQueueUi();
+    renderLibraryViews();
+    const track = currentPlayableTrack();
+    if (!track) {
+      return;
+    }
+    pendingResume = {
+      positionSeconds: Math.max(0, Number(state.positionSeconds) || 0),
+      page: state.page == null ? null : Math.max(1, Math.round(Number(state.page) || 1)),
+      cid: state.cid == null ? null : Math.max(0, Math.round(Number(state.cid) || 0)),
+    };
+    renderRestoredPlaybackUi(track, pendingResume.positionSeconds);
+    emitCurrentTrackChanged();
+  } catch (error) {
+    console.warn("restore playback state failed:", error);
+  }
+}
+
+function setQueue(videos, { save = true } = {}) {
+  clearPendingResume();
   playerState.queue = videos.map(normalizeTrack);
   playerState.queueSource = "direct";
   playerState.queueSearchVersion = null;
@@ -416,6 +538,9 @@ function setQueue(videos) {
   updateQueueUi();
   renderLibraryViews();
   emitCurrentTrackChanged();
+  if (save) {
+    savePlaybackState();
+  }
 }
 
 function setSearchResults(videos) {
@@ -446,6 +571,7 @@ function appendSearchResults(videos) {
     const startIndex = playerState.queue.length;
     playerState.queue.push(...uniqueVideos.map(normalizeTrack));
     addNewIndexesToRandomRemaining(startIndex, uniqueVideos.length);
+    savePlaybackState();
   }
   renderSearchResults();
   updateQueueUi();
@@ -475,6 +601,7 @@ function appendQueue(videos) {
   renderSearchResults();
   updateQueueUi();
   emitCurrentTrackChanged();
+  savePlaybackState();
   return uniqueVideos.length;
 }
 
@@ -1644,6 +1771,7 @@ function openPagesModal(video, videos, pages, onPlay, trigger) {
 }
 
 function playCurrentVideoPage(page) {
+  clearPendingResume();
   const pageIndex = playerState.currentPages.findIndex(
     (candidate) => candidate.cid === page.cid || candidate.page === page.page,
   );
@@ -1963,7 +2091,33 @@ function selectedPlaylist() {
   );
 }
 
-async function loadCurrentTrack({ keepPage = false } = {}) {
+function waitForAudioMetadata() {
+  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audio.removeEventListener("loadedmetadata", handleLoaded);
+      audio.removeEventListener("error", handleError);
+    };
+    const handleLoaded = () => {
+      cleanup();
+      resolve();
+    };
+    const handleError = () => {
+      cleanup();
+      reject(audio.error ?? new Error("audio metadata load failed"));
+    };
+    audio.addEventListener("loadedmetadata", handleLoaded);
+    audio.addEventListener("error", handleError);
+  });
+}
+
+async function loadCurrentTrack({
+  keepPage = false,
+  startPage = null,
+  resumePosition = null,
+} = {}) {
   const index = playerState.currentIndex;
   const video = playerState.queue[index];
   if (!video) {
@@ -1981,6 +2135,16 @@ async function loadCurrentTrack({ keepPage = false } = {}) {
       const stillCurrent = await loadPagesForCurrentVideo(video, requestVersion);
       if (!stillCurrent) {
         return;
+      }
+    }
+
+    if (startPage) {
+      const startPageIndex = playerState.currentPages.findIndex(
+        (page) => page.cid === startPage.cid || page.page === startPage.page,
+      );
+      if (startPageIndex >= 0) {
+        playerState.currentPageIndex = startPageIndex;
+        updatePlayerPagesButton();
       }
     }
 
@@ -2035,23 +2199,50 @@ async function loadCurrentTrack({ keepPage = false } = {}) {
     playerState.audioActivatedAt = performance.now();
     audio.src = info.audioUrl;
     audio.load();
+    if (resumePosition !== null) {
+      await waitForAudioMetadata();
+      if (requestVersion !== playerState.requestVersion) {
+        return;
+      }
+      try {
+        const maxPosition = Math.max(0, Number(audio.duration) - 1);
+        audio.currentTime = Math.min(
+          Math.max(0, Number(resumePosition) || 0),
+          Number.isFinite(maxPosition) ? maxPosition : 0,
+        );
+      } catch (error) {
+        console.warn("restore playback seek failed:", error);
+      }
+      clearPendingResume();
+    }
     if (!displayTrack) {
       renderSearchResults();
       renderLibraryViews();
     }
+    savePlaybackState();
 
     try {
       await audio.play();
       if (requestVersion === playerState.requestVersion) {
         status.textContent = "在线播放中。";
       }
-    } catch {
+    } catch (error) {
       if (requestVersion === playerState.requestVersion) {
         status.textContent = "音频已就绪，点击播放。";
+      }
+      if (resumePosition !== null) {
+        console.warn("restored audio could not start playing:", error);
       }
     }
   } catch (error) {
     if (requestVersion !== playerState.requestVersion) {
+      return;
+    }
+
+    if (resumePosition !== null) {
+      clearPendingResume();
+      console.warn(`restore playback failed for ${video.bvid}:`, error);
+      void loadCurrentTrack({ keepPage: currentVideoPage() !== null });
       return;
     }
 
@@ -2085,6 +2276,25 @@ async function loadCurrentTrack({ keepPage = false } = {}) {
     if (requestVersion === playerState.requestVersion) {
       searchButton.disabled = false;
     }
+  }
+}
+
+async function resumePendingPlayback() {
+  if (!pendingResume || resumeInProgress || audio.currentSrc) {
+    return;
+  }
+  const resume = { ...pendingResume };
+  resumeInProgress = true;
+  try {
+    await loadCurrentTrack({
+      startPage: resume,
+      resumePosition: resume.positionSeconds,
+    });
+  } catch (error) {
+    clearPendingResume();
+    console.warn("resume playback failed:", error);
+  } finally {
+    resumeInProgress = false;
   }
 }
 
@@ -2172,6 +2382,7 @@ function playQueueIndex(
   if (index < 0 || index >= playerState.queue.length) {
     return;
   }
+  clearPendingResume();
 
   if (!preserveFailureStreak) {
     playerState.consecutiveResolveFailures = 0;
@@ -2520,15 +2731,25 @@ searchResults.addEventListener("scroll", () => {
 
 playerPagesButton?.addEventListener("click", openCurrentPagesModal);
 previousButton.addEventListener("click", () => {
+  clearPendingResume();
   if (!retreatPageWithinCurrentBv()) {
     playPrevious();
   }
 });
 nextButton.addEventListener("click", () => {
+  clearPendingResume();
   if (!advancePageWithinCurrentBv()) {
     playNext();
   }
 });
+resumePlayPauseButton?.addEventListener("click", (event) => {
+  if (!pendingResume && !resumeInProgress) {
+    return;
+  }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  void resumePendingPlayback();
+}, true);
 audio.addEventListener("ended", (event) => {
   const belongsToCurrentAudio =
     playerState.activeAudioVersion === playerState.requestVersion &&
@@ -2542,6 +2763,13 @@ audio.addEventListener("ended", (event) => {
 });
 
 audio.addEventListener("timeupdate", () => {
+  const now = Date.now();
+  if (now - lastPlaybackStateSavedAt >= PLAYBACK_STATE_SAVE_INTERVAL_MS) {
+    savePlaybackState();
+  }
+});
+
+audio.addEventListener("timeupdate", () => {
   if (playRecordedForCurrentTrack) return;
   const dur = Number(audio.duration);
   const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
@@ -2551,6 +2779,9 @@ audio.addEventListener("timeupdate", () => {
   playRecordedForCurrentTrack = true;
   invoke("record_play", { track: snapshot }).catch(() => {});
 });
+
+audio.addEventListener("pause", savePlaybackState);
+window.addEventListener("beforeunload", savePlaybackState);
 
 loopModeButton.addEventListener("click", () => {
   const currentModeIndex = LOOP_MODES.findIndex(
@@ -2675,6 +2906,7 @@ window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 updateHomeModeUi();
 refreshAiKeyState();
+window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
 loadLibrary();
 updateMusicTabs();
 updateQueueUi();
