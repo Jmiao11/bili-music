@@ -150,22 +150,16 @@
 
             <section class="search-results-panel" aria-label="搜索结果">
               <div class="search-tabs-row">
-                <span class="search-tabs-label">音乐分区</span>
-                <div id="music-tabs" class="music-tabs" role="tablist" aria-label="音乐子分区">
-                  <button class="music-tab is-active" type="button" role="tab" aria-selected="true" data-tids="3">全部</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="28">原创</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="31">翻唱</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="30">VOCALOID</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="59">演奏</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="267">电台</button>
-                </div>
-              </div>
-              <div class="search-tabs-row search-sort-row">
-                <span class="search-tabs-label">排序模式</span>
-                <div id="search-sort-modes" class="music-tabs" role="tablist" aria-label="搜索排序模式">
-                  <button class="music-tab is-active" type="button" role="tab" aria-selected="true" data-sort-mode="all">全部</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-sort-mode="single">单曲优先</button>
-                  <button class="music-tab" type="button" role="tab" aria-selected="false" data-sort-mode="collection">合集优先</button>
+                <div class="search-tabs-groups">
+                  <div id="music-tabs" class="music-tabs search-tab-group" role="tablist" aria-label="音乐分区">
+                    <button class="music-tab is-active" type="button" role="tab" aria-selected="true" data-tids="3">全部</button>
+                    <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="28">原创</button>
+                    <button class="music-tab" type="button" role="tab" aria-selected="false" data-tids="31">翻唱</button>
+                  </div>
+                  <div id="search-sort-modes" class="music-tabs search-tab-group" role="tablist" aria-label="搜索排序模式">
+                    <button class="music-tab" type="button" role="tab" aria-selected="false" data-sort-mode="single">单曲</button>
+                    <button class="music-tab" type="button" role="tab" aria-selected="false" data-sort-mode="collection">合集</button>
+                  </div>
                 </div>
               </div>
 

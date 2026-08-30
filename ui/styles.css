@@ -1233,8 +1233,7 @@ svg {
   min-width: 0;
 }
 
-#view-search .search-source-label,
-#view-search .search-tabs-label {
+#view-search .search-source-label {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
@@ -1342,22 +1341,20 @@ svg {
 #view-search .search-tabs-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: flex-end;
   padding: 0 4px 10px;
 }
 
-#view-search .search-sort-row {
-  padding-top: 2px;
+#view-search .search-tabs-groups {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  min-width: 0;
 }
 
-#view-search .search-tabs-label {
+#view-search .search-tab-group {
   flex: 0 0 auto;
-  color: var(--text-3);
-}
-
-#view-search .music-tabs {
-  flex: 1;
   justify-content: flex-end;
   gap: 7px;
   margin: 0;

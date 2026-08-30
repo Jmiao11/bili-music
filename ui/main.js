@@ -2872,10 +2872,7 @@ for (const tab of musicTabs) {
 for (const tab of sortModeTabs) {
   tab.addEventListener("click", () => {
     const sortMode = tab.dataset.sortMode;
-    if (searchState.sortMode === sortMode && searchState.results.length > 0) {
-      return;
-    }
-    searchState.sortMode = sortMode;
+    searchState.sortMode = searchState.sortMode === sortMode ? "all" : sortMode;
     updateSortModeTabs();
     runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
   });
