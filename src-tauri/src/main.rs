@@ -331,10 +331,17 @@ async fn search_videos(
     page: Option<u32>,
     tids: Option<u32>,
     order: Option<String>,
+    sort_mode: Option<String>,
 ) -> Result<Vec<SearchVideo>, String> {
     state
         .search
-        .search_videos_page(&keyword, page.unwrap_or(1), tids, order.as_deref())
+        .search_videos_page(
+            &keyword,
+            page.unwrap_or(1),
+            tids,
+            order.as_deref(),
+            sort_mode.as_deref(),
+        )
         .await
 }
 

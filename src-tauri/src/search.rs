@@ -63,7 +63,7 @@ impl SearchClient {
 
     #[allow(dead_code)]
     pub async fn search_videos(&self, keyword: &str) -> Result<Vec<SearchVideo>, String> {
-        self.search_videos_page(keyword, 1, None, None).await
+        self.search_videos_page(keyword, 1, None, None, None).await
     }
 
     pub async fn search_videos_page(
@@ -72,6 +72,7 @@ impl SearchClient {
         page: u32,
         tids: Option<u32>,
         order: Option<&str>,
+        sort_mode: Option<&str>,
     ) -> Result<Vec<SearchVideo>, String> {
         let keyword = keyword.trim();
         if keyword.is_empty() {
@@ -84,6 +85,7 @@ impl SearchClient {
             return Err("search page must be greater than 0".to_owned());
         }
         let order = normalize_search_order(order)?;
+        let sort_mode = SortMode::parse(sort_mode)?;
         let rerank_enabled = order != "click";
 
         let first_keys = self.wbi_key(false).await?;
@@ -91,13 +93,20 @@ impl SearchClient {
             .search_once(keyword, page, tids, order, &first_keys)
             .await
         {
-            Ok(results) => Ok(rerank_search_results(keyword, results, rerank_enabled)),
+            Ok(results) => Ok(rerank_search_results(
+                keyword,
+                results,
+                rerank_enabled,
+                sort_mode,
+            )),
             Err(SearchAttemptError::Fatal(error)) => Err(error),
             Err(SearchAttemptError::RefreshWbi(first_error)) => {
                 let refreshed_keys = self.wbi_key(true).await?;
                 self.search_once(keyword, page, tids, order, &refreshed_keys)
                     .await
-                    .map(|results| rerank_search_results(keyword, results, rerank_enabled))
+                    .map(|results| {
+                        rerank_search_results(keyword, results, rerank_enabled, sort_mode)
+                    })
                     .map_err(|error| match error {
                         SearchAttemptError::RefreshWbi(second_error) => format!(
                             "Bilibili rejected the refreshed WBI signature: {second_error}; first error: {first_error}"
@@ -529,6 +538,25 @@ struct SearchScore {
     original_position: f64,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum SortMode {
+    #[default]
+    All,
+    Single,
+    Collection,
+}
+
+impl SortMode {
+    fn parse(value: Option<&str>) -> Result<Self, String> {
+        match value.unwrap_or("all") {
+            "all" => Ok(Self::All),
+            "single" => Ok(Self::Single),
+            "collection" => Ok(Self::Collection),
+            other => Err(format!("unsupported search sort mode: {other}")),
+        }
+    }
+}
+
 struct ScoredSearchVideo {
     original_index: usize,
     score: SearchScore,
@@ -539,7 +567,9 @@ fn rerank_search_results(
     keyword: &str,
     items: Vec<SearchVideo>,
     enabled: bool,
+    sort_mode: SortMode,
 ) -> Vec<SearchVideo> {
+    eprintln!("[search-diag] rerank sort_mode={sort_mode:?}");
     if !enabled {
         return items;
     }
@@ -555,7 +585,11 @@ fn rerank_search_results(
         .map(|(index, item)| {
             let normalized_title = normalize_search_text(&item.title);
             let containment = keyword_containment(&normalized_keyword, &normalized_title);
-            let duration = duration_score(item.duration_seconds, long_audio_intent);
+            let duration = match sort_mode {
+                SortMode::All => duration_score(item.duration_seconds, long_audio_intent),
+                SortMode::Single => duration_score(item.duration_seconds, false),
+                SortMode::Collection => collection_duration_score(item.duration_seconds),
+            };
             let phrase_match = exact_phrase_match_score(keyword, &normalized_title);
             let original_position = 1.0 - index as f64 / total_items as f64;
             ScoredSearchVideo {
@@ -647,6 +681,16 @@ fn duration_score(duration_seconds: u64, long_audio_intent: bool) -> f64 {
     }
 }
 
+fn collection_duration_score(duration_seconds: u64) -> f64 {
+    match duration_seconds {
+        0..60 => 0.15,
+        60..150 => 0.2,
+        150..=420 => 0.3,
+        421..=900 => 0.6,
+        _ => 1.0,
+    }
+}
+
 fn exact_phrase_match_score(keyword: &str, normalized_title: &str) -> f64 {
     let terms: Vec<_> = keyword
         .split_whitespace()
@@ -676,6 +720,7 @@ mod tests {
         clean_title, duration_score, exact_phrase_match_score, normalize_search_text,
         parse_duration, read_optional_buvid_cookies, rerank_search_results,
         stable_sort_scored_results, RawSearchVideo, ScoredSearchVideo, SearchScore, SearchVideo,
+        SortMode,
     };
     use crate::wbi::{gen_mixin_key, sign_parameters};
     use std::collections::BTreeMap;
@@ -769,7 +814,7 @@ mod tests {
             test_video("BV1bb411c7mD", "night【音乐】完整版", 180),
         ];
 
-        let reranked = rerank_search_results("ＮＩＧＨＴ 音乐", items, true);
+        let reranked = rerank_search_results("ＮＩＧＨＴ 音乐", items, true, SortMode::All);
 
         assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
         assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
@@ -782,7 +827,7 @@ mod tests {
             test_video("BV1bb411c7mD", "夜曲", 180),
         ];
 
-        let reranked = rerank_search_results("夜曲", items, true);
+        let reranked = rerank_search_results("夜曲", items, true, SortMode::All);
 
         assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
         assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
@@ -795,7 +840,7 @@ mod tests {
             test_video("BV1bb411c7mD", "夜曲合集", 180),
         ];
 
-        let reranked = rerank_search_results("夜曲合集", items, true);
+        let reranked = rerank_search_results("夜曲合集", items, true, SortMode::All);
 
         assert_eq!(duration_score(3_600, true), 1.0);
         assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
@@ -809,7 +854,7 @@ mod tests {
             test_video("BV1bb411c7mD", "夜曲", 180),
         ];
 
-        let reranked = rerank_search_results("夜曲", items, false);
+        let reranked = rerank_search_results("夜曲", items, false, SortMode::All);
 
         assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
         assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
@@ -858,9 +903,97 @@ mod tests {
         ];
         let original_count = items.len();
 
-        let reranked = rerank_search_results("夜曲", items, true);
+        let reranked = rerank_search_results("夜曲", items, true, SortMode::All);
 
         assert_eq!(reranked.len(), original_count);
+    }
+
+    #[test]
+    fn sort_modes_preserve_count_and_bvid_set() {
+        let make_items = || {
+            vec![
+                test_video("BV1aa411c7mD", "夜曲", 1_200),
+                test_video("BV1bb411c7mD", "夜曲", 180),
+                test_video("BV1cc411c7mD", "夜曲现场", 360),
+            ]
+        };
+        let all = rerank_search_results("夜曲", make_items(), true, SortMode::All);
+        let single = rerank_search_results("夜曲", make_items(), true, SortMode::Single);
+        let collection = rerank_search_results("夜曲", make_items(), true, SortMode::Collection);
+
+        assert_eq!(all.len(), 3);
+        assert_eq!(single.len(), all.len());
+        assert_eq!(collection.len(), all.len());
+        assert_eq!(bvid_set(&single), bvid_set(&all));
+        assert_eq!(bvid_set(&collection), bvid_set(&all));
+        assert_ne!(
+            single.iter().map(|item| &item.bvid).collect::<Vec<_>>(),
+            collection.iter().map(|item| &item.bvid).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn single_mode_ignores_collection_keyword_duration_exception() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲合集", 3_600),
+            test_video("BV1bb411c7mD", "夜曲合集", 180),
+        ];
+
+        let reranked = rerank_search_results("夜曲合集", items, true, SortMode::Single);
+
+        assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
+    }
+
+    #[test]
+    fn collection_mode_places_long_audio_before_three_minute_track() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲", 180),
+            test_video("BV1bb411c7mD", "夜曲", 3_600),
+        ];
+
+        let reranked = rerank_search_results("夜曲", items, true, SortMode::Collection);
+
+        assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
+    }
+
+    #[test]
+    fn all_mode_preserves_pre_sort_mode_output() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲合集", 3_600),
+            test_video("BV1bb411c7mD", "夜曲合集", 180),
+        ];
+
+        let reranked = rerank_search_results("夜曲合集", items, true, SortMode::All);
+
+        assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
+    }
+
+    #[test]
+    fn sort_mode_parser_defaults_to_all_and_rejects_unknown_values() {
+        assert_eq!(SortMode::parse(None).unwrap(), SortMode::All);
+        assert_eq!(SortMode::parse(Some("all")).unwrap(), SortMode::All);
+        assert_eq!(SortMode::parse(Some("single")).unwrap(), SortMode::Single);
+        assert_eq!(
+            SortMode::parse(Some("collection")).unwrap(),
+            SortMode::Collection
+        );
+        assert!(SortMode::parse(Some("invalid")).is_err());
+    }
+
+    #[test]
+    fn disabled_rerank_ignores_collection_mode() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲", 180),
+            test_video("BV1bb411c7mD", "夜曲", 3_600),
+        ];
+
+        let reranked = rerank_search_results("夜曲", items, false, SortMode::Collection);
+
+        assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
     }
 
     #[test]
@@ -943,5 +1076,9 @@ mod tests {
             play_count: None,
             pubdate: None,
         }
+    }
+
+    fn bvid_set(items: &[SearchVideo]) -> std::collections::HashSet<String> {
+        items.iter().map(|item| item.bvid.clone()).collect()
     }
 }

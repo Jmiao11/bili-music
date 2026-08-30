@@ -1347,6 +1347,10 @@ svg {
   padding: 0 4px 10px;
 }
 
+#view-search .search-sort-row {
+  padding-top: 2px;
+}
+
 #view-search .search-tabs-label {
   flex: 0 0 auto;
   color: var(--text-3);

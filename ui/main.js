@@ -43,6 +43,7 @@ const searchState = {
   requestKeyword: "",
   tids: DEFAULT_MUSIC_TIDS,
   order: null,
+  sortMode: "all",
   page: 0,
   isLoadingMore: false,
   hasMore: false,
@@ -97,6 +98,7 @@ const searchForm = document.querySelector("#search-form");
 const searchKeyword = document.querySelector("#search-keyword");
 const searchButton = document.querySelector("#search-button");
 const musicTabs = [...document.querySelectorAll(".music-tab[data-tids]")];
+const sortModeTabs = [...document.querySelectorAll(".music-tab[data-sort-mode]")];
 const searchStatus = document.querySelector("#search-status");
 const playbackNotice = document.querySelector("#playback-notice");
 const searchResults = document.querySelector("#search-results");
@@ -2541,6 +2543,14 @@ function updateMusicTabs() {
   }
 }
 
+function updateSortModeTabs() {
+  for (const tab of sortModeTabs) {
+    const selected = tab.dataset.sortMode === searchState.sortMode;
+    tab.classList.toggle("is-active", selected);
+    tab.setAttribute("aria-selected", String(selected));
+  }
+}
+
 function currentSearchRequest(userKeyword) {
   const trimmed = userKeyword.trim();
   if (trimmed) {
@@ -2577,6 +2587,9 @@ async function runSearch({ userKeyword = searchKeyword.value.trim(), recordHisto
     };
     if (searchState.order) {
       payload.order = searchState.order;
+    }
+    if (searchState.order !== "click") {
+      payload.sortMode = searchState.sortMode;
     }
     const searchRequest = invoke("search_videos", payload);
     if (recordHistory && searchState.userKeyword) {
@@ -2685,12 +2698,16 @@ async function loadMoreSearchResults() {
   searchStatus.textContent = `正在加载第 ${nextPage} 页…`;
 
   try {
-    const videos = await invoke("search_videos", {
+    const payload = {
       keyword: searchState.requestKeyword,
       page: nextPage,
       tids: searchState.tids,
       order: searchState.order,
-    });
+    };
+    if (searchState.order !== "click") {
+      payload.sortMode = searchState.sortMode;
+    }
+    const videos = await invoke("search_videos", payload);
     if (
       requestVersion !== searchState.requestVersion ||
       searchKeyword.value.trim() !== searchState.userKeyword
@@ -2849,6 +2866,17 @@ for (const tab of musicTabs) {
     }
     searchState.tids = tids;
     updateMusicTabs();
+    runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
+  });
+}
+for (const tab of sortModeTabs) {
+  tab.addEventListener("click", () => {
+    const sortMode = tab.dataset.sortMode;
+    if (searchState.sortMode === sortMode && searchState.results.length > 0) {
+      return;
+    }
+    searchState.sortMode = sortMode;
+    updateSortModeTabs();
     runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
   });
 }
