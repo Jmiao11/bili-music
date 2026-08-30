@@ -3,7 +3,7 @@ use bilibili_music_core::{BILIBILI_REFERER, DESKTOP_USER_AGENT};
 use reqwest::header::{COOKIE, REFERER, USER_AGENT};
 use reqwest::redirect::Policy;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -84,18 +84,20 @@ impl SearchClient {
             return Err("search page must be greater than 0".to_owned());
         }
         let order = normalize_search_order(order)?;
+        let rerank_enabled = order != "click";
 
         let first_keys = self.wbi_key(false).await?;
         match self
             .search_once(keyword, page, tids, order, &first_keys)
             .await
         {
-            Ok(results) => Ok(results),
+            Ok(results) => Ok(rerank_search_results(keyword, results, rerank_enabled)),
             Err(SearchAttemptError::Fatal(error)) => Err(error),
             Err(SearchAttemptError::RefreshWbi(first_error)) => {
                 let refreshed_keys = self.wbi_key(true).await?;
                 self.search_once(keyword, page, tids, order, &refreshed_keys)
                     .await
+                    .map(|results| rerank_search_results(keyword, results, rerank_enabled))
                     .map_err(|error| match error {
                         SearchAttemptError::RefreshWbi(second_error) => format!(
                             "Bilibili rejected the refreshed WBI signature: {second_error}; first error: {first_error}"
@@ -123,6 +125,10 @@ impl SearchClient {
         params.insert("tids".to_owned(), tids.unwrap_or(0).to_string());
         let wts = unix_timestamp();
         let signed_query = crate::wbi::sign_parameters(params, mixin_key, wts);
+        eprintln!(
+            "[search-diag] request keyword={keyword} page={page} order={order} tids={}",
+            tids.unwrap_or(0)
+        );
         let cookie_header = self
             .cookie_header()
             .await
@@ -156,6 +162,10 @@ impl SearchClient {
         let envelope: SearchEnvelope = response.json().await.map_err(|error| {
             SearchAttemptError::Fatal(format!("invalid Bilibili search response: {error}"))
         })?;
+        eprintln!(
+            "[search-diag] response code={} message={}",
+            envelope.code, envelope.message
+        );
         if envelope.code == -412 {
             return Err(SearchAttemptError::Fatal(
                 "Bilibili search returned code -412. The guest buvid may be stale; retry later or check buvid issuance."
@@ -183,11 +193,47 @@ impl SearchClient {
             ));
         }
 
-        Ok(data
+        let raw_count = data.result.len();
+        eprintln!("[search-diag] raw result count={raw_count}");
+        for raw in &data.result {
+            let drop_reason = if raw.kind.as_deref().is_some_and(|kind| kind != "video") {
+                Some("kind不符")
+            } else if raw.bvid.is_none() {
+                Some("缺bvid")
+            } else if !raw.bvid.as_deref().is_some_and(is_valid_bvid) {
+                Some("bvid非法")
+            } else if raw.title.is_none() {
+                Some("缺title")
+            } else if raw.author.is_none() {
+                Some("缺author")
+            } else if raw.pic.is_none() {
+                Some("缺pic")
+            } else if raw.duration.is_none() {
+                Some("缺duration")
+            } else if !raw
+                .duration
+                .as_deref()
+                .is_some_and(|value| parse_duration(value).is_some())
+            {
+                Some("时长解析失败")
+            } else {
+                None
+            };
+            if let Some(reason) = drop_reason {
+                eprintln!(
+                    "[search-diag] dropped bvid={:?} title={:?} reason={reason}",
+                    raw.bvid, raw.title
+                );
+            }
+        }
+
+        let results: Vec<_> = data
             .result
             .into_iter()
             .filter_map(SearchVideo::from_raw)
-            .collect())
+            .collect();
+        eprintln!("[search-diag] filtered result count={}", results.len());
+        Ok(results)
     }
 
     async fn wbi_key(&self, force_refresh: bool) -> Result<String, String> {
@@ -474,6 +520,149 @@ fn normalize_search_order(order: Option<&str>) -> Result<&'static str, String> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct SearchScore {
+    total: f64,
+    containment: f64,
+    duration: f64,
+    phrase_match: f64,
+    original_position: f64,
+}
+
+struct ScoredSearchVideo {
+    original_index: usize,
+    score: SearchScore,
+    item: SearchVideo,
+}
+
+fn rerank_search_results(
+    keyword: &str,
+    items: Vec<SearchVideo>,
+    enabled: bool,
+) -> Vec<SearchVideo> {
+    if !enabled {
+        return items;
+    }
+
+    let normalized_keyword = normalize_search_text(keyword);
+    let long_audio_intent = ["合集", "歌单", "playlist", "纯音乐", "小时", "循环"]
+        .iter()
+        .any(|marker| normalized_keyword.contains(marker));
+    let total_items = items.len();
+    let mut scored: Vec<_> = items
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let normalized_title = normalize_search_text(&item.title);
+            let containment = keyword_containment(&normalized_keyword, &normalized_title);
+            let duration = duration_score(item.duration_seconds, long_audio_intent);
+            let phrase_match = exact_phrase_match_score(keyword, &normalized_title);
+            let original_position = 1.0 - index as f64 / total_items as f64;
+            ScoredSearchVideo {
+                original_index: index,
+                score: SearchScore {
+                    total: containment * 0.60
+                        + duration * 0.20
+                        + phrase_match * 0.10
+                        + original_position * 0.10,
+                    containment,
+                    duration,
+                    phrase_match,
+                    original_position,
+                },
+                item,
+            }
+        })
+        .collect();
+
+    stable_sort_scored_results(&mut scored);
+    for (final_index, entry) in scored.iter().enumerate() {
+        let title_preview: String = entry.item.title.chars().take(20).collect();
+        eprintln!(
+            "[search-diag] rerank final={} original={} score={:.6} containment={:.6} duration={:.6} phrase_match={:.6} position={:.6} title={:?}",
+            final_index + 1,
+            entry.original_index + 1,
+            entry.score.total,
+            entry.score.containment,
+            entry.score.duration,
+            entry.score.phrase_match,
+            entry.score.original_position,
+            title_preview
+        );
+    }
+
+    scored.into_iter().map(|entry| entry.item).collect()
+}
+
+fn stable_sort_scored_results(items: &mut [ScoredSearchVideo]) {
+    items.sort_by(|left, right| right.score.total.total_cmp(&left.score.total));
+}
+
+fn normalize_search_text(value: &str) -> String {
+    value
+        .chars()
+        .map(search_to_halfwidth)
+        .flat_map(char::to_lowercase)
+        .filter(|character| character.is_alphanumeric())
+        .collect()
+}
+
+fn search_to_halfwidth(character: char) -> char {
+    match character {
+        '\u{3000}' => ' ',
+        '\u{FF01}'..='\u{FF5E}' => char::from_u32(character as u32 - 0xFEE0).unwrap_or(character),
+        _ => character,
+    }
+}
+
+fn keyword_containment(keyword: &str, title: &str) -> f64 {
+    let keyword: Vec<_> = keyword.chars().collect();
+    if keyword.len() < 2 {
+        return if keyword
+            .first()
+            .is_some_and(|character| title.contains(*character))
+        {
+            1.0
+        } else {
+            0.0
+        };
+    }
+
+    let title: Vec<_> = title.chars().collect();
+    let keyword_bigrams: HashSet<_> = keyword.windows(2).map(|pair| (pair[0], pair[1])).collect();
+    let title_bigrams: HashSet<_> = title.windows(2).map(|pair| (pair[0], pair[1])).collect();
+    keyword_bigrams.intersection(&title_bigrams).count() as f64 / keyword_bigrams.len() as f64
+}
+
+fn duration_score(duration_seconds: u64, long_audio_intent: bool) -> f64 {
+    if long_audio_intent {
+        return 1.0;
+    }
+    match duration_seconds {
+        0..60 => 0.2,
+        60..150 => 0.7,
+        150..=420 => 1.0,
+        421..=900 => 0.5,
+        _ => 0.15,
+    }
+}
+
+fn exact_phrase_match_score(keyword: &str, normalized_title: &str) -> f64 {
+    let terms: Vec<_> = keyword
+        .split_whitespace()
+        .map(normalize_search_text)
+        .filter(|term| !term.is_empty())
+        .collect();
+    if terms.is_empty() {
+        return 0.0;
+    }
+    terms
+        .iter()
+        .filter(|term| normalized_title.contains(term.as_str()))
+        .count() as f64
+        / terms.len() as f64
+}
+
 fn unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -484,7 +673,9 @@ fn unix_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        clean_title, parse_duration, read_optional_buvid_cookies, RawSearchVideo, SearchVideo,
+        clean_title, duration_score, exact_phrase_match_score, normalize_search_text,
+        parse_duration, read_optional_buvid_cookies, rerank_search_results,
+        stable_sort_scored_results, RawSearchVideo, ScoredSearchVideo, SearchScore, SearchVideo,
     };
     use crate::wbi::{gen_mixin_key, sign_parameters};
     use std::collections::BTreeMap;
@@ -572,6 +763,132 @@ mod tests {
     }
 
     #[test]
+    fn rerank_places_exact_match_before_generic_match() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "热门日语歌曲推荐", 180),
+            test_video("BV1bb411c7mD", "night【音乐】完整版", 180),
+        ];
+
+        let reranked = rerank_search_results("ＮＩＧＨＴ 音乐", items, true);
+
+        assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
+    }
+
+    #[test]
+    fn rerank_places_three_minute_track_before_long_compilation() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲", 901),
+            test_video("BV1bb411c7mD", "夜曲", 180),
+        ];
+
+        let reranked = rerank_search_results("夜曲", items, true);
+
+        assert_eq!(reranked[0].bvid, "BV1bb411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1aa411c7mD");
+    }
+
+    #[test]
+    fn rerank_does_not_penalize_long_audio_for_compilation_keyword() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "夜曲合集", 3_600),
+            test_video("BV1bb411c7mD", "夜曲合集", 180),
+        ];
+
+        let reranked = rerank_search_results("夜曲合集", items, true);
+
+        assert_eq!(duration_score(3_600, true), 1.0);
+        assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
+    }
+
+    #[test]
+    fn rerank_disabled_preserves_input_order() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "泛匹配", 3_600),
+            test_video("BV1bb411c7mD", "夜曲", 180),
+        ];
+
+        let reranked = rerank_search_results("夜曲", items, false);
+
+        assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
+        assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
+    }
+
+    #[test]
+    fn stable_sort_preserves_order_when_all_scores_are_equal() {
+        let equal_score = SearchScore {
+            total: 0.5,
+            containment: 0.5,
+            duration: 0.5,
+            phrase_match: 0.5,
+            original_position: 0.5,
+        };
+        let mut items = vec![
+            ScoredSearchVideo {
+                original_index: 0,
+                score: equal_score,
+                item: test_video("BV1aa411c7mD", "第一首", 180),
+            },
+            ScoredSearchVideo {
+                original_index: 1,
+                score: equal_score,
+                item: test_video("BV1bb411c7mD", "第二首", 180),
+            },
+            ScoredSearchVideo {
+                original_index: 2,
+                score: equal_score,
+                item: test_video("BV1cc411c7mD", "第三首", 180),
+            },
+        ];
+
+        stable_sort_scored_results(&mut items);
+
+        assert_eq!(items[0].original_index, 0);
+        assert_eq!(items[1].original_index, 1);
+        assert_eq!(items[2].original_index, 2);
+    }
+
+    #[test]
+    fn rerank_preserves_result_count() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "泛匹配", 3_600),
+            test_video("BV1bb411c7mD", "夜曲", 180),
+            test_video("BV1cc411c7mD", "夜曲现场", 240),
+        ];
+        let original_count = items.len();
+
+        let reranked = rerank_search_results("夜曲", items, true);
+
+        assert_eq!(reranked.len(), original_count);
+    }
+
+    #[test]
+    fn phrase_match_does_not_penalize_long_title_suffixes() {
+        let keyword = "青花瓷";
+        let short_title = normalize_search_text("青花瓷");
+        let long_title =
+            normalize_search_text("青花瓷《素胚勾勒出青花笔锋浓转淡》周杰伦原唱完整版现场");
+
+        assert_eq!(exact_phrase_match_score(keyword, &short_title), 1.0);
+        assert_eq!(exact_phrase_match_score(keyword, &long_title), 1.0);
+    }
+
+    #[test]
+    fn phrase_match_rejects_keyword_characters_scattered_across_title() {
+        let title = normalize_search_text("青色花开瓷器");
+
+        assert_eq!(exact_phrase_match_score("青花瓷", &title), 0.0);
+    }
+
+    #[test]
+    fn phrase_match_scores_partial_multi_term_matches_proportionally() {
+        let title = normalize_search_text("助眠纯音乐放松版");
+
+        assert_eq!(exact_phrase_match_score("纯音乐 合集", &title), 0.5);
+    }
+
+    #[test]
     fn missing_optional_cookie_file_does_not_fail_search_identity_fallback() {
         let missing = unique_temp_cookie_path("missing");
         let cookies = read_optional_buvid_cookies(&missing, "api.bilibili.com");
@@ -614,5 +931,17 @@ mod tests {
             "bilibili-music-search-{label}-{}-{nanos}.txt",
             std::process::id()
         ))
+    }
+
+    fn test_video(bvid: &str, title: &str, duration_seconds: u64) -> SearchVideo {
+        SearchVideo {
+            bvid: bvid.to_owned(),
+            title: title.to_owned(),
+            uploader: "tester".to_owned(),
+            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
+            duration_seconds,
+            play_count: None,
+            pubdate: None,
+        }
     }
 }
