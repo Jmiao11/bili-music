@@ -72,6 +72,12 @@ const libraryState = {
   loadError: "",
 };
 
+const favoriteDragState = {
+  drag: null,
+  saving: false,
+  suppressClickUntil: 0,
+};
+
 const playlistDragState = {
   drag: null,
   saving: false,
@@ -1573,9 +1579,96 @@ function renderLibraryViews() {
   updateLibraryHighlights();
 }
 
+function isFavoriteDragClickSuppressed() {
+  return favoriteDragState.drag !== null || performance.now() < favoriteDragState.suppressClickUntil;
+}
+
+function finishFavoriteDrag() {
+  const drag = favoriteDragState.drag;
+  drag?.row.classList.remove("is-dragging");
+  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
+  favoriteDragState.drag = null;
+  // Cover the post-drop click, including when another favorite operation re-renders the list.
+  favoriteDragState.suppressClickUntil = performance.now() + 400;
+}
+
+function bindFavoriteDrag(row, index) {
+  row.draggable = true;
+  row.querySelectorAll("img").forEach((image) => { image.draggable = false; });
+  for (const eventName of ["click", "dblclick"]) {
+    row.addEventListener(eventName, (event) => {
+      if (isFavoriteDragClickSuppressed()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  }
+  row.addEventListener("dragstart", (event) => {
+    if (favoriteDragState.saving) {
+      event.preventDefault();
+      return;
+    }
+    favoriteDragState.drag = { index, row, target: null };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+    row.classList.add("is-dragging");
+  });
+  row.addEventListener("dragover", (event) => {
+    const drag = favoriteDragState.drag;
+    if (!drag || favoriteDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    drag.target?.classList.remove("is-drop-before", "is-drop-after");
+    drag.target = index === drag.index ? null : row;
+    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+  });
+  row.addEventListener("dragleave", (event) => {
+    const drag = favoriteDragState.drag;
+    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+      row.classList.remove("is-drop-before", "is-drop-after");
+      drag.target = null;
+    }
+  });
+  row.addEventListener("drop", async (event) => {
+    const drag = favoriteDragState.drag;
+    if (!drag || favoriteDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    finishFavoriteDrag();
+    if (drag.index === index) {
+      return;
+    }
+    favoriteDragState.saving = true;
+    try {
+      // Retain the current order until persistence succeeds; failure needs no local undo.
+      const items = await invoke("reorder_favorite", {
+        fromIndex: drag.index,
+        toIndex: index,
+      });
+      libraryState.favorites = items.map(normalizeTrack);
+      libraryState.favoriteBvids = new Set(
+        libraryState.favorites.map((item) => item.bvid.toLowerCase()),
+      );
+    } catch (error) {
+      console.warn("favorite reorder failed:", error);
+    } finally {
+      favoriteDragState.saving = false;
+      renderLibraryViews();
+    }
+  });
+  row.addEventListener("dragend", finishFavoriteDrag);
+}
+
 function renderFavorites() {
   if (!favoritesList) {
     return;
+  }
+  if (favoriteDragState.drag) {
+    finishFavoriteDrag();
   }
   favoritesList.replaceChildren();
   favoritesCount.textContent = `${libraryState.favorites.length} 首`;
@@ -1587,14 +1680,18 @@ function renderFavorites() {
     ? "点击歌曲即可从收藏开始播放。"
     : "收藏的歌曲会显示在这里。";
   for (const [index, video] of libraryState.favorites.entries()) {
-    favoritesList.append(
-      createTrackRow(
-        video,
-        index,
-        (targetIndex, pageSelection) =>
-          playListItem("favorites", libraryState.favorites, targetIndex, pageSelection),
-      ),
+    const row = createTrackRow(
+      video,
+      index,
+      (targetIndex, pageSelection) => {
+        // Guard the delayed single-click callback as well as the native click event.
+        if (!isFavoriteDragClickSuppressed()) {
+          playListItem("favorites", libraryState.favorites, targetIndex, pageSelection);
+        }
+      },
     );
+    bindFavoriteDrag(row, index);
+    favoritesList.append(row);
   }
 }
 

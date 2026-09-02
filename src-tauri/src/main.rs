@@ -40,8 +40,8 @@ use library::{
     add_to_playlist, clear_playback_state, clear_search_history, create_playlist, delete_playlist,
     export_data, get_play_history, get_playback_state, get_search_history, import_data,
     is_favorite, list_favorites, list_playlists, record_play, record_search_history,
-    remove_from_playlist, rename_playlist, reorder_playlist, reorder_playlist_item,
-    save_playback_state, toggle_favorite,
+    remove_from_playlist, rename_playlist, reorder_favorite, reorder_playlist,
+    reorder_playlist_item, save_playback_state, toggle_favorite,
 };
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
@@ -671,6 +671,7 @@ fn main() {
             list_favorites,
             is_favorite,
             toggle_favorite,
+            reorder_favorite,
             list_playlists,
             create_playlist,
             rename_playlist,

@@ -1603,6 +1603,28 @@ svg {
   padding: 12px 14px;
 }
 
+#view-favorites #favorites-list .track-row[draggable="true"] {
+  cursor: grab;
+}
+
+#view-favorites #favorites-list .track-row.is-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+#view-favorites #favorites-list .track-row.is-drop-before,
+#view-favorites #favorites-list .track-row.is-drop-after {
+  background: var(--track-hover);
+}
+
+#view-favorites #favorites-list .track-row.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--text-2);
+}
+
+#view-favorites #favorites-list .track-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--text-2);
+}
+
 #view-favorites #favorites-list:empty::before,
 #view-playlists #playlist-tracks:empty::before {
   min-height: 330px;
