@@ -3073,6 +3073,15 @@ svg {
   height: 18px;
 }
 
+#loop-mode-button .icon-repeat-one,
+#loop-mode-button[data-loop-mode="single"] .icon-repeat {
+  display: none;
+}
+
+#loop-mode-button[data-loop-mode="single"] .icon-repeat-one {
+  display: block;
+}
+
 .shuffle-control {
   position: relative;
 }

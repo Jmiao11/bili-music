@@ -622,8 +622,8 @@ function updateQueueUi() {
     (candidate) => candidate.id === playerState.loopMode,
   );
   loopModeButton.dataset.loopMode = playerState.loopMode;
-  loopModeButton.title = `循环模式：${loopMode.label}`;
-  loopModeButton.setAttribute("aria-label", `循环模式：${loopMode.label}`);
+  loopModeButton.title = playerState.loopMode === "sequence" ? "关闭循环" : loopMode.label;
+  loopModeButton.setAttribute("aria-label", loopModeButton.title);
   loopModeButton.classList.toggle("is-active", playerState.loopMode !== "sequence");
   shuffleToggle.checked = playerState.shuffle;
 
