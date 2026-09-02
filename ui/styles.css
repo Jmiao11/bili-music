@@ -1722,6 +1722,33 @@ svg {
   padding: 12px;
 }
 
+#view-playlists #playlists-list > li[draggable="true"],
+#view-playlists #playlists-list > li[draggable="true"] .playlist-card {
+  cursor: grab;
+}
+
+#view-playlists #playlists-list > li.is-dragging {
+  opacity: 0.45;
+}
+
+#view-playlists #playlists-list > li.is-dragging,
+#view-playlists #playlists-list > li.is-dragging .playlist-card {
+  cursor: grabbing;
+}
+
+#view-playlists #playlists-list > li.is-drop-before .playlist-card,
+#view-playlists #playlists-list > li.is-drop-after .playlist-card {
+  background: var(--track-hover);
+}
+
+#view-playlists #playlists-list > li.is-drop-before .playlist-card {
+  box-shadow: inset 0 2px 0 var(--text-2);
+}
+
+#view-playlists #playlists-list > li.is-drop-after .playlist-card {
+  box-shadow: inset 0 -2px 0 var(--text-2);
+}
+
 #view-playlists .playlist-list li + li {
   margin-top: 7px;
 }
@@ -1807,6 +1834,28 @@ svg {
   counter-reset: playlist-track-rank;
   margin: 0;
   padding: 2px 2px 0;
+}
+
+#view-playlists #playlist-tracks .track-row[draggable="true"] {
+  cursor: grab;
+}
+
+#view-playlists #playlist-tracks .track-row.is-dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+#view-playlists #playlist-tracks .track-row.is-drop-before,
+#view-playlists #playlist-tracks .track-row.is-drop-after {
+  background: var(--track-hover);
+}
+
+#view-playlists #playlist-tracks .track-row.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--text-2);
+}
+
+#view-playlists #playlist-tracks .track-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--text-2);
 }
 
 :root[data-theme="light"] #view-favorites .list-head,

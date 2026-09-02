@@ -17,6 +17,7 @@
         "minWidth": 1080,
         "minHeight": 600,
         "decorations": false,
+        "dragDropEnabled": false,
         "resizable": true,
         "shadow": true
       }

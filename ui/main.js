@@ -72,6 +72,18 @@ const libraryState = {
   loadError: "",
 };
 
+const playlistDragState = {
+  drag: null,
+  saving: false,
+  suppressClickUntil: 0,
+};
+
+const playlistListDragState = {
+  drag: null,
+  saving: false,
+  suppressClickUntil: 0,
+};
+
 const videoPageCounts = new Map();
 const videoPagesByBvid = new Map();
 const pageModalOpeners = new WeakMap();
@@ -1586,9 +1598,175 @@ function renderFavorites() {
   }
 }
 
+function isPlaylistDragClickSuppressed() {
+  return playlistDragState.drag !== null || performance.now() < playlistDragState.suppressClickUntil;
+}
+
+function finishPlaylistDrag() {
+  const drag = playlistDragState.drag;
+  drag?.row.classList.remove("is-dragging");
+  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
+  playlistDragState.drag = null;
+  // Cover the mouse click emitted after a native drop, including after a re-render.
+  playlistDragState.suppressClickUntil = performance.now() + 400;
+}
+
+function bindPlaylistItemDrag(row, playlistId, index) {
+  row.draggable = true;
+  row.querySelectorAll("img").forEach((image) => { image.draggable = false; });
+  for (const eventName of ["click", "dblclick"]) {
+    row.addEventListener(eventName, (event) => {
+      if (isPlaylistDragClickSuppressed()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  }
+  row.addEventListener("dragstart", (event) => {
+    if (playlistDragState.saving) {
+      event.preventDefault();
+      return;
+    }
+    playlistDragState.drag = { playlistId, index, row, target: null };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+    row.classList.add("is-dragging");
+  });
+  row.addEventListener("dragover", (event) => {
+    const drag = playlistDragState.drag;
+    if (!drag || drag.playlistId !== playlistId || playlistDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    drag.target?.classList.remove("is-drop-before", "is-drop-after");
+    drag.target = index === drag.index ? null : row;
+    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+  });
+  row.addEventListener("dragleave", (event) => {
+    const drag = playlistDragState.drag;
+    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+      row.classList.remove("is-drop-before", "is-drop-after");
+      drag.target = null;
+    }
+  });
+  row.addEventListener("drop", async (event) => {
+    const drag = playlistDragState.drag;
+    if (!drag || drag.playlistId !== playlistId || playlistDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    finishPlaylistDrag();
+    if (drag.index === index) {
+      return;
+    }
+    playlistDragState.saving = true;
+    try {
+      // Keep the original order until persistence succeeds; failures need no local undo.
+      libraryState.playlists = await invoke("reorder_playlist_item", {
+        id: playlistId,
+        fromIndex: drag.index,
+        toIndex: index,
+      });
+    } catch (error) {
+      console.warn("playlist reorder failed:", error);
+    } finally {
+      playlistDragState.saving = false;
+      renderLibraryViews();
+    }
+  });
+  row.addEventListener("dragend", finishPlaylistDrag);
+}
+
+function isPlaylistListDragClickSuppressed() {
+  return playlistListDragState.drag !== null || performance.now() < playlistListDragState.suppressClickUntil;
+}
+
+function finishPlaylistListDrag() {
+  const drag = playlistListDragState.drag;
+  drag?.row.classList.remove("is-dragging");
+  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
+  playlistListDragState.drag = null;
+  // Keep the post-drop click suppressed even if the list has already been re-rendered.
+  playlistListDragState.suppressClickUntil = performance.now() + 400;
+}
+
+function bindPlaylistDrag(row, index) {
+  row.draggable = true;
+  for (const eventName of ["click", "dblclick"]) {
+    row.addEventListener(eventName, (event) => {
+      if (isPlaylistListDragClickSuppressed()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  }
+  row.addEventListener("dragstart", (event) => {
+    if (playlistListDragState.saving) {
+      event.preventDefault();
+      return;
+    }
+    playlistListDragState.drag = { index, row, target: null };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(index));
+    row.classList.add("is-dragging");
+  });
+  row.addEventListener("dragover", (event) => {
+    const drag = playlistListDragState.drag;
+    if (!drag || playlistListDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    drag.target?.classList.remove("is-drop-before", "is-drop-after");
+    drag.target = index === drag.index ? null : row;
+    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+  });
+  row.addEventListener("dragleave", (event) => {
+    const drag = playlistListDragState.drag;
+    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+      row.classList.remove("is-drop-before", "is-drop-after");
+      drag.target = null;
+    }
+  });
+  row.addEventListener("drop", async (event) => {
+    const drag = playlistListDragState.drag;
+    if (!drag || playlistListDragState.saving) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    finishPlaylistListDrag();
+    if (drag.index === index) {
+      return;
+    }
+    playlistListDragState.saving = true;
+    try {
+      // Preserve selectedPlaylistId and the visible order until persistence succeeds.
+      libraryState.playlists = await invoke("reorder_playlist", {
+        fromIndex: drag.index,
+        toIndex: index,
+      });
+    } catch (error) {
+      console.warn("playlist list reorder failed:", error);
+    } finally {
+      playlistListDragState.saving = false;
+      renderLibraryViews();
+    }
+  });
+  row.addEventListener("dragend", finishPlaylistListDrag);
+}
+
 function renderPlaylists() {
   if (!playlistsList) {
     return;
+  }
+  if (playlistDragState.drag) {
+    finishPlaylistDrag();
+  }
+  if (playlistListDragState.drag) {
+    finishPlaylistListDrag();
   }
   playlistsList.replaceChildren();
   const selectedPlaylist =
@@ -1601,7 +1779,7 @@ function renderPlaylists() {
     ? `${libraryState.playlists.length} 个歌单`
     : "还没有歌单。";
 
-  for (const playlist of libraryState.playlists) {
+  for (const [index, playlist] of libraryState.playlists.entries()) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     button.type = "button";
@@ -1614,6 +1792,7 @@ function renderPlaylists() {
       renderPlaylists();
     });
     item.append(button);
+    bindPlaylistDrag(item, index);
     playlistsList.append(item);
   }
 
@@ -1628,18 +1807,22 @@ function renderPlaylists() {
   playlistTitle.textContent = selectedPlaylist.name;
   playlistMeta.textContent = `${selectedPlaylist.items.length} 首歌曲`;
   for (const [index, video] of selectedPlaylist.items.entries()) {
-    playlistTracks.append(
-      createTrackRow(
-        video,
-        index,
-        (targetIndex, pageSelection) =>
+    const row = createTrackRow(
+      video,
+      index,
+      (targetIndex, pageSelection) => {
+        // Also guard the delayed single-click callback scheduled before a drag started.
+        if (!isPlaylistDragClickSuppressed()) {
           playListItem("playlist", selectedPlaylist.items, targetIndex, {
             playlistId: selectedPlaylist.id,
             ...(pageSelection ?? {}),
-          }),
-        { playlistId: selectedPlaylist.id },
-      ),
+          });
+        }
+      },
+      { playlistId: selectedPlaylist.id },
     );
+    bindPlaylistItemDrag(row, selectedPlaylist.id, index);
+    playlistTracks.append(row);
   }
 }
 

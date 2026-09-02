@@ -205,6 +205,29 @@ pub fn toggle_favorite(track: TrackSnapshotInput) -> Result<FavoriteToggleResult
 }
 
 #[tauri::command]
+pub fn reorder_playlist(from_index: usize, to_index: usize) -> Result<Vec<Playlist>, String> {
+    reorder_playlist_at(&playlists_path()?, from_index, to_index)
+}
+
+fn reorder_playlist_at(
+    path: &Path,
+    from_index: usize,
+    to_index: usize,
+) -> Result<Vec<Playlist>, String> {
+    let mut file: PlaylistsFile = read_json_or_default(path)?;
+    if from_index >= file.playlists.len() || to_index >= file.playlists.len() {
+        return Err("歌单下标越界。".to_owned());
+    }
+    if from_index == to_index {
+        return Ok(file.playlists);
+    }
+    let playlist = file.playlists.remove(from_index);
+    file.playlists.insert(to_index, playlist);
+    write_json_atomic(path, &file)?;
+    Ok(file.playlists)
+}
+
+#[tauri::command]
 pub fn list_playlists() -> Result<Vec<Playlist>, String> {
     Ok(read_playlists()?.playlists)
 }
@@ -275,6 +298,35 @@ pub fn remove_from_playlist(id: String, bvid: String) -> Result<Vec<Playlist>, S
         return Err("歌曲不在这个歌单中。".to_owned());
     }
     write_json_atomic(&playlists_path()?, &file)?;
+    Ok(file.playlists)
+}
+
+#[tauri::command]
+pub fn reorder_playlist_item(
+    id: String,
+    from_index: usize,
+    to_index: usize,
+) -> Result<Vec<Playlist>, String> {
+    reorder_playlist_item_at(&playlists_path()?, &id, from_index, to_index)
+}
+
+fn reorder_playlist_item_at(
+    path: &Path,
+    id: &str,
+    from_index: usize,
+    to_index: usize,
+) -> Result<Vec<Playlist>, String> {
+    let mut file: PlaylistsFile = read_json_or_default(path)?;
+    let playlist = find_playlist_mut(&mut file, id)?;
+    if from_index >= playlist.items.len() || to_index >= playlist.items.len() {
+        return Err("歌单歌曲下标越界。".to_owned());
+    }
+    if from_index == to_index {
+        return Ok(file.playlists);
+    }
+    let item = playlist.items.remove(from_index);
+    playlist.items.insert(to_index, item);
+    write_json_atomic(path, &file)?;
     Ok(file.playlists)
 }
 
@@ -842,8 +894,9 @@ fn now_string() -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        get_playback_state_from, normalize_bvid, normalize_playlist_name, save_playback_state_to,
-        write_json_atomic, PlaybackState, TrackSnapshot, PLAYBACK_STATE_VERSION,
+        get_playback_state_from, normalize_bvid, normalize_playlist_name, read_json_or_default,
+        reorder_playlist_at, reorder_playlist_item_at, save_playback_state_to, write_json_atomic,
+        PlaybackState, Playlist, PlaylistsFile, TrackSnapshot, PLAYBACK_STATE_VERSION, VERSION,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -926,5 +979,290 @@ mod tests {
         assert_eq!(restored.position_seconds, 42.5);
         assert_eq!(restored.page, Some(2));
         assert_eq!(restored.cid, Some(123));
+    }
+
+    fn reorder_fixture() -> (PathBuf, PlaylistsFile) {
+        let file = PlaylistsFile {
+            version: VERSION,
+            playlists: vec![
+                Playlist {
+                    id: "test".to_owned(),
+                    name: "排序测试".to_owned(),
+                    created_at: "1".to_owned(),
+                    items: [
+                        "BV1rW4y1Q7o7",
+                        "BV1gB7m6eEHm",
+                        "BV1FEQuBXEn1",
+                        "BV1FPjy6TEiE",
+                    ]
+                    .into_iter()
+                    .map(|bvid| TrackSnapshot {
+                        bvid: bvid.to_owned(),
+                        ..track(bvid)
+                    })
+                    .collect(),
+                },
+                Playlist {
+                    id: "empty".to_owned(),
+                    name: "空歌单".to_owned(),
+                    created_at: "2".to_owned(),
+                    items: Vec::new(),
+                },
+            ],
+        };
+        let path =
+            std::env::temp_dir().join(format!("bili-music-playlist-{}.json", Uuid::new_v4()));
+        // Compact JSON makes an unnecessary write via the pretty-printing writer detectable.
+        fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();
+        (path, file)
+    }
+
+    #[test]
+    fn reorder_moves_item_forward() {
+        let (path, original) = reorder_fixture();
+        let result = reorder_playlist_item_at(&path, "test", 0, 3).unwrap();
+        let expected = [1, 2, 3, 0].map(|index| original.playlists[0].items[index].clone());
+        assert_eq!(
+            serde_json::to_value(&result[0].items).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&result[1]).unwrap(),
+            serde_json::to_value(&original.playlists[1]).unwrap()
+        );
+        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        assert_eq!(persisted.version, 1);
+        assert_eq!(
+            serde_json::to_value(persisted.playlists).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn reorder_moves_item_backward() {
+        let (path, original) = reorder_fixture();
+        let result = reorder_playlist_item_at(&path, "test", 3, 1).unwrap();
+        let expected = [0, 3, 1, 2].map(|index| original.playlists[0].items[index].clone());
+        assert_eq!(
+            serde_json::to_value(&result[0].items).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        assert_eq!(
+            serde_json::to_value(persisted.playlists).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn reorder_same_index_does_not_write() {
+        let (path, original) = reorder_fixture();
+        let before = fs::read(&path).unwrap();
+        let result = reorder_playlist_item_at(&path, "test", 2, 2).unwrap();
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            serde_json::to_value(original.playlists).unwrap()
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn reorder_out_of_bounds_leaves_data_unchanged() {
+        let (path, original) = reorder_fixture();
+        let before = fs::read(&path).unwrap();
+        let len = original.playlists[0].items.len();
+        for (from, to) in [
+            (len, 0),
+            (0, len),
+            (len, len),
+            (usize::MAX, 0),
+            (0, usize::MAX),
+        ] {
+            assert!(reorder_playlist_item_at(&path, "test", from, to).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        assert!(reorder_playlist_item_at(&path, "empty", 0, 0).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn reorder_missing_playlist_returns_error() {
+        let (path, _) = reorder_fixture();
+        let before = fs::read(&path).unwrap();
+        assert!(reorder_playlist_item_at(&path, "missing", 0, 1).is_err());
+        assert!(reorder_playlist_item_at(&path, "missing", 0, 0).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn reorder_preserves_length_and_bvids() {
+        let (path, original) = reorder_fixture();
+        let mut expected: Vec<_> = original.playlists[0]
+            .items
+            .iter()
+            .map(|item| &item.bvid)
+            .collect();
+        expected.sort();
+        for from in 0..expected.len() {
+            for to in 0..expected.len() {
+                let result = reorder_playlist_item_at(&path, "test", from, to).unwrap();
+                assert_eq!(result[0].items.len(), expected.len());
+                let mut actual: Vec<_> = result[0].items.iter().map(|item| &item.bvid).collect();
+                actual.sort();
+                // Comparing sorted lists also verifies multiplicity, not just set membership.
+                assert_eq!(actual, expected);
+            }
+        }
+        fs::remove_file(path).unwrap();
+    }
+
+    fn playlist_order_fixture() -> (PathBuf, PlaylistsFile) {
+        let file = PlaylistsFile {
+            version: VERSION,
+            playlists: ["alpha", "beta", "gamma", "empty"]
+                .into_iter()
+                .map(|id| Playlist {
+                    id: id.to_owned(),
+                    name: format!("歌单 {id}"),
+                    created_at: "1".to_owned(),
+                    items: if id == "empty" {
+                        Vec::new()
+                    } else {
+                        vec![
+                            track(&format!("{id} first")),
+                            TrackSnapshot {
+                                bvid: "BV1gB7m6eEHm".to_owned(),
+                                ..track(&format!("{id} second"))
+                            },
+                        ]
+                    },
+                })
+                .collect(),
+        };
+        let path =
+            std::env::temp_dir().join(format!("bili-music-playlist-order-{}.json", Uuid::new_v4()));
+        // Preserve compact bytes so a no-op rewrite through write_json_atomic is detectable.
+        fs::write(&path, serde_json::to_vec(&file).unwrap()).unwrap();
+        (path, file)
+    }
+
+    #[test]
+    fn playlist_order_moves_forward() {
+        let (path, original) = playlist_order_fixture();
+        let result = reorder_playlist_at(&path, 0, 3).unwrap();
+        let expected = [1, 2, 3, 0].map(|index| &original.playlists[index]);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        assert_eq!(persisted.version, 1);
+        assert_eq!(
+            serde_json::to_value(persisted.playlists).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playlist_order_moves_backward() {
+        let (path, original) = playlist_order_fixture();
+        let result = reorder_playlist_at(&path, 3, 1).unwrap();
+        let expected = [0, 3, 1, 2].map(|index| &original.playlists[index]);
+        assert_eq!(
+            serde_json::to_value(&result).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        assert_eq!(
+            serde_json::to_value(persisted.playlists).unwrap(),
+            serde_json::to_value(result).unwrap()
+        );
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playlist_order_same_index_does_not_write() {
+        let (path, original) = playlist_order_fixture();
+        let before = fs::read(&path).unwrap();
+        let result = reorder_playlist_at(&path, 2, 2).unwrap();
+        assert_eq!(
+            serde_json::to_value(result).unwrap(),
+            serde_json::to_value(original.playlists).unwrap()
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playlist_order_out_of_bounds_leaves_data_unchanged() {
+        let (path, original) = playlist_order_fixture();
+        let before = fs::read(&path).unwrap();
+        let len = original.playlists.len();
+        for (from, to) in [
+            (len, 0),
+            (0, len),
+            (len, len),
+            (usize::MAX, 0),
+            (0, usize::MAX),
+        ] {
+            assert!(reorder_playlist_at(&path, from, to).is_err());
+            assert_eq!(fs::read(&path).unwrap(), before);
+        }
+        let empty = serde_json::to_vec(&PlaylistsFile::default()).unwrap();
+        fs::write(&path, &empty).unwrap();
+        assert!(reorder_playlist_at(&path, 0, 0).is_err());
+        assert_eq!(fs::read(&path).unwrap(), empty);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playlist_order_preserves_count_and_ids() {
+        let (path, original) = playlist_order_fixture();
+        let mut expected: Vec<_> = original
+            .playlists
+            .iter()
+            .map(|playlist| &playlist.id)
+            .collect();
+        expected.sort();
+        for from in 0..expected.len() {
+            for to in 0..expected.len() {
+                let result = reorder_playlist_at(&path, from, to).unwrap();
+                assert_eq!(result.len(), expected.len());
+                let mut actual: Vec<_> = result.iter().map(|playlist| &playlist.id).collect();
+                actual.sort();
+                assert_eq!(actual, expected);
+            }
+        }
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn playlist_order_preserves_each_playlist_contents() {
+        let (path, original) = playlist_order_fixture();
+        for from in 0..original.playlists.len() {
+            for to in 0..original.playlists.len() {
+                reorder_playlist_at(&path, from, to).unwrap();
+                let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+                for expected in &original.playlists {
+                    let actual = persisted
+                        .playlists
+                        .iter()
+                        .find(|playlist| playlist.id == expected.id)
+                        .unwrap();
+                    // Compare the entire playlist, including every song field and its array position.
+                    assert_eq!(
+                        serde_json::to_value(actual).unwrap(),
+                        serde_json::to_value(expected).unwrap()
+                    );
+                }
+            }
+        }
+        fs::remove_file(path).unwrap();
     }
 }
