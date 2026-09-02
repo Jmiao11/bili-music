@@ -16,7 +16,9 @@ const VERSION: u32 = 1;
 const AI_CONFIG_FILE: &str = "ai-config.json";
 const RECOMMENDATIONS_FILE: &str = "recommendations.json";
 const RECOMMENDATIONS_VERSION: u32 = 1;
+#[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
+#[cfg(not(debug_assertions))]
 const APP_DATA_DIR: &str = "bili-music";
 const AI_TIMEOUT_SHORT_SECS: u64 = 15;
 const AI_TIMEOUT_LONG_SECS: u64 = 90;

@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 const MAX_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_IMAGE_EDGE: u32 = 2560;
 const JPEG_QUALITY: u8 = 86;
+#[cfg(not(debug_assertions))]
 const APP_DATA_DIR: &str = "bili-music";
 const BACKGROUND_FILE_STEM: &str = "background";
 #[cfg(debug_assertions)]

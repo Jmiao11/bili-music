@@ -134,6 +134,7 @@ impl SearchClient {
         params.insert("tids".to_owned(), tids.unwrap_or(0).to_string());
         let wts = unix_timestamp();
         let signed_query = crate::wbi::sign_parameters(params, mixin_key, wts);
+        #[cfg(debug_assertions)]
         eprintln!(
             "[search-diag] request keyword={keyword} page={page} order={order} tids={}",
             tids.unwrap_or(0)
@@ -171,6 +172,7 @@ impl SearchClient {
         let envelope: SearchEnvelope = response.json().await.map_err(|error| {
             SearchAttemptError::Fatal(format!("invalid Bilibili search response: {error}"))
         })?;
+        #[cfg(debug_assertions)]
         eprintln!(
             "[search-diag] response code={} message={}",
             envelope.code, envelope.message
@@ -202,37 +204,40 @@ impl SearchClient {
             ));
         }
 
-        let raw_count = data.result.len();
-        eprintln!("[search-diag] raw result count={raw_count}");
-        for raw in &data.result {
-            let drop_reason = if raw.kind.as_deref().is_some_and(|kind| kind != "video") {
-                Some("kind不符")
-            } else if raw.bvid.is_none() {
-                Some("缺bvid")
-            } else if !raw.bvid.as_deref().is_some_and(is_valid_bvid) {
-                Some("bvid非法")
-            } else if raw.title.is_none() {
-                Some("缺title")
-            } else if raw.author.is_none() {
-                Some("缺author")
-            } else if raw.pic.is_none() {
-                Some("缺pic")
-            } else if raw.duration.is_none() {
-                Some("缺duration")
-            } else if !raw
-                .duration
-                .as_deref()
-                .is_some_and(|value| parse_duration(value).is_some())
-            {
-                Some("时长解析失败")
-            } else {
-                None
-            };
-            if let Some(reason) = drop_reason {
-                eprintln!(
-                    "[search-diag] dropped bvid={:?} title={:?} reason={reason}",
-                    raw.bvid, raw.title
-                );
+        #[cfg(debug_assertions)]
+        {
+            let raw_count = data.result.len();
+            eprintln!("[search-diag] raw result count={raw_count}");
+            for raw in &data.result {
+                let drop_reason = if raw.kind.as_deref().is_some_and(|kind| kind != "video") {
+                    Some("kind不符")
+                } else if raw.bvid.is_none() {
+                    Some("缺bvid")
+                } else if !raw.bvid.as_deref().is_some_and(is_valid_bvid) {
+                    Some("bvid非法")
+                } else if raw.title.is_none() {
+                    Some("缺title")
+                } else if raw.author.is_none() {
+                    Some("缺author")
+                } else if raw.pic.is_none() {
+                    Some("缺pic")
+                } else if raw.duration.is_none() {
+                    Some("缺duration")
+                } else if !raw
+                    .duration
+                    .as_deref()
+                    .is_some_and(|value| parse_duration(value).is_some())
+                {
+                    Some("时长解析失败")
+                } else {
+                    None
+                };
+                if let Some(reason) = drop_reason {
+                    eprintln!(
+                        "[search-diag] dropped bvid={:?} title={:?} reason={reason}",
+                        raw.bvid, raw.title
+                    );
+                }
             }
         }
 
@@ -241,6 +246,7 @@ impl SearchClient {
             .into_iter()
             .filter_map(SearchVideo::from_raw)
             .collect();
+        #[cfg(debug_assertions)]
         eprintln!("[search-diag] filtered result count={}", results.len());
         Ok(results)
     }
@@ -532,9 +538,14 @@ fn normalize_search_order(order: Option<&str>) -> Result<&'static str, String> {
 #[derive(Clone, Copy)]
 struct SearchScore {
     total: f64,
+    // Component scores are read by debug-only search diagnostics.
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     containment: f64,
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     duration: f64,
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     phrase_match: f64,
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     original_position: f64,
 }
 
@@ -558,6 +569,8 @@ impl SortMode {
 }
 
 struct ScoredSearchVideo {
+    // Read by debug-only search diagnostics and stable-order tests.
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     original_index: usize,
     score: SearchScore,
     item: SearchVideo,
@@ -569,6 +582,7 @@ fn rerank_search_results(
     enabled: bool,
     sort_mode: SortMode,
 ) -> Vec<SearchVideo> {
+    #[cfg(debug_assertions)]
     eprintln!("[search-diag] rerank sort_mode={sort_mode:?}");
     if !enabled {
         return items;
@@ -610,6 +624,7 @@ fn rerank_search_results(
         .collect();
 
     stable_sort_scored_results(&mut scored);
+    #[cfg(debug_assertions)]
     for (final_index, entry) in scored.iter().enumerate() {
         let title_preview: String = entry.item.title.chars().take(20).collect();
         eprintln!(

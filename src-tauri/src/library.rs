@@ -13,7 +13,9 @@ const SEARCH_HISTORY_FILE: &str = "search-history.json";
 const PLAY_HISTORY_FILE: &str = "play-history.json";
 const PLAYBACK_STATE_FILE: &str = "playback-state.json";
 const PLAYBACK_STATE_VERSION: u32 = 1;
+#[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
+#[cfg(not(debug_assertions))]
 const APP_DATA_DIR: &str = "bili-music";
 const MAX_SEARCH_HISTORY_ITEMS: usize = 100;
 const MAX_PLAY_HISTORY_ITEMS: usize = 200;
