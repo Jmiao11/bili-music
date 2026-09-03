@@ -7,6 +7,7 @@ mod library;
 mod lyrics;
 mod ranking;
 mod search;
+mod taskbar;
 mod wbi;
 
 use axum::body::Body;
@@ -640,7 +641,8 @@ fn main() {
             resolver: Arc::new(ResolveCoordinator::default()),
             stream_source: Arc::new(RwLock::new(StreamSource::Guest)),
         })
-        .setup(move |_| {
+        .setup(move |app| {
+            taskbar::install(app);
             tauri::async_runtime::spawn(async move {
                 let listener = tokio::net::TcpListener::from_std(listener)
                     .expect("failed to start the local audio proxy listener");
@@ -654,6 +656,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            taskbar::set_taskbar_playback_state,
             prepare_audio,
             get_video_pages,
             get_video_meta,

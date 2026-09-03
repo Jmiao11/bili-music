@@ -277,6 +277,72 @@ function registerMediaSessionActionHandlers() {
   });
 }
 
+function initializeTaskbarControls() {
+  let disposed = false;
+  let unlisten = null;
+  let lastReported = null;
+  let reports = Promise.resolve();
+  const events = ["play", "pause", "ended", "emptied", "error"];
+
+  const reportPlaybackState = () => {
+    const isPlaying = Boolean(
+      playerAudio.currentSrc && !playerAudio.paused && !playerAudio.ended && !playerAudio.error,
+    );
+    if (disposed || isPlaying === lastReported) {
+      return;
+    }
+    lastReported = isPlaying;
+    // Serialize only this reporting channel; never await it in playback handlers.
+    reports = reports.then(() => {
+      if (!disposed) {
+        return invokeAppearance("set_taskbar_playback_state", { isPlaying });
+      }
+    }).catch((error) => {
+      console.warn("[taskbar] playback state report failed:", error);
+    });
+  };
+
+  const stopListening = (stop) => {
+    Promise.resolve(stop()).catch((error) => {
+      console.warn("[taskbar] event cleanup failed:", error);
+    });
+  };
+  window.__TAURI__.event.listen("taskbar-media-control", ({ payload }) => {
+    if (disposed) {
+      return;
+    }
+    if (payload === "play_pause") {
+      playPauseButton.click();
+    } else if (payload === "previous") {
+      previousButtonForImmersive.click();
+    } else if (payload === "next") {
+      nextButtonForImmersive.click();
+    }
+  }).then((stop) => {
+    if (disposed) {
+      stopListening(stop);
+    } else {
+      unlisten = stop;
+    }
+  }).catch((error) => {
+    console.warn("[taskbar] media control listener failed:", error);
+  });
+
+  for (const event of events) {
+    playerAudio.addEventListener(event, reportPlaybackState);
+  }
+  reportPlaybackState();
+  window.addEventListener("beforeunload", () => {
+    disposed = true;
+    for (const event of events) {
+      playerAudio.removeEventListener(event, reportPlaybackState);
+    }
+    if (unlisten) {
+      stopListening(unlisten);
+    }
+  }, { once: true });
+}
+
 function syncImmersiveTrack(track = currentTrack) {
   currentTrack = {
     ...currentTrack,
@@ -876,5 +942,6 @@ updateProgress(0);
 updatePlayPauseButton();
 syncImmersiveTrack();
 registerMediaSessionActionHandlers();
+initializeTaskbarControls();
 restoreBackground();
 restoreStreamSource();
