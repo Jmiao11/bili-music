@@ -2157,6 +2157,16 @@ svg {
   cursor: default;
 }
 
+#add-playlist-current-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#add-playlist-current-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .library-view {
   gap: 8px;
 }
@@ -3881,7 +3891,7 @@ input[type="range"]::-webkit-slider-thumb {
   }
 
   .right-tools {
-    gap: 10px;
+    gap: 6px;
   }
 
 }

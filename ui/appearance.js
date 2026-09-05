@@ -67,6 +67,7 @@ const immersiveCurrentTimeLabel = document.querySelector("#immersive-current-tim
 const immersiveDurationLabel = document.querySelector("#immersive-duration");
 const openBilibiliButton = document.querySelector("#open-bilibili-button");
 const openBilibiliBarButton = document.querySelector("#open-bilibili-bar-button");
+const addPlaylistCurrentButton = document.querySelector("#add-playlist-current-button");
 const previousButtonForImmersive = document.querySelector("#previous-button");
 const nextButtonForImmersive = document.querySelector("#next-button");
 const volumeSlider = document.querySelector("#volume-slider");
@@ -351,6 +352,7 @@ function syncImmersiveTrack(track = currentTrack) {
   immersiveUploader.textContent = currentTrack.uploader || "—";
   openBilibiliButton.disabled = !currentTrack.bvid;
   openBilibiliBarButton.disabled = !currentTrack.bvid;
+  addPlaylistCurrentButton.disabled = !currentPlayableTrack();
   if (currentTrack.thumbnailUrl) {
     immersiveCover.src = currentTrack.thumbnailUrl;
     immersiveReflection.src = currentTrack.thumbnailUrl;
@@ -866,6 +868,7 @@ immersivePreviousButton.addEventListener("click", () => previousButtonForImmersi
 immersiveNextButton.addEventListener("click", () => nextButtonForImmersive.click());
 openBilibiliButton.addEventListener("click", openCurrentBilibiliVideo);
 openBilibiliBarButton.addEventListener("click", openCurrentBilibiliVideo);
+addPlaylistCurrentButton.addEventListener("click", () => choosePlaylistAndAdd());
 volumeSlider.addEventListener("input", () => applyVolume(volumeSlider.value));
 
 progressSlider.addEventListener("pointerdown", () => {
