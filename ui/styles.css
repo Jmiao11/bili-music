@@ -2586,7 +2586,8 @@ svg {
   bottom: calc(14px + env(safe-area-inset-bottom));
   left: 288px;
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) minmax(340px, auto) minmax(210px, 1fr);
+  /* 左 / 中 / 右：中栏固定为进度条宽度，左右按 0.8 : 1 分配余量。 */
+  grid-template-columns: minmax(190px, 0.8fr) 340px minmax(210px, 1fr);
   min-height: 92px;
   align-items: center;
   gap: 20px;
@@ -3858,12 +3859,6 @@ input[type="range"]::-webkit-slider-thumb {
   grid-template-columns: 48px minmax(0, 1fr) 48px;
 }
 
-@media (max-width: 1024px) {
-  .player-pages-button {
-    display: none;
-  }
-}
-
 @media (max-width: 1080px) {
   .app-shell {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -3871,7 +3866,8 @@ input[type="range"]::-webkit-slider-thumb {
 
   .player-bar {
     left: 248px;
-    grid-template-columns: minmax(170px, 0.9fr) minmax(300px, 1.2fr) minmax(170px, 0.8fr);
+    /* 左 / 中 / 右：左栏至少 170px，中栏固定 300px，右栏优先分配余量。 */
+    grid-template-columns: minmax(170px, 0.8fr) 300px minmax(170px, 1fr);
     gap: 12px;
     padding-inline: 18px;
   }
