@@ -305,7 +305,7 @@ function updatePlayerPagesButton() {
   playerPagesButton.hidden = !hasCurrent || pageCount <= 1;
   if (!playerPagesButton.hidden) {
     const currentPage = Math.min(playerState.currentPageIndex + 1, pageCount);
-    playerPagesButton.textContent = `${currentPage}/${pageCount}`;
+    playerPagesButton.textContent = `P${currentPage}/${pageCount}`;
     playerPagesButton.title = "查看分P";
     playerPagesButton.setAttribute(
       "aria-label",
@@ -631,8 +631,8 @@ function updateQueueUi() {
     playerState.currentIndex < playerState.queue.length;
   queueCount.textContent = `${searchState.results.length} 首`;
   queuePosition.textContent = hasCurrent
-    ? `${playerState.currentIndex + 1} / ${playerState.queue.length}`
-    : `0 / ${playerState.queue.length}`;
+    ? `♪${playerState.currentIndex + 1}/${playerState.queue.length}`
+    : `♪0/${playerState.queue.length}`;
   previousButton.disabled = !hasCurrent;
   nextButton.disabled = !hasCurrent;
 
