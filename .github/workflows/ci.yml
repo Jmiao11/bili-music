@@ -46,3 +46,6 @@ jobs:
           for f in ui/*.js; do
             node --check "$f"
           done
+
+      - name: 运行 Node 测试
+        run: node --test
