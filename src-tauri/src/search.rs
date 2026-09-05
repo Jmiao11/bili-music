@@ -63,7 +63,8 @@ impl SearchClient {
 
     #[allow(dead_code)]
     pub async fn search_videos(&self, keyword: &str) -> Result<Vec<SearchVideo>, String> {
-        self.search_videos_page(keyword, 1, None, None, None).await
+        self.search_videos_page(keyword, 1, None, None, None, true)
+            .await
     }
 
     pub async fn search_videos_page(
@@ -73,6 +74,7 @@ impl SearchClient {
         tids: Option<u32>,
         order: Option<&str>,
         sort_mode: Option<&str>,
+        rerank: bool,
     ) -> Result<Vec<SearchVideo>, String> {
         let keyword = keyword.trim();
         if keyword.is_empty() {
@@ -86,27 +88,19 @@ impl SearchClient {
         }
         let order = normalize_search_order(order)?;
         let sort_mode = SortMode::parse(sort_mode)?;
-        let rerank_enabled = order != "click";
 
         let first_keys = self.wbi_key(false).await?;
         match self
             .search_once(keyword, page, tids, order, &first_keys)
             .await
         {
-            Ok(results) => Ok(rerank_search_results(
-                keyword,
-                results,
-                rerank_enabled,
-                sort_mode,
-            )),
+            Ok(results) => Ok(rerank_search_results(keyword, results, rerank, sort_mode)),
             Err(SearchAttemptError::Fatal(error)) => Err(error),
             Err(SearchAttemptError::RefreshWbi(first_error)) => {
                 let refreshed_keys = self.wbi_key(true).await?;
                 self.search_once(keyword, page, tids, order, &refreshed_keys)
                     .await
-                    .map(|results| {
-                        rerank_search_results(keyword, results, rerank_enabled, sort_mode)
-                    })
+                    .map(|results| rerank_search_results(keyword, results, rerank, sort_mode))
                     .map_err(|error| match error {
                         SearchAttemptError::RefreshWbi(second_error) => format!(
                             "Bilibili rejected the refreshed WBI signature: {second_error}; first error: {first_error}"
@@ -732,8 +726,8 @@ fn unix_timestamp() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        clean_title, duration_score, exact_phrase_match_score, normalize_search_text,
-        parse_duration, read_optional_buvid_cookies, rerank_search_results,
+        clean_title, duration_score, exact_phrase_match_score, normalize_search_order,
+        normalize_search_text, parse_duration, read_optional_buvid_cookies, rerank_search_results,
         stable_sort_scored_results, RawSearchVideo, ScoredSearchVideo, SearchScore, SearchVideo,
         SortMode,
     };
@@ -873,6 +867,44 @@ mod tests {
 
         assert_eq!(reranked[0].bvid, "BV1aa411c7mD");
         assert_eq!(reranked[1].bvid, "BV1bb411c7mD");
+    }
+
+    #[test]
+    fn explicit_rerank_false_preserves_exact_input_order() {
+        let items = vec![
+            test_video("BV1aa411c7mD", "泛匹配", 3_600),
+            test_video("BV1bb411c7mD", "夜曲", 180),
+            test_video("BV1cc411c7mD", "夜曲现场", 240),
+        ];
+        let input_order = items
+            .iter()
+            .map(|item| item.bvid.clone())
+            .collect::<Vec<_>>();
+
+        let results = rerank_search_results("夜曲", items, false, SortMode::All);
+
+        assert_eq!(
+            results
+                .iter()
+                .map(|item| item.bvid.clone())
+                .collect::<Vec<_>>(),
+            input_order
+        );
+    }
+
+    #[test]
+    fn explicit_rerank_true_still_reranks_click_order() {
+        let order = normalize_search_order(Some("click")).unwrap();
+        let items = vec![
+            test_video("BV1aa411c7mD", "泛匹配", 3_600),
+            test_video("BV1bb411c7mD", "夜曲", 180),
+        ];
+
+        let results = rerank_search_results("夜曲", items, true, SortMode::All);
+
+        assert_eq!(order, "click");
+        assert_eq!(results[0].bvid, "BV1bb411c7mD");
+        assert_eq!(results[1].bvid, "BV1aa411c7mD");
     }
 
     #[test]

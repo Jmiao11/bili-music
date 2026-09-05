@@ -334,6 +334,7 @@ async fn search_videos(
     tids: Option<u32>,
     order: Option<String>,
     sort_mode: Option<String>,
+    rerank: bool,
 ) -> Result<Vec<SearchVideo>, String> {
     state
         .search
@@ -343,6 +344,7 @@ async fn search_videos(
             tids,
             order.as_deref(),
             sort_mode.as_deref(),
+            rerank,
         )
         .await
 }

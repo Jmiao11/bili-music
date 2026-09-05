@@ -43,6 +43,7 @@ const searchState = {
   requestKeyword: "",
   tids: DEFAULT_MUSIC_TIDS,
   order: null,
+  rerank: true,
   sortMode: "all",
   page: 0,
   isLoadingMore: false,
@@ -2838,12 +2839,14 @@ function currentSearchRequest(userKeyword) {
       userKeyword: trimmed,
       requestKeyword: trimmed,
       order: null,
+      rerank: true,
     };
   }
   return {
     userKeyword: "",
     requestKeyword: MUSIC_HOT_KEYWORD,
     order: "click",
+    rerank: false,
   };
 }
 
@@ -2855,6 +2858,7 @@ async function runSearch({ userKeyword = searchKeyword.value.trim(), recordHisto
   searchState.userKeyword = query.userKeyword;
   searchState.requestKeyword = query.requestKeyword;
   searchState.order = query.order;
+  searchState.rerank = query.rerank;
   searchState.page = 1;
   searchState.hasMore = false;
   searchState.isLoadingMore = false;
@@ -2864,11 +2868,12 @@ async function runSearch({ userKeyword = searchKeyword.value.trim(), recordHisto
       keyword: searchState.requestKeyword,
       page: 1,
       tids: searchState.tids,
+      rerank: searchState.rerank,
     };
     if (searchState.order) {
       payload.order = searchState.order;
     }
-    if (searchState.order !== "click") {
+    if (searchState.rerank) {
       payload.sortMode = searchState.sortMode;
     }
     const searchRequest = invoke("search_videos", payload);
@@ -2911,6 +2916,7 @@ searchForm.addEventListener("submit", async (event) => {
     searchState.userKeyword = "";
     searchState.requestKeyword = "";
     searchState.order = null;
+    searchState.rerank = true;
     searchState.page = 0;
     searchState.hasMore = false;
     searchState.isLoadingMore = false;
@@ -2937,6 +2943,7 @@ searchForm.addEventListener("submit", async (event) => {
     const searchRequest = invoke("search_videos", {
       keyword: query,
       page: 1,
+      rerank: true,
     });
     recordSearchHistoryFireAndForget(query);
     const videos = await searchRequest;
@@ -2983,8 +2990,9 @@ async function loadMoreSearchResults() {
       page: nextPage,
       tids: searchState.tids,
       order: searchState.order,
+      rerank: searchState.rerank,
     };
-    if (searchState.order !== "click") {
+    if (searchState.rerank) {
       payload.sortMode = searchState.sortMode;
     }
     const videos = await invoke("search_videos", payload);
