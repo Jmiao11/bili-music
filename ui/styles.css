@@ -3770,6 +3770,11 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .immersive-content {
+  /* 封面保持原宽度，仅调整比例；圆角与左栏间距集中在此。 */
+  --immersive-cover-ratio: 16 / 10;
+  --immersive-cover-radius: 28px;
+  --immersive-left-gap: 16px;
+  --immersive-control-gap: 18px 10px;
   display: grid;
   min-height: 0;
   grid-template-columns: minmax(280px, 0.92fr) minmax(320px, 1.08fr);
@@ -3792,9 +3797,9 @@ input[type="range"]::-webkit-slider-thumb {
 #immersive-reflection {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: var(--immersive-cover-ratio);
   object-fit: cover;
-  border-radius: 28px;
+  border-radius: var(--immersive-cover-radius);
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
 }
 
@@ -4195,6 +4200,7 @@ input[type="range"]::-webkit-slider-thumb {
       "lyric-tools lyrics-pane"
       ". lyrics-pane";
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* 上下弹性空白均分封面变矮后的余量；歌词栏仍跨满全部行。 */
     grid-template-rows:
       minmax(0, 1fr)
       auto
@@ -4205,7 +4211,7 @@ input[type="range"]::-webkit-slider-thumb {
     align-content: stretch;
     align-items: start;
     column-gap: var(--immersive-col-gap);
-    row-gap: 18px;
+    row-gap: var(--immersive-left-gap);
     padding-inline: clamp(20px, 4vw, 64px);
   }
 
@@ -4273,7 +4279,7 @@ input[type="range"]::-webkit-slider-thumb {
     align-self: start;
     justify-self: center;
     justify-content: center;
-    gap: 18px 10px;
+    gap: var(--immersive-control-gap);
   }
 
   .immersive-controls .transport-controls,
@@ -4350,7 +4356,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 @media (min-width: 981px) and (max-height: 650px) {
   .immersive-content {
-    row-gap: 8px;
+    --immersive-left-gap: 8px;
+    --immersive-control-gap: 10px;
   }
 
   .immersive-art {
@@ -4360,10 +4367,6 @@ input[type="range"]::-webkit-slider-thumb {
 
   .immersive-track p {
     margin-top: 6px;
-  }
-
-  .immersive-controls {
-    gap: 10px;
   }
 
   .lyrics-controls {
