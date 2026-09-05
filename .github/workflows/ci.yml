@@ -49,3 +49,7 @@ jobs:
 
       - name: 运行 Node 测试
         run: node --test
+
+      - name: 检查 Tauri 平台配置一致性
+        if: matrix.os == 'windows-latest'
+        run: node scripts/check-tauri-window-config.cjs
