@@ -53,7 +53,6 @@ const currentTimeLabel = document.querySelector("#current-time");
 const durationLabel = document.querySelector("#duration");
 const playbackStatus = document.querySelector("#status");
 const openImmersiveButton = document.querySelector("#open-immersive-button");
-const openImmersiveIconButton = document.querySelector("#open-immersive-icon-button");
 const immersivePlayer = document.querySelector("#immersive-player");
 const closeImmersiveButton = document.querySelector("#close-immersive-button");
 const immersiveCover = document.querySelector("#immersive-cover");
@@ -821,7 +820,6 @@ importDataButton.addEventListener("click", async () => {
 });
 
 openImmersiveButton.addEventListener("click", openImmersive);
-openImmersiveIconButton.addEventListener("click", openImmersive);
 closeImmersiveButton.addEventListener("click", closeImmersive);
 immersivePlayer.addEventListener("transitionend", (event) => {
   if (event.target === immersivePlayer && !immersivePlayer.classList.contains("is-open")) {

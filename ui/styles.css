@@ -3243,17 +3243,77 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .volume-control {
-  display: flex;
-  width: 124px;
-  align-items: center;
-  gap: 8px;
+  --volume-icon-width: 34px;
+  --volume-slider-width: 100px;
+  --volume-transition: 160ms;
+  --volume-padding: 8px;
+  --volume-radius: 10px;
+  --volume-panel-bg: var(--panel);
+  position: relative;
+  z-index: calc(var(--z-player) + 1);
+  display: grid;
+  flex: 0 0 var(--volume-icon-width);
+  width: var(--volume-icon-width);
+  height: var(--volume-icon-width);
+  place-items: center;
   color: var(--text-2);
 }
 
+:root[data-theme="image"] .volume-control {
+  --volume-panel-bg: #202024;
+}
+
+.volume-control::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  right: 0;
+  width: calc(var(--volume-icon-width) + var(--volume-slider-width) + 2 * var(--volume-padding));
+  height: 100%;
+  border-radius: var(--volume-radius);
+  background: var(--volume-panel-bg);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: right center;
+  pointer-events: none;
+  transition:
+    opacity var(--volume-transition) ease,
+    transform var(--volume-transition) ease;
+}
+
 .volume-control svg {
-  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
   width: 18px;
   height: 18px;
+}
+
+.volume-control #volume-slider {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: calc(var(--volume-icon-width) + var(--volume-padding));
+  width: var(--volume-slider-width);
+  opacity: 0;
+  transform: translateY(-50%) scaleX(0);
+  transform-origin: right center;
+  pointer-events: none;
+  transition:
+    opacity var(--volume-transition) ease,
+    transform var(--volume-transition) ease;
+}
+
+.volume-control:is(:hover, :has(#volume-slider:active), :has(#volume-slider:focus-visible))::before {
+  opacity: 1;
+  transform: scaleX(1);
+  pointer-events: auto;
+}
+
+.volume-control:is(:hover, :has(#volume-slider:active), :has(#volume-slider:focus-visible)) #volume-slider {
+  opacity: 1;
+  transform: translateY(-50%) scaleX(1);
+  pointer-events: auto;
 }
 
 .player-status {
@@ -3828,9 +3888,6 @@ input[type="range"]::-webkit-slider-thumb {
     gap: 10px;
   }
 
-  .volume-control {
-    width: 106px;
-  }
 }
 
 @media (max-width: 980px) {
