@@ -301,17 +301,26 @@ pub fn delete_playlist(id: String) -> Result<Vec<Playlist>, String> {
 
 #[tauri::command]
 pub fn add_to_playlist(id: String, track: TrackSnapshotInput) -> Result<Vec<Playlist>, String> {
-    let mut file = read_playlists()?;
+    add_to_playlist_at(&playlists_path()?, id, track)
+}
+
+fn add_to_playlist_at(
+    path: &Path,
+    id: String,
+    track: TrackSnapshotInput,
+) -> Result<Vec<Playlist>, String> {
+    let mut file = read_json_or_default(path)?;
     let snapshot = snapshot_from_input(track)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
-    if !playlist
+    if playlist
         .items
         .iter()
         .any(|item| item.bvid.eq_ignore_ascii_case(&snapshot.bvid))
     {
-        playlist.items.push(snapshot);
+        return Err(format!("歌曲已在歌单“{}”中。", playlist.name));
     }
-    write_json_atomic(&playlists_path()?, &file)?;
+    playlist.items.push(snapshot);
+    write_json_atomic(path, &file)?;
     Ok(file.playlists)
 }
 
@@ -753,6 +762,28 @@ fn create_imported_playlist_at(
 #[cfg(test)]
 mod import_tests {
     use super::*;
+
+    #[test]
+    fn add_to_playlist_rejects_duplicates_without_writing() {
+        let path = std::env::temp_dir().join(format!("bili-add-{}.json", Uuid::new_v4()));
+        let created =
+            create_imported_playlist_at(&path, "歌单".into(), vec![input("BV1rW4y1Q7o7")]).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error = add_to_playlist_at(&path, "不存在".into(), input("BV1rW4y1Q7o7")).unwrap_err();
+        assert!(error.contains("不存在"));
+        let playlists =
+            add_to_playlist_at(&path, created.id.clone(), input("BV1rW4y1Q7o7")).unwrap_err();
+        assert!(playlists.contains("歌曲已在歌单“歌单”中"));
+        // 大小写不同的 BV 号也应视为重复。
+        let error =
+            add_to_playlist_at(&path, created.id.clone(), input("BV1RW4Y1Q7O7")).unwrap_err();
+        assert!(error.contains("歌曲已在歌单"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        add_to_playlist_at(&path, created.id, input("BV1cs411f7ZC")).unwrap();
+        let file: PlaylistsFile = read_json_or_default(&path).unwrap();
+        assert_eq!(file.playlists[0].items.len(), 2);
+        fs::remove_file(path).unwrap();
+    }
 
     fn input(bvid: &str) -> TrackSnapshotInput {
         TrackSnapshotInput {

@@ -51,6 +51,26 @@ const searchState = {
   requestVersion: 0,
 };
 
+const LAST_SEARCH_KEY = "bilibili-music.last-search";
+let pendingSearchRestore = null;
+
+function readLastSearchKeyword() {
+  try {
+    const value = localStorage.getItem(LAST_SEARCH_KEY);
+    return typeof value === "string" ? value.trim().slice(0, 100) : "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastSearchKeyword(keyword) {
+  try {
+    localStorage.setItem(LAST_SEARCH_KEY, keyword);
+  } catch (error) {
+    console.warn("last search keyword save failed:", error);
+  }
+}
+
 const homeState = {
   mode: "recommendation",
   ranking: [],
@@ -2391,12 +2411,26 @@ function choosePlaylistAndAdd(video = currentPlayableTrack()) {
     empty.textContent = "还没有歌单。先在下方新建一个，再把这首歌放进去。";
     list.append(empty);
   } else {
+    const trackBvid = track.bvid.toLowerCase();
     for (const playlist of libraryState.playlists) {
+      const alreadyIn = playlist.items.some(
+        (item) => String(item?.bvid ?? "").toLowerCase() === trackBvid,
+      );
       const button = document.createElement("button");
       button.type = "button";
       button.className = "playlist-choice";
-      button.innerHTML = `<span>${escapeText(playlist.name)}</span><small>${playlist.items.length} 首</small>`;
-      button.addEventListener("click", () => addTrackToPlaylist(playlist, track));
+      if (alreadyIn) {
+        button.classList.add("is-added");
+        button.setAttribute("aria-disabled", "true");
+      }
+      button.innerHTML = `<span>${escapeText(playlist.name)}</span><small>${alreadyIn ? "已添加 · " : ""}${playlist.items.length} 首</small>`;
+      button.addEventListener("click", () => {
+        if (alreadyIn) {
+          libraryModalStatus.textContent = `该歌曲已在歌单“${playlist.name}”中，无需重复加入。`;
+          return;
+        }
+        addTrackToPlaylist(playlist, track);
+      });
       list.append(button);
     }
   }
@@ -2450,7 +2484,10 @@ async function addTrackToPlaylist(playlist, track) {
     status.textContent = `已加入歌单“${playlist.name}”。`;
     closeLibraryModal();
   } catch (error) {
-    libraryModalStatus.textContent = `加入歌单失败：${error}`;
+    // 后端重复检测兑底（例如弹窗打开期间歌单已在别处被更新）。
+    libraryModalStatus.textContent = String(error).includes("歌曲已在歌单")
+      ? `${error}`
+      : `加入歌单失败：${error}`;
   }
 }
 
@@ -2945,10 +2982,20 @@ function currentSearchRequest(userKeyword) {
   };
 }
 
-async function runSearch({ userKeyword = searchKeyword.value.trim(), recordHistory = false } = {}) {
+async function runSearch({
+  userKeyword = searchKeyword.value.trim(),
+  recordHistory = false,
+  restored = false,
+} = {}) {
   const query = currentSearchRequest(userKeyword);
   searchButton.disabled = true;
-  searchStatus.textContent = query.userKeyword ? "正在搜索…" : "正在加载该分区热门…";
+  if (query.userKeyword) {
+    searchStatus.textContent = restored
+      ? `已复用上次搜索关键词「${query.userKeyword}」，正在搜索…`
+      : "正在搜索…";
+  } else {
+    searchStatus.textContent = "正在加载该分区热门…";
+  }
   const requestVersion = ++searchState.requestVersion;
   searchState.userKeyword = query.userKeyword;
   searchState.requestKeyword = query.requestKeyword;
@@ -2982,17 +3029,26 @@ async function runSearch({ userKeyword = searchKeyword.value.trim(), recordHisto
     setSearchResults(videos);
     result.hidden = false;
     searchState.hasMore = videos.length >= SEARCH_PAGE_SIZE;
+    if (searchState.userKeyword) {
+      // 仅在真实成功后记录，失败的搜索不沉淀为“上次搜索”。
+      saveLastSearchKeyword(searchState.userKeyword);
+    }
     const modeLabel = searchState.userKeyword ? "" : "（分区热门）";
-    searchStatus.textContent = videos.length
+    const foundLabel = videos.length
       ? searchState.hasMore
         ? `找到 ${videos.length} 个普通视频${modeLabel}。`
         : `找到 ${videos.length} 个普通视频${modeLabel}。没有更多了`
       : "没有找到普通视频。";
+    searchStatus.textContent = restored
+      ? `已复用上次搜索关键词「${searchState.userKeyword}」刷新完成，${foundLabel}`
+      : foundLabel;
   } catch (error) {
     if (requestVersion !== searchState.requestVersion) {
       return;
     }
-    searchStatus.textContent = `搜索失败：${error}`;
+    searchStatus.textContent = restored
+      ? `复用上次搜索关键词「${searchState.userKeyword}」搜索失败：${error}`
+      : `搜索失败：${error}`;
   } finally {
     if (requestVersion === searchState.requestVersion) {
       searchButton.disabled = false;
@@ -3310,12 +3366,25 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
   if (["favorites", "playlists"].includes(event.detail?.view)) {
     loadLibrary();
   }
+  if (event.detail?.view === "search" && pendingSearchRestore) {
+    const keyword = pendingSearchRestore;
+    pendingSearchRestore = null;
+    if (!searchState.results.length && searchKeyword.value.trim() === keyword) {
+      // 自动恢复不算用户搜索，不计入搜索历史。
+      runSearch({ userKeyword: keyword, recordHistory: false, restored: true });
+    }
+  }
 });
 window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 updateHomeModeUi();
 refreshAiKeyState();
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
+const restoreKeyword = readLastSearchKeyword();
+if (restoreKeyword && !searchKeyword.value.trim()) {
+  searchKeyword.value = restoreKeyword;
+  pendingSearchRestore = restoreKeyword;
+}
 loadLibrary();
 updateMusicTabs();
 updateQueueUi();

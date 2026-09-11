@@ -2652,6 +2652,14 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 
+.playlist-choice.is-added span {
+  color: var(--text-3);
+}
+
+.playlist-choice.is-added small {
+  color: var(--text-2);
+}
+
 .library-divider {
   display: flex;
   align-items: center;
