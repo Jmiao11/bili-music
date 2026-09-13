@@ -258,7 +258,13 @@ async fn prepare_audio(
         let upstream_url = reqwest::Url::parse(&info.audio_url).map_err(|error| {
             format!("{} returned an invalid audio URL: {error}", source.as_str())
         })?;
-        validate_cdn_url(&upstream_url)?;
+        let validation = validate_cdn_url(&upstream_url);
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "[stream-diag] validate host={} result={:?}",
+            upstream_url.host_str().unwrap_or("?"), validation
+        );
+        validation?;
         let upstream_host = upstream_url.host_str().unwrap_or("?").to_owned();
 
         let token = Uuid::new_v4().simple().to_string();
@@ -623,6 +629,7 @@ fn empty_response(status: StatusCode) -> Response<Body> {
         .expect("static proxy response must be valid")
 }
 
+// 修改主机白名单时必须同步 guest_playurl.rs 的 stream_diag_allowed_host（候选排序与诊断）。
 fn validate_cdn_url(url: &reqwest::Url) -> Result<(), String> {
     if url.scheme() != "https" && url.scheme() != "http" {
         return Err("audio URL uses a disallowed scheme".to_owned());

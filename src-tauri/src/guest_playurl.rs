@@ -110,10 +110,14 @@ impl GuestPlayurlClient {
         // DASH 音频轨优先；新投稿可能只有 durl 混合流，作为兜底。
         let (audio_url, muxed_preview) = match select_audio(playurl.data.as_ref()) {
             Ok(audio) => {
+                #[cfg(debug_assertions)]
+                stream_diag_tracks(playurl.data.as_ref(), Some(audio.id));
                 let audio_url = first_working_audio_url(&self.client, audio).await?;
                 (audio_url.to_owned(), false)
             }
             Err(audio_error) => {
+                #[cfg(debug_assertions)]
+                stream_diag_tracks(playurl.data.as_ref(), None);
                 let durl = select_muxed_durl(playurl.data.as_ref());
                 match durl {
                     Ok(durl) => {
@@ -250,6 +254,8 @@ async fn first_working_audio_url<'a>(
     audio: &'a AudioStream,
 ) -> Result<&'a str, String> {
     let candidates = ordered_candidates(audio);
+    #[cfg(debug_assertions)]
+    stream_diag_candidates(audio, &candidates);
     if candidates.is_empty() {
         return Err(format!(
             "selected audio id {} has no baseUrl/base_url or backup URLs",
@@ -258,10 +264,35 @@ async fn first_working_audio_url<'a>(
     }
 
     let mut last_error = None;
+    #[cfg(debug_assertions)]
+    let mut candidate_index = 0;
     for candidate in candidates {
+        #[cfg(debug_assertions)]
+        {
+            candidate_index += 1;
+        }
         match probe_audio_url(client, candidate).await {
-            Ok(_) => return Ok(candidate),
-            Err(error) => last_error = Some(error),
+            Ok(_probe) => {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[stream-diag] dash probe candidate={} host={} HTTP={} 选中第 {} 个候选",
+                    candidate_index,
+                    stream_diag_host(candidate),
+                    _probe.status,
+                    candidate_index
+                );
+                return Ok(candidate);
+            }
+            Err(error) => {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[stream-diag] dash probe candidate={} host={} error={}",
+                    candidate_index,
+                    stream_diag_host(candidate),
+                    error
+                );
+                last_error = Some(error);
+            }
         }
     }
     Err(format!(
@@ -283,21 +314,126 @@ async fn first_working_muxed_url(
     }
 
     let mut last_error = None;
+    #[cfg(debug_assertions)]
+    let mut candidate_index = 0;
     for candidate in candidates {
+        #[cfg(debug_assertions)]
+        {
+            candidate_index += 1;
+        }
         match probe_audio_url(client, candidate).await {
             Ok(probe) => {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[stream-diag] durl probe candidate={} host={} HTTP={} mp4={}",
+                    candidate_index,
+                    stream_diag_host(candidate),
+                    probe.status,
+                    probe.looks_mp4()
+                );
                 if probe.looks_mp4() {
+                    #[cfg(debug_assertions)]
+                    eprintln!("[stream-diag] durl 选中第 {} 个候选", candidate_index);
                     return Ok(normalize_url(candidate));
                 }
                 last_error = Some("durl stream is not MP4 (unsupported container)".to_owned());
             }
-            Err(error) => last_error = Some(error),
+            Err(error) => {
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[stream-diag] durl probe candidate={} host={} error={}",
+                    candidate_index,
+                    stream_diag_host(candidate),
+                    error
+                );
+                last_error = Some(error);
+            }
         }
     }
     Err(format!(
         "all durl URLs failed probe: {}",
         last_error.unwrap_or_else(|| "unknown probe failure".to_owned())
     ))
+}
+
+#[cfg(debug_assertions)]
+fn stream_diag_host(url: &str) -> String {
+    reqwest::Url::parse(url)
+        .ok()
+        .and_then(|url| url.host_str().map(str::to_owned))
+        .unwrap_or_else(|| "<invalid-or-missing-host>".to_owned())
+}
+
+fn stream_diag_allowed_host(host: &str) -> bool {
+    // 用于候选排序与诊断输出；修改 main.rs 的白名单时此处必须同步。
+    let host = host.to_ascii_lowercase();
+    ["bilivideo.com", "bilivideo.cn"]
+        .iter()
+        .any(|suffix| host == *suffix || host.ends_with(&format!(".{suffix}")))
+        || host == "upos-hz-mirrorakam.akamaized.net"
+}
+
+#[cfg(debug_assertions)]
+fn stream_diag_tracks(data: Option<&PlayurlData>, selected_id: Option<i64>) {
+    let tracks = data
+        .and_then(|data| data.dash.as_ref())
+        .map(|dash| dash.audio.as_slice())
+        .unwrap_or_default();
+    eprintln!("[stream-diag] dash.audio count={}", tracks.len());
+    for track in tracks {
+        eprintln!(
+            "[stream-diag] track id={} codecs={:?} mimeType={:?} base_host={} backupUrl_count={} backup_url_count={}",
+            track.id, track.codecs, track.mime_type(),
+            track.base_url().map(stream_diag_host).unwrap_or_else(|| "<none>".to_owned()),
+            track.backup_url_camel.len(), track.backup_url_snake.len()
+        );
+    }
+    eprintln!("[stream-diag] selected audio id={selected_id:?}");
+}
+
+#[cfg(debug_assertions)]
+fn stream_diag_candidates(audio: &AudioStream, ordered: &[&str]) {
+    let sources: Vec<_> = audio
+        .base_url()
+        .into_iter()
+        .map(|url| ("base", url))
+        .chain(
+            audio
+                .backup_url_camel
+                .iter()
+                .map(|url| ("backupUrl", url.as_str()))
+                .filter(|(_, url)| !url.trim().is_empty()),
+        )
+        .chain(
+            audio
+                .backup_url_snake
+                .iter()
+                .map(|url| ("backup_url", url.as_str()))
+                .filter(|(_, url)| !url.trim().is_empty()),
+        )
+        .collect();
+    for (stage, urls) in [
+        ("before", audio.url_candidates()),
+        ("after", ordered.to_vec()),
+    ] {
+        eprintln!("[stream-diag] candidates {stage} count={}", urls.len());
+        for (index, url) in urls.iter().enumerate() {
+            let source = sources
+                .iter()
+                .find(|(_, original)| std::ptr::eq(*original, *url))
+                .map(|(source, _)| *source)
+                .unwrap_or("unknown");
+            let host = stream_diag_host(url);
+            eprintln!(
+                "[stream-diag] {stage} candidate={} source={} host={} mcdn={} allowed_host={}",
+                index + 1,
+                source,
+                host,
+                host.contains("mcdn."),
+                stream_diag_allowed_host(&host)
+            );
+        }
+    }
 }
 
 fn build_client() -> Result<reqwest::Client, String> {
@@ -626,13 +762,24 @@ fn is_volatile_mcdn_host(url: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// 候选重排：稳定镜像保序在前，mcdn 节点沉到末尾（组内保序）。
+/// 候选重排：合规非 mcdn、合规 mcdn、不合规三档，组内严格保序。
 fn ordered_candidates(audio: &AudioStream) -> Vec<&str> {
-    let (stable, volatile): (Vec<&str>, Vec<&str>) = audio
-        .url_candidates()
-        .into_iter()
-        .partition(|url| !is_volatile_mcdn_host(url));
-    stable.into_iter().chain(volatile).collect()
+    let mut candidates = audio.url_candidates();
+    // 保留第 3 档：所有合规候选都失败时仍会探测它，行为不差于现状，
+    // 且日志能区分“所有合规候选都失败”与“被排序坑了”。
+    candidates.sort_by_key(|url| {
+        let allowed = reqwest::Url::parse(url)
+            .ok()
+            .is_some_and(|url| url.host_str().is_some_and(stream_diag_allowed_host));
+        if !allowed {
+            2
+        } else if is_volatile_mcdn_host(url) {
+            1
+        } else {
+            0
+        }
+    });
+    candidates
 }
 
 async fn probe_audio_url(client: &reqwest::Client, audio_url: &str) -> Result<ProbeResult, String> {
@@ -1046,6 +1193,69 @@ mod tests {
                 "https://xy2x2x2x2xy.mcdn.bilivideo.cn/b.mp4",
             ]
         );
+    }
+
+    #[test]
+    fn candidates_keep_each_of_three_tiers_in_original_order() {
+        let urls = vec![
+            "https://a.mcdn.bilivideo.cn/base.mp4",
+            "https://a.edge.mountaintoys.cn/backup.mp4",
+            "https://upos-a.bilivideo.com/a.mp4",
+            "https://b.mcdn.bilivideo.cn/b.mp4",
+            "https://b.mcdn.example.org/b.mp4",
+            "https://upos-b.bilivideo.com/b.mp4",
+        ];
+        let audio = audio_stream(urls.clone());
+        assert_eq!(
+            ordered_candidates(&audio),
+            vec![urls[2], urls[5], urls[0], urls[3], urls[1], urls[4]]
+        );
+    }
+
+    #[test]
+    fn candidates_keep_all_allowed_non_mcdn_in_original_order() {
+        let urls = vec![
+            "https://upos-b.bilivideo.com/b.mp4",
+            "https://upos-hz-mirrorakam.akamaized.net/a.mp4",
+            "https://upos-a.bilivideo.cn/a.mp4",
+        ];
+        assert_eq!(ordered_candidates(&audio_stream(urls.clone())), urls);
+    }
+
+    #[test]
+    fn candidates_keep_all_disallowed_in_original_order() {
+        let urls = vec![
+            "https://b.edge.mountaintoys.cn/b.mp4",
+            "https://a.mcdn.example.org/a.mp4",
+            "https://bilivideo.com.example.org/c.mp4",
+        ];
+        assert_eq!(ordered_candidates(&audio_stream(urls.clone())), urls);
+    }
+
+    #[test]
+    fn candidates_preserve_duplicate_occurrences_in_each_tier() {
+        let audio = audio_stream(vec![
+            "https://a.mcdn.bilivideo.cn/a.mp4",
+            "https://a.edge.mountaintoys.cn/a.mp4",
+            "https://upos-a.bilivideo.com/a.mp4",
+            "https://a.mcdn.bilivideo.cn/a.mp4",
+            "https://a.edge.mountaintoys.cn/a.mp4",
+            "https://upos-a.bilivideo.com/a.mp4",
+        ]);
+        let original = audio.url_candidates();
+        let expected: Vec<_> = [2, 5, 0, 3, 1, 4].map(|index| original[index]).into();
+        let ordered = ordered_candidates(&audio);
+        assert_eq!(ordered, expected);
+        // 相同内容来自不同 String；同时断言引用身份，确认重复项没有互换。
+        assert!(ordered
+            .iter()
+            .zip(&expected)
+            .all(|(actual, expected)| std::ptr::eq(*actual, *expected)));
+    }
+
+    #[test]
+    fn candidates_allow_empty_list() {
+        assert!(ordered_candidates(&audio_stream(vec![])).is_empty());
     }
 
     fn audio_stream(urls: Vec<&str>) -> AudioStream {
