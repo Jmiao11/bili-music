@@ -11,6 +11,7 @@ tauri-build = { version = "2", features = [] }
 axum = "0.8"
 base64 = "0.22"
 bilibili-music-core = { path = ".." }
+ebur128 = "0.1.10"
 html-escape = "0.2"
 image = { version = "0.25", default-features = false, features = ["bmp", "jpeg", "png", "webp"] }
 md5 = "0.8"
@@ -19,6 +20,7 @@ reqwest = { version = "0.13", features = ["json", "stream"] }
 rfd = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+symphonia = { version = "0.6.1", default-features = false, features = ["aac", "isomp4"] }
 tauri = { version = "2", features = [] }
 tokio = { version = "1", features = ["net", "sync"] }
 uuid = { version = "1", features = ["v4"] }

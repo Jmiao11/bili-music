@@ -5,6 +5,7 @@ mod appearance;
 mod fav_import;
 mod guest_playurl;
 mod library;
+mod loudness;
 mod lyrics;
 mod ranking;
 mod search;
@@ -45,6 +46,7 @@ use library::{
     remove_from_playlist, rename_playlist, reorder_favorite, reorder_playlist,
     reorder_playlist_item, save_playback_state, toggle_favorite,
 };
+use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
 
@@ -64,6 +66,7 @@ struct StreamEntry {
 }
 
 struct AppState {
+    loudness_busy: Arc<AtomicBool>,
     proxy: ProxyState,
     proxy_base_url: String,
     search: SearchClient,
@@ -694,6 +697,7 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState {
+            loudness_busy: Arc::new(AtomicBool::new(false)),
             proxy,
             proxy_base_url: format!("http://127.0.0.1:{port}"),
             search,
@@ -723,6 +727,9 @@ fn main() {
             library::create_imported_playlist,
             taskbar::set_taskbar_playback_state,
             prepare_audio,
+            analyze_track_loudness,
+            library::get_track_loudness,
+            library::clear_loudness_data,
             get_video_pages,
             get_video_meta,
             lyrics::get_cached_video_pages,

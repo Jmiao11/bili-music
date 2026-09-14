@@ -3212,8 +3212,16 @@ audio.addEventListener("ended", (event) => {
     playerState.activeAudioUrl === audio.currentSrc &&
     event.timeStamp >= playerState.audioActivatedAt;
   if (belongsToCurrentAudio && audio.ended) {
+    const bvid = playerState.queue[playerState.currentIndex]?.bvid;
+    const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
+    const audioUrl = playerState.activeAudioUrl;
     if (!advancePageWithinCurrentBv({ automatic: true })) {
       playNext({ automatic: true });
+    }
+    if (bvid && cid) {
+      invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).catch((error) => {
+        console.warn("analyze_track_loudness failed:", error);
+      });
     }
   }
 });
