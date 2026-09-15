@@ -2528,6 +2528,41 @@ function waitForAudioMetadata() {
   });
 }
 
+let loudnessQueryVersion = 0;
+
+// 与 src-tauri/src/loudness.rs::lufs_to_gain 有两份公式实现，改一处必须同步。
+function lufsToGain(lufs) {
+  if (lufs === null || lufs === undefined || !Number.isFinite(lufs)) {
+    return 1.0;
+  }
+  const gainDb = Math.min(0, Math.max(-12, -14 - lufs));
+  return 10 ** (gainDb / 20);
+}
+
+function refreshTrackLoudness() {
+  const queryVersion = ++loudnessQueryVersion;
+  const requestVersion = playerState.requestVersion;
+  setNormalizationGain(1);
+  if (!isLoudnessNormalizationEnabled()) return;
+  const bvid = playerState.queue[playerState.currentIndex]?.bvid;
+  const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
+  if (!bvid || !cid) {
+    console.warn("track loudness unavailable: missing bvid/cid");
+    return;
+  }
+  invoke("get_track_loudness", { key: `${bvid}:${cid}` }).then((lufs) => {
+    if (queryVersion !== loudnessQueryVersion || requestVersion !== playerState.requestVersion) return;
+    if (lufs === null || !Number.isFinite(lufs)) {
+      console.warn("track loudness unavailable:", `${bvid}:${cid}`);
+    }
+    setNormalizationGain(lufsToGain(lufs));
+  }).catch((error) => {
+    if (queryVersion !== loudnessQueryVersion || requestVersion !== playerState.requestVersion) return;
+    setNormalizationGain(1);
+    console.warn("get_track_loudness failed:", error);
+  });
+}
+
 async function loadCurrentTrack({
   keepPage = false,
   startPage = null,
@@ -2609,6 +2644,7 @@ async function loadCurrentTrack({
     duration.textContent = formatDuration(visibleTrack.durationSeconds);
     emitCurrentTrackChanged();
     (page?.cid ?? playerState.currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? playerState.currentPages[0].cid } }));
+    refreshTrackLoudness();
     playerState.activeAudioVersion = requestVersion;
     playerState.activeAudioUrl = info.audioUrl;
     playerState.audioActivatedAt = performance.now();

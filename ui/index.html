@@ -456,6 +456,14 @@
           <small class="setting-note">决定从 B 站获取音频的方式。游客直连免登录、开箱即用；自动模式在获取失败时用 yt-dlp 兜底，需自备 yt-dlp.exe。</small>
         </section>
 
+        <section class="setting-group">
+          <label for="loudness-normalization-toggle">
+            <input id="loudness-normalization-toggle" type="checkbox" aria-describedby="loudness-normalization-note" />
+            响度归一化
+          </label>
+          <small id="loudness-normalization-note" class="setting-note">降低已测量歌曲之间的音量差异，不放大较轻的歌曲。未测量的歌曲保持原音量。</small>
+        </section>
+
         <details id="accent-color-settings" class="setting-group collapsible-group">
           <summary><h3>主题色</h3></summary>
           <div class="theme-row" role="radiogroup" aria-label="主题色">

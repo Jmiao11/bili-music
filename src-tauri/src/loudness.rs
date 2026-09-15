@@ -68,6 +68,7 @@ impl LoudnessAnalyzer {
 }
 
 /// 无法测量（None 或非有限值）保持原音量；其余只衰减，最多 12 dB。
+/// 与 ui/main.js::lufsToGain 有两份公式实现，改一处必须同步。
 pub fn lufs_to_gain(lufs: Option<f64>) -> f64 {
     let Some(lufs) = lufs.filter(|value| value.is_finite()) else {
         return 1.0;

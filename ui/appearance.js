@@ -16,6 +16,10 @@ const GLASS_BLUR_KEY = "bilibili-music.glass-blur";
 const PANEL_ALPHA_KEY = "bilibili-music.panel-alpha";
 const BACKGROUND_DIM_KEY = "bilibili-music.background-dim";
 const VOLUME_KEY = "bilibili-music.volume";
+const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
+let userVolume = 1.0;
+let normalizationGain = 1.0;
+let loudnessNormalizationEnabled = false;
 
 const root = document.documentElement;
 const navItems = [...document.querySelectorAll(".nav-item[data-view]")];
@@ -79,6 +83,7 @@ const addPlaylistCurrentButton = document.querySelector("#add-playlist-current-b
 const previousButtonForImmersive = document.querySelector("#previous-button");
 const nextButtonForImmersive = document.querySelector("#next-button");
 const volumeSlider = document.querySelector("#volume-slider");
+const loudnessNormalizationToggle = document.querySelector("#loudness-normalization-toggle");
 
 let isSeeking = false;
 let ytDlpAvailable = false;
@@ -753,12 +758,50 @@ async function openCurrentBilibiliVideo() {
 
 function applyVolume(value, persist = true) {
   const safeValue = clampNumber(value, 0, 1, 1);
-  playerAudio.volume = safeValue;
+  userVolume = safeValue;
+  updateEffectiveVolume();
   volumeSlider.value = String(safeValue);
   updateRangeProgress(volumeSlider, `${safeValue * 100}%`);
   if (persist) {
     localStorage.setItem(VOLUME_KEY, String(safeValue));
   }
+}
+
+function updateEffectiveVolume() {
+  playerAudio.volume = clampNumber(userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1), 0, 1, 1);
+}
+
+function setNormalizationGain(gain) {
+  normalizationGain = clampNumber(gain, 0, 1, 1);
+  updateEffectiveVolume();
+}
+
+function isLoudnessNormalizationEnabled() {
+  return loudnessNormalizationEnabled;
+}
+
+function applyLoudnessNormalization(enabled, persist = true) {
+  loudnessNormalizationEnabled = enabled === true;
+  loudnessNormalizationToggle.checked = loudnessNormalizationEnabled;
+  setNormalizationGain(1);
+  if (persist) {
+    try {
+      localStorage.setItem(LOUDNESS_NORMALIZATION_KEY, String(loudnessNormalizationEnabled));
+    } catch (error) {
+      console.warn("loudness normalization setting save failed:", error);
+    }
+  }
+  refreshTrackLoudness();
+}
+
+function initializeLoudnessNormalization() {
+  let enabled = false;
+  try {
+    enabled = localStorage.getItem(LOUDNESS_NORMALIZATION_KEY) === "true";
+  } catch (error) {
+    console.warn("loudness normalization setting read failed:", error);
+  }
+  applyLoudnessNormalization(enabled, false);
 }
 
 for (const item of navItems) {
@@ -925,6 +968,7 @@ openBilibiliButton.addEventListener("click", openCurrentBilibiliVideo);
 openBilibiliBarButton.addEventListener("click", openCurrentBilibiliVideo);
 addPlaylistCurrentButton.addEventListener("click", () => choosePlaylistAndAdd());
 volumeSlider.addEventListener("input", () => applyVolume(volumeSlider.value));
+loudnessNormalizationToggle.addEventListener("change", () => applyLoudnessNormalization(loudnessNormalizationToggle.checked));
 
 progressSlider.addEventListener("pointerdown", () => {
   isSeeking = true;
@@ -991,6 +1035,7 @@ playerAudio.addEventListener("emptied", () => {
 initializeAccentColor();
 applyTheme(localStorage.getItem(THEME_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);
+initializeLoudnessNormalization();
 updateProgress(0);
 updatePlayPauseButton();
 syncImmersiveTrack();
