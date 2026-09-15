@@ -78,6 +78,8 @@ impl GuestPlayurlClient {
         page_hint: Option<GuestPageHint>,
         cancellation: &AtomicBool,
     ) -> Result<StreamAudioInfo, String> {
+        #[cfg(debug_assertions)]
+        let mut diag = ResolveDiag::new();
         let bvid = bvid.trim();
         if !is_valid_bvid(bvid) {
             return Err(format!("invalid Bilibili BV ID: {bvid}"));
@@ -103,8 +105,16 @@ impl GuestPlayurlClient {
             .as_ref()
             .and_then(|hint| hint.cid)
             .unwrap_or(view.cid);
+        #[cfg(debug_assertions)]
+        {
+            diag.playurl_started = Some(Instant::now());
+        }
         let playurl =
             fetch_playurl(&self.client, bvid, target_cid, &cookie_header, &mixin_key).await?;
+        #[cfg(debug_assertions)]
+        {
+            diag.playurl_elapsed = diag.playurl_started.take().unwrap().elapsed();
+        }
         ensure_not_cancelled(cancellation)?;
 
         // DASH 音频轨优先；新投稿可能只有 durl 混合流，作为兜底。
@@ -112,7 +122,15 @@ impl GuestPlayurlClient {
             Ok(audio) => {
                 #[cfg(debug_assertions)]
                 stream_diag_tracks(playurl.data.as_ref(), Some(audio.id));
+                #[cfg(debug_assertions)]
+                {
+                    diag.probe_started = Some(Instant::now());
+                }
                 let audio_url = first_working_audio_url(&self.client, audio).await?;
+                #[cfg(debug_assertions)]
+                {
+                    diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
+                }
                 (audio_url.to_owned(), false)
             }
             Err(audio_error) => {
@@ -121,7 +139,15 @@ impl GuestPlayurlClient {
                 let durl = select_muxed_durl(playurl.data.as_ref());
                 match durl {
                     Ok(durl) => {
+                        #[cfg(debug_assertions)]
+                        {
+                            diag.probe_started = Some(Instant::now());
+                        }
                         let url = first_working_muxed_url(&self.client, durl).await?;
+                        #[cfg(debug_assertions)]
+                        {
+                            diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
+                        }
                         (url, true)
                     }
                     Err(durl_error) => {
@@ -206,6 +232,49 @@ impl GuestPlayurlClient {
             fetched_at: Instant::now(),
         });
         Ok(mixin_key)
+    }
+}
+
+// Drop also reports early errors/cancellation without changing resolve's return paths.
+#[cfg(debug_assertions)]
+struct ResolveDiag {
+    started: Instant,
+    playurl_started: Option<Instant>,
+    playurl_elapsed: Duration,
+    probe_started: Option<Instant>,
+    probe_elapsed: Duration,
+}
+
+#[cfg(debug_assertions)]
+impl ResolveDiag {
+    fn new() -> Self {
+        let started = Instant::now();
+        Self {
+            started,
+            playurl_started: None,
+            playurl_elapsed: Duration::ZERO,
+            probe_started: None,
+            probe_elapsed: Duration::ZERO,
+        }
+    }
+}
+
+#[cfg(debug_assertions)]
+impl Drop for ResolveDiag {
+    fn drop(&mut self) {
+        let total = self.started.elapsed();
+        let playurl = self
+            .playurl_started
+            .map(|start| start.elapsed())
+            .unwrap_or(self.playurl_elapsed);
+        let probe = self
+            .probe_started
+            .map(|start| start.elapsed())
+            .unwrap_or(self.probe_elapsed);
+        eprintln!(
+            "[stream-diag] resolve exit timestamp={:?} id={:?} 本次解析总耗时 {}ms，其中 playurl 请求 {}ms，probe 合计 {}ms（含候选遍历及诊断日志）",
+            SystemTime::now(), self.started, total.as_millis(), playurl.as_millis(), probe.as_millis()
+        );
     }
 }
 
@@ -438,7 +507,8 @@ fn stream_diag_candidates(audio: &AudioStream, ordered: &[&str]) {
 
 fn build_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(10))
+        // 健康连接实测 33–819ms，3 秒未建立连接时换下一个候选的期望收益高于继续等待。
+        .connect_timeout(Duration::from_secs(3))
         .timeout(Duration::from_secs(30))
         .redirect(Policy::none())
         .build()
@@ -783,6 +853,8 @@ fn ordered_candidates(audio: &AudioStream) -> Vec<&str> {
 }
 
 async fn probe_audio_url(client: &reqwest::Client, audio_url: &str) -> Result<ProbeResult, String> {
+    #[cfg(debug_assertions)]
+    let started = Instant::now();
     let response = client
         .get(audio_url)
         .header(ACCEPT_ENCODING, "identity")
@@ -791,16 +863,47 @@ async fn probe_audio_url(client: &reqwest::Client, audio_url: &str) -> Result<Pr
         .header(RANGE, AUDIO_PROBE_RANGE)
         .send()
         .await
-        .map_err(|error| format!("audio URL probe request failed: {error}"))?;
+        .map_err(|error| {
+            #[cfg(debug_assertions)]
+            eprintln!("[stream-diag] probe host={} elapsed_ms={} bytes=0 Content-Length=<none> Content-Range=<none> error=audio URL probe request failed: {error}", stream_diag_host(audio_url), started.elapsed().as_millis());
+            format!("audio URL probe request failed: {error}")
+        })?;
+    #[cfg(debug_assertions)]
+    let (content_length, content_range) = (
+        response
+            .headers()
+            .get("content-length")
+            .map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned())
+            .unwrap_or_else(|| "<none>".to_owned()),
+        response
+            .headers()
+            .get("content-range")
+            .map(|value| String::from_utf8_lossy(value.as_bytes()).into_owned())
+            .unwrap_or_else(|| "<none>".to_owned()),
+    );
     let status = response.status();
     if status.as_u16() != 200 && status.as_u16() != 206 {
+        #[cfg(debug_assertions)]
+        eprintln!("[stream-diag] probe host={} elapsed_ms={} bytes=0 Content-Length={} Content-Range={} error=audio URL probe returned HTTP {status}", stream_diag_host(audio_url), started.elapsed().as_millis(), content_length, content_range);
         return Err(format!("audio URL probe returned HTTP {status}"));
     }
     let bytes = response
         .bytes()
         .await
-        .map_err(|error| format!("failed to read audio probe bytes: {error}"))?;
+        .map_err(|error| {
+            #[cfg(debug_assertions)]
+            eprintln!("[stream-diag] probe host={} elapsed_ms={} bytes=<unknown> Content-Length={} Content-Range={} error=failed to read audio probe bytes: {error}", stream_diag_host(audio_url), started.elapsed().as_millis(), content_length, content_range);
+            format!("failed to read audio probe bytes: {error}")
+        })?;
+    #[cfg(debug_assertions)]
+    eprintln!("[stream-diag] probe host={} HTTP={} elapsed_ms={} bytes={} Content-Length={} Content-Range={}", stream_diag_host(audio_url), status.as_u16(), started.elapsed().as_millis(), bytes.len(), content_length, content_range);
     if bytes.is_empty() {
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "[stream-diag] probe host={} elapsed_ms={} error=audio URL probe returned zero bytes",
+            stream_diag_host(audio_url),
+            started.elapsed().as_millis()
+        );
         return Err("audio URL probe returned zero bytes".to_owned());
     }
     Ok(ProbeResult {
