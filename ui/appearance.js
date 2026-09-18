@@ -20,6 +20,7 @@ const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
 let userVolume = 1.0;
 let normalizationGain = 1.0;
 let loudnessNormalizationEnabled = false;
+let normalizationAnimationFrame = null;
 
 const root = document.documentElement;
 const navItems = [...document.querySelectorAll(".nav-item[data-view]")];
@@ -758,6 +759,10 @@ async function openCurrentBilibiliVideo() {
 
 function applyVolume(value, persist = true) {
   const safeValue = clampNumber(value, 0, 1, 1);
+  if (normalizationAnimationFrame !== null) {
+    cancelAnimationFrame(normalizationAnimationFrame);
+    normalizationAnimationFrame = null;
+  }
   userVolume = safeValue;
   updateEffectiveVolume();
   volumeSlider.value = String(safeValue);
@@ -772,8 +777,32 @@ function updateEffectiveVolume() {
 }
 
 function setNormalizationGain(gain) {
+  if (normalizationAnimationFrame !== null) {
+    cancelAnimationFrame(normalizationAnimationFrame);
+    normalizationAnimationFrame = null;
+  }
+  const startVolume = playerAudio.volume;
   normalizationGain = clampNumber(gain, 0, 1, 1);
-  updateEffectiveVolume();
+  const targetVolume = clampNumber(
+    userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1),
+    0,
+    1,
+    1,
+  );
+  if (startVolume === targetVolume) return;
+
+  let startedAt = null;
+  const step = (now) => {
+    startedAt ??= now;
+    const progress = Math.min(1, (now - startedAt) / 250);
+    playerAudio.volume = startVolume + (targetVolume - startVolume) * progress;
+    if (progress < 1) {
+      normalizationAnimationFrame = requestAnimationFrame(step);
+    } else {
+      normalizationAnimationFrame = null;
+    }
+  };
+  normalizationAnimationFrame = requestAnimationFrame(step);
 }
 
 function isLoudnessNormalizationEnabled() {
@@ -969,6 +998,11 @@ openBilibiliBarButton.addEventListener("click", openCurrentBilibiliVideo);
 addPlaylistCurrentButton.addEventListener("click", () => choosePlaylistAndAdd());
 volumeSlider.addEventListener("input", () => applyVolume(volumeSlider.value));
 loudnessNormalizationToggle.addEventListener("change", () => applyLoudnessNormalization(loudnessNormalizationToggle.checked));
+loudnessNormalizationToggle.addEventListener("change", () => {
+  if (loudnessNormalizationToggle.checked) {
+    showLoudnessNormalizationDialog();
+  }
+});
 
 progressSlider.addEventListener("pointerdown", () => {
   isSeeking = true;

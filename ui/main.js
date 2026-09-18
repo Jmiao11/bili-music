@@ -373,6 +373,7 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
 
 function emitCurrentTrackChanged() {
   playRecordedForCurrentTrack = false;
+  loudnessAnalyzedForCurrentTrack = false;
   const snapshot = currentTrackSnapshot();
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
@@ -2137,6 +2138,7 @@ function openLibraryModal(title, subtitle) {
   favoriteImportVersion += 1;
   libraryModalTitle.textContent = title;
   libraryModalSubtitle.textContent = subtitle;
+  libraryModalSubtitle.hidden = !subtitle;
   libraryModalBody.replaceChildren();
   libraryModalStatus.textContent = "";
   libraryModal.hidden = false;
@@ -2150,6 +2152,49 @@ function closeLibraryModal() {
   favoriteImportVersion += 1;
   libraryModal.classList.remove("is-open");
   libraryModal.setAttribute("aria-hidden", "true");
+}
+
+function showLoudnessNormalizationDialog() {
+  openLibraryModal("响度归一化", "");
+
+  const intro = document.createElement("p");
+  intro.className = "library-confirm-copy";
+  intro.textContent =
+    "不同 UP 主上传的音源响度差别很大，切歌时忽大忽小。开启后，播放器会把音量补偿到接近的水平。";
+
+  const measurement = document.createElement("p");
+  measurement.className = "library-confirm-copy";
+  const measurementLead = document.createElement("strong");
+  measurementLead.textContent = "需要先测量。";
+  measurement.append(
+    measurementLead,
+    "每首歌播放约 30 秒后会自动在后台测量一次，测完才会生效，下次再听就是直接生效的。所以刚开启时你会觉得没什么变化，听一段时间后效果才明显。",
+  );
+
+  const attenuation = document.createElement("p");
+  attenuation.className = "library-confirm-copy";
+  const attenuationLead = document.createElement("strong");
+  attenuationLead.textContent = "只会调小，不会调大。";
+  attenuation.append(
+    attenuationLead,
+    "受浏览器限制只能衰减，整体音量会略低于原先，把系统音量推高一档即可。",
+  );
+
+  const traffic = document.createElement("p");
+  traffic.className = "library-confirm-copy";
+  traffic.textContent = "测量需要重新下载一遍音频，会消耗一些流量。";
+
+  const actions = document.createElement("div");
+  actions.className = "library-modal-actions";
+  const acknowledgeButton = document.createElement("button");
+  acknowledgeButton.type = "button";
+  acknowledgeButton.className = "secondary-button";
+  acknowledgeButton.textContent = "知道了";
+  acknowledgeButton.addEventListener("click", closeLibraryModal);
+  actions.append(acknowledgeButton);
+
+  libraryModalBody.append(intro, measurement, attenuation, traffic, actions);
+  acknowledgeButton.focus();
 }
 
 function validatePlaylistName(name, { excludeId = "" } = {}) {
@@ -2529,6 +2574,7 @@ function waitForAudioMetadata() {
 }
 
 let loudnessQueryVersion = 0;
+let loudnessAnalyzedForCurrentTrack = false;
 
 // 与 src-tauri/src/loudness.rs::lufs_to_gain 有两份公式实现，改一处必须同步。
 function lufsToGain(lufs) {
@@ -2560,6 +2606,30 @@ function refreshTrackLoudness() {
     if (queryVersion !== loudnessQueryVersion || requestVersion !== playerState.requestVersion) return;
     setNormalizationGain(1);
     console.warn("get_track_loudness failed:", error);
+  });
+}
+
+function analyzeCurrentTrackAtThreshold() {
+  if (loudnessAnalyzedForCurrentTrack || !isLoudnessNormalizationEnabled()) return;
+  const dur = Number(audio.duration);
+  const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
+  if (audio.currentTime < threshold) return;
+  const bvid = playerState.queue[playerState.currentIndex]?.bvid;
+  const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
+  const audioUrl = playerState.activeAudioUrl;
+  if (!bvid || !cid || !audioUrl) return;
+
+  loudnessAnalyzedForCurrentTrack = true;
+  const requestVersion = playerState.requestVersion;
+  invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).then((lufs) => {
+    if (requestVersion !== playerState.requestVersion) return;
+    if (lufs === null || !Number.isFinite(lufs)) {
+      console.warn("track loudness analysis unavailable:", `${bvid}:${cid}`);
+      return;
+    }
+    setNormalizationGain(lufsToGain(lufs));
+  }).catch((error) => {
+    console.warn("analyze_track_loudness failed:", error);
   });
 }
 
@@ -3268,6 +3338,8 @@ audio.addEventListener("timeupdate", () => {
     savePlaybackState();
   }
 });
+
+audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);
 
 audio.addEventListener("timeupdate", () => {
   if (playRecordedForCurrentTrack) return;

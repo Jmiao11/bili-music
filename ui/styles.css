@@ -3872,8 +3872,9 @@ input[type="range"]::-webkit-slider-thumb {
   gap: 8px;
 }
 
+/* 设置子分组视觉数值集中区：便于 live 调整间距、字号与复选框尺寸。 */
 .setting-subgroup {
-  margin-top: 10px;
+  margin-top: 18px;
 }
 
 .setting-subgroup:first-of-type {
@@ -3888,7 +3889,27 @@ input[type="range"]::-webkit-slider-thumb {
   letter-spacing: 0.03em;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .setting-note {
+  display: block;
+  margin-top: 6px;
   color: var(--text-3);
   font-size: 12px;
   opacity: 0.85;
