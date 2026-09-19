@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -135,6 +136,14 @@ pub struct UnavailableTrack {
     pub bvid: String,
     pub reason: String,
     pub marked_at: u128,
+}
+
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeResult {
+    pub removed_favorites: usize,
+    pub removed_playlist_items: usize,
+    pub cleared_marks: usize,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -309,6 +318,67 @@ pub fn list_unavailable_tracks() -> Result<Vec<UnavailableTrack>, String> {
         .lock()
         .map_err(|_| "失效曲目数据锁异常。")?;
     list_unavailable_tracks_at(&library_file_path(UNAVAILABLE_TRACKS_FILE)?)
+}
+
+fn purge_unavailable_tracks_at(
+    favorites_path: &Path,
+    playlists_path: &Path,
+    unavailable_path: &Path,
+) -> Result<PurgeResult, String> {
+    let unavailable: UnavailableTracksFile = read_json_or_default(unavailable_path)?;
+    if unavailable.items.is_empty() {
+        return Ok(PurgeResult::default());
+    }
+
+    let unavailable_bvids: HashSet<String> = unavailable
+        .items
+        .iter()
+        .map(|item| item.bvid.to_lowercase())
+        .collect();
+    let mut favorites: FavoritesFile = read_json_or_default(favorites_path)?;
+    let mut playlists: PlaylistsFile = read_json_or_default(playlists_path)?;
+
+    let favorites_before = favorites.items.len();
+    favorites
+        .items
+        .retain(|item| !unavailable_bvids.contains(&item.bvid.to_lowercase()));
+    let removed_favorites = favorites_before - favorites.items.len();
+
+    let mut removed_playlist_items = 0;
+    for playlist in &mut playlists.playlists {
+        let items_before = playlist.items.len();
+        playlist
+            .items
+            .retain(|item| !unavailable_bvids.contains(&item.bvid.to_lowercase()));
+        removed_playlist_items += items_before - playlist.items.len();
+    }
+
+    if removed_favorites > 0 {
+        write_json_atomic(favorites_path, &favorites)?;
+    }
+    if removed_playlist_items > 0 {
+        write_json_atomic(playlists_path, &playlists)?;
+    }
+
+    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
+        .lock()
+        .map_err(|_| "失效曲目数据锁异常。")?;
+    write_json_atomic(unavailable_path, &UnavailableTracksFile::default())?;
+
+    Ok(PurgeResult {
+        removed_favorites,
+        removed_playlist_items,
+        cleared_marks: unavailable.items.len(),
+    })
+}
+
+#[tauri::command]
+pub fn purge_unavailable_tracks() -> Result<PurgeResult, String> {
+    purge_unavailable_tracks_at(
+        &favorites_path()?,
+        &playlists_path()?,
+        &library_file_path(UNAVAILABLE_TRACKS_FILE)?,
+    )
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -1448,6 +1518,106 @@ mod tests {
         fs::remove_file(path).unwrap();
     }
 
+    #[test]
+    fn purge_unavailable_tracks_removes_every_occurrence_and_clears_marks() {
+        let root = std::env::temp_dir().join(format!("bili-music-purge-{}", Uuid::new_v4()));
+        let favorites_path = root.join("favorites.json");
+        let playlists_path = root.join("playlists.json");
+        let unavailable_path = root.join("unavailable-tracks.json");
+        let unavailable_bvid = "BV1GF4X6MEb1";
+        let kept_bvid = "BV1rW4y1Q7o7";
+
+        write_json_atomic(
+            &favorites_path,
+            &FavoritesFile {
+                version: VERSION,
+                items: vec![
+                    track_with_bvid(unavailable_bvid, "失效收藏"),
+                    track_with_bvid(kept_bvid, "保留收藏"),
+                ],
+            },
+        )
+        .unwrap();
+        write_json_atomic(
+            &playlists_path,
+            &PlaylistsFile {
+                version: VERSION,
+                playlists: vec![
+                    Playlist {
+                        id: "one".into(),
+                        name: "歌单一".into(),
+                        created_at: "1".into(),
+                        items: vec![
+                            track_with_bvid(unavailable_bvid, "失效一"),
+                            track_with_bvid(kept_bvid, "保留歌曲"),
+                        ],
+                    },
+                    Playlist {
+                        id: "two".into(),
+                        name: "歌单二".into(),
+                        created_at: "2".into(),
+                        items: vec![track_with_bvid("BV1GF4X6MEB1", "失效二")],
+                    },
+                ],
+            },
+        )
+        .unwrap();
+        write_json_atomic(
+            &unavailable_path,
+            &super::UnavailableTracksFile {
+                version: VERSION,
+                items: vec![
+                    super::UnavailableTrack {
+                        bvid: unavailable_bvid.into(),
+                        reason: "该视频已被删除或设为私密".into(),
+                        marked_at: 2,
+                    },
+                    super::UnavailableTrack {
+                        bvid: "BV0000000000".into(),
+                        reason: "该视频没有可播放的音频".into(),
+                        marked_at: 1,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+        let result =
+            super::purge_unavailable_tracks_at(&favorites_path, &playlists_path, &unavailable_path)
+                .unwrap();
+
+        assert_eq!(result.removed_favorites, 1);
+        assert_eq!(result.removed_playlist_items, 2);
+        assert_eq!(result.cleared_marks, 2);
+        let favorites: FavoritesFile = read_json_or_default(&favorites_path).unwrap();
+        assert_eq!(favorites.items.len(), 1);
+        assert_eq!(favorites.items[0].bvid, kept_bvid);
+        let playlists: PlaylistsFile = read_json_or_default(&playlists_path).unwrap();
+        assert_eq!(playlists.playlists[0].items.len(), 1);
+        assert_eq!(playlists.playlists[0].items[0].bvid, kept_bvid);
+        assert!(playlists.playlists[1].items.is_empty());
+        let unavailable: super::UnavailableTracksFile =
+            read_json_or_default(&unavailable_path).unwrap();
+        assert!(unavailable.items.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn purge_unavailable_tracks_without_marks_does_not_write_files() {
+        let root = std::env::temp_dir().join(format!("bili-music-purge-{}", Uuid::new_v4()));
+        let result = super::purge_unavailable_tracks_at(
+            &root.join("favorites.json"),
+            &root.join("playlists.json"),
+            &root.join("unavailable-tracks.json"),
+        )
+        .unwrap();
+
+        assert_eq!(result.removed_favorites, 0);
+        assert_eq!(result.removed_playlist_items, 0);
+        assert_eq!(result.cleared_marks, 0);
+        assert!(!root.exists());
+    }
+
     fn track(title: &str) -> TrackSnapshot {
         TrackSnapshot {
             bvid: "BV1rW4y1Q7o7".to_owned(),
@@ -1456,6 +1626,13 @@ mod tests {
             thumbnail_url: "https://example.com/cover.jpg".to_owned(),
             duration_seconds: 120,
             added_at: "1".to_owned(),
+        }
+    }
+
+    fn track_with_bvid(bvid: &str, title: &str) -> TrackSnapshot {
+        TrackSnapshot {
+            bvid: bvid.into(),
+            ..track(title)
         }
     }
 

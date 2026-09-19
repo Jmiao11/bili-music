@@ -57,6 +57,24 @@ function unavailableTrackReason(error) {
     : "";
 }
 
+function unavailableTrackLocations(unavailable, favorites, playlists) {
+  const result = new Map();
+  for (const item of unavailable) {
+    const key = item.bvid.toLowerCase();
+    const locations = [];
+    if (favorites.some((track) => track.bvid.toLowerCase() === key)) {
+      locations.push("收藏");
+    }
+    for (const playlist of playlists) {
+      if ((playlist.items ?? []).some((track) => track.bvid.toLowerCase() === key)) {
+        locations.push(`歌单《${playlist.name}》`);
+      }
+    }
+    result.set(key, locations.length ? locations.join("、") : "不在收藏或歌单中");
+  }
+  return result;
+}
+
 const playerState = {
   queue: [],
   queueSource: "none",
@@ -244,6 +262,8 @@ const libraryModalTitle = document.querySelector("#library-modal-title");
 const libraryModalSubtitle = document.querySelector("#library-modal-subtitle");
 const libraryModalBody = document.querySelector("#library-modal-body");
 const libraryModalStatus = document.querySelector("#library-modal-status");
+const purgeUnavailableTracksButton = document.querySelector("#purge-unavailable-tracks-button");
+const purgeAppearanceStatus = document.querySelector("#appearance-status");
 const pagesModal = document.querySelector("#pages-modal");
 const pagesModalTitle = document.querySelector("#pages-modal-title");
 const pagesModalSub = document.querySelector("#pages-modal-sub");
@@ -2308,6 +2328,99 @@ function createLibraryActions(primaryLabel, onPrimary, secondaryLabel = "取消"
   return { actions, primaryButton };
 }
 
+async function openPurgeUnavailableTracksModal() {
+  purgeUnavailableTracksButton.disabled = true;
+  let unavailable;
+  try {
+    unavailable = await invoke("list_unavailable_tracks");
+  } catch (error) {
+    purgeAppearanceStatus.textContent = `读取失效曲目失败：${error}`;
+    return;
+  } finally {
+    purgeUnavailableTracksButton.disabled = false;
+  }
+
+  openLibraryModal("清理失效曲目", "以下歌曲已无法播放，确认后会从收藏和所有歌单中移除。");
+
+  if (unavailable.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "library-empty-copy";
+    empty.textContent = "没有失效曲目。";
+    libraryModalBody.append(empty);
+    return;
+  }
+
+  const locations = unavailableTrackLocations(
+    unavailable,
+    libraryState.favorites,
+    libraryState.playlists,
+  );
+  const snapshots = new Map();
+  for (const track of libraryState.favorites) {
+    snapshots.set(track.bvid.toLowerCase(), track);
+  }
+  for (const playlist of libraryState.playlists) {
+    for (const track of playlist.items ?? []) {
+      const key = track.bvid.toLowerCase();
+      if (!snapshots.has(key)) snapshots.set(key, track);
+    }
+  }
+
+  const list = document.createElement("div");
+  list.className = "unavailable-purge-list";
+  for (const item of unavailable) {
+    const key = item.bvid.toLowerCase();
+    const snapshot = snapshots.get(key);
+    const row = document.createElement("div");
+    const coverWrap = document.createElement("span");
+    const copy = document.createElement("span");
+    const title = document.createElement("strong");
+    const reason = document.createElement("span");
+    const location = document.createElement("span");
+    row.className = "unavailable-purge-item";
+    coverWrap.className = "unavailable-purge-cover";
+    copy.className = "unavailable-purge-copy";
+    title.textContent = snapshot?.title || item.bvid;
+    reason.className = "unavailable-purge-reason";
+    reason.textContent = item.reason;
+    location.className = "unavailable-purge-location";
+    location.textContent = locations.get(key);
+
+    if (snapshot?.thumbnailUrl) {
+      const cover = document.createElement("img");
+      cover.src = displayThumbnailUrl(snapshot.thumbnailUrl);
+      cover.alt = "";
+      cover.loading = "lazy";
+      cover.referrerPolicy = "no-referrer";
+      coverWrap.append(cover);
+    } else {
+      const placeholder = document.createElement("span");
+      placeholder.className = "cover-placeholder";
+      coverWrap.append(placeholder);
+    }
+
+    copy.append(title, reason, location);
+    row.append(coverWrap, copy);
+    list.append(row);
+  }
+
+  const { actions, primaryButton } = createLibraryActions("全部清理", async () => {
+    primaryButton.disabled = true;
+    libraryModalStatus.textContent = "正在清理…";
+    try {
+      const result = await invoke("purge_unavailable_tracks");
+      await loadLibrary();
+      closeLibraryModal();
+      purgeAppearanceStatus.textContent = `已清理 ${result.clearedMarks} 首失效曲目。`;
+    } catch (error) {
+      libraryModalStatus.textContent = `清理失效曲目失败：${error}`;
+      primaryButton.disabled = false;
+    }
+  });
+  libraryModalBody.append(list, actions);
+  primaryButton.focus();
+}
+
 function showPlaylistNameDialog({ mode, playlist = null, track = null } = {}) {
   const isRename = mode === "rename";
   openLibraryModal(
@@ -3517,6 +3630,7 @@ homeRankingError?.addEventListener("click", () => {
   }
 });
 closeLibraryModalButton?.addEventListener("click", closeLibraryModal);
+purgeUnavailableTracksButton?.addEventListener("click", openPurgeUnavailableTracksModal);
 libraryModal?.addEventListener("click", (event) => {
   if (event.target === libraryModal) {
     closeLibraryModal();

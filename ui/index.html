@@ -539,7 +539,13 @@
               <button id="clear-search-history-button" class="small-button quiet" type="button">清空搜索历史</button>
             </div>
           </div>
-          <small class="setting-note">导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。</small>
+          <div class="setting-subgroup">
+            <h4>失效曲目</h4>
+            <div class="setting-actions">
+              <button id="purge-unavailable-tracks-button" class="small-button quiet" type="button">清理失效曲目</button>
+            </div>
+          </div>
+          <small class="setting-note">导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。清理失效曲目会从收藏和所有歌单中移除这些歌曲。</small>
         </details>
 
         <p id="appearance-status" class="appearance-status" role="status"></p>
