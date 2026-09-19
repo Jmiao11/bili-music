@@ -16,6 +16,8 @@ const GLASS_BLUR_KEY = "bilibili-music.glass-blur";
 const PANEL_ALPHA_KEY = "bilibili-music.panel-alpha";
 const BACKGROUND_DIM_KEY = "bilibili-music.background-dim";
 const VOLUME_KEY = "bilibili-music.volume";
+// 全局快捷键步长独立于滑块，方便 live 调整每次按键的幅度。
+const GLOBAL_SHORTCUT_VOLUME_STEP = 0.05;
 const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
 let userVolume = 1.0;
 let normalizationGain = 1.0;
@@ -58,6 +60,16 @@ const aiApiKeyInput = document.querySelector("#ai-api-key-input");
 const saveAiConfigButton = document.querySelector("#save-ai-config-button");
 const testAiConnectionButton = document.querySelector("#test-ai-connection-button");
 const aiConfigStatus = document.querySelector("#ai-config-status");
+const shortcutRecordButtons = [...document.querySelectorAll("[data-shortcut-action]")];
+const shortcutClearButtons = [...document.querySelectorAll("[data-shortcut-clear]")];
+let shortcutBindings = {
+  previous: null,
+  playPause: null,
+  next: null,
+  volumeUp: null,
+  volumeDown: null,
+};
+let recordingShortcutAction = null;
 
 const playerAudio = document.querySelector("#audio");
 const playPauseButton = document.querySelector("#play-pause-button");
@@ -112,6 +124,141 @@ function clampNumber(value, min, max, fallback) {
     return fallback;
   }
   return Math.min(Math.max(number, min), max);
+}
+
+function isShortcutModifierCode(code) {
+  return /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(code);
+}
+
+function shortcutFromKeyboardEvent(event) {
+  const code = event.code || "";
+  if (isShortcutModifierCode(code) || code === "Escape") {
+    return null;
+  }
+
+  const namedKeys = new Set([
+    "Backquote", "Backslash", "BracketLeft", "BracketRight", "Pause", "Comma", "Equal",
+    "Minus", "Period", "Quote", "Semicolon", "Slash", "Backspace", "CapsLock", "Enter",
+    "Space", "Tab", "Delete", "End", "Home", "Insert", "PageDown", "PageUp", "PrintScreen",
+    "ScrollLock", "NumLock", "AudioVolumeDown", "AudioVolumeUp", "AudioVolumeMute", "MediaPlay",
+    "MediaPause", "MediaPlayPause", "MediaStop", "MediaTrackNext", "MediaTrackPrevious",
+  ]);
+  let key = null;
+  if (/^Key[A-Z]$/.test(code)) {
+    key = code.slice(3);
+  } else if (/^Digit[0-9]$/.test(code)) {
+    key = code.slice(5);
+  } else if (/^F(?:[1-9]|1[0-9]|2[0-4])$/.test(code)) {
+    key = code;
+  } else if (/^Numpad(?:[0-9]|Add|Decimal|Divide|Enter|Equal|Multiply|Subtract)$/.test(code)) {
+    key = code;
+  } else if (code.startsWith("Arrow")) {
+    key = code.slice(5);
+  } else if (namedKeys.has(code)) {
+    key = code;
+  }
+
+  const modifiers = [];
+  if (event.ctrlKey) modifiers.push("Ctrl");
+  if (event.altKey) modifiers.push("Alt");
+  if (event.shiftKey) modifiers.push("Shift");
+  if (event.metaKey) modifiers.push("Super");
+  if (!key || modifiers.length === 0) {
+    return null;
+  }
+  return [...modifiers, key].join("+");
+}
+
+function shortcutButtonFor(action) {
+  return shortcutRecordButtons.find((button) => button.dataset.shortcutAction === action);
+}
+
+function renderShortcutButton(action) {
+  const button = shortcutButtonFor(action);
+  if (button) {
+    button.textContent = shortcutBindings[action] || "未设置";
+    button.classList.remove("is-recording");
+  }
+}
+
+function handleShortcutRecordingPointerDown(event) {
+  if (!event.target.closest?.("[data-shortcut-action]")) {
+    cancelShortcutRecording();
+  }
+}
+
+function handleShortcutRecordingKeydown(event) {
+  if (!recordingShortcutAction) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (event.code === "Escape") {
+    cancelShortcutRecording();
+    return;
+  }
+  if (isShortcutModifierCode(event.code)) {
+    return;
+  }
+  const shortcut = shortcutFromKeyboardEvent(event);
+  if (!shortcut) {
+    appearanceStatus.textContent = "请使用组合键";
+    return;
+  }
+  const action = recordingShortcutAction;
+  cancelShortcutRecording();
+  void saveShortcutBinding(action, shortcut);
+}
+
+function cancelShortcutRecording() {
+  if (!recordingShortcutAction) return;
+  const action = recordingShortcutAction;
+  recordingShortcutAction = null;
+  renderShortcutButton(action);
+  window.removeEventListener("keydown", handleShortcutRecordingKeydown, true);
+  window.removeEventListener("pointerdown", handleShortcutRecordingPointerDown, true);
+  window.removeEventListener("blur", cancelShortcutRecording);
+}
+
+function startShortcutRecording(action) {
+  cancelShortcutRecording();
+  recordingShortcutAction = action;
+  const button = shortcutButtonFor(action);
+  button.textContent = "按下组合键…";
+  button.classList.add("is-recording");
+  appearanceStatus.textContent = "";
+  window.addEventListener("keydown", handleShortcutRecordingKeydown, true);
+  window.addEventListener("pointerdown", handleShortcutRecordingPointerDown, true);
+  window.addEventListener("blur", cancelShortcutRecording);
+}
+
+async function saveShortcutBinding(action, value) {
+  const nextBindings = { ...shortcutBindings, [action]: value };
+  try {
+    await invokeAppearance("set_shortcuts", { bindings: nextBindings });
+    shortcutBindings = nextBindings;
+    renderShortcutButton(action);
+    appearanceStatus.textContent = "快捷键已保存。";
+  } catch (error) {
+    appearanceStatus.textContent = String(error);
+  }
+}
+
+async function initializeShortcutSettings() {
+  try {
+    const shortcuts = await invokeAppearance("get_shortcuts");
+    shortcutBindings = { ...shortcutBindings, ...shortcuts.bindings };
+  } catch (error) {
+    console.warn("[shortcut] cannot load settings:", error);
+  }
+  for (const button of shortcutRecordButtons) {
+    renderShortcutButton(button.dataset.shortcutAction);
+    button.addEventListener("click", () => startShortcutRecording(button.dataset.shortcutAction));
+  }
+  for (const button of shortcutClearButtons) {
+    button.addEventListener("click", () => {
+      cancelShortcutRecording();
+      void saveShortcutBinding(button.dataset.shortcutClear, null);
+    });
+  }
 }
 
 function streamSourceLabel(source) {
@@ -354,6 +501,42 @@ function initializeTaskbarControls() {
     if (unlisten) {
       stopListening(unlisten);
     }
+  }, { once: true });
+}
+
+function initializeGlobalShortcutControls() {
+  let disposed = false;
+  let unlisten = null;
+
+  const stopListening = (stop) => {
+    Promise.resolve(stop()).catch((error) => {
+      console.warn("[shortcut] event cleanup failed:", error);
+    });
+  };
+
+  window.__TAURI__.event.listen("global-shortcut", ({ payload }) => {
+    if (disposed) return;
+    if (payload === "previous") {
+      previousButtonForImmersive.click();
+    } else if (payload === "play_pause") {
+      playPauseButton.click();
+    } else if (payload === "next") {
+      nextButtonForImmersive.click();
+    } else if (payload === "volume_up") {
+      adjustVolumeByStep(1);
+    } else if (payload === "volume_down") {
+      adjustVolumeByStep(-1);
+    }
+  }).then((stop) => {
+    if (disposed) stopListening(stop);
+    else unlisten = stop;
+  }).catch((error) => {
+    console.warn("[shortcut] event listener failed:", error);
+  });
+
+  window.addEventListener("beforeunload", () => {
+    disposed = true;
+    if (unlisten) stopListening(unlisten);
   }, { once: true });
 }
 
@@ -772,6 +955,14 @@ function applyVolume(value, persist = true) {
   }
 }
 
+function adjustVolumeByStep(direction) {
+  const nextVolume = Math.min(
+    1,
+    Math.max(0, userVolume + direction * GLOBAL_SHORTCUT_VOLUME_STEP),
+  );
+  applyVolume(nextVolume);
+}
+
 function updateEffectiveVolume() {
   playerAudio.volume = clampNumber(userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1), 0, 1, 1);
 }
@@ -1067,6 +1258,7 @@ playerAudio.addEventListener("emptied", () => {
 });
 
 initializeAccentColor();
+initializeShortcutSettings();
 applyTheme(localStorage.getItem(THEME_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);
 initializeLoudnessNormalization();
@@ -1075,5 +1267,6 @@ updatePlayPauseButton();
 syncImmersiveTrack();
 registerMediaSessionActionHandlers();
 initializeTaskbarControls();
+initializeGlobalShortcutControls();
 restoreBackground();
 restoreStreamSource();

@@ -4087,6 +4087,23 @@ input[type="range"]::-webkit-slider-thumb {
   background: transparent;
 }
 
+/* 快捷键录制视觉数值集中区：便于 live 调整列宽、间距与录制态强调。 */
+.shortcut-binding-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.shortcut-record-button {
+  width: 100%;
+}
+
+.shortcut-record-button.is-recording {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
 #background-name,
 #stream-source-status,
 #ai-config-status,
