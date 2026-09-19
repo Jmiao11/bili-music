@@ -39,7 +39,8 @@
   --sidebar-width: 220px;
   --shell-inset: 14px;
   --shell-gap: 14px;
-  --z-notice: 4;
+  /* 失败提示高于沉浸页，确保沉浸播放时仍可见。 */
+  --z-notice: 41;
   --z-player: 20;
   --z-titlebar: 30;
   --z-resize: 35;
@@ -2780,13 +2781,16 @@ svg {
 }
 
 .playback-notice {
-  position: absolute;
+  position: fixed;
   z-index: var(--z-notice);
-  top: 24px;
-  left: 50%;
-  max-width: min(460px, calc(100% - 48px));
+  right: calc(var(--shell-inset) + env(safe-area-inset-right));
+  left: calc(var(--shell-inset) + var(--sidebar-width) + var(--shell-gap));
+  width: max-content;
+  /* 视觉数值集中：播放条上方间距、最大宽度、内边距，方便 live 调整。 */
+  bottom: calc(14px + env(safe-area-inset-bottom) + 92px + 12px);
+  max-width: min(460px, calc(100vw - var(--sidebar-width) - var(--shell-gap) - var(--shell-inset) - var(--shell-inset) - 48px));
   padding: 9px 14px;
-  margin: 0;
+  margin: 0 auto;
   border: 0.5px solid var(--line);
   border-radius: 999px;
   opacity: 0;
@@ -2795,7 +2799,7 @@ svg {
   font-size: 12px;
   line-height: 1.4;
   pointer-events: none;
-  transform: translate(-50%, -8px);
+  transform: translateY(-8px);
   transition:
     opacity 160ms ease,
     transform 160ms ease;
@@ -2803,7 +2807,14 @@ svg {
 
 .playback-notice.is-visible {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translateY(0);
+}
+
+:root:has(#immersive-player.is-open) .playback-notice {
+  top: 34px;
+  right: 48px;
+  bottom: auto;
+  left: 48px;
 }
 
 .placeholder-view {

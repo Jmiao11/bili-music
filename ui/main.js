@@ -13,6 +13,43 @@ const DEFAULT_MUSIC_TIDS = 3;
 const MUSIC_HOT_KEYWORD = "音乐";
 const PLAYBACK_STATE_SAVE_INTERVAL_MS = 15_000;
 
+function playbackFailureMessage(error, isPage = false) {
+  const subject = isPage ? "该分P" : "该视频";
+  let message = "";
+  try {
+    message = String(error);
+  } catch {
+    // An unusual error object must not hide the playback failure notice.
+  }
+
+  if (
+    message.includes("failed with code 62002") ||
+    message.includes("failed with code -404") ||
+    message.includes("failed with code -403")
+  ) {
+    return `${subject}已被删除或设为私密`;
+  }
+  if (
+    message.includes("no data.dash.audio") ||
+    message.includes("dash.audio is empty") ||
+    message.includes("no browser-playable AAC") ||
+    message.includes("durl fallback unavailable") ||
+    message.includes("durl stream is not MP4")
+  ) {
+    return `${subject}没有可播放的音频`;
+  }
+  if (
+    message.includes("failed probe") ||
+    message.includes("probe request failed") ||
+    message.includes("probe returned") ||
+    message.includes("HTTP 412") ||
+    message.includes("request failed")
+  ) {
+    return "音频源暂时连不上";
+  }
+  return `${subject}无法播放`;
+}
+
 const playerState = {
   queue: [],
   queueSource: "none",
@@ -2781,15 +2818,15 @@ async function loadCurrentTrack({
     }
 
     if (advancePageWithinCurrentBv({ automatic: true, skipFailed: true })) {
-      showPlaybackNotice("该分P无法播放，已自动跳过。");
+      showPlaybackNotice(`${playbackFailureMessage(error, true)}，已自动跳过。`);
       return;
     }
 
     const advanced = playNext({ automatic: true, skipFailed: true });
     if (advanced) {
-      showPlaybackNotice("该视频无法播放，已自动跳过。");
+      showPlaybackNotice(`${playbackFailureMessage(error)}，已自动跳过。`);
     } else {
-      const message = "该视频无法播放，队列中没有可继续播放的内容。";
+      const message = `${playbackFailureMessage(error)}，队列中没有可继续播放的内容。`;
       status.textContent = message;
       showPlaybackNotice(message, { persistent: true });
     }
