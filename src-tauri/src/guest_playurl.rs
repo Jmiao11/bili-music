@@ -4,7 +4,7 @@ use bilibili_music_core::{StreamAudioInfo, BILIBILI_REFERER, DESKTOP_USER_AGENT}
 use reqwest::header::{ACCEPT_ENCODING, COOKIE, RANGE, REFERER, SET_COOKIE, USER_AGENT};
 use reqwest::redirect::Policy;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
@@ -333,6 +333,7 @@ async fn first_working_audio_url<'a>(
     }
 
     let mut last_error = None;
+    let mut probe_hosts = FailedProbeHosts::default();
     #[cfg(debug_assertions)]
     let mut candidate_index = 0;
     for candidate in candidates {
@@ -340,15 +341,21 @@ async fn first_working_audio_url<'a>(
         {
             candidate_index += 1;
         }
+        let (host, should_skip) = probe_hosts.candidate(candidate);
+        if should_skip {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[stream-diag] dash probe candidate={} host={} 跳过：该主机已失败",
+                candidate_index, host
+            );
+            continue;
+        }
         match probe_audio_url(client, candidate).await {
             Ok(_probe) => {
                 #[cfg(debug_assertions)]
                 eprintln!(
                     "[stream-diag] dash probe candidate={} host={} HTTP={} 选中第 {} 个候选",
-                    candidate_index,
-                    stream_diag_host(candidate),
-                    _probe.status,
-                    candidate_index
+                    candidate_index, host, _probe.status, candidate_index
                 );
                 return Ok(candidate);
             }
@@ -356,10 +363,9 @@ async fn first_working_audio_url<'a>(
                 #[cfg(debug_assertions)]
                 eprintln!(
                     "[stream-diag] dash probe candidate={} host={} error={}",
-                    candidate_index,
-                    stream_diag_host(candidate),
-                    error
+                    candidate_index, host, error
                 );
+                probe_hosts.record_failure(host);
                 last_error = Some(error);
             }
         }
@@ -367,7 +373,7 @@ async fn first_working_audio_url<'a>(
     Err(format!(
         "all audio URLs for id {} failed probe: {}",
         audio.id,
-        last_error.unwrap_or_else(|| "unknown probe failure".to_owned())
+        probe_hosts.failure_detail(last_error)
     ))
 }
 
@@ -383,6 +389,7 @@ async fn first_working_muxed_url(
     }
 
     let mut last_error = None;
+    let mut probe_hosts = FailedProbeHosts::default();
     #[cfg(debug_assertions)]
     let mut candidate_index = 0;
     for candidate in candidates {
@@ -390,13 +397,22 @@ async fn first_working_muxed_url(
         {
             candidate_index += 1;
         }
+        let (host, should_skip) = probe_hosts.candidate(candidate);
+        if should_skip {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[stream-diag] durl probe candidate={} host={} 跳过：该主机已失败",
+                candidate_index, host
+            );
+            continue;
+        }
         match probe_audio_url(client, candidate).await {
             Ok(probe) => {
                 #[cfg(debug_assertions)]
                 eprintln!(
                     "[stream-diag] durl probe candidate={} host={} HTTP={} mp4={}",
                     candidate_index,
-                    stream_diag_host(candidate),
+                    host,
                     probe.status,
                     probe.looks_mp4()
                 );
@@ -411,26 +427,58 @@ async fn first_working_muxed_url(
                 #[cfg(debug_assertions)]
                 eprintln!(
                     "[stream-diag] durl probe candidate={} host={} error={}",
-                    candidate_index,
-                    stream_diag_host(candidate),
-                    error
+                    candidate_index, host, error
                 );
+                probe_hosts.record_failure(host);
                 last_error = Some(error);
             }
         }
     }
     Err(format!(
         "all durl URLs failed probe: {}",
-        last_error.unwrap_or_else(|| "unknown probe failure".to_owned())
+        probe_hosts.failure_detail(last_error)
     ))
 }
 
-#[cfg(debug_assertions)]
 fn stream_diag_host(url: &str) -> String {
+    // 用于候选失败主机去重与诊断输出，不再仅服务于 debug 日志。
     reqwest::Url::parse(url)
         .ok()
         .and_then(|url| url.host_str().map(str::to_owned))
         .unwrap_or_else(|| "<invalid-or-missing-host>".to_owned())
+}
+
+#[derive(Default)]
+struct FailedProbeHosts {
+    failed: BTreeSet<String>,
+    skipped: BTreeSet<String>,
+}
+
+impl FailedProbeHosts {
+    fn candidate(&mut self, url: &str) -> (String, bool) {
+        let host = stream_diag_host(url);
+        let should_skip = self.failed.contains(&host);
+        if should_skip {
+            self.skipped.insert(host.clone());
+        }
+        (host, should_skip)
+    }
+
+    fn record_failure(&mut self, host: String) {
+        self.failed.insert(host);
+    }
+
+    fn failure_detail(&self, last_error: Option<String>) -> String {
+        let error = last_error.unwrap_or_else(|| "unknown probe failure".to_owned());
+        if self.skipped.is_empty() {
+            error
+        } else {
+            format!(
+                "{error}; skipped previously failed hosts: {}",
+                self.skipped.iter().cloned().collect::<Vec<_>>().join(", ")
+            )
+        }
+    }
 }
 
 fn stream_diag_allowed_host(host: &str) -> bool {
@@ -1149,8 +1197,9 @@ impl AudioStream {
 #[cfg(test)]
 mod tests {
     use super::{
-        ordered_candidates, select_audio, select_muxed_durl, AudioStream, DashData, DurlStream,
-        PlayurlData, ProbeResult,
+        first_working_audio_url, first_working_muxed_url, ordered_candidates, select_audio,
+        select_muxed_durl, AudioStream, DashData, DurlStream, FailedProbeHosts, PlayurlData,
+        ProbeResult,
     };
 
     #[test]
@@ -1359,6 +1408,84 @@ mod tests {
     #[test]
     fn candidates_allow_empty_list() {
         assert!(ordered_candidates(&audio_stream(vec![])).is_empty());
+    }
+
+    #[test]
+    fn failed_host_is_only_attempted_once() {
+        let (attempted, _) = simulate_failed_probes(&[
+            "https://upos-sz-mirrorcos.bilivideo.com/audio.m4s?deadline=1",
+            "https://upos-sz-mirrorcos.bilivideo.com/audio.m4s?deadline=2",
+        ]);
+
+        assert_eq!(attempted, vec!["upos-sz-mirrorcos.bilivideo.com"]);
+    }
+
+    #[test]
+    fn different_failed_hosts_are_each_attempted() {
+        let (attempted, _) = simulate_failed_probes(&[
+            "https://upos-sz-mirrorcos.bilivideo.com/audio.m4s",
+            "https://upos-sz-mirrorcosb.bilivideo.com/audio.m4s",
+        ]);
+
+        assert_eq!(
+            attempted,
+            vec![
+                "upos-sz-mirrorcos.bilivideo.com",
+                "upos-sz-mirrorcosb.bilivideo.com",
+            ]
+        );
+    }
+
+    #[test]
+    fn all_failed_error_reports_skipped_host() {
+        let (_, probe_hosts) = simulate_failed_probes(&[
+            "https://upos-sz-mirrorcos.bilivideo.com/audio.m4s?deadline=1",
+            "https://upos-sz-mirrorcos.bilivideo.com/audio.m4s?deadline=2",
+        ]);
+        let error = probe_hosts.failure_detail(Some(
+            "audio URL probe request failed: connection timed out".to_owned(),
+        ));
+
+        assert!(error.contains("upos-sz-mirrorcos.bilivideo.com"));
+        assert!(!error.contains("unknown probe failure"));
+    }
+
+    #[test]
+    fn empty_probe_candidates_keep_existing_errors() {
+        let client = reqwest::Client::new();
+        let audio = audio_stream(vec![]);
+        let durl = DurlStream {
+            base_url_camel: None,
+            base_url_snake: None,
+            url: None,
+            backup_url_camel: vec![],
+            backup_url_snake: vec![],
+        };
+
+        let audio_error =
+            tauri::async_runtime::block_on(first_working_audio_url(&client, &audio)).unwrap_err();
+        let durl_error =
+            tauri::async_runtime::block_on(first_working_muxed_url(&client, &durl)).unwrap_err();
+
+        assert_eq!(
+            audio_error,
+            "selected audio id 30232 has no baseUrl/base_url or backup URLs"
+        );
+        assert_eq!(durl_error, "durl entry has no baseUrl/url");
+    }
+
+    fn simulate_failed_probes(urls: &[&str]) -> (Vec<String>, FailedProbeHosts) {
+        let mut attempted = Vec::new();
+        let mut probe_hosts = FailedProbeHosts::default();
+        for url in urls {
+            let (host, should_skip) = probe_hosts.candidate(url);
+            if should_skip {
+                continue;
+            }
+            attempted.push(host.clone());
+            probe_hosts.record_failure(host);
+        }
+        (attempted, probe_hosts)
     }
 
     fn audio_stream(urls: Vec<&str>) -> AudioStream {
