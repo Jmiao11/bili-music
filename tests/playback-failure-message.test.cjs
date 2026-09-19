@@ -13,10 +13,11 @@ assert.ok(functionSource.includes("function playbackFailureMessage"));
 
 const context = vm.createContext({});
 vm.runInContext(
-  `${functionSource}\nglobalThis.playbackFailureMessage = playbackFailureMessage;`,
+  `${functionSource}\nglobalThis.playbackFailureMessage = playbackFailureMessage;\nglobalThis.unavailableTrackReason = unavailableTrackReason;`,
   context,
 );
 const classify = context.playbackFailureMessage;
+const unavailableReason = context.unavailableTrackReason;
 
 test("deleted, private, and permission business codes share the unavailable message", () => {
   const errors = [
@@ -81,4 +82,17 @@ test("Error, string, null, undefined, and hostile objects never break classifica
   }
   assert.equal(classify(null), "该视频无法播放");
   assert.equal(classify(undefined, true), "该分P无法播放");
+});
+
+test("only permanent playback failures produce an unavailable-track reason", () => {
+  assert.equal(
+    unavailableReason("Bilibili view failed with code 62002: 稿件不可见"),
+    "该视频已被删除或设为私密",
+  );
+  assert.equal(
+    unavailableReason("Bilibili playurl response has no data.dash.audio"),
+    "该视频没有可播放的音频",
+  );
+  assert.equal(unavailableReason("Bilibili view returned HTTP 412"), "");
+  assert.equal(unavailableReason("audio CDN host is not allowed: example.com"), "");
 });

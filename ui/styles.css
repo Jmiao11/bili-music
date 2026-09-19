@@ -2287,6 +2287,29 @@ svg {
   font-weight: 500;
 }
 
+.track-row.is-unavailable .track-title {
+  color: var(--text-3);
+}
+
+.track-unavailable {
+  /* 失效图标视觉数值：集中放置，便于 live 调整。 */
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0.5px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-3);
+  background: var(--panel-raised);
+  opacity: 0.62;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+}
+
 .track-up {
   display: block;
   margin-top: 3px;

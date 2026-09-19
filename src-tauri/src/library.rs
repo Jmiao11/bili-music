@@ -12,6 +12,7 @@ const PLAYLISTS_FILE: &str = "playlists.json";
 const SEARCH_HISTORY_FILE: &str = "search-history.json";
 const PLAY_HISTORY_FILE: &str = "play-history.json";
 const PLAYBACK_STATE_FILE: &str = "playback-state.json";
+const UNAVAILABLE_TRACKS_FILE: &str = "unavailable-tracks.json";
 const PLAYBACK_STATE_VERSION: u32 = 1;
 #[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
@@ -20,8 +21,10 @@ const APP_DATA_DIR: &str = "bili-music";
 const MAX_SEARCH_HISTORY_ITEMS: usize = 100;
 const MAX_PLAY_HISTORY_ITEMS: usize = 200;
 const MAX_LOUDNESS_ITEMS: usize = 2000;
+const MAX_UNAVAILABLE_TRACKS: usize = 500;
 // ponytail: 单文件锁串行化读写，拆分存储后再按文件细分。
 static LOUDNESS_FILE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static UNAVAILABLE_TRACKS_FILE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(debug_assertions)]
 const DEV_LIBRARY_DIR: &str = ".local-data";
 
@@ -126,6 +129,20 @@ struct LoudnessFile {
     items: Vec<LoudnessItem>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnavailableTrack {
+    pub bvid: String,
+    pub reason: String,
+    pub marked_at: u128,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct UnavailableTracksFile {
+    version: u32,
+    items: Vec<UnavailableTrack>,
+}
+
 impl Default for LoudnessFile {
     fn default() -> Self {
         Self {
@@ -136,6 +153,21 @@ impl Default for LoudnessFile {
 }
 
 impl Versioned for LoudnessFile {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
+
+impl Default for UnavailableTracksFile {
+    fn default() -> Self {
+        Self {
+            version: VERSION,
+            items: Vec::new(),
+        }
+    }
+}
+
+impl Versioned for UnavailableTracksFile {
     fn version(&self) -> u32 {
         self.version
     }
@@ -211,6 +243,72 @@ pub fn clear_loudness_data() -> Result<(), String> {
         &library_file_path("loudness.json")?,
         &LoudnessFile::default(),
     )
+}
+
+fn mark_track_unavailable_at(
+    path: &Path,
+    bvid: &str,
+    reason: String,
+    marked_at: u128,
+) -> Result<(), String> {
+    let bvid = normalize_bvid(bvid)?;
+    let mut file: UnavailableTracksFile = read_json_or_default(path)?;
+    file.items
+        .retain(|item| !item.bvid.eq_ignore_ascii_case(&bvid));
+    file.items.push(UnavailableTrack {
+        bvid,
+        reason,
+        marked_at,
+    });
+    file.items
+        .sort_by_key(|item| std::cmp::Reverse(item.marked_at));
+    file.items.truncate(MAX_UNAVAILABLE_TRACKS);
+    write_json_atomic(path, &file)
+}
+
+#[tauri::command]
+pub fn mark_track_unavailable(bvid: String, reason: String) -> Result<(), String> {
+    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
+        .lock()
+        .map_err(|_| "失效曲目数据锁异常。")?;
+    mark_track_unavailable_at(
+        &library_file_path(UNAVAILABLE_TRACKS_FILE)?,
+        &bvid,
+        reason,
+        now_millis(),
+    )
+}
+
+fn clear_track_unavailable_at(path: &Path, bvid: &str) -> Result<(), String> {
+    let bvid = normalize_bvid(bvid)?;
+    let mut file: UnavailableTracksFile = read_json_or_default(path)?;
+    let original_len = file.items.len();
+    file.items
+        .retain(|item| !item.bvid.eq_ignore_ascii_case(&bvid));
+    if file.items.len() == original_len {
+        return Ok(());
+    }
+    write_json_atomic(path, &file)
+}
+
+#[tauri::command]
+pub fn clear_track_unavailable(bvid: String) -> Result<(), String> {
+    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
+        .lock()
+        .map_err(|_| "失效曲目数据锁异常。")?;
+    clear_track_unavailable_at(&library_file_path(UNAVAILABLE_TRACKS_FILE)?, &bvid)
+}
+
+fn list_unavailable_tracks_at(path: &Path) -> Result<Vec<UnavailableTrack>, String> {
+    Ok(read_json_or_default::<UnavailableTracksFile>(path)?.items)
+}
+
+#[tauri::command]
+pub fn list_unavailable_tracks() -> Result<Vec<UnavailableTrack>, String> {
+    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
+        .lock()
+        .map_err(|_| "失效曲目数据锁异常。")?;
+    list_unavailable_tracks_at(&library_file_path(UNAVAILABLE_TRACKS_FILE)?)
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -1270,6 +1368,84 @@ mod tests {
         }
         assert!(super::save_track_loudness_at(&path, "BV1GF4X6MEb1:1", f64::NAN, 1).is_err());
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn unavailable_tracks_mark_update_list_and_clear() {
+        let path = test_path();
+        super::mark_track_unavailable_at(
+            &path,
+            "BV1GF4X6MEb1",
+            "该视频已被删除或设为私密".into(),
+            100,
+        )
+        .unwrap();
+        super::mark_track_unavailable_at(
+            &path,
+            "BV1GF4X6MEB1",
+            "该视频没有可播放的音频".into(),
+            200,
+        )
+        .unwrap();
+
+        let items = super::list_unavailable_tracks_at(&path).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].bvid, "BV1GF4X6MEB1");
+        assert_eq!(items[0].reason, "该视频没有可播放的音频");
+        assert_eq!(items[0].marked_at, 200);
+
+        super::clear_track_unavailable_at(&path, "BV1GF4X6MEb1").unwrap();
+        assert!(super::list_unavailable_tracks_at(&path).unwrap().is_empty());
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn unavailable_tracks_reject_invalid_bvid_without_writing() {
+        let path = test_path();
+        assert!(super::mark_track_unavailable_at(&path, "av123", "失效".into(), 1).is_err());
+        assert!(super::clear_track_unavailable_at(&path, "av123").is_err());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn unavailable_tracks_evict_oldest_mark() {
+        let path = test_path();
+        let file = super::UnavailableTracksFile {
+            version: VERSION,
+            items: (0..500)
+                .map(|index| super::UnavailableTrack {
+                    bvid: format!("BV{index:010}"),
+                    reason: "失效".into(),
+                    marked_at: if index == 123 { 0 } else { index + 1 },
+                })
+                .collect(),
+        };
+        write_json_atomic(&path, &file).unwrap();
+        super::mark_track_unavailable_at(
+            &path,
+            "BV9999999999",
+            "该视频已被删除或设为私密".into(),
+            1000,
+        )
+        .unwrap();
+
+        let items = super::list_unavailable_tracks_at(&path).unwrap();
+        assert_eq!(items.len(), 500);
+        assert_eq!(items[0].bvid, "BV9999999999");
+        assert!(!items.iter().any(|item| item.bvid == "BV0000000123"));
+        assert!(items.iter().any(|item| item.bvid == "BV0000000000"));
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn unavailable_tracks_reject_unsupported_version_without_overwriting() {
+        let path = test_path();
+        let bytes = r#"{"version":999,"items":[]}"#;
+        fs::write(&path, bytes).unwrap();
+        assert!(super::list_unavailable_tracks_at(&path).is_err());
+        assert!(super::mark_track_unavailable_at(&path, "BV1GF4X6MEb1", "失效".into(), 1).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), bytes);
+        fs::remove_file(path).unwrap();
     }
 
     fn track(title: &str) -> TrackSnapshot {

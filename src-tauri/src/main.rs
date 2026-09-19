@@ -40,9 +40,10 @@ use uuid::Uuid;
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
-    add_to_playlist, clear_playback_state, clear_search_history, create_playlist, delete_playlist,
-    export_data, get_play_history, get_playback_state, get_search_history, import_data,
-    is_favorite, list_favorites, list_playlists, record_play, record_search_history,
+    add_to_playlist, clear_playback_state, clear_search_history, clear_track_unavailable,
+    create_playlist, delete_playlist, export_data, get_play_history, get_playback_state,
+    get_search_history, import_data, is_favorite, list_favorites, list_playlists,
+    list_unavailable_tracks, mark_track_unavailable, record_play, record_search_history,
     remove_from_playlist, rename_playlist, reorder_favorite, reorder_playlist,
     reorder_playlist_item, save_playback_state, toggle_favorite,
 };
@@ -763,6 +764,9 @@ fn main() {
             get_playback_state,
             save_playback_state,
             clear_playback_state,
+            mark_track_unavailable,
+            clear_track_unavailable,
+            list_unavailable_tracks,
             ai::get_ai_config,
             ai::set_ai_config,
             ai::test_ai_connection,

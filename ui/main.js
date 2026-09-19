@@ -50,6 +50,13 @@ function playbackFailureMessage(error, isPage = false) {
   return `${subject}无法播放`;
 }
 
+function unavailableTrackReason(error) {
+  const message = playbackFailureMessage(error);
+  return message.includes("已被删除") || message.includes("没有可播放的音频")
+    ? message
+    : "";
+}
+
 const playerState = {
   queue: [],
   queueSource: "none",
@@ -126,6 +133,7 @@ const libraryState = {
   favorites: [],
   favoriteBvids: new Set(),
   playlists: [],
+  unavailableBvids: new Map(),
   selectedPlaylistId: "",
   loadError: "",
 };
@@ -1230,7 +1238,18 @@ function createTrackRow(video, index, onPlay, options = {}) {
     ? formatDuration(video.durationSeconds)
     : "0:00";
   playButton.append(trackDuration);
-  item.append(playButton, createTrackActions(video, options));
+  const actions = createTrackActions(video, options);
+  const unavailableReason = libraryState.unavailableBvids.get(video.bvid.toLowerCase());
+  if (unavailableReason) {
+    item.classList.add("is-unavailable");
+    const unavailable = document.createElement("span");
+    unavailable.className = "track-unavailable";
+    unavailable.textContent = "!";
+    unavailable.title = unavailableReason;
+    unavailable.setAttribute("aria-label", unavailableReason);
+    actions.prepend(unavailable);
+  }
+  item.append(playButton, actions);
   bindTrackActivation(item, playButton, video, (pageSelection) =>
     onPlay(index, pageSelection));
 
@@ -2019,9 +2038,13 @@ function escapeText(value) {
 
 async function loadLibrary() {
   try {
-    const [favorites, playlists] = await Promise.all([
+    const [favorites, playlists, unavailableTracks] = await Promise.all([
       invoke("list_favorites"),
       invoke("list_playlists"),
+      invoke("list_unavailable_tracks").catch((error) => {
+        console.warn("unavailable tracks load failed:", error);
+        return [];
+      }),
     ]);
     libraryState.favorites = favorites.map(normalizeTrack);
     libraryState.favoriteBvids = new Set(
@@ -2031,11 +2054,15 @@ async function loadLibrary() {
       ...playlist,
       items: (playlist.items ?? []).map(normalizeTrack),
     }));
+    libraryState.unavailableBvids = new Map(
+      unavailableTracks.map((item) => [item.bvid.toLowerCase(), item.reason]),
+    );
     libraryState.loadError = "";
   } catch (error) {
     libraryState.favorites = [];
     libraryState.favoriteBvids = new Set();
     libraryState.playlists = [];
+    libraryState.unavailableBvids = new Map();
     libraryState.loadError = `本地资料库读取失败：${error}`;
     console.error("library load failed:", error);
   }
@@ -2717,6 +2744,12 @@ async function loadCurrentTrack({
       return;
     }
     playerState.consecutiveResolveFailures = 0;
+    const unavailableKey = video.bvid.toLowerCase();
+    if (libraryState.unavailableBvids.delete(unavailableKey)) {
+      invoke("clear_track_unavailable", { bvid: video.bvid })
+        .catch((error) => console.warn("unavailable track clear failed:", error));
+      renderLibraryViews();
+    }
 
     const displayTrack = buildDisplayTrack(video, info, page);
     playerState.currentDisplayTrack = displayTrack;
@@ -2805,6 +2838,14 @@ async function loadCurrentTrack({
     }
 
     console.error(`prepare_audio failed for ${video.bvid}:`, error);
+
+    const unavailableReason = unavailableTrackReason(error);
+    if (unavailableReason) {
+      libraryState.unavailableBvids.set(video.bvid.toLowerCase(), unavailableReason);
+      invoke("mark_track_unavailable", { bvid: video.bvid, reason: unavailableReason })
+        .catch((markError) => console.warn("unavailable track mark failed:", markError));
+      renderLibraryViews();
+    }
 
     playerState.consecutiveResolveFailures += 1;
     if (
