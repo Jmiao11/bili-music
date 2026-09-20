@@ -2,6 +2,7 @@
 
 mod ai;
 mod appearance;
+mod audio_cache;
 mod fav_import;
 mod guest_playurl;
 mod library;
