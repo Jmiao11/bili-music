@@ -31,13 +31,18 @@ use bilibili_music_core::{
 use reqwest::redirect::Policy;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::io::SeekFrom;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
 use std::path::{Path as FilePath, PathBuf};
+use std::pin::Pin;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, ReadBuf};
 use tokio::sync::RwLock;
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 use appearance::{choose_background_image, load_background_image};
@@ -561,7 +566,15 @@ async fn proxy_audio(
 
     let url = match entry.source {
         StreamLocation::Remote(url) => url,
-        StreamLocation::Local(path) => return proxy_local_audio(&path, method),
+        StreamLocation::Local(path) => {
+            let range = request
+                .headers()
+                .get(RANGE)
+                .and_then(|value| value.to_str().ok())
+                .map(str::to_owned);
+            // 本地响应没有 ETag / Last-Modified，因此刻意忽略 If-Range。
+            return proxy_local_audio(&path, method, range.as_deref()).await;
+        }
     };
 
     let upstream_host = url.host_str().unwrap_or("?").to_owned();
@@ -644,23 +657,158 @@ async fn proxy_audio(
         .unwrap_or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
 }
 
-fn proxy_local_audio(path: &FilePath, method: Method) -> Response<Body> {
-    let metadata = match std::fs::metadata(path) {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LocalByteRange {
+    Full,
+    Partial { start: u64, end: u64 },
+    Unsatisfiable,
+}
+
+fn parse_local_range(value: Option<&str>, len: u64) -> LocalByteRange {
+    let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return LocalByteRange::Full;
+    };
+    let Some((unit, range)) = value.split_once('=') else {
+        return LocalByteRange::Full;
+    };
+    let range = range.trim();
+    if !unit.trim().eq_ignore_ascii_case("bytes") || range.contains(',') {
+        return LocalByteRange::Full;
+    }
+    let Some((start, end)) = range.split_once('-') else {
+        return LocalByteRange::Full;
+    };
+    let start = start.trim();
+    let end = end.trim();
+
+    if start.is_empty() {
+        let Ok(suffix) = end.parse::<u64>() else {
+            return LocalByteRange::Full;
+        };
+        if suffix == 0 || len == 0 {
+            return LocalByteRange::Unsatisfiable;
+        }
+        let suffix = suffix.min(len);
+        return LocalByteRange::Partial {
+            start: len - suffix,
+            end: len - 1,
+        };
+    }
+
+    let Ok(start) = start.parse::<u64>() else {
+        return LocalByteRange::Full;
+    };
+    if end.is_empty() {
+        return if start >= len {
+            LocalByteRange::Unsatisfiable
+        } else {
+            LocalByteRange::Partial {
+                start,
+                end: len - 1,
+            }
+        };
+    }
+
+    let Ok(end) = end.parse::<u64>() else {
+        return LocalByteRange::Full;
+    };
+    if start > end {
+        LocalByteRange::Full
+    } else if start >= len {
+        LocalByteRange::Unsatisfiable
+    } else {
+        LocalByteRange::Partial {
+            start,
+            end: end.min(len - 1),
+        }
+    }
+}
+
+fn local_content_range(range: LocalByteRange, len: u64) -> Option<String> {
+    match range {
+        LocalByteRange::Full => None,
+        LocalByteRange::Partial { start, end } => Some(format!("bytes {start}-{end}/{len}")),
+        LocalByteRange::Unsatisfiable => Some(format!("bytes */{len}")),
+    }
+}
+
+struct LoggingReader<R> {
+    inner: R,
+    path: PathBuf,
+}
+
+impl<R: AsyncRead + Unpin> AsyncRead for LoggingReader<R> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        buffer: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        match Pin::new(&mut this.inner).poll_read(context, buffer) {
+            Poll::Ready(Err(error)) => {
+                eprintln!(
+                    "[audio-proxy] local stream read failed for {}: {error}",
+                    this.path.display()
+                );
+                Poll::Ready(Err(error))
+            }
+            result => result,
+        }
+    }
+}
+
+async fn proxy_local_audio(
+    path: &FilePath,
+    method: Method,
+    range_header: Option<&str>,
+) -> Response<Body> {
+    let metadata = match tokio::fs::metadata(path).await {
         Ok(metadata) if metadata.is_file() => metadata,
         Ok(_) => return empty_response(StatusCode::NOT_FOUND),
         Err(error) => return empty_response(local_file_error_status(&error)),
     };
-    // 本关已知限制：忽略 Range 并始终返回完整文件；关 3 补充 Range 支持。
-    let (content_length, body) = if method == Method::HEAD {
-        (metadata.len(), Body::empty())
-    } else {
-        match std::fs::read(path) {
-            Ok(bytes) => (bytes.len() as u64, Body::from(bytes)),
-            Err(error) => return empty_response(local_file_error_status(&error)),
+    let len = metadata.len();
+    let range = parse_local_range(range_header, len);
+    let (status, start, content_length) = match range {
+        LocalByteRange::Full => (StatusCode::OK, 0, len),
+        LocalByteRange::Partial { start, end } => {
+            (StatusCode::PARTIAL_CONTENT, start, end - start + 1)
         }
+        LocalByteRange::Unsatisfiable => (StatusCode::RANGE_NOT_SATISFIABLE, 0, 0),
     };
-    Response::builder()
-        .status(StatusCode::OK)
+
+    let body = if method == Method::HEAD
+        || range == LocalByteRange::Unsatisfiable
+        || content_length == 0
+    {
+        Body::empty()
+    } else {
+        let mut file = match tokio::fs::File::open(path).await {
+            Ok(file) => file,
+            Err(error) => {
+                eprintln!(
+                    "[audio-proxy] failed to open local stream {}: {error}",
+                    path.display()
+                );
+                return empty_response(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+        };
+        if let Err(error) = file.seek(SeekFrom::Start(start)).await {
+            eprintln!(
+                "[audio-proxy] failed to seek local stream {}: {error}",
+                path.display()
+            );
+            return empty_response(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        let reader = LoggingReader {
+            inner: file.take(content_length),
+            path: path.to_owned(),
+        };
+        Body::from_stream(ReaderStream::new(reader))
+    };
+
+    let mut response = Response::builder()
+        .status(status)
         .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .header(ACCEPT_RANGES, "bytes")
         .header(
@@ -668,7 +816,11 @@ fn proxy_local_audio(path: &FilePath, method: Method) -> Response<Body> {
             "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified",
         )
         .header(CONTENT_TYPE, "audio/mp4")
-        .header(CONTENT_LENGTH, content_length)
+        .header(CONTENT_LENGTH, content_length);
+    if let Some(content_range) = local_content_range(range, len) {
+        response = response.header(CONTENT_RANGE, content_range);
+    }
+    response
         .body(body)
         .unwrap_or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
 }
@@ -865,8 +1017,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_valid_bvid, proxy_local_audio, validate_cdn_url, ResolveCoordinator, StreamEntry,
-        StreamLocation,
+        is_valid_bvid, local_content_range, parse_local_range, proxy_local_audio, validate_cdn_url,
+        LocalByteRange, ResolveCoordinator, StreamEntry, StreamLocation,
     };
     use axum::http::{header, Method, StatusCode};
     use std::path::PathBuf;
@@ -894,7 +1046,7 @@ mod tests {
     #[test]
     fn missing_local_stream_returns_not_found() {
         let path = std::env::temp_dir().join(format!("missing-{}.m4a", Uuid::new_v4()));
-        let response = proxy_local_audio(&path, Method::GET);
+        let response = tauri::async_runtime::block_on(proxy_local_audio(&path, Method::GET, None));
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
@@ -903,16 +1055,164 @@ mod tests {
         let path = std::env::temp_dir().join(format!("local-stream-{}.m4a", Uuid::new_v4()));
         std::fs::write(&path, [1, 2, 3, 4]).unwrap();
 
-        let response = proxy_local_audio(&path, Method::GET);
+        let response = tauri::async_runtime::block_on(proxy_local_audio(&path, Method::GET, None));
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/mp4");
         assert_eq!(response.headers()[header::CONTENT_LENGTH], "4");
         assert_eq!(response.headers()[header::ACCEPT_RANGES], "bytes");
         assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
 
-        let head = proxy_local_audio(&path, Method::HEAD);
+        let head = tauri::async_runtime::block_on(proxy_local_audio(&path, Method::HEAD, None));
         assert_eq!(head.status(), StatusCode::OK);
         assert_eq!(head.headers()[header::CONTENT_LENGTH], "4");
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn local_range_parses_full_and_explicit_ranges() {
+        assert_eq!(parse_local_range(None, 1_000), LocalByteRange::Full);
+        assert_eq!(
+            parse_local_range(Some("bytes=0-"), 1_000),
+            LocalByteRange::Partial { start: 0, end: 999 }
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=100-199"), 1_000),
+            LocalByteRange::Partial {
+                start: 100,
+                end: 199,
+            }
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=100-"), 1_000),
+            LocalByteRange::Partial {
+                start: 100,
+                end: 999,
+            }
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=900-2000"), 1_000),
+            LocalByteRange::Partial {
+                start: 900,
+                end: 999,
+            }
+        );
+    }
+
+    #[test]
+    fn local_range_parses_suffix_ranges() {
+        assert_eq!(
+            parse_local_range(Some("bytes=-500"), 1_000),
+            LocalByteRange::Partial {
+                start: 500,
+                end: 999,
+            }
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=-2000"), 1_000),
+            LocalByteRange::Partial { start: 0, end: 999 }
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=-0"), 1_000),
+            LocalByteRange::Unsatisfiable
+        );
+    }
+
+    #[test]
+    fn local_range_rejects_out_of_bounds_and_ignores_unsupported_syntax() {
+        assert_eq!(
+            parse_local_range(Some("bytes=1000-"), 1_000),
+            LocalByteRange::Unsatisfiable
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=1001-"), 1_000),
+            LocalByteRange::Unsatisfiable
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=200-100"), 1_000),
+            LocalByteRange::Full
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=0-99,200-299"), 1_000),
+            LocalByteRange::Full
+        );
+        assert_eq!(
+            parse_local_range(Some("items=0-99"), 1_000),
+            LocalByteRange::Full
+        );
+        assert_eq!(
+            parse_local_range(Some("completely malformed"), 1_000),
+            LocalByteRange::Full
+        );
+    }
+
+    #[test]
+    fn local_range_accepts_whitespace_and_handles_empty_files() {
+        assert_eq!(
+            parse_local_range(Some("  bytes = 100 - 199  "), 1_000),
+            LocalByteRange::Partial {
+                start: 100,
+                end: 199,
+            }
+        );
+        assert_eq!(parse_local_range(None, 0), LocalByteRange::Full);
+        assert_eq!(
+            parse_local_range(Some("bytes=0-"), 0),
+            LocalByteRange::Unsatisfiable
+        );
+        assert_eq!(
+            parse_local_range(Some("bytes=-1"), 0),
+            LocalByteRange::Unsatisfiable
+        );
+    }
+
+    #[test]
+    fn local_content_range_matches_loudness_validation_rules() {
+        let range = LocalByteRange::Partial {
+            start: 100,
+            end: 999,
+        };
+        let value = local_content_range(range, 1_000).unwrap();
+        assert_eq!(value, "bytes 100-999/1000");
+        assert_eq!(
+            local_content_range(LocalByteRange::Unsatisfiable, 1_000).as_deref(),
+            Some("bytes */1000")
+        );
+
+        // 复刻 loudness.rs::validate_content_range 的私有判定，不修改其可见性。
+        let parsed = value.strip_prefix("bytes ").and_then(|value| {
+            let (range, total) = value.split_once('/')?;
+            let (start, end) = range.split_once('-')?;
+            Some((
+                start.parse::<u64>().ok()?,
+                end.parse::<u64>().ok()?,
+                total.parse::<u64>().ok()?,
+            ))
+        });
+        assert!(matches!(
+            parsed,
+            Some((start, end, total))
+                if start == 100 && end >= start && end < total && total == 1_000
+        ));
+    }
+
+    #[test]
+    fn local_partial_response_has_range_headers() {
+        let path = std::env::temp_dir().join(format!("local-range-{}.m4a", Uuid::new_v4()));
+        std::fs::write(&path, [1, 2, 3, 4]).unwrap();
+
+        let partial = tauri::async_runtime::block_on(proxy_local_audio(
+            &path,
+            Method::GET,
+            Some("bytes=1-2"),
+        ));
+        assert_eq!(partial.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(partial.headers()[header::CONTENT_RANGE], "bytes 1-2/4");
+        assert_eq!(partial.headers()[header::CONTENT_LENGTH], "2");
+
+        let unsatisfiable =
+            tauri::async_runtime::block_on(proxy_local_audio(&path, Method::GET, Some("bytes=4-")));
+        assert_eq!(unsatisfiable.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(unsatisfiable.headers()[header::CONTENT_RANGE], "bytes */4");
         std::fs::remove_file(path).unwrap();
     }
 
