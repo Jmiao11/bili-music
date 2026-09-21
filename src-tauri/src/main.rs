@@ -8,6 +8,7 @@ mod guest_playurl;
 mod library;
 mod loudness;
 mod lyrics;
+mod mini_player;
 mod ranking;
 mod search;
 mod shortcuts;
@@ -36,6 +37,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tauri::Manager;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -699,6 +701,15 @@ fn main() {
         .expect("failed to create the favorite import client");
 
     tauri::Builder::default()
+        .on_window_event(|window, event| {
+            if window.label() == mini_player::MINI_WINDOW_LABEL
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
+                if let Err(error) = mini_player::restore_main_window(window.app_handle()) {
+                    eprintln!("[mini-player] close recovery failed: {error}");
+                }
+            }
+        })
         .manage(AppState {
             loudness_busy: Arc::new(AtomicBool::new(false)),
             proxy,
@@ -730,6 +741,9 @@ fn main() {
             fav_import::read_public_favorite_page,
             library::create_imported_playlist,
             taskbar::set_taskbar_playback_state,
+            mini_player::open_mini_player,
+            mini_player::mini_player_ready,
+            mini_player::exit_mini_player,
             prepare_audio,
             analyze_track_loudness,
             library::get_track_loudness,

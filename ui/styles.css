@@ -391,6 +391,7 @@ svg {
   align-self: stretch;
 }
 
+.window-utility-controls,
 .window-controls {
   display: inline-flex;
   height: 100%;
