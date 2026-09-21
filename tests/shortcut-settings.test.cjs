@@ -16,7 +16,10 @@ const recorderSource = source.slice(
 assert.ok(formatterSource.startsWith("function isShortcutModifierCode("));
 assert.ok(recorderSource.startsWith("function shortcutButtonFor("));
 
-const formatterContext = vm.createContext({ Set });
+const formatterContext = vm.createContext({
+  Set,
+  document: { documentElement: { dataset: { platform: "windows" } } },
+});
 vm.runInContext(formatterSource, formatterContext);
 
 function format(event) {
@@ -56,6 +59,20 @@ test("always orders modifiers as Ctrl Alt Shift Super", () => {
   }), "Ctrl+Alt+Shift+Super+P");
 });
 
+test("macOS displays Command without changing the canonical binding", () => {
+  const binding = "Ctrl+Shift+Super+P";
+  formatterContext.document.documentElement.dataset.platform = "macos";
+  assert.equal(
+    formatterContext.shortcutDisplayLabel(binding),
+    "Ctrl+Shift+Command+P",
+  );
+  assert.equal(binding, "Ctrl+Shift+Super+P");
+  assert.equal(formatterContext.shortcutDisplayLabel("CommandOrControl+P"), "Command+P");
+  assert.equal(formatterContext.shortcutDisplayLabel(null), "未设置");
+  formatterContext.document.documentElement.dataset.platform = "windows";
+  assert.equal(formatterContext.shortcutDisplayLabel(binding), binding);
+});
+
 function fakeButton(action, binding) {
   const classes = new Set();
   return {
@@ -80,6 +97,7 @@ test("only one action records and Escape cancels without saving", () => {
     recordingShortcutAction: null,
     appearanceStatus: { textContent: "" },
     shortcutFromKeyboardEvent: formatterContext.shortcutFromKeyboardEvent,
+    shortcutDisplayLabel: formatterContext.shortcutDisplayLabel,
     isShortcutModifierCode: formatterContext.isShortcutModifierCode,
     saveShortcutBinding: (...args) => saved.push(args),
   });
