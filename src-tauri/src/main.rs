@@ -32,6 +32,7 @@ use reqwest::redirect::Policy;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
+use std::path::{Path as FilePath, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -64,8 +65,14 @@ struct ProxyState {
 
 #[derive(Clone)]
 struct StreamEntry {
-    url: reqwest::Url,
+    source: StreamLocation,
     expires_at: Instant,
+}
+
+#[derive(Clone)]
+enum StreamLocation {
+    Remote(reqwest::Url),
+    Local(PathBuf),
 }
 
 struct AppState {
@@ -283,7 +290,7 @@ async fn prepare_audio(
         streams.insert(
             token.clone(),
             StreamEntry {
-                url: upstream_url,
+                source: StreamLocation::Remote(upstream_url),
                 expires_at: now + STREAM_SESSION_TTL,
             },
         );
@@ -353,6 +360,23 @@ async fn resolve_lyrics(
 #[tauri::command]
 fn cancel_prepare_audio(state: tauri::State<'_, AppState>) {
     state.resolver.cancel_current();
+}
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+async fn debug_register_local_stream(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<String, String> {
+    let token = Uuid::new_v4().simple().to_string();
+    state.proxy.streams.write().await.insert(
+        token.clone(),
+        StreamEntry {
+            source: StreamLocation::Local(PathBuf::from(path)),
+            expires_at: Instant::now() + STREAM_SESSION_TTL,
+        },
+    );
+    Ok(format!("{}/audio/{token}", state.proxy_base_url))
 }
 
 #[tauri::command]
@@ -535,10 +559,15 @@ async fn proxy_audio(
         return empty_response(StatusCode::GONE);
     }
 
-    let upstream_host = entry.url.host_str().unwrap_or("?").to_owned();
+    let url = match entry.source {
+        StreamLocation::Remote(url) => url,
+        StreamLocation::Local(path) => return proxy_local_audio(&path, method),
+    };
+
+    let upstream_host = url.host_str().unwrap_or("?").to_owned();
     let mut upstream_request = state
         .client
-        .request(method.clone(), entry.url)
+        .request(method.clone(), url)
         .header(REFERER, BILIBILI_REFERER)
         .header(USER_AGENT, DESKTOP_USER_AGENT)
         .header(ACCEPT_ENCODING, "identity");
@@ -613,6 +642,43 @@ async fn proxy_audio(
     response
         .body(body)
         .unwrap_or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
+}
+
+fn proxy_local_audio(path: &FilePath, method: Method) -> Response<Body> {
+    let metadata = match std::fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => metadata,
+        Ok(_) => return empty_response(StatusCode::NOT_FOUND),
+        Err(error) => return empty_response(local_file_error_status(&error)),
+    };
+    // 本关已知限制：忽略 Range 并始终返回完整文件；关 3 补充 Range 支持。
+    let (content_length, body) = if method == Method::HEAD {
+        (metadata.len(), Body::empty())
+    } else {
+        match std::fs::read(path) {
+            Ok(bytes) => (bytes.len() as u64, Body::from(bytes)),
+            Err(error) => return empty_response(local_file_error_status(&error)),
+        }
+    };
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(ACCEPT_RANGES, "bytes")
+        .header(
+            ACCESS_CONTROL_EXPOSE_HEADERS,
+            "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified",
+        )
+        .header(CONTENT_TYPE, "audio/mp4")
+        .header(CONTENT_LENGTH, content_length)
+        .body(body)
+        .unwrap_or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
+}
+
+fn local_file_error_status(error: &std::io::Error) -> StatusCode {
+    if error.kind() == std::io::ErrorKind::NotFound {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
 }
 
 fn forward_request_header(
@@ -739,6 +805,8 @@ fn main() {
             lyrics::get_cached_video_pages,
             lyrics::clear_video_pages_cache,
             cancel_prepare_audio,
+            #[cfg(debug_assertions)]
+            debug_register_local_stream,
             search_videos,
             get_music_ranking,
             get_stream_source,
@@ -796,8 +864,57 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_valid_bvid, validate_cdn_url, ResolveCoordinator};
+    use super::{
+        is_valid_bvid, proxy_local_audio, validate_cdn_url, ResolveCoordinator, StreamEntry,
+        StreamLocation,
+    };
+    use axum::http::{header, Method, StatusCode};
+    use std::path::PathBuf;
     use std::sync::atomic::Ordering;
+    use std::time::{Duration, Instant};
+    use uuid::Uuid;
+
+    #[test]
+    fn stream_entry_sources_construct_and_match() {
+        let url = reqwest::Url::parse("https://example.bilivideo.com/audio.m4s").unwrap();
+        let remote = StreamEntry {
+            source: StreamLocation::Remote(url.clone()),
+            expires_at: Instant::now() + Duration::from_secs(1),
+        };
+        assert!(matches!(remote.source, StreamLocation::Remote(value) if value == url));
+
+        let path = PathBuf::from("track.m4a");
+        let local = StreamEntry {
+            source: StreamLocation::Local(path.clone()),
+            expires_at: Instant::now() + Duration::from_secs(1),
+        };
+        assert!(matches!(local.source, StreamLocation::Local(value) if value == path));
+    }
+
+    #[test]
+    fn missing_local_stream_returns_not_found() {
+        let path = std::env::temp_dir().join(format!("missing-{}.m4a", Uuid::new_v4()));
+        let response = proxy_local_audio(&path, Method::GET);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn local_stream_response_has_audio_headers() {
+        let path = std::env::temp_dir().join(format!("local-stream-{}.m4a", Uuid::new_v4()));
+        std::fs::write(&path, [1, 2, 3, 4]).unwrap();
+
+        let response = proxy_local_audio(&path, Method::GET);
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/mp4");
+        assert_eq!(response.headers()[header::CONTENT_LENGTH], "4");
+        assert_eq!(response.headers()[header::ACCEPT_RANGES], "bytes");
+        assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+
+        let head = proxy_local_audio(&path, Method::HEAD);
+        assert_eq!(head.status(), StatusCode::OK);
+        assert_eq!(head.headers()[header::CONTENT_LENGTH], "4");
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn allows_bilibili_audio_cdn_subdomains() {
