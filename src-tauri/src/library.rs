@@ -1259,8 +1259,14 @@ fn normalize_shortcut(value: &str) -> Option<String> {
     for token in &tokens[..tokens.len() - 1] {
         let modifier = match token.to_ascii_uppercase().as_str() {
             "ALT" | "OPTION" => "ALT",
-            "CONTROL" | "CTRL" | "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL"
-            | "CMDORCONTROL" => "CONTROL",
+            "CONTROL" | "CTRL" => "CONTROL",
+            "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
+                if cfg!(target_os = "macos") {
+                    "SUPER"
+                } else {
+                    "CONTROL"
+                }
+            }
             "COMMAND" | "CMD" | "SUPER" => "SUPER",
             "SHIFT" => "SHIFT",
             _ => return None,
@@ -1591,6 +1597,17 @@ mod tests {
         let bindings = ShortcutBindings {
             previous: Some("Ctrl+Alt+Left".to_owned()),
             next: Some("alt+control+ArrowLeft".to_owned()),
+            ..Default::default()
+        };
+        assert!(validate_shortcut_bindings(&bindings).is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn shortcut_validation_treats_command_or_control_as_command_on_macos() {
+        let bindings = ShortcutBindings {
+            previous: Some("CommandOrControl+P".to_owned()),
+            next: Some("Command+P".to_owned()),
             ..Default::default()
         };
         assert!(validate_shortcut_bindings(&bindings).is_err());

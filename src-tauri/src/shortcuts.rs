@@ -1,15 +1,15 @@
-//! Optional Windows global shortcuts. Playback remains owned by the frontend.
+//! Optional desktop global shortcuts. Playback remains owned by the frontend.
 
 pub use platform::{install, reload};
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 mod platform {
     pub fn install(_app: &tauri::App) {}
 
     pub fn reload(_app: &tauri::AppHandle) {}
 }
 
-#[cfg(windows)]
+#[cfg(any(windows, target_os = "macos"))]
 mod platform {
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
@@ -95,6 +95,19 @@ mod platform {
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .insert(shortcut.id(), action);
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+
+    #[test]
+    fn macos_accepts_frontend_command_binding_formats() {
+        for binding in ["Super+P", "Command+P", "Cmd+P"] {
+            let shortcut = binding.parse::<Shortcut>().unwrap();
+            assert!(shortcut.matches(Modifiers::SUPER, Code::KeyP));
         }
     }
 }
