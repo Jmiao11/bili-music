@@ -169,6 +169,35 @@ function shortcutFromKeyboardEvent(event) {
   return [...modifiers, key].join("+");
 }
 
+function shortcutDisplayLabel(binding) {
+  if (!binding) {
+    return "未设置";
+  }
+  if (document.documentElement.dataset.platform !== "macos") {
+    return binding;
+  }
+  return binding
+    .split("+")
+    .map((token) => {
+      const normalized = token.trim().toUpperCase();
+      if (
+        [
+          "SUPER",
+          "COMMAND",
+          "CMD",
+          "COMMANDORCONTROL",
+          "COMMANDORCTRL",
+          "CMDORCONTROL",
+          "CMDORCTRL",
+        ].includes(normalized)
+      ) {
+        return "Command";
+      }
+      return token;
+    })
+    .join("+");
+}
+
 function shortcutButtonFor(action) {
   return shortcutRecordButtons.find((button) => button.dataset.shortcutAction === action);
 }
@@ -176,7 +205,7 @@ function shortcutButtonFor(action) {
 function renderShortcutButton(action) {
   const button = shortcutButtonFor(action);
   if (button) {
-    button.textContent = shortcutBindings[action] || "未设置";
+    button.textContent = shortcutDisplayLabel(shortcutBindings[action]);
     button.classList.remove("is-recording");
   }
 }

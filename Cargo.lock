@@ -384,6 +384,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-global-shortcut",
  "tokio",
+ "tokio-util",
  "uuid",
  "windows",
  "zip",
