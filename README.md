@@ -11,7 +11,8 @@
 <div align="center">
   <img src="screenshots/home.png" width="640" alt="Bili Music 主界面" />
   <img src="screenshots/lyrics.png" width="640" alt="Bili Music 沉浸播放页与歌词" />
-  <img src="screenshots/settings.png" width="640" alt="Bili Music 设置" />
+  <br />
+  <img src="screenshots/mini.png" width="250" alt="Bili Music 迷你悬浮播放器" />
 </div>
 
 ---
@@ -31,15 +32,13 @@ Bili Music 是一个基于 **Tauri v2 + Rust** 的桌面音乐播放器，把 B 
 
 | 功能 | 说明 |
 | --- | --- |
-| 🔎 音乐搜索 | B 站音乐区搜索，本地相关性重排让原曲上浮，可按「单曲 / 合集」筛选，支持粘贴 BV 号直接播放 |放 |
+| 🔎 音乐搜索 | B 站音乐区搜索，本地相关性重排让原曲上浮，可按「单曲 / 合集」筛选，支持粘贴 BV 号直接播放 |
 | 🏠 首页为你推荐 | 首页聚焦「为你推荐」：基于收藏 / 歌单 / 听歌记录，由 AI 生成检索意图再重排真实结果 |
-| 🧠 一句话推荐 | 复用你自己的 AI Key，一句「想听点安静的钢琴」即可即时引导本次推荐方向 |
 | 🕑 听歌记录 | 本地记录真正听过的歌（长歌够 30s、短歌听完 90% 才算），持续加厚推荐口味 |
 | 🐾 桌宠陪伴 | 侧边栏桌宠（小黑咪 / 糯米飘 / 橘子汪），会律动、切歌收藏时冒气泡，只对可观测事件反应 |
 | 💾 数据备份 | 一键把收藏、歌单、听歌记录、AI 配置与背景图导出成 zip，换机或重装一键导回 |
 | 🎵 在线流式播放 | 后端 Axum 流代理，透传 `Range`，边下边播，不落盘 |
 | 📼 合集连播 | 多 P 视频可自动顺序连播，标题跟随当前分 P 切换 |
-| ❤️ 收藏与歌单 | 本地 JSON 持久化收藏与自建歌单，原子写入，坏文件不覆盖 |
 | 🪞 沉浸播放页 | 大封面、滚动歌词、上下渐隐，与底部播放条共享同一套播放器状态 |
 | 🌘 四档主题 | 深色 / 浅色 / 背景图 / 动态背景，动态主题从当前封面取色生成流动渐变；另可在六种主题色中自选 |
 | 🪟 原生质感 | 自定义无边框标题栏，整体更像桌面应用而不是浏览器壳 |
@@ -47,7 +46,7 @@ Bili Music 是一个基于 **Tauri v2 + Rust** 的桌面音乐播放器，把 B 
 | 📥 收藏夹导入 | 粘贴 B 站公开收藏夹链接，一键批量导入为本地歌单，自动跳过失效条目 |
 | ↕️ 拖拽排序 | 歌单、歌单内歌曲、收藏均可拖动调整顺序 |
 | 🪟 任务栏控制 | Windows 悬停任务栏图标即可上一首 / 播放暂停 / 下一首 |
-| 📐 侧栏可调 | 拖拽调节侧栏宽度，可折叠为纯图标模式，状态自动记住 |
+| 🪶 迷你播放器 | 一键收起为置顶小窗，继续切歌、暂停和收藏，关闭即回到主窗口 |
 
 ## 🧠 技术亮点
 
@@ -122,11 +121,13 @@ B 站搜索的 `totalrank` 排序优化的是点击率，对播放器来说结�
 - **后端**：Rust + Cargo workspace + Axum 本地流代理
 - **前端**：原生 HTML / CSS / JavaScript
 - **取流**：游客直链为主，[yt-dlp](https://github.com/yt-dlp/yt-dlp) 可选兜底
-- **本地数据**：JSON（收藏、歌单、搜索历史）
+- **本地数据**：JSON（收藏、歌单、搜索历史、响度测量值、快捷键配置）
 
 > **致谢**
 > - B 站接口整理参考了 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 > - 歌词数据由第三方接口 [落月 API](https://doc.vkeys.cn/) 提供
+> - 迷你悬浮播放器由 [@justasuka](https://github.com/justasuka) 贡献
+
 ## 📦 安装与运行
 
 > ⚠️ **平台说明**：主要在 **Windows 10 / 11** 上开发与验证；**macOS** 由协作者 [@liyu-1028](https://github.com/liyu-1028) 适配与测试，提供 Apple Silicon 与 Intel 两个版本。Linux 理论上 Tauri 可支持，但**未经测试**。
@@ -187,9 +188,14 @@ cargo tauri build
 
 ## 许可
 
-本项目采用 [MIT License](LICENSE)。
-
 本项目为非官方的第三方客户端，与 bilibili 无关，仅供学习研究。使用者需自行遵守 B站 及相关第三方接口的服务条款。
+
+### 第三方依赖许可
+
+本项目使用了以下采用非 MIT 许可证的依赖：
+
+- [symphonia](https://github.com/pdeljanov/Symphonia) — MPL-2.0
+- [tauri-plugin-global-shortcut](https://github.com/tauri-apps/plugins-workspace) — Apache-2.0 OR MIT
 
 <div align="center">
   <sub>由 Tauri + Rust 构建 · 仅供学习研究 · 如果这个项目对你有帮助，欢迎 Star</sub>
