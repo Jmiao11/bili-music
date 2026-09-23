@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-// 本模块将在后续关卡接入 prepare_audio 与代理层，届时移除该属性。
-
 use crate::library::{library_root, read_json_or_default, write_json_atomic, Versioned};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -41,6 +38,12 @@ pub(crate) struct AudioCacheItem {
     pub(crate) bytes: u64,
     pub(crate) last_access_at: u128,
     #[serde(flatten)]
+    pub(crate) metadata: AudioCacheMetadata,
+}
+
+pub(crate) struct CachedAudio {
+    pub(crate) key: String,
+    pub(crate) path: PathBuf,
     pub(crate) metadata: AudioCacheMetadata,
 }
 
@@ -171,19 +174,45 @@ pub(crate) fn cache_stats(index: &AudioCacheIndex) -> (u64, usize) {
     )
 }
 
-pub(crate) fn lookup_cached_file(key: &str) -> Result<Option<String>, String> {
+pub(crate) fn lookup_cached_file(
+    bvid: &str,
+    cid: Option<u64>,
+) -> Result<Option<CachedAudio>, String> {
+    if cid.is_none() {
+        return Ok(None);
+    }
     let _lock = AUDIO_CACHE_INDEX_LOCK
         .lock()
         .map_err(|_| "音频缓存索引锁异常。")?;
-    let dir = cache_dir()?;
-    let path = dir.join(INDEX_FILE);
-    let mut index = read_index_at(&path)?;
-    let Some(file_name) = lookup_file_name(&mut index, key, now_millis()) else {
+    lookup_cached_file_at(&cache_dir()?, bvid, cid)
+}
+
+fn lookup_cached_file_at(
+    dir: &Path,
+    bvid: &str,
+    cid: Option<u64>,
+) -> Result<Option<CachedAudio>, String> {
+    let Some(key) = cache_key(bvid, cid) else {
         return Ok(None);
     };
-    if dir.join(&file_name).is_file() {
+    let path = dir.join(INDEX_FILE);
+    let mut index = read_index_at(&path)?;
+    if !index.enabled {
+        return Ok(None);
+    }
+    let Some(item) = index.items.iter().find(|item| item.key == key).cloned() else {
+        return Ok(None);
+    };
+    validate_cache_file_name(&item.file_name)?;
+    let file_path = dir.join(&item.file_name);
+    if file_path.is_file() {
+        lookup_file_name(&mut index, &key, now_millis());
         write_index_at(&path, &index)?;
-        return Ok(Some(file_name));
+        return Ok(Some(CachedAudio {
+            key,
+            path: file_path,
+            metadata: item.metadata,
+        }));
     }
 
     index.items.retain(|item| item.key != key);
@@ -717,6 +746,102 @@ mod tests {
         );
         assert_eq!(index.items[0].last_access_at, 99);
         assert_eq!(lookup_file_name(&mut index, "missing", 100), None);
+    }
+
+    #[test]
+    fn cached_audio_hit_returns_path_and_updates_access() {
+        let temp = TempDir::new();
+        let key = "BV1xx411c7mD:42";
+        let file_name = cache_file_name(key);
+        let file_path = temp.path().join(&file_name);
+        fs::write(&file_path, b"audio").unwrap();
+        let mut saved = item(key, 5, 1);
+        saved.metadata = metadata();
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![saved],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        let hit = lookup_cached_file_at(temp.path(), "BV1xx411c7mD", Some(42))
+            .unwrap()
+            .unwrap();
+        assert_eq!(hit.key, key);
+        assert_eq!(hit.path, file_path);
+        assert_eq!(hit.metadata, metadata());
+        let updated = read_index_at(&temp.path().join(INDEX_FILE)).unwrap();
+        assert!(updated.items[0].last_access_at > 1);
+    }
+
+    #[test]
+    fn cached_audio_missing_file_cleans_index_item() {
+        let temp = TempDir::new();
+        let key = "BV1xx411c7mD:42";
+        let file_path = temp.path().join(cache_file_name(key));
+        fs::write(&file_path, b"audio").unwrap();
+        fs::remove_file(&file_path).unwrap();
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![item(key, 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert!(lookup_cached_file_at(temp.path(), "BV1xx411c7mD", Some(42))
+            .unwrap()
+            .is_none());
+        assert!(read_index_at(&temp.path().join(INDEX_FILE))
+            .unwrap()
+            .items
+            .is_empty());
+    }
+
+    #[test]
+    fn cached_audio_unknown_key_is_a_miss() {
+        let temp = TempDir::new();
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![item("other", 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert!(lookup_cached_file_at(temp.path(), "BV1xx411c7mD", Some(42))
+            .unwrap()
+            .is_none());
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
+    }
+
+    #[test]
+    fn cached_audio_disabled_is_a_miss_without_index_change() {
+        let temp = TempDir::new();
+        let index = AudioCacheIndex {
+            items: vec![item("BV1xx411c7mD:42", 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert!(lookup_cached_file_at(temp.path(), "BV1xx411c7mD", Some(42))
+            .unwrap()
+            .is_none());
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
+    }
+
+    #[test]
+    fn cached_audio_without_cid_is_a_miss() {
+        let temp = TempDir::new();
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![item("BV1xx411c7mD:42", 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert!(lookup_cached_file_at(temp.path(), "BV1xx411c7mD", None)
+            .unwrap()
+            .is_none());
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
     }
 
     #[test]

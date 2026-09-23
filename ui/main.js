@@ -384,6 +384,10 @@ function currentVideoPage() {
   return playerState.currentPages[playerState.currentPageIndex] ?? null;
 }
 
+function currentAudioCacheCid() {
+  return currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid ?? null;
+}
+
 function updatePlayerPagesButton() {
   const pageCount = playerState.currentPages.length;
   const hasCurrent =
@@ -2857,6 +2861,7 @@ async function loadCurrentTrack({
     const info = await invoke("prepare_audio", {
       bvId: video.bvid,
       cid: page?.cid ?? null,
+      cacheCid: currentAudioCacheCid(),
       page: page?.page ?? null,
       part: page?.part ?? null,
       durationSeconds: page?.durationSeconds ?? null,
@@ -3547,7 +3552,7 @@ audio.addEventListener("timeupdate", () => {
   if (audio.currentTime < threshold) return;
   const snapshot = currentTrackSnapshot();
   const bvid = snapshot.bvid;
-  const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
+  const cid = currentAudioCacheCid();
   const audioUrl = playerState.activeAudioUrl;
   if (
     !bvid || !cid || !audioUrl || !snapshot.title || !snapshot.uploader ||

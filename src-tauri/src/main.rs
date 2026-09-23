@@ -191,6 +191,9 @@ async fn prepare_audio(
     state: tauri::State<'_, AppState>,
     bv_id: String,
     cid: Option<u64>,
+    // cid 表示用户选定的分P，单P 时前端传 null；cache_cid 表示当前实际播放的分P，
+    // 只用于缓存键，两者不可混用。
+    cache_cid: Option<u64>,
     page: Option<u32>,
     part: Option<String>,
     duration_seconds: Option<f64>,
@@ -199,6 +202,45 @@ async fn prepare_audio(
     let job_id = job.id;
     let cancellation = job.cancellation;
     let result = async {
+        let cached = match audio_cache::lookup_cached_file(&bv_id, cache_cid) {
+            Ok(cached) => cached,
+            Err(error) => {
+                #[cfg(debug_assertions)]
+                eprintln!("[audio-cache] lookup failed: {error}");
+                None
+            }
+        };
+        if let Some(cached) = cached {
+            if !state.resolver.is_current(job_id) {
+                return Err(AUDIO_RESOLUTION_CANCELLED.to_owned());
+            }
+            let token = Uuid::new_v4().simple().to_string();
+            let now = Instant::now();
+            let mut streams = state.proxy.streams.write().await;
+            if !state.resolver.is_current(job_id) {
+                return Err(AUDIO_RESOLUTION_CANCELLED.to_owned());
+            }
+            streams.retain(|_, stream| stream.expires_at > now);
+            streams.insert(
+                token.clone(),
+                StreamEntry {
+                    source: StreamLocation::Local(cached.path),
+                    expires_at: now + STREAM_SESSION_TTL,
+                },
+            );
+            drop(streams);
+            #[cfg(debug_assertions)]
+            eprintln!("[audio-cache] hit key={}", cached.key);
+
+            // 索引中的封面 URL 来自前端已规范化的值，命中时直接使用。
+            return Ok(AudioResponse {
+                audio_url: format!("{}/audio/{token}", state.proxy_base_url),
+                title: cached.metadata.title,
+                uploader: cached.metadata.uploader,
+                thumbnail_url: cached.metadata.thumbnail_url,
+                duration_seconds: cached.metadata.duration_seconds as f64,
+            });
+        }
         let resolving_bv_id = bv_id.clone();
         let page_hint = GuestPageHint {
             cid,
