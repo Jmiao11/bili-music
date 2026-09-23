@@ -459,17 +459,24 @@ function clearPlaybackNotice() {
     playbackNoticeTimer = null;
   }
   playbackNotice.classList.remove("is-visible");
+  playbackNotice.textContent = "";
+  window.dispatchEvent(new Event("bilibili-music-notice-change"));
 }
 
-function showPlaybackNotice(message, { persistent = false } = {}) {
-  clearPlaybackNotice();
+function showPlaybackNotice(message, { persistent = false, kind = "error" } = {}) {
+  if (kind === "info" && playbackNotice.classList.contains("is-visible") &&
+      playbackNotice.dataset.kind === "error") return;
+  if (playbackNoticeTimer !== null) {
+    clearTimeout(playbackNoticeTimer);
+    playbackNoticeTimer = null;
+  }
+  playbackNotice.dataset.kind = kind;
   playbackNotice.textContent = message;
   playbackNotice.classList.add("is-visible");
+  window.dispatchEvent(new Event("bilibili-music-notice-change"));
   if (!persistent) {
-    playbackNoticeTimer = window.setTimeout(() => {
-      playbackNotice.classList.remove("is-visible");
-      playbackNoticeTimer = null;
-    }, SKIP_NOTICE_DURATION_MS);
+    playbackNoticeTimer = window.setTimeout(clearPlaybackNotice,
+      kind === "info" ? 2000 : SKIP_NOTICE_DURATION_MS);
   }
 }
 
@@ -726,8 +733,8 @@ function updateQueueUi() {
   queuePosition.textContent = hasCurrent
     ? `♪${playerState.currentIndex + 1}/${playerState.queue.length}`
     : `♪0/${playerState.queue.length}`;
-  previousButton.disabled = !hasCurrent;
-  nextButton.disabled = !hasCurrent;
+  previousButton.disabled = false;
+  nextButton.disabled = false;
 
   const loopMode = LOOP_MODES.find(
     (candidate) => candidate.id === playerState.loopMode,
@@ -3207,6 +3214,7 @@ function retreatPageWithinCurrentBv() {
 
 function playNext({ automatic = false, skipFailed = false } = {}) {
   if (playerState.currentIndex < 0) {
+    if (!automatic) showPlaybackNotice("暂无可播放的歌曲", { kind: "info" });
     return false;
   }
   if (automatic && playerState.loopMode === "single" && !skipFailed) {
@@ -3221,7 +3229,8 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
     nextIndex === null ||
     (skipFailed && nextIndex === playerState.currentIndex)
   ) {
-    status.textContent = automatic ? "队列播放完毕。" : "已到队列末尾。";
+    if (automatic) status.textContent = "队列播放完毕。";
+    else showPlaybackNotice(playerState.shuffle ? "本轮随机播放已结束" : "已经是最后一首了", { kind: "info" });
     return false;
   }
   playQueueIndex(nextIndex, { preserveFailureStreak: skipFailed });
@@ -3230,6 +3239,7 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
 
 function playPrevious() {
   if (playerState.currentIndex < 0) {
+    showPlaybackNotice("暂无可播放的歌曲", { kind: "info" });
     return;
   }
 
@@ -3248,7 +3258,7 @@ function playPrevious() {
   ) {
     playQueueIndex(playerState.queue.length - 1, { recordCurrent: false });
   } else {
-    status.textContent = "没有上一首。";
+    showPlaybackNotice(playerState.shuffle ? "暂无上一首播放记录" : "已经是第一首了", { kind: "info" });
   }
 }
 

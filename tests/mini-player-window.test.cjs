@@ -41,6 +41,7 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
     "#mini-title": element(),
     "#mini-title-viewport": element(),
     "#mini-cover": element(),
+    "#mini-notice": element(),
   };
   const root = element();
   const document = Object.assign(new EventTarget(), {
@@ -106,6 +107,17 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
     fire: (name, payload) => listeners.get(name)?.({ payload }),
   };
 }
+
+test("mini displays and clears host notices without disabling navigation", async () => {
+  const app = setup();
+  await app.controller.start();
+  app.fire("mini-player-state", { notice: "暂无可播放的歌曲", canPrevious: true, canNext: true });
+  assert.equal(app.controls["#mini-notice"].textContent, "暂无可播放的歌曲");
+  assert.equal(app.controls["#mini-notice"].hidden, false);
+  assert.equal(app.controls["#mini-next"].disabled, false);
+  app.fire("mini-player-state", { notice: "" });
+  assert.equal(app.controls["#mini-notice"].hidden, true);
+});
 
 test("start restores a valid position, signals both handshake channels, and renders state", async () => {
   const app = setup({ stored: JSON.stringify({ x: 2500, y: 1400 }) });

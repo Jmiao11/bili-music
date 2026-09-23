@@ -114,6 +114,11 @@ function createMiniPlayerController({
   }
 
   function render(state = {}) {
+    const notice = query("#mini-notice");
+    if (notice) {
+      notice.textContent = state.notice || "";
+      notice.hidden = !state.notice;
+    }
     const hasCurrent = Boolean(state.hasCurrent);
     const nextTitle = state.title || "尚未播放";
     if (nextTitle !== lastTitle) {

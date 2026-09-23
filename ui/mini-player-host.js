@@ -41,6 +41,7 @@ function miniPlayerState(document) {
     isFavorited: favoriteButton?.classList?.contains("is-favorited") ?? false,
     theme: root?.dataset?.theme || "dark",
     accent: miniPlayerAccent(root),
+    notice: query("#playback-notice")?.textContent || "",
   };
 }
 
@@ -167,6 +168,7 @@ function createMiniPlayerHost({
     }
     window.addEventListener("bilibili-music-trackchange", publish);
     window.addEventListener("bilibili-music-favorite-change", publish);
+    window.addEventListener("bilibili-music-notice-change", publish);
   }
 
   return { start, publish, openMiniPlayer };

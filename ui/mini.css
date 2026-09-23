@@ -40,6 +40,7 @@ body {
 }
 
 .mini-shell {
+  position: relative;
   width: 100%;
   height: 100%;
   display: grid;
@@ -50,6 +51,21 @@ body {
   border-radius: 8px;
   background: var(--mini-bg);
   user-select: none;
+}
+
+#mini-notice {
+  position: absolute;
+  top: 7px;
+  left: 52px;
+  right: 38px;
+  margin: 0;
+  padding: 3px;
+  max-height: 40px;
+  overflow: auto;
+  background: var(--mini-bg);
+  color: var(--mini-text);
+  font-size: 12px;
+  pointer-events: none;
 }
 
 .mini-track {
