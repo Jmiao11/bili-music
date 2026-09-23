@@ -391,7 +391,7 @@
         <header class="settings-header">
           <div>
             <h2 id="settings-title">设置</h2>
-            <p>主题、背景与播放取流方式</p>
+            <p>主题、背景与音频设置</p>
           </div>
           <button id="close-settings-button" class="tool-button" type="button" aria-label="关闭设置">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" /></svg>
@@ -452,12 +452,12 @@
 
         <details class="setting-group collapsible-group">
           <summary><h3>音频</h3></summary>
-          <div class="setting-subgroup">
-            <h4>音频获取方式</h4>
-            <label class="select-row" for="stream-source-select">
+          <div class="setting-subgroup audio-source-section">
+            <label class="select-row audio-source-row" for="stream-source-select">
+              <span>音频获取方式</span>
               <select id="stream-source-select" class="settings-select">
-                <option value="guest">游客直连（免登录，推荐）</option>
-                <option value="auto">自动（游客优先，失败用 yt-dlp 兜底）</option>
+                <option value="guest" title="游客直连（免登录，推荐）">游客直连</option>
+                <option value="auto" title="自动（游客优先，失败用 yt-dlp 兜底）">自动兜底</option>
               </select>
             </label>
             <small id="stream-source-status"></small>
@@ -469,6 +469,31 @@
               响度归一化
             </label>
             <small id="loudness-normalization-note" class="setting-note">降低已测量歌曲之间的音量差异，不放大较轻的歌曲。未测量的歌曲保持原音量。</small>
+          </div>
+          <div class="setting-subgroup audio-cache-section">
+            <label class="checkbox-row" for="audio-cache-enabled">
+              <input id="audio-cache-enabled" type="checkbox" aria-describedby="audio-cache-note" disabled />
+              启用本地音频缓存
+            </label>
+            <small id="audio-cache-note" class="setting-note">缓存播放过的音频，可提升再次播放的速度和稳定性。缓存会占用磁盘空间，可随时清除。</small>
+            <div class="audio-cache-details">
+              <div class="audio-cache-row audio-cache-usage-row">
+                <span>缓存占用</span>
+                <small id="audio-cache-usage" class="setting-note audio-cache-usage">读取中…</small>
+                <button id="clear-audio-cache-button" class="audio-cache-clear" type="button">清空缓存</button>
+              </div>
+              <label class="audio-cache-row" for="audio-cache-capacity">
+                <span>缓存上限</span>
+                <select id="audio-cache-capacity" class="settings-select" disabled>
+                  <option value="536870912">512 MB</option>
+                  <option value="1073741824">1 GB</option>
+                  <option value="2147483648" selected>2 GB</option>
+                  <option value="5368709120">5 GB</option>
+                  <option value="10737418240">10 GB</option>
+                </select>
+              </label>
+            </div>
+            <small id="audio-cache-status" class="setting-note audio-cache-status" role="status" aria-live="polite"></small>
           </div>
         </details>
 
@@ -531,35 +556,35 @@
 
         <details class="setting-group collapsible-group">
           <summary><h3>快捷键</h3></summary>
-          <div class="setting-subgroup">
+          <div class="setting-subgroup shortcut-row">
             <h4>上一曲</h4>
             <div class="shortcut-binding-actions">
               <button class="secondary-button shortcut-record-button" type="button" data-shortcut-action="previous">未设置</button>
               <button class="small-button quiet" type="button" data-shortcut-clear="previous">清除</button>
             </div>
           </div>
-          <div class="setting-subgroup">
+          <div class="setting-subgroup shortcut-row">
             <h4>播放/暂停</h4>
             <div class="shortcut-binding-actions">
               <button class="secondary-button shortcut-record-button" type="button" data-shortcut-action="playPause">未设置</button>
               <button class="small-button quiet" type="button" data-shortcut-clear="playPause">清除</button>
             </div>
           </div>
-          <div class="setting-subgroup">
+          <div class="setting-subgroup shortcut-row">
             <h4>下一曲</h4>
             <div class="shortcut-binding-actions">
               <button class="secondary-button shortcut-record-button" type="button" data-shortcut-action="next">未设置</button>
               <button class="small-button quiet" type="button" data-shortcut-clear="next">清除</button>
             </div>
           </div>
-          <div class="setting-subgroup">
+          <div class="setting-subgroup shortcut-row">
             <h4>音量增加</h4>
             <div class="shortcut-binding-actions">
               <button class="secondary-button shortcut-record-button" type="button" data-shortcut-action="volumeUp">未设置</button>
               <button class="small-button quiet" type="button" data-shortcut-clear="volumeUp">清除</button>
             </div>
           </div>
-          <div class="setting-subgroup">
+          <div class="setting-subgroup shortcut-row">
             <h4>音量降低</h4>
             <div class="shortcut-binding-actions">
               <button class="secondary-button shortcut-record-button" type="button" data-shortcut-action="volumeDown">未设置</button>

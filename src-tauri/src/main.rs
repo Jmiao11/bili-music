@@ -84,6 +84,7 @@ enum StreamLocation {
 
 struct AppState {
     loudness_busy: Arc<AtomicBool>,
+    cache_busy: Arc<AtomicBool>,
     proxy: ProxyState,
     proxy_base_url: String,
     search: SearchClient,
@@ -930,6 +931,7 @@ fn main() {
         })
         .manage(AppState {
             loudness_busy: Arc::new(AtomicBool::new(false)),
+            cache_busy: Arc::new(AtomicBool::new(false)),
             proxy,
             proxy_base_url: format!("http://127.0.0.1:{port}"),
             search,
@@ -964,6 +966,11 @@ fn main() {
             mini_player::exit_mini_player,
             prepare_audio,
             analyze_track_loudness,
+            audio_cache::cache_track_audio,
+            audio_cache::get_audio_cache_settings,
+            audio_cache::set_audio_cache_settings,
+            audio_cache::get_audio_cache_usage,
+            audio_cache::clear_audio_cache,
             library::get_track_loudness,
             library::clear_loudness_data,
             get_video_pages,

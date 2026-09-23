@@ -3977,6 +3977,119 @@ input[type="range"]::-webkit-slider-thumb {
   gap: 8px;
 }
 
+/* 音频获取方式 live 数值：下拉宽度、两列间距、分隔线上下留白。 */
+.audio-source-section {
+  --audio-source-select-width: 200px;
+  --audio-source-column-gap: 12px;
+  --audio-source-divider-above: 18px;
+  --audio-source-divider-below: 18px;
+}
+
+.select-row.audio-source-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--audio-source-column-gap);
+}
+
+.audio-source-row span {
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.audio-source-row #stream-source-select {
+  width: var(--audio-source-select-width);
+  justify-self: end;
+}
+
+/* 当前选项已由下拉框展示，保留状态节点供现有 JS 写入。 */
+.audio-source-section #stream-source-status {
+  display: none;
+}
+
+.audio-source-section::after {
+  content: "";
+  display: block;
+  margin-top: var(--audio-source-divider-above);
+  margin-bottom: var(--audio-source-divider-below);
+  border-top: 1px solid var(--line);
+}
+
+/* 缓存区 live 数值：下拉宽度、两列间距、分隔线上下留白。 */
+.audio-cache-section {
+  --audio-cache-select-width: 120px;
+  --audio-cache-column-gap: 12px;
+  --audio-cache-divider-gap: 18px;
+}
+
+.setting-subgroup.audio-cache-section {
+  margin-top: var(--audio-cache-divider-gap);
+}
+
+.audio-cache-section::before {
+  content: "";
+  display: block;
+  margin-bottom: var(--audio-cache-divider-gap);
+  border-top: 1px solid var(--line);
+}
+
+.audio-cache-details {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.audio-cache-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--audio-cache-column-gap);
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.audio-cache-row.audio-cache-usage-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.audio-cache-row .audio-cache-usage {
+  margin: 0;
+  color: var(--text-1);
+  opacity: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-cache-clear {
+  padding: 0;
+  color: var(--text-3);
+  background: transparent;
+  font-size: 12px;
+}
+
+.audio-cache-clear:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+}
+
+.audio-cache-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.audio-cache-row #audio-cache-capacity {
+  width: var(--audio-cache-select-width);
+  justify-self: end;
+}
+
+.audio-cache-section .audio-cache-status {
+  margin-top: 10px;
+}
+
+.audio-cache-status:empty {
+  display: none;
+}
+
 /* 设置子分组视觉数值集中区：便于 live 调整间距、字号与复选框尺寸。 */
 .setting-subgroup {
   margin-top: 18px;
@@ -4088,15 +4201,41 @@ input[type="range"]::-webkit-slider-thumb {
   background: transparent;
 }
 
-/* 快捷键录制视觉数值集中区：便于 live 调整列宽、间距与录制态强调。 */
-.shortcut-binding-actions {
+/* 快捷键 live 数值：录制按钮宽度、按钮间距、行间距、左标签宽度。 */
+.shortcut-row {
+  --shortcut-record-width: 160px;
+  --shortcut-button-gap: 8px;
+  --shortcut-row-gap: 8px;
+  --shortcut-label-width: 100px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: var(--shortcut-label-width) minmax(0, 1fr);
+  align-items: center;
+}
+
+.setting-subgroup.shortcut-row + .setting-subgroup.shortcut-row {
+  margin-top: var(--shortcut-row-gap);
+}
+
+.setting-subgroup.shortcut-row h4 {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.shortcut-binding-actions {
+  display: flex;
+  gap: var(--shortcut-button-gap);
+  justify-self: end;
 }
 
 .shortcut-record-button {
-  width: 100%;
+  display: block;
+  width: var(--shortcut-record-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .shortcut-record-button.is-recording {

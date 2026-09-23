@@ -95,6 +95,7 @@ const playerState = {
   currentDisplayTrack: null,
 };
 let playRecordedForCurrentTrack = false;
+let cacheRequestedForCurrentTrack = false;
 let pendingResume = null;
 let resumeInProgress = false;
 let lastPlaybackStateSavedAt = Number.NEGATIVE_INFINITY;
@@ -439,6 +440,7 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
 function emitCurrentTrackChanged() {
   playRecordedForCurrentTrack = false;
   loudnessAnalyzedForCurrentTrack = false;
+  cacheRequestedForCurrentTrack = false;
   const snapshot = currentTrackSnapshot();
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
@@ -3537,6 +3539,35 @@ audio.addEventListener("timeupdate", () => {
 });
 
 audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);
+
+audio.addEventListener("timeupdate", () => {
+  if (cacheRequestedForCurrentTrack) return;
+  const dur = Number(audio.duration);
+  const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
+  if (audio.currentTime < threshold) return;
+  const snapshot = currentTrackSnapshot();
+  const bvid = snapshot.bvid;
+  const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
+  const audioUrl = playerState.activeAudioUrl;
+  if (
+    !bvid || !cid || !audioUrl || !snapshot.title || !snapshot.uploader ||
+    !snapshot.thumbnailUrl || !snapshot.durationSeconds ||
+    playerState.activeAudioVersion !== playerState.requestVersion ||
+    audioUrl !== audio.currentSrc
+  ) return;
+  cacheRequestedForCurrentTrack = true;
+  invoke("cache_track_audio", {
+    audioUrl, bvid, cid,
+    title: snapshot.title,
+    uploader: snapshot.uploader,
+    thumbnailUrl: snapshot.thumbnailUrl,
+    durationSeconds: Math.round(Number(snapshot.durationSeconds)),
+  }).then((result) => {
+    console.debug("cache_track_audio:", result);
+    if (result === "cached") window.dispatchEvent(new Event("bilibili-music-audio-cache-updated"));
+  })
+    .catch((error) => console.warn("cache_track_audio failed:", error));
+});
 
 audio.addEventListener("timeupdate", () => {
   if (playRecordedForCurrentTrack) return;

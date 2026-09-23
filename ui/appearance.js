@@ -51,6 +51,13 @@ const backgroundDimSlider = document.querySelector("#background-dim-slider");
 const backgroundDimValue = document.querySelector("#background-dim-value");
 const streamSourceSelect = document.querySelector("#stream-source-select");
 const streamSourceStatus = document.querySelector("#stream-source-status");
+const audioCacheEnabled = document.querySelector("#audio-cache-enabled");
+const audioCacheCapacity = document.querySelector("#audio-cache-capacity");
+const audioCacheUsage = document.querySelector("#audio-cache-usage");
+const audioCacheStatus = document.querySelector("#audio-cache-status");
+const clearAudioCacheButton = document.querySelector("#clear-audio-cache-button");
+let audioCacheSettings = null;
+let audioCacheStatusTimer = null;
 const clearSearchHistoryButton = document.querySelector("#clear-search-history-button");
 const exportDataButton = document.querySelector("#export-data-button");
 const importDataButton = document.querySelector("#import-data-button");
@@ -674,12 +681,70 @@ function renderMascotPicker() {
 function openSettings() {
   settingsModal.hidden = false;
   restoreStreamSource();
+  restoreAudioCacheSettings();
+  refreshAudioCacheUsage();
   restoreAiConfig();
   renderMascotPicker();
   requestAnimationFrame(() => {
     settingsModal.classList.add("is-open");
     settingsModal.setAttribute("aria-hidden", "false");
   });
+}
+
+async function restoreAudioCacheSettings() {
+  clearTimeout(audioCacheStatusTimer);
+  audioCacheStatusTimer = null;
+  audioCacheEnabled.disabled = true;
+  audioCacheCapacity.disabled = true;
+  audioCacheSettings = null;
+  try {
+    audioCacheSettings = await invokeAppearance("get_audio_cache_settings");
+    audioCacheEnabled.checked = audioCacheSettings.enabled;
+    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
+    audioCacheStatus.textContent = "";
+  } catch (error) {
+    audioCacheStatus.textContent = `缓存设置读取失败：${error}`;
+  } finally {
+    audioCacheEnabled.disabled = !audioCacheSettings;
+    audioCacheCapacity.disabled = !audioCacheSettings;
+  }
+}
+
+async function refreshAudioCacheUsage() {
+  audioCacheUsage.textContent = "读取中…";
+  try {
+    const { bytes, items } = await invokeAppearance("get_audio_cache_usage");
+    const size = bytes === 0 ? "0 MB" : bytes < 1048576
+      ? "不足 1 MB" : `${(bytes / 1048576).toFixed(1)} MB`;
+    audioCacheUsage.textContent = `${size} · ${items} 首`;
+  } catch (error) {
+    audioCacheUsage.textContent = `读取失败：${error}`;
+  }
+}
+
+async function saveAudioCacheSettings() {
+  if (!audioCacheSettings) return;
+  clearTimeout(audioCacheStatusTimer);
+  audioCacheStatusTimer = null;
+  audioCacheEnabled.disabled = true;
+  audioCacheCapacity.disabled = true;
+  try {
+    audioCacheSettings = await invokeAppearance("set_audio_cache_settings", {
+      enabled: audioCacheEnabled.checked,
+      maxBytes: Number(audioCacheCapacity.value),
+    });
+    audioCacheEnabled.checked = audioCacheSettings.enabled;
+    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
+    audioCacheStatus.textContent = "";
+    await refreshAudioCacheUsage();
+  } catch (error) {
+    audioCacheEnabled.checked = audioCacheSettings.enabled;
+    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
+    audioCacheStatus.textContent = `缓存设置保存失败：${error}`;
+  } finally {
+    audioCacheEnabled.disabled = false;
+    audioCacheCapacity.disabled = false;
+  }
 }
 
 function closeSettings() {
@@ -1123,6 +1188,31 @@ streamSourceSelect?.addEventListener("change", async () => {
   } finally {
     streamSourceSelect.disabled = false;
   }
+});
+
+audioCacheEnabled?.addEventListener("change", saveAudioCacheSettings);
+audioCacheCapacity?.addEventListener("change", saveAudioCacheSettings);
+clearAudioCacheButton?.addEventListener("click", async () => {
+  clearTimeout(audioCacheStatusTimer);
+  audioCacheStatusTimer = null;
+  clearAudioCacheButton.disabled = true;
+  audioCacheStatus.textContent = "正在清空缓存…";
+  try {
+    await invokeAppearance("clear_audio_cache");
+    await refreshAudioCacheUsage();
+    audioCacheStatus.textContent = "缓存已清空";
+    audioCacheStatusTimer = setTimeout(() => {
+      audioCacheStatus.textContent = "";
+      audioCacheStatusTimer = null;
+    }, 3000);
+  } catch (error) {
+    audioCacheStatus.textContent = `清空缓存失败：${error}`;
+  } finally {
+    clearAudioCacheButton.disabled = false;
+  }
+});
+window.addEventListener("bilibili-music-audio-cache-updated", () => {
+  if (settingsModal.classList.contains("is-open")) refreshAudioCacheUsage();
 });
 
 clearSearchHistoryButton?.addEventListener("click", async () => {
