@@ -2877,14 +2877,13 @@ svg {
 .playback-notice {
   position: fixed;
   z-index: var(--z-notice);
-  right: calc(var(--shell-inset) + env(safe-area-inset-right));
-  left: calc(var(--shell-inset) + var(--sidebar-width) + var(--shell-gap));
+  left: var(--playback-notice-x, 50%);
   width: max-content;
   /* 视觉数值集中：播放条上方间距、最大宽度、内边距，方便 live 调整。 */
   bottom: calc(14px + env(safe-area-inset-bottom) + 92px + 12px);
   max-width: min(460px, calc(100vw - var(--sidebar-width) - var(--shell-gap) - var(--shell-inset) - var(--shell-inset) - 48px));
   padding: 9px 14px;
-  margin: 0 auto;
+  margin: 0;
   border: 0.5px solid var(--line);
   border-radius: 999px;
   opacity: 0;
@@ -2893,6 +2892,7 @@ svg {
   font-size: 12px;
   line-height: 1.4;
   pointer-events: none;
+  translate: -50% 0;
   transform: translateY(-8px);
   transition:
     opacity 160ms ease,
@@ -2909,6 +2909,8 @@ svg {
   right: 48px;
   bottom: auto;
   left: 48px;
+  margin: 0 auto;
+  translate: none;
 }
 
 .placeholder-view {

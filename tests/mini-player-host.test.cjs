@@ -38,6 +38,7 @@ function setup() {
     "#uploader": element({ textContent: "测试 UP" }),
     "#thumbnail": element({ getAttribute: () => "https://example.com/cover.jpg" }),
     "#status": element({ textContent: "在线播放中。" }),
+    "#playback-notice": element(),
     "#audio": audio,
   };
   const document = Object.assign(new EventTarget(), {
@@ -126,6 +127,7 @@ test("ready publishes the current track and the four commands click existing con
     uploader: "测试 UP",
     thumbnailUrl: "https://example.com/cover.jpg",
     status: "在线播放中。",
+    notice: "",
     hasCurrent: true,
     canPrevious: true,
     canNext: true,
@@ -139,6 +141,19 @@ test("ready publishes the current track and the four commands click existing con
     app.fire("mini-player-command", { action });
   }
   assert.deepEqual(clicked, ["previous", "toggle_play", "next", "toggle_favorite"]);
+});
+
+test("notices synchronize on ready, change and expiration", async () => {
+  const app = setup();
+  await settle();
+  app.controls["#playback-notice"].textContent = "已经是第一首了";
+  app.window.dispatchEvent(new Event("bilibili-music-notice-change"));
+  assert.equal(app.emitted.length, 0);
+  app.fire("mini-player-ready");
+  assert.equal(app.emitted.at(-1).payload.notice, "已经是第一首了");
+  app.controls["#playback-notice"].textContent = "";
+  app.window.dispatchEvent(new Event("bilibili-music-notice-change"));
+  assert.equal(app.emitted.at(-1).payload.notice, "");
 });
 
 test("playback and track events republish state only after mini is ready", async () => {

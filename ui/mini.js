@@ -63,6 +63,9 @@ function createMiniPlayerController({
   const favoriteButton = query("#mini-favorite");
   const restoreButton = query("#mini-restore");
   const dragRegion = query("#mini-drag-region");
+  const notice = query("#mini-notice");
+  const noticeMoreButton = query("#mini-notice-more");
+  const noticeFull = query("#mini-notice-full");
   const root = document.documentElement;
   const unlisteners = [];
   let disposed = false;
@@ -114,6 +117,29 @@ function createMiniPlayerController({
   }
 
   function render(state = {}) {
+    const noticeText = state.notice || "";
+    if (!noticeText && (document.activeElement === noticeMoreButton ||
+        document.activeElement === noticeFull)) {
+      restoreButton.focus?.();
+    }
+    if (notice) {
+      if (notice.textContent !== noticeText) notice.textContent = noticeText;
+      notice.hidden = !noticeText;
+    }
+    if (noticeMoreButton) {
+      noticeMoreButton.hidden = !noticeText;
+      if (!noticeText) {
+        noticeMoreButton.setAttribute("aria-expanded", "false");
+      }
+    }
+    if (noticeFull) {
+      if (!noticeText) {
+        noticeFull.hidden = true;
+        noticeFull.textContent = "";
+      } else if (!noticeFull.hidden && noticeFull.textContent !== noticeText) {
+        noticeFull.textContent = noticeText;
+      }
+    }
     const hasCurrent = Boolean(state.hasCurrent);
     const nextTitle = state.title || "尚未播放";
     if (nextTitle !== lastTitle) {
@@ -218,8 +244,24 @@ function createMiniPlayerController({
         warn("mini player restore failed:", error);
       });
     });
+    noticeMoreButton?.addEventListener("click", () => {
+      if (!noticeFull || noticeMoreButton.hidden) {
+        return;
+      }
+      const open = noticeFull.hidden;
+      noticeFull.hidden = !open;
+      noticeFull.textContent = open ? notice?.textContent || "" : "";
+      noticeMoreButton.setAttribute("aria-expanded", String(open));
+    });
+    noticeFull?.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      noticeFull.hidden = true;
+      noticeFull.textContent = "";
+      noticeMoreButton?.setAttribute("aria-expanded", "false");
+      noticeMoreButton?.focus?.();
+    });
     dragRegion.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target?.closest?.("button")) {
+      if (event.button !== 0 || event.target?.closest?.("button, #mini-notice-full")) {
         return;
       }
       event.preventDefault?.();
