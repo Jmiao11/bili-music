@@ -195,7 +195,13 @@ function createAudioReactiveController({
     if (!shouldAnimateMainWindow()) return;
     if (timestamp - lastAnimationAt >= AUDIO_REACTIVE_FRAME_INTERVAL_MS) {
       lastAnimationAt = timestamp;
-      sample();
+      try {
+        sample();
+      } catch (error) {
+        // A transient analyser failure must not terminate the animation loop.
+        reset();
+        warnOnce("audio reactive sample failed:", error);
+      }
     }
     animationFrame = requestAnimationFrameFn(animate);
   }

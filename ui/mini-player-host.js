@@ -128,12 +128,17 @@ function createMiniPlayerHost({
       return;
     }
     audioFrameInFlight = true;
-    Promise.resolve(
-      eventApi.emitTo(MINI_PLAYER_LABEL, MINI_PLAYER_AUDIO_FRAME_EVENT, frame),
-    ).catch((error) => console.warn("mini player audio frame publish failed:", error))
-      .finally(() => {
-        audioFrameInFlight = false;
-      });
+    try {
+      Promise.resolve(
+        eventApi.emitTo(MINI_PLAYER_LABEL, MINI_PLAYER_AUDIO_FRAME_EVENT, frame),
+      ).catch((error) => console.warn("mini player audio frame publish failed:", error))
+        .finally(() => {
+          audioFrameInFlight = false;
+        });
+    } catch (error) {
+      audioFrameInFlight = false;
+      console.warn("mini player audio frame publish failed:", error);
+    }
   }
 
   async function openMiniPlayer() {

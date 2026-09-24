@@ -20,7 +20,13 @@ function style() {
   };
 }
 
-function setup({ resumeFails = false, reducedMotion = false, spectrumLevel = 140, includeImmersive = false } = {}) {
+function setup({
+  resumeFails = false,
+  reducedMotion = false,
+  spectrumLevel = 140,
+  includeImmersive = false,
+  getDataThrows = false,
+} = {}) {
   const audio = Object.assign(new EventTarget(), {
     paused: true,
     ended: false,
@@ -32,6 +38,7 @@ function setup({ resumeFails = false, reducedMotion = false, spectrumLevel = 140
   const window = new EventTarget();
   const mediaQuery = Object.assign(new EventTarget(), { matches: reducedMotion });
   const frames = new Map();
+  const warns = [];
   let nextFrame = 0;
 
   class FakeAnalyser {
@@ -46,6 +53,7 @@ function setup({ resumeFails = false, reducedMotion = false, spectrumLevel = 140
     }
 
     getByteFrequencyData(output) {
+      if (getDataThrows) throw new Error("analyser unavailable");
       output.set(this.values.subarray(0, output.length));
     }
   }
@@ -105,11 +113,11 @@ function setup({ resumeFails = false, reducedMotion = false, spectrumLevel = 140
     cancelAnimationFrameFn(id) {
       frames.delete(id);
     },
-    console: { warn() {} },
+    console: { warn: (...args) => warns.push(args) },
   });
 
   return {
-    audio, target, immersiveTarget, document, window, mediaQuery, frames, controller,
+    audio, target, immersiveTarget, document, window, mediaQuery, frames, warns, controller,
     contexts: setup.contexts,
   };
 }
@@ -211,4 +219,21 @@ test("reduced motion keeps the feature inactive without creating an AudioContext
   assert.equal(app.contexts.length, 0);
   assert.equal(app.controller.sample().active, false);
   assert.equal(app.target.style.values["--audio-cover-scale"], "1.0000");
+});
+
+test("a transient analyser read failure does not terminate the animation loop", async () => {
+  const app = setup({ getDataThrows: true });
+  app.controller.start();
+  app.window.dispatchEvent(new Event("pointerdown"));
+  await settle();
+  app.audio.paused = false;
+  app.audio.dispatchEvent(new Event("play"));
+  await settle();
+
+  const [id, callback] = app.frames.entries().next().value;
+  app.frames.delete(id);
+  assert.doesNotThrow(() => callback(100));
+  assert.equal(app.warns.length, 1);
+  assert.equal(app.target.style.values["--audio-cover-scale"], "1.0000");
+  assert.equal(app.frames.size, 1);
 });

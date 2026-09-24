@@ -23,7 +23,7 @@ function element(extra = {}) {
   });
 }
 
-function setup() {
+function setup({ firstAudioFrameEmitThrows = false } = {}) {
   const audio = element({ currentSrc: "", paused: true, ended: false, error: null });
   const root = element({ dataset: { theme: "dark" }, style: { getPropertyValue(name) {
     return { "--accent-r": "251", "--accent-g": "114", "--accent-b": "153" }[name] ?? "";
@@ -51,12 +51,19 @@ function setup() {
   const invoked = [];
   const timers = new Map();
   let nextTimer = 0;
+  let audioFrameEmitCalls = 0;
   const eventApi = {
     listen(name, handler) {
       listeners.set(name, handler);
       return Promise.resolve(() => listeners.delete(name));
     },
     emitTo(label, name, payload) {
+      if (name === "mini-player-audio-frame") {
+        audioFrameEmitCalls += 1;
+        if (firstAudioFrameEmitThrows && audioFrameEmitCalls === 1) {
+          throw new Error("sync IPC failure");
+        }
+      }
       emitted.push({ label, name, payload });
       return Promise.resolve();
     },
@@ -199,6 +206,19 @@ test("audio frame requests sample the shared analyser only while mini is ready",
     name: "mini-player-audio-frame",
     payload: { sequence: 1, active: true, pulse: 0.5, glow: 0.25 },
   });
+});
+
+test("a synchronous frame publish failure releases the in-flight guard", async () => {
+  const app = setup({ firstAudioFrameEmitThrows: true });
+  await settle();
+  app.fire("mini-player-ready");
+  assert.doesNotThrow(() => app.fire("mini-player-audio-sample-request"));
+  app.fire("mini-player-audio-sample-request");
+  await settle();
+
+  const frames = app.emitted.filter(({ name }) => name === "mini-player-audio-frame");
+  assert.equal(frames.length, 1);
+  assert.equal(frames[0].payload.sequence, 2);
 });
 
 test("missing ready returns to the main window and reports the failure", async () => {
