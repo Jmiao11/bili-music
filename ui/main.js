@@ -237,6 +237,22 @@ const nextButton = document.querySelector("#next-button");
 const loopModeButton = document.querySelector("#loop-mode-button");
 const shuffleToggle = document.querySelector("#shuffle-toggle");
 const audio = document.querySelector("#audio");
+window.__playbackDiagLog = [];
+window.recordPlaybackDiag = (category, message) => {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    category,
+    message,
+    paused: audio.paused,
+    currentTime: audio.currentTime,
+    readyState: audio.readyState,
+    networkState: audio.networkState,
+    currentSrcTail: audio.currentSrc.slice(-8),
+  };
+  window.__playbackDiagLog.push(entry);
+  if (window.__playbackDiagLog.length > 300) window.__playbackDiagLog.shift();
+  console.info("[playback-diag]", entry);
+};
 const resumePlayPauseButton = document.querySelector("#play-pause-button");
 const resumeProgressSlider = document.querySelector("#progress-slider");
 const resumeCurrentTimeLabel = document.querySelector("#current-time");
@@ -522,6 +538,7 @@ function markRandomIndexPlayed(index) {
 }
 
 function stopAudioElement() {
+  window.recordPlaybackDiag("stopAudioElement", String(new Error().stack ?? "").split("\n").slice(1, 5).join(" | "));
   playerState.activeAudioVersion = -1;
   playerState.activeAudioUrl = "";
   playerState.audioActivatedAt = Number.POSITIVE_INFINITY;
@@ -3609,6 +3626,17 @@ audio.addEventListener("timeupdate", () => {
 });
 
 audio.addEventListener("pause", savePlaybackState);
+for (const eventName of ["play", "pause", "ended", "error", "stalled", "waiting"]) {
+  audio.addEventListener(eventName, () => {
+    const error = eventName === "error"
+      ? ` code=${audio.error?.code ?? "none"} message=${audio.error?.message ?? ""}`
+      : "";
+    window.recordPlaybackDiag("audio-event", `${eventName}${error}`);
+  });
+}
+document.addEventListener("visibilitychange", () => {
+  window.recordPlaybackDiag("visibilitychange", `hidden=${document.hidden}`);
+});
 window.addEventListener("beforeunload", savePlaybackState);
 
 loopModeButton.addEventListener("click", () => {

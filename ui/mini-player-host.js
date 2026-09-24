@@ -94,6 +94,7 @@ function createMiniPlayerHost({
     if (action === "previous") {
       previousButton?.click();
     } else if (action === "toggle_play") {
+      window.recordPlaybackDiag?.("external-control", "mini player toggle_play");
       playPauseButton?.click();
     } else if (action === "next") {
       nextButton?.click();

@@ -596,15 +596,26 @@ async fn proxy_audio(
     if method != Method::GET && method != Method::HEAD {
         return empty_response(StatusCode::METHOD_NOT_ALLOWED);
     }
+    #[cfg(debug_assertions)]
+    let token_tail = token.get(token.len().saturating_sub(8)..).unwrap_or("?");
 
     let entry = {
         let streams = state.streams.read().await;
         streams.get(&token).cloned()
     };
     let Some(entry) = entry else {
+        #[cfg(debug_assertions)]
+        eprintln!("[audio-proxy] token=...{token_tail} status=404");
         return empty_response(StatusCode::NOT_FOUND);
     };
     if entry.expires_at <= Instant::now() {
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "[audio-proxy] token=...{token_tail} status=410 registered_for_ms={}",
+            Instant::now()
+                .saturating_duration_since(entry.expires_at - STREAM_SESSION_TTL)
+                .as_millis()
+        );
         state.streams.write().await.remove(&token);
         return empty_response(StatusCode::GONE);
     }
@@ -618,7 +629,12 @@ async fn proxy_audio(
                 .and_then(|value| value.to_str().ok())
                 .map(str::to_owned);
             // 本地响应没有 ETag / Last-Modified，因此刻意忽略 If-Range。
-            return proxy_local_audio(&path, method, range.as_deref()).await;
+            let response = proxy_local_audio(&path, method, range.as_deref()).await;
+            #[cfg(debug_assertions)]
+            if response.status() == StatusCode::NOT_FOUND {
+                eprintln!("[audio-proxy] token=...{token_tail} status=404");
+            }
+            return response;
         }
     };
 
@@ -641,6 +657,17 @@ async fn proxy_audio(
     };
 
     let status = upstream.status();
+    #[cfg(debug_assertions)]
+    if status == StatusCode::NOT_FOUND {
+        eprintln!("[audio-proxy] token=...{token_tail} status=404");
+    } else if status == StatusCode::GONE {
+        eprintln!(
+            "[audio-proxy] token=...{token_tail} status=410 registered_for_ms={}",
+            Instant::now()
+                .saturating_duration_since(entry.expires_at - STREAM_SESSION_TTL)
+                .as_millis()
+        );
+    }
     if !(status.is_success() || status.as_u16() == 206) {
         eprintln!(
             "[audio-proxy] upstream returned HTTP {} for {}",
@@ -809,8 +836,22 @@ async fn proxy_local_audio(
 ) -> Response<Body> {
     let metadata = match tokio::fs::metadata(path).await {
         Ok(metadata) if metadata.is_file() => metadata,
-        Ok(_) => return empty_response(StatusCode::NOT_FOUND),
-        Err(error) => return empty_response(local_file_error_status(&error)),
+        Ok(_) => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[audio-proxy] local stream is not a file: {}",
+                path.display()
+            );
+            return empty_response(StatusCode::NOT_FOUND);
+        }
+        Err(error) => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[audio-proxy] failed to read local stream metadata {}: {error}",
+                path.display()
+            );
+            return empty_response(local_file_error_status(&error));
+        }
     };
     let len = metadata.len();
     let range = parse_local_range(range_header, len);

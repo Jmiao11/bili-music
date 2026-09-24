@@ -432,8 +432,14 @@ function syncMediaSessionPosition() {
 
 function registerMediaSessionActionHandlers() {
   withMediaSession((mediaSession) => {
-    mediaSession.setActionHandler("play", () => playPauseButton.click());
-    mediaSession.setActionHandler("pause", () => playPauseButton.click());
+    mediaSession.setActionHandler("play", () => {
+      window.recordPlaybackDiag?.("external-control", "Media Session play");
+      playPauseButton.click();
+    });
+    mediaSession.setActionHandler("pause", () => {
+      window.recordPlaybackDiag?.("external-control", "Media Session pause");
+      playPauseButton.click();
+    });
     mediaSession.setActionHandler("previoustrack", () => previousButtonForImmersive.click());
     mediaSession.setActionHandler("nexttrack", () => nextButtonForImmersive.click());
     mediaSession.setActionHandler("seekto", (details) => {
@@ -509,6 +515,7 @@ function initializeTaskbarControls() {
       return;
     }
     if (payload === "play_pause") {
+      window.recordPlaybackDiag?.("external-control", "taskbar play_pause");
       playPauseButton.click();
     } else if (payload === "previous") {
       previousButtonForImmersive.click();
@@ -555,6 +562,7 @@ function initializeGlobalShortcutControls() {
     if (payload === "previous") {
       previousButtonForImmersive.click();
     } else if (payload === "play_pause") {
+      window.recordPlaybackDiag?.("external-control", "global shortcut play_pause");
       playPauseButton.click();
     } else if (payload === "next") {
       nextButtonForImmersive.click();
@@ -1287,20 +1295,26 @@ window.addEventListener("bilibili-music-trackchange", (event) => {
 
 playPauseButton.addEventListener("click", async () => {
   if (!playerAudio.currentSrc) {
+    window.recordPlaybackDiag?.("play-pause-button", "no source");
     playbackStatus.textContent = "请先从队列中选择一首歌曲。";
     return;
   }
   if (playerAudio.paused) {
+    window.recordPlaybackDiag?.("play-pause-button", "play");
     try {
       await playerAudio.play();
     } catch {
       playbackStatus.textContent = "音频暂时无法播放，请稍后重试。";
     }
   } else {
+    window.recordPlaybackDiag?.("play-pause-button", "pause");
     playerAudio.pause();
   }
 });
-immersivePlayPauseButton.addEventListener("click", () => playPauseButton.click());
+immersivePlayPauseButton.addEventListener("click", () => {
+  window.recordPlaybackDiag?.("external-control", "immersive button");
+  playPauseButton.click();
+});
 immersivePreviousButton.addEventListener("click", () => previousButtonForImmersive.click());
 immersiveNextButton.addEventListener("click", () => nextButtonForImmersive.click());
 openBilibiliButton.addEventListener("click", openCurrentBilibiliVideo);
