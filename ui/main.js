@@ -6,6 +6,7 @@ const LOOP_MODES = [
   { id: "single", label: "单曲循环" },
 ];
 const MAX_CONSECUTIVE_RESOLVE_FAILURES = 5;
+const MAX_AUDIO_RECOVERIES = 2;
 const SKIP_NOTICE_DURATION_MS = 3200;
 const SEARCH_PAGE_SIZE = 20;
 const LOAD_MORE_THRESHOLD_PX = 96;
@@ -99,6 +100,11 @@ let cacheRequestedForCurrentTrack = false;
 let pendingResume = null;
 let resumeInProgress = false;
 let lastPlaybackStateSavedAt = Number.NEGATIVE_INFINITY;
+let recoveryPromise = null;
+let recoveryVersion = -1;
+let recoveryAttempts = 0;
+let playingAudioVersion = -1;
+let playbackIntended = false;
 
 const searchState = {
   results: [],
@@ -2795,6 +2801,122 @@ function waitForAudioMetadata() {
   });
 }
 
+function shouldRecoverAudio(errorCode, isCurrent, hasPlayed, attempts) {
+  return errorCode === 2 && isCurrent && hasPlayed && attempts < MAX_AUDIO_RECOVERIES;
+}
+
+function recoveryAttemptsFor(version) {
+  if (recoveryVersion !== version) {
+    recoveryVersion = version;
+    recoveryAttempts = 0;
+  }
+  return recoveryAttempts;
+}
+
+function refundRecoveryAttempt(version) {
+  if (recoveryVersion === version) recoveryAttempts -= 1;
+}
+
+function waitForRecoveryMetadata(version) {
+  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve(true);
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audio.removeEventListener("loadedmetadata", loaded);
+      audio.removeEventListener("error", failed);
+      audio.removeEventListener("emptied", emptied);
+    };
+    const loaded = () => { cleanup(); resolve(true); };
+    const failed = () => { cleanup(); reject(audio.error ?? new Error("audio metadata load failed")); };
+    const emptied = () => {
+      if (version !== playerState.requestVersion) { cleanup(); resolve(false); }
+    };
+    audio.addEventListener("loadedmetadata", loaded);
+    audio.addEventListener("error", failed);
+    audio.addEventListener("emptied", emptied);
+  });
+}
+
+async function recoverCurrentAudio(version, sourceUrl, position, wasPlaying) {
+  if (version !== playerState.requestVersion || sourceUrl !== playerState.activeAudioUrl) {
+    window.recordPlaybackDiag("audio-recovery", "abandoned before prepare_audio");
+    return;
+  }
+  const video = playerState.queue[playerState.currentIndex];
+  const page = currentVideoPage();
+  recoveryAttempts += 1;
+  window.recordPlaybackDiag("audio-recovery", `start attempt=${recoveryAttempts} position=${position}`);
+  try {
+    const info = await invoke("prepare_audio", {
+      bvId: video.bvid,
+      cid: page?.cid ?? null,
+      cacheCid: currentAudioCacheCid(),
+      page: page?.page ?? null,
+      part: page?.part ?? null,
+      durationSeconds: page?.durationSeconds ?? null,
+    });
+    if (version !== playerState.requestVersion || sourceUrl !== playerState.activeAudioUrl) {
+      refundRecoveryAttempt(version);
+      window.recordPlaybackDiag("audio-recovery", "abandoned after prepare_audio");
+      return;
+    }
+    playerState.activeAudioUrl = info.audioUrl;
+    playerState.audioActivatedAt = performance.now();
+    audio.src = info.audioUrl;
+    audio.load();
+    const loaded = await waitForRecoveryMetadata(version);
+    if (!loaded || version !== playerState.requestVersion) {
+      refundRecoveryAttempt(version);
+      window.recordPlaybackDiag("audio-recovery", "abandoned while loading metadata");
+      return;
+    }
+    const maxPosition = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - 1) : position;
+    audio.currentTime = Math.min(Math.max(0, position), maxPosition);
+    if (wasPlaying) await audio.play();
+    if (version !== playerState.requestVersion) {
+      refundRecoveryAttempt(version);
+      window.recordPlaybackDiag("audio-recovery", "abandoned after play");
+      return;
+    }
+    window.recordPlaybackDiag("audio-recovery", `success attempt=${recoveryAttempts}`);
+  } catch (error) {
+    if (version !== playerState.requestVersion || String(error).includes("audio resolution was cancelled")) {
+      refundRecoveryAttempt(version);
+      window.recordPlaybackDiag("audio-recovery", `abandoned: ${error}`);
+      return;
+    }
+    window.recordPlaybackDiag("audio-recovery", `failed: ${error}`);
+    showPlaybackNotice(`${playbackFailureMessage(error)}，播放已中断。`, { persistent: true });
+  }
+}
+
+function handleAudioRecoveryError(event) {
+  const version = playerState.requestVersion;
+  const isCurrent = playerState.activeAudioVersion === version &&
+    playerState.activeAudioUrl === audio.currentSrc &&
+    event.timeStamp >= playerState.audioActivatedAt;
+  const attempts = recoveryAttemptsFor(version);
+  if (recoveryPromise) {
+    if (audio.error?.code === 2 && isCurrent) {
+      window.recordPlaybackDiag("audio-recovery", "abandoned: recovery already running");
+    }
+    return;
+  }
+  if (!shouldRecoverAudio(audio.error?.code, isCurrent, playingAudioVersion === version, attempts)) {
+    if (audio.error?.code === 2 && isCurrent && playingAudioVersion === version && attempts >= MAX_AUDIO_RECOVERIES) {
+      window.recordPlaybackDiag("audio-recovery", "limit reached");
+      showPlaybackNotice(`${playbackFailureMessage("request failed")}，播放已中断。`, { persistent: true });
+    }
+    return;
+  }
+  const sourceUrl = audio.currentSrc;
+  const position = audio.currentTime;
+  const wasPlaying = playbackIntended;
+  const recovery = Promise.resolve().then(() => recoverCurrentAudio(version, sourceUrl, position, wasPlaying));
+  recoveryPromise = recovery;
+  const clear = () => { if (recoveryPromise === recovery) recoveryPromise = null; };
+  void recovery.then(clear, clear);
+}
+
 let loudnessQueryVersion = 0;
 let loudnessAnalyzedForCurrentTrack = false;
 
@@ -2891,6 +3013,12 @@ async function loadCurrentTrack({
     }
 
     const page = currentVideoPage();
+    if (recoveryPromise) {
+      const recovery = recoveryPromise;
+      void invoke("cancel_prepare_audio").catch(() => {});
+      await recovery.catch(() => {});
+      if (requestVersion !== playerState.requestVersion) return;
+    }
     const info = await invoke("prepare_audio", {
       bvId: video.bvid,
       cid: page?.cid ?? null,
@@ -3626,6 +3754,15 @@ audio.addEventListener("timeupdate", () => {
 });
 
 audio.addEventListener("pause", savePlaybackState);
+audio.addEventListener("play", () => { playbackIntended = true; });
+audio.addEventListener("pause", () => { playbackIntended = false; });
+audio.addEventListener("playing", () => {
+  if (playerState.activeAudioVersion === playerState.requestVersion &&
+      playerState.activeAudioUrl === audio.currentSrc) {
+    playingAudioVersion = playerState.activeAudioVersion;
+  }
+});
+audio.addEventListener("error", handleAudioRecoveryError);
 for (const eventName of ["play", "pause", "ended", "error", "stalled", "waiting"]) {
   audio.addEventListener(eventName, () => {
     const error = eventName === "error"
