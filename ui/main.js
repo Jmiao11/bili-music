@@ -3507,14 +3507,18 @@ searchResults.addEventListener("scroll", () => {
 
 playerPagesButton?.addEventListener("click", openCurrentPagesModal);
 previousButton.addEventListener("click", () => {
-  clearPendingResume();
-  if (!retreatPageWithinCurrentBv()) {
+  if (retreatPageWithinCurrentBv()) {
+    clearPendingResume();
+    clearPlaybackNotice();
+  } else {
     playPrevious();
   }
 });
 nextButton.addEventListener("click", () => {
-  clearPendingResume();
-  if (!advancePageWithinCurrentBv()) {
+  if (advancePageWithinCurrentBv()) {
+    clearPendingResume();
+    clearPlaybackNotice();
+  } else {
     playNext();
   }
 });

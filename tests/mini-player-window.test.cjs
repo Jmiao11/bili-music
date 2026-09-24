@@ -42,6 +42,8 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
     "#mini-title-viewport": element(),
     "#mini-cover": element(),
     "#mini-notice": element(),
+    "#mini-notice-more": element({ hidden: true }),
+    "#mini-notice-full": element({ hidden: true }),
   };
   const root = element();
   const document = Object.assign(new EventTarget(), {
@@ -117,6 +119,75 @@ test("mini displays and clears host notices without disabling navigation", async
   assert.equal(app.controls["#mini-next"].disabled, false);
   app.fire("mini-player-state", { notice: "" });
   assert.equal(app.controls["#mini-notice"].hidden, true);
+});
+
+test("long notices offer a full-text entry, sync updates, and clear together", async () => {
+  const app = setup();
+  await app.controller.start();
+  const long = "解析失败：上游返回 502，已重试 3 次仍未成功，队列中没有可继续播放的内容。";
+  app.fire("mini-player-state", { notice: long });
+  assert.equal(app.controls["#mini-notice"].textContent, long);
+  assert.equal(app.controls["#mini-notice-more"].hidden, false);
+  assert.equal(app.controls["#mini-notice-full"].hidden, true);
+  // 点击「全文」展开完整内容
+  app.controls["#mini-notice-more"].dispatchEvent(new Event("click"));
+  assert.equal(app.controls["#mini-notice-full"].hidden, false);
+  assert.equal(app.controls["#mini-notice-full"].textContent, long);
+  assert.equal(app.controls["#mini-notice-more"].getAttribute("aria-expanded"), "true");
+  // 展开期间收到新消息，全文同步为最新内容
+  const next = "队列中多首无法播放，已停止。";
+  app.fire("mini-player-state", { notice: next });
+  assert.equal(app.controls["#mini-notice-full"].textContent, next);
+  // 再次点击收起
+  app.controls["#mini-notice-more"].dispatchEvent(new Event("click"));
+  assert.equal(app.controls["#mini-notice-full"].hidden, true);
+  assert.equal(app.controls["#mini-notice-full"].textContent, "");
+  assert.equal(app.controls["#mini-notice-more"].getAttribute("aria-expanded"), "false");
+  // 消息清除时三者联动隐藏
+  app.controls["#mini-notice-more"].dispatchEvent(new Event("click"));
+  assert.equal(app.controls["#mini-notice-full"].hidden, false);
+  app.fire("mini-player-state", { notice: "" });
+  assert.equal(app.controls["#mini-notice"].hidden, true);
+  assert.equal(app.controls["#mini-notice-more"].hidden, true);
+  assert.equal(app.controls["#mini-notice-full"].hidden, true);
+  assert.equal(app.controls["#mini-notice-more"].getAttribute("aria-expanded"), "false");
+});
+
+test("full text pointer interaction does not drag; blank space still drags", async () => {
+  const app = setup();
+  let drags = 0;
+  app.windowApi.startDragging = () => { drags++; return Promise.resolve(); };
+  await app.controller.start();
+  for (const protectedTarget of ["button", "#mini-notice-full", null]) {
+    const event = new Event("pointerdown", { cancelable: true });
+    Object.defineProperty(event, "button", { value: 0 });
+    Object.defineProperty(event, "target", { value: {
+      closest: selector => protectedTarget && selector.split(", ").includes(protectedTarget) ? {} : null,
+    } });
+    app.controls["#mini-drag-region"].dispatchEvent(event);
+    assert.equal(event.defaultPrevented, protectedTarget === null);
+  }
+  assert.equal(drags, 1);
+});
+
+test("full text supports Escape and focus recovery when an open notice expires", async () => {
+  const app = setup();
+  const more = app.controls["#mini-notice-more"];
+  const full = app.controls["#mini-notice-full"];
+  more.focus = () => { app.document.activeElement = more; };
+  app.controls["#mini-restore"].focus = () => { app.document.activeElement = app.controls["#mini-restore"]; };
+  await app.controller.start();
+  app.fire("mini-player-state", { notice: "错误详情" });
+  more.dispatchEvent(new Event("click"));
+  app.document.activeElement = full;
+  full.dispatchEvent(Object.assign(new Event("keydown"), { key: "Escape" }));
+  assert.equal(full.hidden, true);
+  assert.equal(app.document.activeElement, more);
+  more.dispatchEvent(new Event("click"));
+  app.document.activeElement = full;
+  app.fire("mini-player-state", { notice: "" });
+  assert.equal(full.hidden, true);
+  assert.equal(app.document.activeElement, app.controls["#mini-restore"]);
 });
 
 test("start restores a valid position, signals both handshake channels, and renders state", async () => {

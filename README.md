@@ -177,6 +177,12 @@ cargo tauri build
 
 > 🔒 `cookies.txt` 含登录态，已被 `.gitignore` 忽略，请勿提交。`yt-dlp` 兜底只用于覆盖极个别游客无法取流的视频，并非必需。
 
+## 🤝 参与贡献
+
+开发任何功能或提交 Pull Request 前，必须阅读[贡献指南](CONTRIBUTING.md)和根目录的 [AGENTS.md](AGENTS.md)，其中规定了项目的架构、安全、验证与提交要求。
+
+已有的专项开发规范统一放在 [`docs/`](docs/) 目录。涉及提示、加载态、错误态、确认交互或跨窗口反馈时，必须遵守[用户操作反馈规范](docs/notification-guidelines.md)。
+
 
 ## ⚖️ 法律声明与使用限制
 

@@ -68,3 +68,91 @@ test('list loop and history navigate without boundary notices', () => {
   assert.deepEqual(visited, [0, 0, 2]);
   assert.equal(notice.textContent, '');
 });
+
+test('notice removal notifies the mini window on both natural expiry and explicit clear', () => {
+  const { context: c, events, timers } = setup();
+  // 自然到期：先清空事件记录，再精确断言恰好多一条通知事件
+  c.playPrevious();
+  events.length = 0;
+  [...timers.values()][0].fn();
+  assert.deepEqual(events, ['bilibili-music-notice-change']);
+  // 主动清除：persistent 错误被显式清除时同样必须通知
+  c.showPlaybackNotice('解析失败', { persistent: true });
+  events.length = 0;
+  c.clearPlaybackNotice();
+  assert.deepEqual(events, ['bilibili-music-notice-change']);
+});
+
+test('automatic next stays silent on an empty queue', () => {
+  const { context: c, notice, timers, events } = setup();
+  // 场景 A：严格空队列（无当前歌曲且队列为空）
+  c.playerState.currentIndex = -1;
+  c.playerState.queue = [];
+  events.length = 0;
+  c.playNext({ automatic: true });
+  assert.equal(notice.textContent, '');
+  assert.equal(notice.classList.contains('is-visible'), false);
+  assert.equal(timers.size, 0);
+  assert.deepEqual(events, []);
+  // 场景 B：队列有歌但无当前歌曲（currentIndex = -1），分支相同，一并覆盖
+  c.playerState.queue = [{}];
+  c.playNext({ automatic: true });
+  assert.equal(notice.textContent, '');
+  assert.equal(timers.size, 0);
+  assert.deepEqual(events, []);
+  // 对照组：同样条件下手动调用必须弹提示，确保上面的静默断言不是空转
+  c.playNext();
+  assert.equal(notice.textContent, '暂无可播放的歌曲');
+});
+
+test('manual boundary preserves pending resume; successful page change clears stale feedback', () => {
+  const { context: c, notice } = setup();
+  const handlers = {};
+  let pendingResume = { positionSeconds: 42 };
+  c.clearPendingResume = () => { pendingResume = null; };
+  c.previousButton = { addEventListener: (_, fn) => { handlers.previous = fn; } };
+  c.nextButton = { addEventListener: (_, fn) => { handlers.next = fn; } };
+  c.retreatPageWithinCurrentBv = () => false;
+  c.advancePageWithinCurrentBv = () => false;
+  vm.runInContext(source.slice(source.indexOf('previousButton.addEventListener("click"'),
+    source.indexOf('resumePlayPauseButton?.addEventListener("click"')), c);
+  handlers.previous(); handlers.next();
+  assert.deepEqual(pendingResume, { positionSeconds: 42 });
+  c.advancePageWithinCurrentBv = () => true;
+  handlers.next();
+  assert.equal(pendingResume, null);
+  assert.equal(notice.textContent, '');
+  c.showPlaybackNotice('已经是最后一首了', { kind: 'info' });
+  c.retreatPageWithinCurrentBv = () => true;
+  handlers.previous();
+  assert.equal(notice.textContent, '');
+});
+
+test('real sequential, random and page selectors preserve navigation semantics', () => {
+  const { context: c, notice } = setup();
+  const visits = [];
+  c.playQueueIndex = index => visits.push(index);
+  c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
+  vm.runInContext(source.slice(source.indexOf('function takeRandomNext()'),
+    source.indexOf('function playNext(')), c);
+  c.playerState.queue = [{}, {}];
+  c.playNext(); assert.deepEqual(visits, [1]);
+  c.playerState.currentIndex = 1;
+  c.playNext(); assert.equal(notice.textContent, '已经是最后一首了');
+  c.clearPlaybackNotice(); c.playerState.loopMode = 'list';
+  c.playNext(); assert.equal(visits.at(-1), 0);
+  c.playerState.shuffle = true; c.playerState.randomRemaining = [0];
+  c.playNext(); assert.equal(visits.at(-1), 0);
+  c.playerState.loopMode = 'sequence';
+  c.playNext(); assert.equal(notice.textContent, '本轮随机播放已结束');
+  c.hasMultipleCurrentPages = () => true;
+  c.playerState.currentPages = [{}, {}]; c.playerState.currentPageIndex = 0;
+  c.updatePlayerPagesButton = () => {};
+  let loads = 0;
+  c.loadCurrentTrack = () => { loads++; };
+  assert.equal(c.retreatPageWithinCurrentBv(), false);
+  assert.equal(c.advancePageWithinCurrentBv(), true);
+  assert.equal(c.advancePageWithinCurrentBv(), false);
+  assert.equal(c.retreatPageWithinCurrentBv(), true);
+  assert.equal(loads, 2);
+});
