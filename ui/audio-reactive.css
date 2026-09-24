@@ -1,0 +1,72 @@
+#open-immersive-button,
+#mini-cover,
+.immersive-art {
+  --audio-cover-scale: 1;
+  --audio-cover-brightness: 1;
+  --audio-cover-glow-size: 0px;
+  --audio-cover-glow-alpha: 0;
+}
+
+#open-immersive-button {
+  box-shadow: 0 0 var(--audio-cover-glow-size)
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), var(--audio-cover-glow-alpha));
+}
+
+#thumbnail,
+#mini-cover {
+  transform: scale(var(--audio-cover-scale));
+  filter: brightness(var(--audio-cover-brightness));
+  will-change: transform, filter;
+}
+
+#mini-cover {
+  box-shadow: 0 0 var(--audio-cover-glow-size)
+    rgba(var(--accent-r), var(--accent-g), var(--accent-b), var(--audio-cover-glow-alpha));
+}
+
+#immersive-cover {
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.34),
+    0 0 var(--audio-cover-glow-size)
+      rgba(var(--accent-r), var(--accent-g), var(--accent-b), var(--audio-cover-glow-alpha));
+}
+
+.immersive-art {
+  transform: scale(var(--audio-cover-scale));
+  filter: brightness(var(--audio-cover-brightness));
+  transform-origin: center;
+  will-change: transform, filter;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #open-immersive-button,
+  #mini-cover,
+  #immersive-cover {
+    transition: box-shadow 90ms linear;
+  }
+
+  #thumbnail,
+  #mini-cover,
+  .immersive-art {
+    transition: transform 70ms linear, filter 90ms linear;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #open-immersive-button,
+  #mini-cover {
+    box-shadow: none;
+  }
+
+  #immersive-cover {
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+  }
+
+  #thumbnail,
+  #mini-cover,
+  .immersive-art {
+    transform: none;
+    filter: none;
+    will-change: auto;
+  }
+}

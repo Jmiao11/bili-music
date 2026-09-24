@@ -71,6 +71,13 @@ function setup() {
     return id;
   };
   const clearTimeoutFn = (id) => timers.delete(id);
+  const audioReactive = {
+    sequence: 0,
+    sample() {
+      this.sequence += 1;
+      return { sequence: this.sequence, active: true, pulse: 0.5, glow: 0.25 };
+    },
+  };
   const host = vm.runInNewContext(`${source}\ncreateMiniPlayerHost`, {
     window,
     document,
@@ -87,6 +94,7 @@ function setup() {
     window,
     setTimeoutFn,
     clearTimeoutFn,
+    audioReactive,
     console: { warn() {}, error() {} },
   });
   host.start();
@@ -100,6 +108,7 @@ function setup() {
     invoked,
     timers,
     host,
+    audioReactive,
     fire: (name, payload = {}) => listeners.get(name)?.({ payload }),
   };
 }
@@ -172,6 +181,26 @@ test("playback and track events republish state only after mini is ready", async
   assert.equal(app.emitted.length, before + 3);
 });
 
+test("audio frame requests sample the shared analyser only while mini is ready", async () => {
+  const app = setup();
+  await settle();
+  app.fire("mini-player-audio-sample-request");
+  await settle();
+  assert.equal(app.audioReactive.sequence, 0);
+
+  app.fire("mini-player-ready");
+  await settle();
+  app.fire("mini-player-audio-sample-request");
+  await settle();
+
+  assert.equal(app.audioReactive.sequence, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.emitted.at(-1))), {
+    label: "mini",
+    name: "mini-player-audio-frame",
+    payload: { sequence: 1, active: true, pulse: 0.5, glow: 0.25 },
+  });
+});
+
 test("missing ready returns to the main window and reports the failure", async () => {
   const app = setup();
   await settle();
@@ -190,7 +219,7 @@ test("missing ready returns to the main window and reports the failure", async (
 test("beforeunload unsubscribes Tauri listeners without throwing", async () => {
   const app = setup();
   await settle();
-  assert.equal(app.listeners.size, 2);
+  assert.equal(app.listeners.size, 3);
 
   app.window.dispatchEvent(new Event("beforeunload"));
   await settle();

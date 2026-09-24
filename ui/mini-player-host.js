@@ -1,5 +1,7 @@
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
+const MINI_PLAYER_AUDIO_REQUEST_EVENT = "mini-player-audio-sample-request";
+const MINI_PLAYER_AUDIO_FRAME_EVENT = "mini-player-audio-frame";
 function miniPlayerAccent(root) {
   const read = (name, fallback) => {
     const value = Number(root?.style?.getPropertyValue?.(name));
@@ -52,6 +54,7 @@ function createMiniPlayerHost({
   window,
   setTimeoutFn = window.setTimeout.bind(window),
   clearTimeoutFn = window.clearTimeout.bind(window),
+  audioReactive = window.bilibiliMusicAudioReactive,
   console,
 }) {
   const openButton = document.querySelector("#mini-player-button");
@@ -66,6 +69,7 @@ function createMiniPlayerHost({
   let miniReady = false;
   let readyTimer = null;
   let openVersion = 0;
+  let audioFrameInFlight = false;
 
   function clearReadyTimer() {
     if (readyTimer !== null) {
@@ -110,6 +114,26 @@ function createMiniPlayerHost({
     miniReady = true;
     clearReadyTimer();
     publish();
+  }
+
+  function handleAudioFrameRequest() {
+    if (disposed || !miniReady || audioFrameInFlight || !audioReactive?.sample) {
+      return;
+    }
+    let frame;
+    try {
+      frame = audioReactive.sample();
+    } catch (error) {
+      console.warn("mini player audio sample failed:", error);
+      return;
+    }
+    audioFrameInFlight = true;
+    Promise.resolve(
+      eventApi.emitTo(MINI_PLAYER_LABEL, MINI_PLAYER_AUDIO_FRAME_EVENT, frame),
+    ).catch((error) => console.warn("mini player audio frame publish failed:", error))
+      .finally(() => {
+        audioFrameInFlight = false;
+      });
   }
 
   async function openMiniPlayer() {
@@ -161,6 +185,7 @@ function createMiniPlayerHost({
     await Promise.all([
       listen("mini-player-ready", handleReady),
       listen("mini-player-command", handleCommand),
+      listen(MINI_PLAYER_AUDIO_REQUEST_EVENT, handleAudioFrameRequest),
     ]);
     openButton?.addEventListener("click", () => void openMiniPlayer());
     for (const eventName of ["play", "pause", "ended", "emptied", "error"]) {
