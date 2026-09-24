@@ -7,13 +7,16 @@ const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'
 function setup() {
   const classes = new Set();
   const timers = new Map();
+  const styles = new Map();
   let id = 0;
-  const notice = { textContent: '', dataset: {}, classList: {
+  const notice = { textContent: '', dataset: {}, style: { setProperty: (key, value) => styles.set(key, value) }, classList: {
     add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x),
   } };
   const events = [];
   const context = vm.createContext({
     playbackNotice: notice, playbackNoticeTimer: null, SKIP_NOTICE_DURATION_MS: 3200,
+    resumePlayPauseButton: { getBoundingClientRect: () => ({ left: 970, width: 60 }) },
+    result: {}, ResizeObserver: class { observe() {} },
     Event, clearTimeout: id => timers.delete(id),
     window: { dispatchEvent: e => events.push(e.type), setTimeout: (fn, delay) => {
       timers.set(++id, { fn, delay }); return id;
@@ -25,8 +28,16 @@ function setup() {
   });
   vm.runInContext(source.slice(source.indexOf('function clearPlaybackNotice()'), source.indexOf('function shuffled(')), context);
   vm.runInContext(source.slice(source.indexOf('function playNext('), source.indexOf('function recordSearchHistoryFireAndForget(')), context);
-  return { context, notice, timers, events };
+  return { context, notice, timers, events, styles };
 }
+
+test('notice follows the play button center', () => {
+  const { context: c, styles } = setup();
+  assert.equal(styles.get('--playback-notice-x'), '1000px');
+  c.resumePlayPauseButton.getBoundingClientRect = () => ({ left: 1120, width: 42 });
+  c.showPlaybackNotice('已经是第一首了', { kind: 'info' });
+  assert.equal(styles.get('--playback-notice-x'), '1141px');
+});
 
 test('manual boundaries explain failure without overwriting playback status', () => {
   const { context: c, notice } = setup();
