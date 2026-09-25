@@ -430,15 +430,27 @@ function syncMediaSessionPosition() {
   });
 }
 
+function shouldForwardMediaSessionAction(action, paused) {
+  return action === "play" ? paused : action === "pause" && !paused;
+}
+
 function registerMediaSessionActionHandlers() {
   withMediaSession((mediaSession) => {
     mediaSession.setActionHandler("play", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session play");
-      playPauseButton.click();
+      if (shouldForwardMediaSessionAction("play", playerAudio.paused)) {
+        playPauseButton.click();
+      } else {
+        window.recordPlaybackDiag?.("external-control", "Media Session play ignored: already playing");
+      }
     });
     mediaSession.setActionHandler("pause", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session pause");
-      playPauseButton.click();
+      if (shouldForwardMediaSessionAction("pause", playerAudio.paused)) {
+        playPauseButton.click();
+      } else {
+        window.recordPlaybackDiag?.("external-control", "Media Session pause ignored: already paused");
+      }
     });
     mediaSession.setActionHandler("previoustrack", () => previousButtonForImmersive.click());
     mediaSession.setActionHandler("nexttrack", () => nextButtonForImmersive.click());
