@@ -42,6 +42,8 @@ pub(crate) struct AudioCacheItem {
 }
 
 pub(crate) struct CachedAudio {
+    // 仅用于 debug 诊断日志。
+    #[cfg_attr(not(debug_assertions), allow(dead_code))]
     pub(crate) key: String,
     pub(crate) path: PathBuf,
     pub(crate) metadata: AudioCacheMetadata,
@@ -164,16 +166,6 @@ pub(crate) fn eviction_candidates(index: &AudioCacheIndex) -> Vec<AudioCacheItem
     remove
 }
 
-pub(crate) fn cache_stats(index: &AudioCacheIndex) -> (u64, usize) {
-    (
-        index
-            .items
-            .iter()
-            .fold(0u64, |total, item| total.saturating_add(item.bytes)),
-        index.items.len(),
-    )
-}
-
 pub(crate) fn lookup_cached_file(
     bvid: &str,
     cid: Option<u64>,
@@ -185,6 +177,27 @@ pub(crate) fn lookup_cached_file(
         .lock()
         .map_err(|_| "音频缓存索引锁异常。")?;
     lookup_cached_file_at(&cache_dir()?, bvid, cid)
+}
+
+pub(crate) fn cached_file_path_for_analysis(key: &str) -> Result<Option<PathBuf>, String> {
+    let _lock = AUDIO_CACHE_INDEX_LOCK
+        .lock()
+        .map_err(|_| "音频缓存索引锁异常。")?;
+    let dir = library_root()?.join("cache").join("audio");
+    cached_file_path_for_analysis_at(&dir, key)
+}
+
+fn cached_file_path_for_analysis_at(dir: &Path, key: &str) -> Result<Option<PathBuf>, String> {
+    let index = read_index_at(&dir.join(INDEX_FILE))?;
+    if !index.enabled {
+        return Ok(None);
+    }
+    let Some(item) = index.items.iter().find(|item| item.key == key) else {
+        return Ok(None);
+    };
+    validate_cache_file_name(&item.file_name)?;
+    let path = dir.join(&item.file_name);
+    Ok(path.is_file().then_some(path))
 }
 
 fn lookup_cached_file_at(
@@ -218,22 +231,6 @@ fn lookup_cached_file_at(
     index.items.retain(|item| item.key != key);
     write_index_at(&path, &index)?;
     Ok(None)
-}
-
-pub(crate) fn save_item(
-    key: &str,
-    file_name: &str,
-    bytes: u64,
-    metadata: AudioCacheMetadata,
-) -> Result<(), String> {
-    validate_cache_file_name(file_name)?;
-    let _lock = AUDIO_CACHE_INDEX_LOCK
-        .lock()
-        .map_err(|_| "音频缓存索引锁异常。")?;
-    let path = cache_dir()?.join(INDEX_FILE);
-    let mut index = read_index_at(&path)?;
-    record_item(&mut index, key, file_name, bytes, now_millis(), metadata);
-    write_index_at(&path, &index)
 }
 
 fn finish_download_at(
@@ -554,29 +551,6 @@ pub(crate) async fn cache_track_audio(
     result
 }
 
-pub(crate) fn delete_cached_file(file_name: &str) -> Result<(), String> {
-    validate_cache_file_name(file_name)?;
-    let _lock = AUDIO_CACHE_INDEX_LOCK
-        .lock()
-        .map_err(|_| "音频缓存索引锁异常。")?;
-    let dir = cache_dir()?;
-    let index_path = dir.join(INDEX_FILE);
-    let mut index = read_index_at(&index_path)?;
-    let file_path = dir.join(file_name);
-    match fs::remove_file(&file_path) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            return Err(format!(
-                "无法删除音频缓存文件 {}：{error}",
-                file_path.display()
-            ));
-        }
-    }
-    index.items.retain(|item| item.file_name != file_name);
-    write_index_at(&index_path, &index)
-}
-
 pub(crate) fn clear_cache() -> Result<u32, String> {
     let _lock = AUDIO_CACHE_INDEX_LOCK
         .lock()
@@ -772,6 +746,57 @@ mod tests {
         assert_eq!(hit.metadata, metadata());
         let updated = read_index_at(&temp.path().join(INDEX_FILE)).unwrap();
         assert!(updated.items[0].last_access_at > 1);
+    }
+
+    #[test]
+    fn analysis_lookup_returns_file_without_updating_access() {
+        let temp = TempDir::new();
+        let key = "BV1xx411c7mD:42";
+        let file_path = temp.path().join(cache_file_name(key));
+        fs::write(&file_path, b"audio").unwrap();
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![item(key, 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert_eq!(
+            cached_file_path_for_analysis_at(temp.path(), key),
+            Ok(Some(file_path))
+        );
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
+    }
+
+    #[test]
+    fn analysis_lookup_missing_file_is_a_miss_without_index_change() {
+        let temp = TempDir::new();
+        let key = "BV1xx411c7mD:42";
+        let index = AudioCacheIndex {
+            enabled: true,
+            items: vec![item(key, 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert_eq!(cached_file_path_for_analysis_at(temp.path(), key), Ok(None));
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
+    }
+
+    #[test]
+    fn analysis_lookup_disabled_cache_is_a_miss() {
+        let temp = TempDir::new();
+        let key = "BV1xx411c7mD:42";
+        let file_path = temp.path().join(cache_file_name(key));
+        fs::write(&file_path, b"audio").unwrap();
+        let index = AudioCacheIndex {
+            items: vec![item(key, 5, 1)],
+            ..AudioCacheIndex::default()
+        };
+        write_index_at(&temp.path().join(INDEX_FILE), &index).unwrap();
+
+        assert_eq!(cached_file_path_for_analysis_at(temp.path(), key), Ok(None));
+        assert_eq!(read_index_at(&temp.path().join(INDEX_FILE)).unwrap(), index);
     }
 
     #[test]
@@ -1145,8 +1170,6 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["oldest", "middle"]
         );
-        let removed_bytes = remove.iter().map(|item| item.bytes).sum::<u64>();
-        assert!(cache_stats(&index).0 - removed_bytes <= index.max_bytes);
     }
 
     #[test]
@@ -1163,15 +1186,5 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["oversized"]
         );
-    }
-
-    #[test]
-    fn stats_cover_empty_and_multiple_items() {
-        assert_eq!(cache_stats(&AudioCacheIndex::default()), (0, 0));
-        let index = AudioCacheIndex {
-            items: vec![item("one", 4, 1), item("two", 7, 2)],
-            ..AudioCacheIndex::default()
-        };
-        assert_eq!(cache_stats(&index), (11, 2));
     }
 }

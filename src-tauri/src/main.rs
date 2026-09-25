@@ -207,6 +207,8 @@ async fn prepare_audio(
             Err(error) => {
                 #[cfg(debug_assertions)]
                 eprintln!("[audio-cache] lookup failed: {error}");
+                #[cfg(not(debug_assertions))]
+                let _ = error;
                 None
             }
         };

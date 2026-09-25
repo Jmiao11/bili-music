@@ -341,6 +341,12 @@ fn decode_loudness(source: Box<dyn MediaSource>, deadline: Instant) -> Result<Op
         .map(|result| result.integrated_lufs))
 }
 
+fn local_audio_source(path: &std::path::Path) -> Result<Box<dyn MediaSource>, String> {
+    std::fs::File::open(path)
+        .map(|file| Box::new(file) as Box<dyn MediaSource>)
+        .map_err(|error| format!("无法读取音频缓存文件 {}：{error}", path.display()))
+}
+
 struct AnalysisGuard(Arc<AtomicBool>);
 
 impl Drop for AnalysisGuard {
@@ -376,6 +382,13 @@ pub async fn analyze_track_loudness(
     if let Some(lufs) = crate::library::get_track_loudness(key.clone())? {
         return Ok(Some(lufs));
     }
+    let local_path = crate::audio_cache::cached_file_path_for_analysis(&key)?;
+    #[cfg(debug_assertions)]
+    let source = if local_path.is_some() {
+        "local"
+    } else {
+        "proxy"
+    };
     analyze_exclusively(Arc::clone(&state.loudness_busy), |guard| async move {
         let token = proxy_token(&audio_url, &state.proxy_base_url)?.to_owned();
         let client = state.proxy.client.clone();
@@ -386,6 +399,9 @@ pub async fn analyze_track_loudness(
         let worker = tauri::async_runtime::spawn_blocking(move || {
             // 超时或调用方取消后，worker 结束前仍占用分析槽。
             let _guard = guard;
+            if let Some(path) = local_path {
+                return decode_loudness(local_audio_source(&path)?, deadline);
+            }
             let mut source = ProxyAudioSource {
                 client,
                 url: audio_url,
@@ -412,7 +428,7 @@ pub async fn analyze_track_loudness(
         {
             let lufs = result.as_ref().ok().copied().flatten();
             eprintln!(
-                "[loudness] token={token} lufs={lufs:?} gain={:.6} result={result:?}",
+                "[loudness] token={token} source={source} lufs={lufs:?} gain={:.6} result={result:?}",
                 lufs_to_gain(lufs)
             );
         }
@@ -483,6 +499,34 @@ mod tests {
         (0..RATE * 3)
             .map(|n| (amplitude * (TAU * 1_000.0 * n as f64 / RATE as f64).sin()) as f32)
             .collect()
+    }
+
+    #[test]
+    fn local_media_source_reads_synthetic_sine_file() {
+        let path = std::env::temp_dir().join(format!(
+            "bili-music-loudness-{}-{}.pcm",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let samples = sine(0.1);
+        let bytes: Vec<u8> = samples
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect();
+        std::fs::write(&path, &bytes).unwrap();
+
+        let mut source = local_audio_source(&path).unwrap();
+        let mut first_sample = [0; 4];
+        source.read_exact(&mut first_sample).unwrap();
+        assert_eq!(first_sample, samples[0].to_le_bytes());
+        source.seek(SeekFrom::Start(4)).unwrap();
+        source.read_exact(&mut first_sample).unwrap();
+        assert_eq!(first_sample, samples[1].to_le_bytes());
+        drop(source);
+        std::fs::remove_file(path).unwrap();
     }
 
     fn measured(samples: &[f32]) -> f64 {

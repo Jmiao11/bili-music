@@ -97,6 +97,7 @@ const playerState = {
 };
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
+let cacheRequestPromise = null;
 let pendingResume = null;
 let resumeInProgress = false;
 let lastPlaybackStateSavedAt = Number.NEGATIVE_INFINITY;
@@ -467,6 +468,7 @@ function emitCurrentTrackChanged() {
   playRecordedForCurrentTrack = false;
   loudnessAnalyzedForCurrentTrack = false;
   cacheRequestedForCurrentTrack = false;
+  cacheRequestPromise = null;
   const snapshot = currentTrackSnapshot();
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
@@ -2965,16 +2967,24 @@ function analyzeCurrentTrackAtThreshold() {
 
   loudnessAnalyzedForCurrentTrack = true;
   const requestVersion = playerState.requestVersion;
-  invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).then((lufs) => {
-    if (requestVersion !== playerState.requestVersion) return;
-    if (lufs === null || !Number.isFinite(lufs)) {
-      console.warn("track loudness analysis unavailable:", `${bvid}:${cid}`);
-      return;
-    }
-    setNormalizationGain(lufsToGain(lufs));
-  }).catch((error) => {
-    console.warn("analyze_track_loudness failed:", error);
-  });
+  const startAnalysis = () => {
+    if (requestVersion !== playerState.requestVersion || !isLoudnessNormalizationEnabled()) return;
+    invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).then((lufs) => {
+      if (requestVersion !== playerState.requestVersion) return;
+      if (lufs === null || !Number.isFinite(lufs)) {
+        console.warn("track loudness analysis unavailable:", `${bvid}:${cid}`);
+        return;
+      }
+      setNormalizationGain(lufsToGain(lufs));
+    }).catch((error) => {
+      console.warn("analyze_track_loudness failed:", error);
+    });
+  };
+  if (cacheRequestPromise) {
+    void cacheRequestPromise.then(startAnalysis);
+  } else {
+    startAnalysis();
+  }
 }
 
 async function loadCurrentTrack({
@@ -3711,8 +3721,6 @@ audio.addEventListener("timeupdate", () => {
   }
 });
 
-audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);
-
 audio.addEventListener("timeupdate", () => {
   if (cacheRequestedForCurrentTrack) return;
   const dur = Number(audio.duration);
@@ -3729,7 +3737,7 @@ audio.addEventListener("timeupdate", () => {
     audioUrl !== audio.currentSrc
   ) return;
   cacheRequestedForCurrentTrack = true;
-  invoke("cache_track_audio", {
+  const request = invoke("cache_track_audio", {
     audioUrl, bvid, cid,
     title: snapshot.title,
     uploader: snapshot.uploader,
@@ -3738,9 +3746,14 @@ audio.addEventListener("timeupdate", () => {
   }).then((result) => {
     console.debug("cache_track_audio:", result);
     if (result === "cached") window.dispatchEvent(new Event("bilibili-music-audio-cache-updated"));
-  })
-    .catch((error) => console.warn("cache_track_audio failed:", error));
+  }).catch((error) => console.warn("cache_track_audio failed:", error));
+  cacheRequestPromise = request;
+  void request.then(() => {
+    if (cacheRequestPromise === request) cacheRequestPromise = null;
+  });
 });
+
+audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);
 
 audio.addEventListener("timeupdate", () => {
   if (playRecordedForCurrentTrack) return;

@@ -6,11 +6,17 @@ const vm = require("node:vm");
 
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const code = appearance.slice(appearance.indexOf("const VOLUME_KEY"), appearance.indexOf("const root ="))
+const code = main.slice(main.indexOf("let cacheRequestedForCurrentTrack = false;"), main.indexOf("let pendingResume = null;"))
+  + appearance.slice(appearance.indexOf("const VOLUME_KEY"), appearance.indexOf("const root ="))
   + appearance.slice(appearance.indexOf("function clampNumber("), appearance.indexOf("function streamSourceLabel("))
   + appearance.slice(appearance.indexOf("function applyVolume("), appearance.indexOf("for (const item of navItems)", appearance.indexOf("function applyVolume(")))
   + main.slice(main.indexOf("function emitCurrentTrackChanged("), main.indexOf("function clearPlaybackNotice("))
   + main.slice(main.indexOf("let loudnessQueryVersion"), main.indexOf("async function loadCurrentTrack("));
+const cacheListenerCode = main.slice(
+  main.lastIndexOf('audio.addEventListener("timeupdate"', main.indexOf('if (cacheRequestedForCurrentTrack) return;')),
+  main.indexOf('audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);')
+    + 'audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);'.length,
+);
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = appearance.slice(
@@ -35,9 +41,16 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
     queue: [{ bvid: "BV1GF4X6MEb1" }],
     currentIndex: 0,
     currentPages: [{ cid: 1 }],
+    activeAudioVersion: 1,
     activeAudioUrl: "http://127.0.0.1/audio/11111111111111111111111111111111",
   };
-  const playerAudio = { volume: 1, duration: 100, currentTime: 0 };
+  const timeupdateListeners = [];
+  const playerAudio = {
+    volume: 1, duration: 100, currentTime: 0, currentSrc: state.activeAudioUrl,
+    addEventListener: (type, listener) => {
+      if (type === "timeupdate") timeupdateListeners.push(listener);
+    },
+  };
   const animation = { callbacks: new Map(), cancelled: [], nextId: 1, now: 0 };
   const requestAnimationFrame = controlledAnimation
     ? callback => {
@@ -63,18 +76,25 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
   };
   const context = vm.createContext({
     playerAudio, audio: playerAudio, volumeSlider: { value: "1" }, loudnessNormalizationToggle: { checked: false },
-    playerState: state, currentVideoPage: () => state.currentPages[0],
-    currentTrackSnapshot: () => ({ bvid: state.queue[state.currentIndex]?.bvid ?? "" }),
-    window: { dispatchEvent() {} }, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+    playerState: state, currentVideoPage: () => state.currentPages[0], currentAudioCacheCid: () => state.currentPages[0]?.cid,
+    currentTrackSnapshot: () => ({
+      bvid: state.queue[state.currentIndex]?.bvid ?? "", title: "test", uploader: "test",
+      thumbnailUrl: "https://example.test/cover.jpg", durationSeconds: 100,
+    }),
+    window: { dispatchEvent() {} }, Event, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
     updateRangeProgress: (_, value) => progress.push(value),
     localStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
-    console: { warn: (...args) => warnings.push(args) },
+    console: { warn: (...args) => warnings.push(args), debug() {} },
     invoke: (command, args) => new Promise((resolve, reject) => queries.push({ command, args, resolve, reject })),
     requestAnimationFrame, cancelAnimationFrame,
   });
   vm.runInContext(code, context);
+  vm.runInContext(cacheListenerCode, context);
   context.initializeLoudnessNormalization();
-  return { app: context, queries, warnings, progress, stored, state, animation };
+  return {
+    app: context, queries, warnings, progress, stored, state, animation,
+    emitTimeUpdate: () => timeupdateListeners.forEach(listener => listener()),
+  };
 }
 
 async function settle() {
@@ -267,6 +287,52 @@ test("threshold analysis starts once at the threshold and does not repeat", () =
   app.analyzeCurrentTrackAtThreshold();
   app.analyzeCurrentTrackAtThreshold();
   assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 1);
+});
+
+test("threshold analysis waits for cache request regardless of its result", async () => {
+  for (const succeeds of [true, false]) {
+    const { app, queries, emitTimeUpdate } = setup(new Map([[settingKey, "true"]]));
+    app.audio.currentTime = 30;
+    emitTimeUpdate();
+    const cache = queries.find(query => query.command === "cache_track_audio");
+    assert.ok(cache);
+    assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 0);
+    if (succeeds) cache.resolve("cached");
+    else cache.reject(Error("synthetic cache failure"));
+    await settle();
+    assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 1);
+  }
+});
+
+test("threshold analysis starts immediately without a cache request", () => {
+  const { app, queries, state, emitTimeUpdate } = setup(new Map([[settingKey, "true"]]));
+  state.activeAudioVersion = -1;
+  app.audio.currentTime = 30;
+  emitTimeUpdate();
+  assert.equal(queries.filter(query => query.command === "cache_track_audio").length, 0);
+  assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 1);
+});
+
+test("track switch while cache is pending drops the old analysis", async () => {
+  const { app, queries, state, emitTimeUpdate } = setup(new Map([[settingKey, "true"]]));
+  app.audio.currentTime = 30;
+  emitTimeUpdate();
+  const cache = queries.find(query => query.command === "cache_track_audio");
+  state.requestVersion++;
+  app.emitCurrentTrackChanged();
+  cache.resolve("cached");
+  await settle();
+  assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 0);
+});
+
+test("disabling normalization while cache is pending prevents analysis", async () => {
+  const { app, queries, emitTimeUpdate } = setup(new Map([[settingKey, "true"]]));
+  app.audio.currentTime = 30;
+  emitTimeUpdate();
+  app.applyLoudnessNormalization(false);
+  queries.find(query => query.command === "cache_track_audio").resolve("cached");
+  await settle();
+  assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 0);
 });
 
 test("threshold analysis stays off when normalization is disabled", () => {
