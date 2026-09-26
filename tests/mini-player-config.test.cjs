@@ -48,6 +48,16 @@ test("backend registers the three mini window commands and close recovery hook",
   assert.match(miniBackend, /pub\s+async\s+fn\s+open_mini_player/);
 });
 
+test("mini window keeps rounded corners transparent on Windows and macOS", () => {
+  const config = JSON.parse(read("src-tauri/tauri.conf.json"));
+  const cargo = read("src-tauri/Cargo.toml");
+  const miniBackend = read("src-tauri/src/mini_player.rs");
+  assert.equal(config.app.macOSPrivateApi, true);
+  assert.match(cargo, /tauri\s*=\s*\{[^}]*features\s*=\s*\[[^\]]*"macos-private-api"/s);
+  assert.match(miniBackend, /cfg\(any\(target_os = "windows", target_os = "macos"\)\)/);
+  assert.match(miniBackend, /builder\.transparent\(true\)/);
+});
+
 test("mini page controls start disabled and favorite changes are published after real results", () => {
   const miniHtml = read("ui/mini.html");
   assert.doesNotMatch(miniHtml, /id="mini-uploader"/);

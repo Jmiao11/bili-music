@@ -42,8 +42,11 @@ pub async fn open_mini_player(app: AppHandle) -> Result<(), String> {
             .always_on_top(true)
             .visible(false);
 
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    let builder = builder.transparent(true);
+
     #[cfg(target_os = "windows")]
-    let builder = builder.skip_taskbar(true).shadow(true).transparent(true);
+    let builder = builder.skip_taskbar(true).shadow(true);
 
     let builder = if let Some((x, y)) = main_window(&app)
         .ok()
