@@ -79,6 +79,7 @@ function createMiniPlayerController({
 
   function clearTitleScroll() {
     title.classList.remove("is-scrolling");
+    titleViewport.classList.remove("has-scrolling-title");
     title.style.removeProperty?.("--mini-title-distance");
     title.style.removeProperty?.("--mini-title-duration");
   }
@@ -99,10 +100,11 @@ function createMiniPlayerController({
     title.style.setProperty("--mini-title-duration", `${duration}s`);
     void title.offsetWidth;
     title.classList.add("is-scrolling");
+    titleViewport.classList.add("has-scrolling-title");
   }
 
   function updateTitleScroll() {
-    title.classList.remove("is-scrolling");
+    clearTitleScroll();
     if (typeof window?.requestAnimationFrame === "function") {
       if (titleScrollFrame != null) {
         window.cancelAnimationFrame?.(titleScrollFrame);

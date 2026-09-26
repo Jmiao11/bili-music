@@ -140,6 +140,9 @@ body {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+
+.mini-title-viewport.has-scrolling-title {
   mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 6px), transparent 100%);
 }

@@ -5,6 +5,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/mini.js"), "utf8");
+const styles = readFileSync(path.join(__dirname, "../ui/mini.css"), "utf8");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 function element(extra = {}) {
@@ -221,6 +222,7 @@ test("long titles scroll by their measured overflow", async () => {
   app.controls["#mini-title"].scrollWidth = 180;
   app.fire("mini-player-state", { title: "一首非常长的歌曲标题", hasCurrent: true });
   assert.equal(app.controls["#mini-title"].classList.contains("is-scrolling"), true);
+  assert.equal(app.controls["#mini-title-viewport"].classList.contains("has-scrolling-title"), true);
   assert.equal(app.controls["#mini-title"].style["--mini-title-distance"], "-80px");
   assert.match(app.controls["#mini-title"].style["--mini-title-duration"], /^\d+(?:\.\d+)?s$/);
 });
@@ -237,7 +239,14 @@ test("titles that fit do not scroll, including before the viewport has a width",
   app.controls["#mini-title"].scrollWidth = 160;
   app.fire("mini-player-state", { title: "短标题", hasCurrent: true });
   assert.equal(app.controls["#mini-title"].classList.contains("is-scrolling"), false);
+  assert.equal(app.controls["#mini-title-viewport"].classList.contains("has-scrolling-title"), false);
   assert.equal(app.controls["#mini-title"].style["--mini-title-distance"], undefined);
+});
+
+test("short titles are not covered by the scrolling edge mask", () => {
+  const viewportRule = styles.match(/\.mini-title-viewport\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(viewportRule, /mask-image/);
+  assert.match(styles, /\.mini-title-viewport\.has-scrolling-title\s*\{[^}]*mask-image/s);
 });
 
 test("controls emit commands, restore invokes the backend, and drag uses the native window", async () => {
