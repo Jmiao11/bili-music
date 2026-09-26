@@ -1267,13 +1267,14 @@ importDataButton.addEventListener("click", async () => {
   try {
     const result = await invokeAppearance("import_data");
     if (result) {
-      appearanceStatus.textContent = "导入完成，正在刷新…";
+      try { sessionStorage.setItem("bili-music-import-result", result); } catch {}
+      appearanceStatus.textContent = `${result} 正在刷新…`;
       window.location.reload();
       return;
     }
     appearanceStatus.textContent = "";
   } catch (error) {
-    appearanceStatus.textContent = `导入失败：${error}`;
+    appearanceStatus.textContent = String(error);
   }
   importDataButton.disabled = false;
 });
@@ -1413,5 +1414,13 @@ syncImmersiveTrack();
 registerMediaSessionActionHandlers();
 initializeTaskbarControls();
 initializeGlobalShortcutControls();
-restoreBackground();
+void restoreBackground().finally(() => {
+  try {
+    const importResult = sessionStorage.getItem("bili-music-import-result");
+    if (importResult) {
+      sessionStorage.removeItem("bili-music-import-result");
+      appearanceStatus.textContent = importResult;
+    }
+  } catch {}
+});
 restoreStreamSource();

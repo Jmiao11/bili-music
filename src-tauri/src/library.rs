@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -15,6 +15,33 @@ const PLAY_HISTORY_FILE: &str = "play-history.json";
 const PLAYBACK_STATE_FILE: &str = "playback-state.json";
 const UNAVAILABLE_TRACKS_FILE: &str = "unavailable-tracks.json";
 const SHORTCUTS_FILE: &str = "shortcuts.json";
+const AI_CONFIG_FILE: &str = "ai-config.json";
+const BACKUP_JSON_FILES: &[&str] = &[
+    FAVORITES_FILE,
+    PLAYLISTS_FILE,
+    SEARCH_HISTORY_FILE,
+    PLAY_HISTORY_FILE,
+    PLAYBACK_STATE_FILE,
+    UNAVAILABLE_TRACKS_FILE,
+    SHORTCUTS_FILE,
+    "loudness.json",
+    AI_CONFIG_FILE,
+    "recommendations.json",
+    "lyrics-offsets.json",
+    "lyrics-bindings.json",
+    "video-pages-cache.json",
+];
+const BACKUP_BACKGROUND_FILES: &[&str] = &[
+    "background.jpg",
+    "background.jpeg",
+    "background.png",
+    "background.webp",
+    "background.bmp",
+    "background.img",
+];
+// 背景图现有限制为 50 MiB；总量给 13 个 JSON 留余量，同时限制 ZIP 解压后的内存占用。
+const MAX_IMPORT_ENTRY_BYTES: u64 = 50 * 1024 * 1024;
+const MAX_IMPORT_TOTAL_BYTES: u64 = 128 * 1024 * 1024;
 const PLAYBACK_STATE_VERSION: u32 = 1;
 #[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
@@ -830,7 +857,12 @@ fn export_data_blocking() -> Result<Option<String>, String> {
     let root = library_root()?;
     let file = File::create(&path)
         .map_err(|error| format!("无法创建备份文件 {}：{error}", path.display()))?;
-    let mut zip = zip::ZipWriter::new(file);
+    export_data_at(&root, file)?;
+    Ok(Some(path.to_string_lossy().into_owned()))
+}
+
+fn export_data_at<W: Write + Seek>(root: &Path, output: W) -> Result<W, String> {
+    let mut zip = zip::ZipWriter::new(output);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     if root.exists() {
@@ -849,21 +881,36 @@ fn export_data_blocking() -> Result<Option<String>, String> {
             else {
                 continue;
             };
-            if file_name.contains(".tmp") || file_name.ends_with(".backup") {
+            if file_name.contains(".tmp")
+                || file_name.ends_with(".backup")
+                || file_name.starts_with("ai-config.json.bak-")
+            {
                 continue;
             }
             zip.start_file(&file_name, options)
                 .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
-            let mut input = File::open(&path)
-                .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
-            std::io::copy(&mut input, &mut zip)
-                .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+            if file_name == AI_CONFIG_FILE {
+                let bytes = fs::read(&path)
+                    .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
+                let mut config: serde_json::Value = serde_json::from_slice(&bytes)
+                    .map_err(|error| format!("AI 配置格式损坏：{error}"))?;
+                let fields = config
+                    .as_object_mut()
+                    .ok_or_else(|| "AI 配置不是 JSON 对象。".to_owned())?;
+                fields.remove("api_key");
+                serde_json::to_writer(&mut zip, &config)
+                    .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+            } else {
+                let mut input = File::open(&path)
+                    .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
+                std::io::copy(&mut input, &mut zip)
+                    .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+            }
         }
     }
 
     zip.finish()
-        .map_err(|error| format!("无法完成备份文件 {}：{error}", path.display()))?;
-    Ok(Some(path.to_string_lossy().into_owned()))
+        .map_err(|error| format!("无法完成备份文件：{error}"))
 }
 
 fn import_data_blocking() -> Result<Option<String>, String> {
@@ -874,37 +921,323 @@ fn import_data_blocking() -> Result<Option<String>, String> {
         return Ok(None);
     };
 
-    let root = library_root()?;
-    fs::create_dir_all(&root)
-        .map_err(|error| format!("无法创建数据目录 {}：{error}", root.display()))?;
-    let file = File::open(&path)
-        .map_err(|error| format!("无法打开备份文件 {}：{error}", path.display()))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|error| format!("备份文件不是有效 zip {}：{error}", path.display()))?;
+    let root = library_root().map_err(|error| format!("导入失败，现有数据未被修改：{error}"))?;
+    let file = File::open(&path).map_err(|error| {
+        format!(
+            "导入失败，现有数据未被修改：无法打开备份文件 {}：{error}",
+            path.display()
+        )
+    })?;
+    let (imported, skipped) = import_data_at(&root, file, |path, bytes| fs::write(path, bytes))
+        .map_err(|error| {
+            if error.starts_with("回滚未完成") || error.starts_with("文件已导入") {
+                format!("导入失败：{error}")
+            } else {
+                format!("导入失败，现有数据未被修改：{error}")
+            }
+        })?;
+    Ok(Some(format!(
+        "导入了 {imported} 个文件，跳过了 {skipped} 个不认识的条目。"
+    )))
+}
 
+fn import_data_at<R: Read + Seek>(
+    root: &Path,
+    input: R,
+    mut write_file: impl FnMut(&Path, &[u8]) -> std::io::Result<()>,
+) -> Result<(usize, usize), String> {
+    let mut archive =
+        zip::ZipArchive::new(input).map_err(|error| format!("备份文件不是有效 zip：{error}"))?;
+    let mut files = Vec::<(String, Vec<u8>)>::new();
+    let mut names = HashSet::new();
+    let mut skipped = 0;
+    let mut total = 0u64;
     for index in 0..archive.len() {
-        let mut entry = archive
+        let entry = archive
             .by_index(index)
             .map_err(|error| format!("无法读取备份条目 #{index}：{error}"))?;
-        if entry.is_dir() {
+        let name = entry.name().to_owned();
+        if entry.is_dir()
+            || !BACKUP_JSON_FILES.contains(&name.as_str())
+                && !BACKUP_BACKGROUND_FILES.contains(&name.as_str())
+        {
+            skipped += 1;
             continue;
         }
-        let Some(file_name) = Path::new(entry.name())
-            .file_name()
-            .and_then(|name| name.to_str())
-            .filter(|name| !name.is_empty())
-            .map(str::to_owned)
-        else {
-            continue;
-        };
-        let target = root.join(&file_name);
-        let mut output = File::create(&target)
-            .map_err(|error| format!("无法写入数据文件 {}：{error}", target.display()))?;
-        std::io::copy(&mut entry, &mut output)
-            .map_err(|error| format!("无法解压备份条目 {file_name}：{error}"))?;
+        if !names.insert(name.clone()) {
+            return Err(format!("备份包含重复条目 {name}。"));
+        }
+        if entry.size() > MAX_IMPORT_ENTRY_BYTES
+            || total.saturating_add(entry.size()) > MAX_IMPORT_TOTAL_BYTES
+        {
+            return Err(format!("备份条目 {name} 超过大小上限。"));
+        }
+        let mut bytes = Vec::new();
+        entry
+            .take(MAX_IMPORT_ENTRY_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| format!("无法解压备份条目 {name}：{error}"))?;
+        total = total.saturating_add(bytes.len() as u64);
+        if bytes.len() as u64 > MAX_IMPORT_ENTRY_BYTES || total > MAX_IMPORT_TOTAL_BYTES {
+            return Err(format!("备份条目 {name} 超过大小上限。"));
+        }
+        if name.ends_with(".json") {
+            let mut json: serde_json::Value = serde_json::from_slice(&bytes)
+                .map_err(|error| format!("备份条目 {name} 的 JSON 格式损坏：{error}"))?;
+            if name == AI_CONFIG_FILE {
+                let fields = json
+                    .as_object_mut()
+                    .ok_or_else(|| "备份中的 AI 配置不是 JSON 对象。".to_owned())?;
+                if !fields.contains_key("api_key") {
+                    let existing = root.join(AI_CONFIG_FILE);
+                    let key = if existing.exists() {
+                        let current: serde_json::Value = serde_json::from_slice(
+                            &fs::read(&existing)
+                                .map_err(|error| format!("无法读取本机 AI 配置：{error}"))?,
+                        )
+                        .map_err(|error| format!("本机 AI 配置格式损坏：{error}"))?;
+                        current
+                            .get("api_key")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or("")
+                            .to_owned()
+                    } else {
+                        String::new()
+                    };
+                    fields.insert("api_key".to_owned(), serde_json::Value::String(key));
+                    bytes = serde_json::to_vec(&json)
+                        .map_err(|error| format!("无法处理 AI 配置：{error}"))?;
+                }
+            }
+        }
+        files.push((name, bytes));
     }
 
-    Ok(Some("导入完成".to_owned()))
+    for (name, _) in &files {
+        match fs::symlink_metadata(root.join(name)) {
+            Ok(metadata) if !metadata.file_type().is_file() => {
+                return Err(format!("现有路径 {name} 不是普通文件。"));
+            }
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("无法检查现有文件 {name}：{error}"));
+            }
+            _ => {}
+        }
+    }
+    fs::create_dir_all(root)
+        .map_err(|error| format!("无法创建数据目录 {}：{error}", root.display()))?;
+    let snapshot = root.join(format!(".import-rollback-{}", Uuid::new_v4()));
+    fs::create_dir(&snapshot).map_err(|error| format!("无法创建回滚快照：{error}"))?;
+    let mut existed = HashSet::new();
+    for (name, _) in &files {
+        let target = root.join(name);
+        if target.exists() {
+            if let Err(error) = fs::copy(&target, snapshot.join(name)) {
+                let _ = fs::remove_dir_all(&snapshot);
+                return Err(format!("无法保存 {name} 的回滚快照：{error}"));
+            }
+            existed.insert(name.clone());
+        }
+    }
+    let mut written = Vec::new();
+    for (name, bytes) in &files {
+        written.push(name.as_str());
+        if let Err(error) = write_file(&root.join(name), bytes) {
+            let mut rollback_errors = Vec::new();
+            for written_name in written {
+                let target = root.join(written_name);
+                let restored = if existed.contains(written_name) {
+                    fs::copy(snapshot.join(written_name), &target).map(|_| ())
+                } else {
+                    fs::remove_file(&target).or_else(|remove_error| {
+                        if remove_error.kind() == std::io::ErrorKind::NotFound {
+                            Ok(())
+                        } else {
+                            Err(remove_error)
+                        }
+                    })
+                };
+                if let Err(restore_error) = restored {
+                    rollback_errors.push(format!("{written_name}: {restore_error}"));
+                }
+            }
+            if !rollback_errors.is_empty() {
+                return Err(format!(
+                    "回滚未完成（快照保留在 {}）：{}；原错误：{error}",
+                    snapshot.display(),
+                    rollback_errors.join("；")
+                ));
+            }
+            fs::remove_dir_all(&snapshot).map_err(|cleanup_error| {
+                format!(
+                    "回滚已完成，但无法删除快照 {}：{cleanup_error}",
+                    snapshot.display()
+                )
+            })?;
+            return Err(format!("写入 {name} 失败并已回滚：{error}"));
+        }
+    }
+    fs::remove_dir_all(&snapshot).map_err(|error| {
+        format!(
+            "文件已导入，但无法删除回滚快照 {}：{error}",
+            snapshot.display()
+        )
+    })?;
+    Ok((files.len(), skipped))
+}
+
+#[cfg(test)]
+mod backup_tests {
+    use super::*;
+    use std::io::{Cursor, Error};
+
+    fn temp_root() -> PathBuf {
+        let root = std::env::temp_dir().join(format!("bili-backup-test-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        root
+    }
+
+    fn backup(entries: &[(&str, &[u8])]) -> Cursor<Vec<u8>> {
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for (name, bytes) in entries {
+            zip.start_file(*name, SimpleFileOptions::default()).unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.finish().unwrap()
+    }
+
+    #[test]
+    fn export_ai_config_removes_key_and_keeps_other_fields() {
+        let root = temp_root();
+        fs::write(
+            root.join(AI_CONFIG_FILE),
+            br#"{"version":1,"base_url":"https://example.test","model":"m","api_key":"secret"}"#,
+        )
+        .unwrap();
+        fs::write(root.join(FAVORITES_FILE), b"{}").unwrap();
+        fs::write(root.join("ai-config.json.bak-stale"), b"secret").unwrap();
+        let output = export_data_at(&root, Cursor::new(Vec::new())).unwrap();
+        let mut archive = zip::ZipArchive::new(output).unwrap();
+        let config: serde_json::Value =
+            serde_json::from_reader(archive.by_name(AI_CONFIG_FILE).unwrap()).unwrap();
+        assert_eq!(config["model"], "m");
+        assert_eq!(config["base_url"], "https://example.test");
+        assert!(config.get("api_key").is_none());
+        assert!(archive.by_name("ai-config.json.bak-stale").is_err());
+        let mut favorites = String::new();
+        archive
+            .by_name(FAVORITES_FILE)
+            .unwrap()
+            .read_to_string(&mut favorites)
+            .unwrap();
+        assert_eq!(favorites, "{}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn import_skips_unknown_entries_and_counts_them() {
+        let root = temp_root();
+        let zip = backup(&[
+            (FAVORITES_FILE, b"{}"),
+            ("surprise.json", b"{}"),
+            ("nested/playlists.json", b"{}"),
+            ("background.png", b"image"),
+        ]);
+        assert_eq!(
+            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            (2, 2)
+        );
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), b"{}");
+        assert!(!root.join("surprise.json").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_json_rejects_entire_backup_before_writing() {
+        let root = temp_root();
+        fs::write(root.join(FAVORITES_FILE), b"old").unwrap();
+        let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"invalid")]);
+        assert!(
+            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes))
+                .unwrap_err()
+                .contains("JSON 格式损坏")
+        );
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), b"old");
+        assert!(!root.join(PLAYLISTS_FILE).exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_second_write_restores_overwritten_files() {
+        let root = temp_root();
+        fs::write(root.join(FAVORITES_FILE), b"old-favorites").unwrap();
+        fs::write(root.join(PLAYLISTS_FILE), b"old-playlists").unwrap();
+        let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"{}")]);
+        let mut writes = 0;
+        let error = import_data_at(&root, zip, |path, bytes| {
+            writes += 1;
+            if writes == 2 {
+                fs::write(path, b"partial")?;
+                return Err(Error::other("injected failure"));
+            }
+            fs::write(path, bytes)
+        })
+        .unwrap_err();
+        assert!(error.contains("已回滚"));
+        assert_eq!(
+            fs::read(root.join(FAVORITES_FILE)).unwrap(),
+            b"old-favorites"
+        );
+        assert_eq!(
+            fs::read(root.join(PLAYLISTS_FILE)).unwrap(),
+            b"old-playlists"
+        );
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn old_backup_keeps_its_ai_key() {
+        let root = temp_root();
+        fs::write(
+            root.join(AI_CONFIG_FILE),
+            br#"{"version":1,"base_url":"https://local.test","model":"local","api_key":"local"}"#,
+        )
+        .unwrap();
+        let zip = backup(&[(AI_CONFIG_FILE, br#"{"version":1,"base_url":"https://backup.test","model":"backup","api_key":"old-backup"}"#)]);
+        assert_eq!(
+            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            (1, 0)
+        );
+        let config: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(AI_CONFIG_FILE)).unwrap()).unwrap();
+        assert_eq!(config["api_key"], "old-backup");
+        assert_eq!(config["model"], "backup");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn new_backup_preserves_local_ai_key() {
+        let root = temp_root();
+        fs::write(
+            root.join(AI_CONFIG_FILE),
+            br#"{"version":1,"base_url":"https://local.test","model":"local","api_key":"local"}"#,
+        )
+        .unwrap();
+        let zip = backup(&[(
+            AI_CONFIG_FILE,
+            br#"{"version":1,"base_url":"https://backup.test","model":"new"}"#,
+        )]);
+        assert_eq!(
+            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            (1, 0)
+        );
+        let config: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(AI_CONFIG_FILE)).unwrap()).unwrap();
+        assert_eq!(config["api_key"], "local");
+        assert_eq!(config["model"], "new");
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 fn read_favorites() -> Result<FavoritesFile, String> {
