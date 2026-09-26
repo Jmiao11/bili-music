@@ -12,7 +12,9 @@ use crate::library::{
 };
 use crate::search::{SearchClient, SearchVideo};
 
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
+const LEGACY_VERSION: u32 = 1;
+const ANTHROPIC_VERSION: &str = "2023-06-01";
 const AI_CONFIG_FILE: &str = "ai-config.json";
 const RECOMMENDATIONS_FILE: &str = "recommendations.json";
 const RECOMMENDATIONS_VERSION: u32 = 1;
@@ -26,9 +28,45 @@ const AI_CONNECT_TIMEOUT_SECS: u64 = 10;
 #[cfg(debug_assertions)]
 const DEV_DATA_DIR: &str = ".local-data";
 
+/// 用户可选的 AI 接口规范。存储值用完整规范名（kebab-case），
+/// 后续 OpenAI / Anthropic 推出新规范时新增枚举值即可。
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+enum ApiFormat {
+    #[default]
+    #[serde(rename = "openai-chat-completions")]
+    OpenAiChatCompletions,
+    #[serde(rename = "openai-responses")]
+    OpenAiResponses,
+    #[serde(rename = "anthropic-messages")]
+    AnthropicMessages,
+}
+
+impl ApiFormat {
+    fn parse(value: &str) -> Result<ApiFormat, String> {
+        match value.trim() {
+            "openai-chat-completions" => Ok(ApiFormat::OpenAiChatCompletions),
+            "openai-responses" => Ok(ApiFormat::OpenAiResponses),
+            "anthropic-messages" => Ok(ApiFormat::AnthropicMessages),
+            other => Err(format!(
+                "不支持的 AI 接口规范：{other}。支持 openai-chat-completions / openai-responses / anthropic-messages。"
+            )),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            ApiFormat::OpenAiChatCompletions => "openai-chat-completions",
+            ApiFormat::OpenAiResponses => "openai-responses",
+            ApiFormat::AnthropicMessages => "anthropic-messages",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct AiConfig {
     version: u32,
+    #[serde(default)]
+    api_format: ApiFormat,
     base_url: String,
     model: String,
     api_key: String,
@@ -37,6 +75,7 @@ struct AiConfig {
 #[derive(Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AiConfigView {
+    pub api_format: String,
     pub base_url: String,
     pub model: String,
     pub has_key: bool,
@@ -48,23 +87,6 @@ pub struct AiConfigView {
 pub struct AiConnectionTestResult {
     pub ok: bool,
     pub message: String,
-}
-
-#[derive(Deserialize)]
-struct ChatCompletionResponse {
-    choices: Vec<ChatChoice>,
-}
-
-#[derive(Deserialize)]
-struct ChatChoice {
-    message: Option<ChatMessageResponse>,
-}
-
-#[derive(Deserialize)]
-struct ChatMessageResponse {
-    content: Option<String>,
-    #[serde(default)]
-    reasoning_content: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -152,6 +174,7 @@ impl Default for AiConfig {
     fn default() -> Self {
         Self {
             version: VERSION,
+            api_format: ApiFormat::default(),
             base_url: String::new(),
             model: String::new(),
             api_key: String::new(),
@@ -162,6 +185,7 @@ impl Default for AiConfig {
 impl AiConfig {
     fn view(&self) -> AiConfigView {
         AiConfigView {
+            api_format: self.api_format.as_str().to_owned(),
             base_url: self.base_url.clone(),
             model: self.model.clone(),
             has_key: !self.api_key.is_empty(),
@@ -170,7 +194,9 @@ impl AiConfig {
     }
 
     fn ensure_supported_version(&self, path: &Path) -> Result<(), String> {
-        if self.version == VERSION {
+        // v1 是无 api_format 字段的旧配置，读取时默认按 openai-chat-completions 处理，
+        // 下次保存时以 v2 落盘；不认识的版本仍然报错且不覆盖。
+        if self.version == VERSION || self.version == LEGACY_VERSION {
             Ok(())
         } else {
             Err(format!(
@@ -200,13 +226,16 @@ pub(crate) fn save_recommendations(items: &[SearchVideo]) -> Result<(), String> 
 
 #[tauri::command]
 pub fn set_ai_config(
+    api_format: String,
     base_url: String,
     model: String,
     api_key: String,
 ) -> Result<AiConfigView, String> {
+    let api_format = ApiFormat::parse(&api_format)?;
     let base_url = normalize_required("base_url", &base_url)?;
     let model = normalize_required("model", &model)?;
     let mut config = read_ai_config()?;
+    config.api_format = api_format;
     config.base_url = base_url;
     config.model = model;
     let api_key = api_key.trim();
@@ -219,11 +248,20 @@ pub fn set_ai_config(
 
 #[tauri::command]
 pub async fn test_ai_connection(
+    api_format: Option<String>,
     base_url: Option<String>,
     model: Option<String>,
     api_key: Option<String>,
 ) -> Result<AiConnectionTestResult, String> {
     let stored = read_ai_config()?;
+    let api_format = match api_format
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(value) => ApiFormat::parse(value)?,
+        None => stored.api_format,
+    };
     let api_key = api_key.unwrap_or_default().trim().to_owned();
     let api_key = if api_key.is_empty() {
         if stored.api_key.is_empty() {
@@ -248,6 +286,7 @@ pub async fn test_ai_connection(
 
     let config = AiConfig {
         version: VERSION,
+        api_format,
         base_url,
         model,
         api_key,
@@ -257,7 +296,7 @@ pub async fn test_ai_connection(
         content: "ping".to_owned(),
     }];
 
-    match chat_completion_with_config(&config, messages, 16, AI_TIMEOUT_SHORT_SECS).await {
+    match chat_completion_with_config(&config, messages, 512, AI_TIMEOUT_SHORT_SECS).await {
         Ok(_) => Ok(AiConnectionTestResult {
             ok: true,
             message: "连接成功。".to_owned(),
@@ -360,10 +399,7 @@ async fn chat_completion_with_config(
         return Err("AI 配置不完整。".to_owned());
     }
 
-    let endpoint = format!(
-        "{}/chat/completions",
-        config.base_url.trim().trim_end_matches('/')
-    );
+    let built = build_request(config, &messages, max_tokens);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(AI_CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(timeout_secs))
@@ -374,53 +410,315 @@ async fn chat_completion_with_config(
                 safe_error(&error.to_string(), &config.api_key)
             )
         })?;
-    let response = client
-        .post(endpoint)
-        .header(AUTHORIZATION, format!("Bearer {}", config.api_key))
+    let mut request = client
+        .post(&built.endpoint)
         .header(CONTENT_TYPE, "application/json")
-        .json(&serde_json::json!({
-            "model": config.model,
-            "messages": messages,
-            "max_tokens": max_tokens
-        }))
-        .send()
-        .await
-        .map_err(|error| {
-            ai_request_error(
-                error.is_timeout(),
-                &error.to_string(),
-                "AI 请求失败：",
-                &config.api_key,
-            )
-        })?;
+        // 三种规范统一带 Bearer：OpenAI 系标准用法；
+        // 智谱等 Anthropic 兼容网关也认 Bearer（不认 x-api-key），官方 Anthropic 则忽略它。
+        .header(AUTHORIZATION, format!("Bearer {}", config.api_key));
+    for (name, value) in &built.headers {
+        request = request.header(*name, value);
+    }
+    let response = request.json(&built.body).send().await.map_err(|error| {
+        ai_request_error(
+            error.is_timeout(),
+            &error.to_string(),
+            "AI 请求失败：",
+            &config.api_key,
+        )
+    })?;
 
     let status = response.status();
+    let body_text = response.text().await.map_err(|error| {
+        ai_request_error(
+            error.is_timeout(),
+            &error.to_string(),
+            "响应读取失败：",
+            &config.api_key,
+        )
+    })?;
     if !status.is_success() {
-        return Err(format!("HTTP {}", status.as_u16()));
+        // 把服务端返回的真实错误体和请求端点打到终端，否则无法定位网关路径/参数问题。
+        let snippet = response_snippet(&body_text);
+        eprintln!(
+            "[ai] {} 请求 {} 返回 HTTP {}：{}",
+            config.api_format.as_str(),
+            built.endpoint,
+            status.as_u16(),
+            safe_error(&snippet, &config.api_key)
+        );
+        return Err(format!("HTTP {}：{}", status.as_u16(), snippet));
     }
-    let body = response
-        .json::<ChatCompletionResponse>()
-        .await
-        .map_err(|error| {
-            ai_request_error(
-                error.is_timeout(),
-                &error.to_string(),
-                "响应不是有效的 chat completion：",
-                &config.api_key,
-            )
-        })?;
-    body.choices
-        .into_iter()
-        .find_map(|choice| {
-            choice.message.and_then(|message| {
-                message
-                    .content
-                    .filter(|content| !content.trim().is_empty())
-                    .or(message.reasoning_content)
-            })
-        })
-        .filter(|content| !content.trim().is_empty())
-        .ok_or_else(|| "响应缺少 content。".to_owned())
+    let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|error| {
+        let snippet = response_snippet(&body_text);
+        eprintln!(
+            "[ai] {} 响应不是有效 JSON：{}",
+            config.api_format.as_str(),
+            safe_error(&snippet, &config.api_key)
+        );
+        ai_request_error(
+            false,
+            &error.to_string(),
+            "响应不是有效的 JSON：",
+            &config.api_key,
+        )
+    })?;
+    match extract_content(config.api_format, &body) {
+        Some(content) => Ok(content),
+        None => {
+            // 按所选规范没提取到文本时，打印端点、模型和原始响应体，定位网关路由/模型/参数问题。
+            let snippet = response_snippet(&body_text);
+            eprintln!(
+                "[ai] {} 请求 {}（model={}）响应缺少 content，原始响应：{}",
+                config.api_format.as_str(),
+                built.endpoint,
+                config.model,
+                safe_error(&snippet, &config.api_key)
+            );
+            if let Some(reason) = output_truncated_reason(config.api_format, &body) {
+                return Err(format!(
+                    "模型输出被 max tokens 截断（{reason}），推理模型思考占用了全部输出额度；请换非推理模型或重试。"
+                ));
+            }
+            Err(format!(
+                "响应缺少 content（model={}，原始响应片段：{}）",
+                config.model, snippet
+            ))
+        }
+    }
+}
+
+/// 识别“输出被 max tokens 截断”的响应，返回各规范的截断原因。
+fn output_truncated_reason(format: ApiFormat, body: &serde_json::Value) -> Option<String> {
+    match format {
+        ApiFormat::OpenAiChatCompletions => {
+            let finish = body
+                .get("choices")?
+                .get(0)?
+                .get("finish_reason")?
+                .as_str()?;
+            (finish == "length").then(|| format!("finish_reason={finish}"))
+        }
+        ApiFormat::OpenAiResponses => {
+            if body.get("status").and_then(serde_json::Value::as_str) != Some("incomplete") {
+                return None;
+            }
+            let reason = body
+                .get("incomplete_details")
+                .and_then(|details| details.get("reason"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown");
+            Some(format!("status=incomplete, reason={reason}"))
+        }
+        ApiFormat::AnthropicMessages => {
+            let stop = body
+                .get("stop_reason")
+                .and_then(serde_json::Value::as_str)?;
+            (stop == "max_tokens").then(|| format!("stop_reason={stop}"))
+        }
+    }
+}
+
+/// 响应体截断片段：用于终端日志和前端错误提示，按字符截断避免切断 UTF-8。
+fn response_snippet(text: &str) -> String {
+    const SNIPPET_MAX_CHARS: usize = 600;
+    let snippet: String = text.trim().chars().take(SNIPPET_MAX_CHARS).collect();
+    if text.trim().chars().count() > SNIPPET_MAX_CHARS {
+        format!("{snippet}…")
+    } else {
+        snippet
+    }
+}
+
+struct BuiltRequest {
+    endpoint: String,
+    headers: Vec<(&'static str, String)>,
+    body: serde_json::Value,
+}
+
+fn split_system_messages(messages: &[ChatMessage]) -> (String, Vec<&ChatMessage>) {
+    let mut system_parts = Vec::new();
+    let mut rest = Vec::new();
+    for message in messages {
+        if message.role == "system" {
+            system_parts.push(message.content.as_str());
+        } else {
+            rest.push(message);
+        }
+    }
+    (system_parts.join("\n\n"), rest)
+}
+
+/// Base URL 智能拼接：用户可只填服务商域名，也可填到版本段或自定义路径。
+/// Base URL 智能拼接：①无 scheme 自动补 https://；②裸域名自动补 /v1；
+/// ③路径末段是版本段（v1/v4…）或自定义路径 → 直接追加端点。
+/// 注意：程序只会自动补 /v1 这一种；服务商路径不含 /v1 时（如智谱 /api/v1），
+/// 用户必须填到版本段，由提示文案说明。
+fn resolve_endpoint(base_url: &str, endpoint: &str) -> String {
+    let trimmed = base_url.trim().trim_end_matches('/');
+    let base = if trimmed.contains("://") {
+        trimmed.to_owned()
+    } else {
+        format!("https://{trimmed}")
+    };
+    let remainder = base
+        .split_once("://")
+        .map_or(base.as_str(), |(_, rest)| rest);
+    if !remainder.contains('/') {
+        return format!("{base}/{DEFAULT_VERSION_SEGMENT}/{endpoint}");
+    }
+    let last_segment = remainder.rsplit('/').next().unwrap_or("");
+    if is_version_segment(last_segment) {
+        return format!("{base}/{endpoint}");
+    }
+    format!("{base}/{endpoint}")
+}
+
+fn is_version_segment(segment: &str) -> bool {
+    let bytes = segment.as_bytes();
+    bytes.len() >= 2 && bytes[0] == b'v' && bytes[1..].iter().all(u8::is_ascii_digit)
+}
+
+const OPENAI_CHAT_ENDPOINT: &str = "chat/completions";
+const OPENAI_RESPONSES_ENDPOINT: &str = "responses";
+const ANTHROPIC_MESSAGES_ENDPOINT: &str = "messages";
+const DEFAULT_VERSION_SEGMENT: &str = "v1";
+
+/// Base URL 由用户填写服务商地址（如 https://api.openai.com 或
+/// https://open.bigmodel.cn/api/v1），端点路径由 resolve_endpoint 按规范拼接。
+fn build_request(config: &AiConfig, messages: &[ChatMessage], max_tokens: u32) -> BuiltRequest {
+    match config.api_format {
+        ApiFormat::OpenAiChatCompletions => BuiltRequest {
+            endpoint: resolve_endpoint(&config.base_url, OPENAI_CHAT_ENDPOINT),
+            headers: Vec::new(),
+            body: serde_json::json!({
+                "model": config.model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+            }),
+        },
+        ApiFormat::OpenAiResponses => {
+            let (instructions, input) = split_system_messages(messages);
+            let mut body = serde_json::json!({
+                "model": config.model,
+                "input": input,
+                "max_output_tokens": max_tokens,
+            });
+            if !instructions.is_empty() {
+                body["instructions"] = serde_json::Value::String(instructions);
+            }
+            BuiltRequest {
+                endpoint: resolve_endpoint(&config.base_url, OPENAI_RESPONSES_ENDPOINT),
+                headers: Vec::new(),
+                body,
+            }
+        }
+        ApiFormat::AnthropicMessages => {
+            // Anthropic 规范不允许 system 角色放在 messages 里，必须单独放 system 字段；
+            // 官方 Anthropic 用 x-api-key + anthropic-version 鉴权，
+            // Bearer 由外层统一追加以兼容智谱等网关。
+            let (system, conversation) = split_system_messages(messages);
+            let mut body = serde_json::json!({
+                "model": config.model,
+                "max_tokens": max_tokens,
+                "messages": conversation,
+            });
+            if !system.is_empty() {
+                body["system"] = serde_json::Value::String(system);
+            }
+            BuiltRequest {
+                endpoint: resolve_endpoint(&config.base_url, ANTHROPIC_MESSAGES_ENDPOINT),
+                headers: vec![
+                    ("x-api-key", config.api_key.clone()),
+                    ("anthropic-version", ANTHROPIC_VERSION.to_owned()),
+                ],
+                body,
+            }
+        }
+    }
+}
+
+fn extract_content(format: ApiFormat, body: &serde_json::Value) -> Option<String> {
+    let content = match format {
+        ApiFormat::OpenAiChatCompletions => extract_openai_chat_content(body),
+        ApiFormat::OpenAiResponses => extract_openai_responses_content(body),
+        ApiFormat::AnthropicMessages => extract_anthropic_content(body),
+    };
+    let content = content.trim();
+    if content.is_empty() {
+        None
+    } else {
+        Some(content.to_owned())
+    }
+}
+
+fn extract_openai_chat_content(body: &serde_json::Value) -> String {
+    let Some(choices) = body.get("choices").and_then(serde_json::Value::as_array) else {
+        return String::new();
+    };
+    // 优先 content；全部为空时回退 reasoning_content（推理模型的思考输出）。
+    for choice in choices {
+        if let Some(content) = choice
+            .get("message")
+            .and_then(|message| message.get("content"))
+            .and_then(serde_json::Value::as_str)
+        {
+            if !content.trim().is_empty() {
+                return content.to_owned();
+            }
+        }
+    }
+    for choice in choices {
+        if let Some(reasoning) = choice
+            .get("message")
+            .and_then(|message| message.get("reasoning_content"))
+            .and_then(serde_json::Value::as_str)
+        {
+            if !reasoning.trim().is_empty() {
+                return reasoning.to_owned();
+            }
+        }
+    }
+    String::new()
+}
+
+fn extract_openai_responses_content(body: &serde_json::Value) -> String {
+    let Some(output) = body.get("output").and_then(serde_json::Value::as_array) else {
+        return String::new();
+    };
+    let mut parts = Vec::new();
+    for item in output {
+        if item.get("type").and_then(serde_json::Value::as_str) != Some("message") {
+            // reasoning 等其它输出项不参与文本提取。
+            continue;
+        }
+        let Some(blocks) = item.get("content").and_then(serde_json::Value::as_array) else {
+            continue;
+        };
+        for block in blocks {
+            if block.get("type").and_then(serde_json::Value::as_str) == Some("output_text") {
+                if let Some(text) = block.get("text").and_then(serde_json::Value::as_str) {
+                    parts.push(text);
+                }
+            }
+        }
+    }
+    parts.join("")
+}
+
+fn extract_anthropic_content(body: &serde_json::Value) -> String {
+    let Some(blocks) = body.get("content").and_then(serde_json::Value::as_array) else {
+        return String::new();
+    };
+    let mut parts = Vec::new();
+    for block in blocks {
+        if block.get("type").and_then(serde_json::Value::as_str) == Some("text") {
+            if let Some(text) = block.get("text").and_then(serde_json::Value::as_str) {
+                parts.push(text);
+            }
+        }
+    }
+    parts.join("")
 }
 
 fn build_taste_profile() -> String {
@@ -483,7 +781,7 @@ async fn generate_search_intents(profile: &str) -> Result<Vec<SearchIntent>, Str
             content: format!("根据以下用户口味生成检索关键词意图，不要推荐具体视频。\n{profile}"),
         },
     ];
-    let content = chat_completion(messages, 400).await?;
+    let content = chat_completion(messages, 2000).await?;
     Ok(parse_search_intents(&content).into_iter().take(5).collect())
 }
 
@@ -515,7 +813,7 @@ async fn rerank_candidates(
             content: format!("用户口味:\n{profile}\n\n真实候选(bvid | title | uploader | playCount):\n{candidate_text}"),
         },
     ];
-    let content = chat_completion(messages, 400).await?;
+    let content = chat_completion(messages, 2000).await?;
     Ok(parse_bvid_list(&content))
 }
 
@@ -824,9 +1122,10 @@ fn now_unix_seconds() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        ai_request_error, filter_known_bvids, key_hint, parse_search_intents,
-        read_ai_config_from_path, read_saved_recommendations_from_path, write_ai_config,
-        write_recommendations_to_path, AiConfig, AI_CONFIG_FILE, VERSION,
+        ai_request_error, build_request, chat_completion_with_config, extract_content,
+        filter_known_bvids, key_hint, parse_search_intents, read_ai_config_from_path,
+        read_saved_recommendations_from_path, resolve_endpoint, write_ai_config,
+        write_recommendations_to_path, AiConfig, ApiFormat, ChatMessage, AI_CONFIG_FILE, VERSION,
     };
     use crate::search::SearchVideo;
     use std::fs;
@@ -835,8 +1134,9 @@ mod tests {
 
     #[test]
     fn serializes_and_deserializes_ai_config() {
-        let config = AiConfig {
+        let mut config = AiConfig {
             version: VERSION,
+            api_format: ApiFormat::OpenAiChatCompletions,
             base_url: "https://api.example.com/v1".to_owned(),
             model: "test-model".to_owned(),
             api_key: "sk-secret".to_owned(),
@@ -845,6 +1145,42 @@ mod tests {
         let parsed: AiConfig = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed, config);
+        assert!(json.contains("\"api_format\":\"openai-chat-completions\""));
+
+        config.api_format = ApiFormat::AnthropicMessages;
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"api_format\":\"anthropic-messages\""));
+    }
+
+    #[test]
+    fn legacy_v1_config_defaults_to_openai_chat_completions() {
+        let legacy = r#"{
+            "version": 1,
+            "base_url": "https://api.example.com/v1",
+            "model": "test-model",
+            "api_key": "sk-secret"
+        }"#;
+        let parsed: AiConfig = serde_json::from_str(legacy).unwrap();
+
+        assert_eq!(parsed.api_format, ApiFormat::OpenAiChatCompletions);
+        let path = unique_temp_path("legacy-v1");
+        fs::write(&path, legacy).unwrap();
+        let loaded = read_ai_config_from_path(&path);
+        let _ = fs::remove_file(&path);
+
+        assert!(loaded.is_ok());
+        assert_eq!(loaded.unwrap().api_format, ApiFormat::OpenAiChatCompletions);
+    }
+
+    #[test]
+    fn unknown_api_format_is_rejected() {
+        assert!(ApiFormat::parse("openai").is_err());
+        assert!(ApiFormat::parse("anthropic").is_err());
+        assert!(ApiFormat::parse("openai-chat").is_err());
+        assert_eq!(
+            ApiFormat::parse(" openai-responses ").unwrap(),
+            ApiFormat::OpenAiResponses
+        );
     }
 
     #[test]
@@ -852,6 +1188,7 @@ mod tests {
         let path = unique_temp_path("write-read");
         let config = AiConfig {
             version: VERSION,
+            api_format: ApiFormat::AnthropicMessages,
             base_url: "https://api.example.com/v1".to_owned(),
             model: "test-model".to_owned(),
             api_key: "sk-secret".to_owned(),
@@ -868,6 +1205,7 @@ mod tests {
     fn config_view_never_contains_plain_api_key() {
         let config = AiConfig {
             version: VERSION,
+            api_format: ApiFormat::OpenAiChatCompletions,
             base_url: "https://api.example.com/v1".to_owned(),
             model: "test-model".to_owned(),
             api_key: "sk-secret-1234".to_owned(),
@@ -875,6 +1213,7 @@ mod tests {
         let view = config.view();
         let json = serde_json::to_string(&view).unwrap();
 
+        assert_eq!(view.api_format, "openai-chat-completions");
         assert!(view.has_key);
         assert_eq!(key_hint(&config.api_key).as_deref(), Some("••••1234"));
         assert!(!json.contains(&config.api_key));
@@ -969,6 +1308,370 @@ mod tests {
         );
 
         assert_eq!(ordered, vec!["BV1yy411c7mD", "BV1xx411c7mD"]);
+    }
+
+    fn chat_config(api_format: ApiFormat, base_url: &str) -> AiConfig {
+        AiConfig {
+            version: VERSION,
+            api_format,
+            base_url: base_url.to_owned(),
+            model: "test-model".to_owned(),
+            api_key: "sk-secret".to_owned(),
+        }
+    }
+
+    fn sample_messages() -> Vec<ChatMessage> {
+        vec![
+            ChatMessage {
+                role: "system",
+                content: "你只生成 JSON。".to_owned(),
+            },
+            ChatMessage {
+                role: "user",
+                content: "根据口味生成关键词。".to_owned(),
+            },
+        ]
+    }
+
+    #[test]
+    fn build_request_openai_chat_completions() {
+        let config = chat_config(
+            ApiFormat::OpenAiChatCompletions,
+            "https://api.example.com/v1/",
+        );
+        let built = build_request(&config, &sample_messages(), 400);
+
+        // Base URL 末尾斜杠被去掉，只追加端点路径。
+        assert_eq!(
+            built.endpoint,
+            "https://api.example.com/v1/chat/completions"
+        );
+        assert!(built.headers.is_empty());
+        assert_eq!(built.body["model"], "test-model");
+        assert_eq!(built.body["max_tokens"], 400);
+        assert_eq!(built.body["messages"][0]["role"], "system");
+        assert_eq!(built.body["messages"][1]["role"], "user");
+        assert!(built.body.get("input").is_none());
+    }
+
+    #[test]
+    fn build_request_openai_responses() {
+        let config = chat_config(ApiFormat::OpenAiResponses, "https://api.example.com/v1");
+        let built = build_request(&config, &sample_messages(), 400);
+
+        assert_eq!(built.endpoint, "https://api.example.com/v1/responses");
+        assert!(built.headers.is_empty());
+        assert_eq!(built.body["model"], "test-model");
+        assert_eq!(built.body["max_output_tokens"], 400);
+        assert_eq!(built.body["instructions"], "你只生成 JSON。");
+        // system 不进 input。
+        assert_eq!(built.body["input"][0]["role"], "user");
+        assert_eq!(built.body["input"].as_array().unwrap().len(), 1);
+        assert!(built.body.get("max_tokens").is_none());
+    }
+
+    #[test]
+    fn build_request_anthropic_messages() {
+        let config = chat_config(
+            ApiFormat::AnthropicMessages,
+            "https://open.bigmodel.cn/api/anthropic",
+        );
+        let built = build_request(&config, &sample_messages(), 400);
+
+        assert_eq!(
+            built.endpoint,
+            "https://open.bigmodel.cn/api/anthropic/messages"
+        );
+        assert_eq!(built.body["model"], "test-model");
+        assert_eq!(built.body["max_tokens"], 400);
+        assert_eq!(built.body["system"], "你只生成 JSON。");
+        // system 不进 messages。
+        assert_eq!(built.body["messages"][0]["role"], "user");
+        assert_eq!(built.body["messages"].as_array().unwrap().len(), 1);
+        // Anthropic 用 x-api-key + anthropic-version，外层还会统一追加 Bearer 兼容网关。
+        assert!(built
+            .headers
+            .iter()
+            .any(|(name, value)| *name == "x-api-key" && value == "sk-secret"));
+        assert!(built
+            .headers
+            .iter()
+            .any(|(name, _)| *name == "anthropic-version"));
+    }
+
+    #[test]
+    fn extract_content_openai_chat_completions() {
+        let format = ApiFormat::OpenAiChatCompletions;
+        let with_content: serde_json::Value = serde_json::from_str(
+            r#"{"choices":[{"message":{"role":"assistant","content":"[{\"keyword\":\"vocaloid\"}]"}}]}"#,
+        )
+        .unwrap();
+        let with_reasoning_only: serde_json::Value = serde_json::from_str(
+            r#"{"choices":[{"message":{"role":"assistant","content":"","reasoning_content":"思考中"}}]}"#,
+        )
+        .unwrap();
+        let empty: serde_json::Value = serde_json::from_str(r#"{"choices":[]}"#).unwrap();
+
+        assert_eq!(
+            extract_content(format, &with_content).as_deref(),
+            Some("[{\"keyword\":\"vocaloid\"}]")
+        );
+        assert_eq!(
+            extract_content(format, &with_reasoning_only).as_deref(),
+            Some("思考中")
+        );
+        assert_eq!(extract_content(format, &empty), None);
+    }
+
+    #[test]
+    fn extract_content_openai_responses() {
+        let format = ApiFormat::OpenAiResponses;
+        let body: serde_json::Value = serde_json::from_str(
+            r#"{
+                "output": [
+                    {"type": "reasoning", "summary": []},
+                    {"type": "message", "content": [
+                        {"type": "output_text", "text": "[\"vocaloid\"]"}
+                    ]}
+                ]
+            }"#,
+        )
+        .unwrap();
+        let no_message: serde_json::Value =
+            serde_json::from_str(r#"{"output": [{"type": "reasoning", "summary": []}]}"#).unwrap();
+
+        assert_eq!(
+            extract_content(format, &body).as_deref(),
+            Some("[\"vocaloid\"]")
+        );
+        assert_eq!(extract_content(format, &no_message), None);
+    }
+
+    #[test]
+    fn extract_content_anthropic_messages() {
+        let format = ApiFormat::AnthropicMessages;
+        let body: serde_json::Value = serde_json::from_str(
+            r#"{
+                "content": [
+                    {"type": "thinking", "thinking": "思考"},
+                    {"type": "text", "text": "[{\"keyword\":"},
+                    {"type": "text", "text": "\"vocaloid\"}]"}
+                ]
+            }"#,
+        )
+        .unwrap();
+        let no_text: serde_json::Value = serde_json::from_str(r#"{"content": []}"#).unwrap();
+
+        // 多个 text 块拼接，thinking 块忽略。
+        assert_eq!(
+            extract_content(format, &body).as_deref(),
+            Some("[{\"keyword\":\"vocaloid\"}]")
+        );
+        assert_eq!(extract_content(format, &no_text), None);
+    }
+
+    #[test]
+    fn response_snippet_truncates_by_chars() {
+        assert_eq!(super::response_snippet("  ok "), "ok");
+        let long = "a".repeat(1000);
+        let snippet = super::response_snippet(&long);
+        assert_eq!(snippet.chars().count(), 601); // 600 + 省略号
+        assert!(snippet.ends_with('…'));
+        let unicode = "音乐".repeat(500);
+        assert!(super::response_snippet(&unicode).starts_with("音乐"));
+    }
+
+    #[test]
+    fn output_truncated_reason_covers_all_formats() {
+        use super::output_truncated_reason;
+        let responses: serde_json::Value = serde_json::from_str(
+            r#"{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"}}"#,
+        )
+        .unwrap();
+        let chat: serde_json::Value = serde_json::from_str(
+            r#"{"choices":[{"message":{"content":""},"finish_reason":"length"}]}"#,
+        )
+        .unwrap();
+        let anthropic: serde_json::Value =
+            serde_json::from_str(r#"{"stop_reason":"max_tokens"}"#).unwrap();
+        let complete: serde_json::Value = serde_json::from_str(r#"{}"#).unwrap();
+
+        assert_eq!(
+            output_truncated_reason(ApiFormat::OpenAiResponses, &responses).as_deref(),
+            Some("status=incomplete, reason=max_output_tokens")
+        );
+        assert_eq!(
+            output_truncated_reason(ApiFormat::OpenAiChatCompletions, &chat).as_deref(),
+            Some("finish_reason=length")
+        );
+        assert_eq!(
+            output_truncated_reason(ApiFormat::AnthropicMessages, &anthropic).as_deref(),
+            Some("stop_reason=max_tokens")
+        );
+        assert_eq!(
+            output_truncated_reason(ApiFormat::OpenAiResponses, &complete),
+            None
+        );
+    }
+
+    fn endpoint_of(format: ApiFormat) -> &'static str {
+        match format {
+            ApiFormat::OpenAiChatCompletions => "chat/completions",
+            ApiFormat::OpenAiResponses => "responses",
+            ApiFormat::AnthropicMessages => "messages",
+        }
+    }
+
+    #[test]
+    fn resolve_endpoint_covers_major_providers() {
+        let cases = [
+            // OpenAI 官方：只填域名也能拼出 /v1
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://api.openai.com",
+                "https://api.openai.com/v1/chat/completions",
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://api.openai.com/v1",
+                "https://api.openai.com/v1/chat/completions",
+            ),
+            // DeepSeek / 月之暗面 / 硅基流动
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://api.deepseek.com",
+                "https://api.deepseek.com/v1/chat/completions",
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://api.moonshot.cn/v1",
+                "https://api.moonshot.cn/v1/chat/completions",
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://api.siliconflow.cn",
+                "https://api.siliconflow.cn/v1/chat/completions",
+            ),
+            // 智谱：paas/v4 版本段直接追加；无 scheme 自动补 https://
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://open.bigmodel.cn/api/paas/v4",
+                "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "open.bigmodel.cn/api/v1",
+                "https://open.bigmodel.cn/api/v1/chat/completions",
+            ),
+            // Gemini OpenAI 兼容路径（非版本段结尾）直接追加端点
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "https://generativelanguage.googleapis.com/v1beta/openai",
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            ),
+            // Ollama 本地
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "http://localhost:11434",
+                "http://localhost:11434/v1/chat/completions",
+            ),
+            // Responses：智谱 /api/v1 与 OpenAI 官方域名
+            (
+                ApiFormat::OpenAiResponses,
+                "https://open.bigmodel.cn/api/v1",
+                "https://open.bigmodel.cn/api/v1/responses",
+            ),
+            (
+                ApiFormat::OpenAiResponses,
+                "https://api.openai.com",
+                "https://api.openai.com/v1/responses",
+            ),
+            // Anthropic：官方裸域名与智谱兼容网关
+            (
+                ApiFormat::AnthropicMessages,
+                "https://api.anthropic.com",
+                "https://api.anthropic.com/v1/messages",
+            ),
+            (
+                ApiFormat::AnthropicMessages,
+                "https://open.bigmodel.cn/api/anthropic/v1",
+                "https://open.bigmodel.cn/api/anthropic/v1/messages",
+            ),
+        ];
+        for (format, base, expected) in cases {
+            assert_eq!(resolve_endpoint(base, endpoint_of(format)), expected);
+        }
+    }
+
+    #[test]
+    fn resolve_endpoint_bare_domain_appends_v1_only() {
+        // 裸域名只会自动补 /v1；服务商路径不含 /v1 时必须由用户填到版本段。
+        assert_eq!(
+            resolve_endpoint("https://open.bigmodel.cn", "chat/completions"),
+            "https://open.bigmodel.cn/v1/chat/completions"
+        );
+        assert_eq!(
+            resolve_endpoint("open.bigmodel.cn/api/v1", "responses"),
+            "https://open.bigmodel.cn/api/v1/responses"
+        );
+        assert_eq!(
+            resolve_endpoint("https://api.example.com", "chat/completions"),
+            "https://api.example.com/v1/chat/completions"
+        );
+    }
+
+    /// 启动一次性本地 mock 服务器，任意路径都返回固定 JSON。
+    fn spawn_mock_server(body: &'static str) -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 16384];
+                let _ = stream.read(&mut buf);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+        });
+        format!("http://{addr}")
+    }
+
+    #[test]
+    fn chat_completion_end_to_end_per_format() {
+        let cases = [
+            (
+                ApiFormat::OpenAiChatCompletions,
+                r#"{"choices":[{"message":{"role":"assistant","content":"pong"}}]}"#,
+            ),
+            (
+                ApiFormat::OpenAiResponses,
+                r#"{"object":"response","output":[{"type":"reasoning","content":[{"type":"reasoning_text","text":"思考"}]},{"type":"message","content":[{"type":"output_text","text":"pong"}]}]}"#,
+            ),
+            (
+                ApiFormat::AnthropicMessages,
+                r#"{"content":[{"type":"thinking","thinking":"思考"},{"type":"text","text":"pong"}]}"#,
+            ),
+        ];
+        for (format, body) in cases {
+            let base = spawn_mock_server(body);
+            let config = chat_config(format, &base);
+            let result = tauri::async_runtime::block_on(chat_completion_with_config(
+                &config,
+                vec![ChatMessage {
+                    role: "user",
+                    content: "ping".to_owned(),
+                }],
+                512,
+                10,
+            ))
+            .unwrap();
+            assert_eq!(result, "pong");
+        }
     }
 
     fn unique_temp_path(label: &str) -> PathBuf {
