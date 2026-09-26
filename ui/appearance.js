@@ -61,6 +61,7 @@ let audioCacheStatusTimer = null;
 const clearSearchHistoryButton = document.querySelector("#clear-search-history-button");
 const exportDataButton = document.querySelector("#export-data-button");
 const importDataButton = document.querySelector("#import-data-button");
+const aiApiFormatSelect = document.querySelector("#ai-api-format-select");
 const aiBaseUrlInput = document.querySelector("#ai-base-url-input");
 const aiModelInput = document.querySelector("#ai-model-input");
 const aiApiKeyInput = document.querySelector("#ai-api-key-input");
@@ -971,14 +972,34 @@ function updateAiConfigStatus(config) {
   aiConfigStatus.textContent = keyText;
 }
 
+const AI_BASE_URL_PLACEHOLDERS = {
+  "openai-chat-completions": "https://api.openai.com",
+  "openai-responses": "https://api.openai.com",
+  "anthropic-messages": "https://api.anthropic.com",
+};
+
+function updateAiBaseUrlPlaceholder() {
+  if (!aiBaseUrlInput || !aiApiFormatSelect) {
+    return;
+  }
+  aiBaseUrlInput.placeholder =
+    AI_BASE_URL_PLACEHOLDERS[aiApiFormatSelect.value] ?? AI_BASE_URL_PLACEHOLDERS["openai-chat-completions"];
+}
+
+function selectedAiApiFormat() {
+  return aiApiFormatSelect?.value ?? "openai-chat-completions";
+}
+
 async function restoreAiConfig() {
-  if (!aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !aiConfigStatus) {
+  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !aiConfigStatus) {
     return;
   }
 
   aiConfigStatus.textContent = "正在读取 AI 配置…";
   try {
     const config = await invokeAppearance("get_ai_config");
+    aiApiFormatSelect.value = config.apiFormat ?? "openai-chat-completions";
+    updateAiBaseUrlPlaceholder();
     aiBaseUrlInput.value = config.baseUrl ?? "";
     aiModelInput.value = config.model ?? "";
     aiApiKeyInput.value = "";
@@ -989,7 +1010,7 @@ async function restoreAiConfig() {
 }
 
 async function saveAiConfig() {
-  if (!aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) {
+  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) {
     return;
   }
 
@@ -997,6 +1018,7 @@ async function saveAiConfig() {
   aiConfigStatus.textContent = "正在验证并保存 AI 配置…";
   try {
     const test = await invokeAppearance("test_ai_connection", {
+      apiFormat: selectedAiApiFormat(),
       baseUrl: aiBaseUrlInput.value,
       model: aiModelInput.value,
       apiKey: aiApiKeyInput.value,
@@ -1006,6 +1028,7 @@ async function saveAiConfig() {
       return;
     }
     const config = await invokeAppearance("set_ai_config", {
+      apiFormat: selectedAiApiFormat(),
       baseUrl: aiBaseUrlInput.value,
       model: aiModelInput.value,
       apiKey: aiApiKeyInput.value,
@@ -1022,7 +1045,7 @@ async function saveAiConfig() {
 }
 
 async function testAiConnection() {
-  if (!testAiConnectionButton || !aiConfigStatus || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) {
+  if (!testAiConnectionButton || !aiConfigStatus || !aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) {
     return;
   }
 
@@ -1030,6 +1053,7 @@ async function testAiConnection() {
   aiConfigStatus.textContent = "正在测试 AI 连接…";
   try {
     const result = await invokeAppearance("test_ai_connection", {
+      apiFormat: selectedAiApiFormat(),
       baseUrl: aiBaseUrlInput.value,
       model: aiModelInput.value,
       apiKey: aiApiKeyInput.value,
@@ -1186,6 +1210,7 @@ chooseBackgroundButton.addEventListener("click", async () => {
 resetBackgroundButton.addEventListener("click", () => resetBackground());
 saveAiConfigButton?.addEventListener("click", saveAiConfig);
 testAiConnectionButton?.addEventListener("click", testAiConnection);
+aiApiFormatSelect?.addEventListener("change", updateAiBaseUrlPlaceholder);
 
 streamSourceSelect?.addEventListener("change", async () => {
   if (streamSourceSelect.value === "auto" && !ytDlpAvailable) {

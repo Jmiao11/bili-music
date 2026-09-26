@@ -535,6 +535,14 @@
 
         <details class="setting-group ai-settings collapsible-group">
           <summary><h3>AI 推荐</h3></summary>
+          <label class="settings-field" for="ai-api-format-select">
+            <span>接口规范</span>
+            <select id="ai-api-format-select" class="settings-select">
+              <option value="openai-chat-completions">OpenAI Chat Completions</option>
+              <option value="openai-responses">OpenAI Responses</option>
+              <option value="anthropic-messages">Anthropic Messages</option>
+            </select>
+          </label>
           <label class="settings-field" for="ai-model-input">
             <span>模型</span>
             <input id="ai-model-input" class="settings-input" type="text" autocomplete="off" placeholder="gpt-4o-mini" />
@@ -544,9 +552,30 @@
             <input id="ai-api-key-input" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" />
           </label>
           <label class="settings-field" for="ai-base-url-input">
-            <span>Base URL</span>
+            <span>Base URL<span
+                  class="ai-help-trigger"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Base URL 填写说明"
+                  aria-describedby="ai-help-bubble">?<span
+                    id="ai-help-bubble"
+                    class="ai-help-bubble"
+                    role="tooltip"><strong>规则</strong>
+                    <ul>
+                      <li>只填域名 → 自动补 /v1 + 端点</li>
+                      <li>填到版本段或自定义路径 → 只追加端点</li>
+                      <li>服务商路径不含 /v1 时（如智谱 /api/v1）必须填到版本段</li>
+                    </ul>
+                    <strong>示例</strong>
+                    <ul>
+                      <li>OpenAI / DeepSeek：可只填域名</li>
+                      <li>智谱：open.bigmodel.cn/api/v1</li>
+                      <li>智谱 Anthropic：open.bigmodel.cn/api/anthropic/v1</li>
+                      <li>百炼：dashscope.aliyuncs.com/compatible-mode/v1</li>
+                    </ul></span></span></span>
             <input id="ai-base-url-input" class="settings-input" type="url" autocomplete="off" placeholder="https://api.openai.com/v1" />
           </label>
+          <small class="setting-note">鼠标悬浮 Base URL 旁的“?”可查看填写说明</small>
           <div class="setting-actions">
             <button id="save-ai-config-button" class="secondary-button" type="button">保存 AI 配置</button>
             <button id="test-ai-connection-button" class="small-button quiet" type="button">测试连接</button>

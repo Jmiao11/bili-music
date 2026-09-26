@@ -4299,6 +4299,85 @@ input[type="range"]::-webkit-slider-thumb {
   font-size: 12.5px;
 }
 
+/* AI 配置 Base URL 悬浮帮助：触发圆点 + 说明气泡 */
+.ai-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 6px;
+  border: 0.5px solid var(--line);
+  border-radius: 50%;
+  color: var(--text-3);
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  position: relative;
+  vertical-align: 1px;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.ai-help-trigger:hover,
+.ai-help-trigger:focus-visible,
+.ai-help-trigger:focus-within {
+  color: var(--text-1);
+  border-color: var(--text-3);
+  outline: none;
+}
+
+.ai-help-bubble {
+  display: none;
+  position: absolute;
+  left: -8px;
+  bottom: calc(100% + 10px);
+  z-index: 60;
+  width: min(340px, 72vw);
+  padding: 10px 12px;
+  border: 0.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.7;
+  word-break: break-all;
+  text-align: left;
+  cursor: default;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+
+.ai-help-trigger:hover .ai-help-bubble,
+.ai-help-trigger:focus-visible .ai-help-bubble,
+.ai-help-trigger:focus-within .ai-help-bubble {
+  display: block;
+}
+
+.ai-help-bubble strong {
+  display: block;
+  margin: 2px 0 3px;
+  color: var(--text-1);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ai-help-bubble strong + ul + strong {
+  margin-top: 6px;
+}
+
+.ai-help-bubble ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.ai-help-bubble li {
+  margin: 2px 0;
+}
+
 .settings-select,
 .settings-input {
   width: 100%;
