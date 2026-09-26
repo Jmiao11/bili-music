@@ -16,6 +16,9 @@ test("main titlebar exposes the mini player without changing the minimize contro
   assert.ok(utilityIndex < miniIndex && miniIndex < controlsIndex);
   assert.ok(miniIndex < html.indexOf('id="window-minimize-button"'));
   assert.match(html, /src="\.\/mini-player-host\.js"/);
+  assert.match(html, /href="\.\/audio-reactive\.css"/);
+  assert.match(html, /<audio[^>]+crossorigin="anonymous"/);
+  assert.match(html, /src="\.\/audio-reactive\.js"/);
   assert.ok(existsSync(path.join(root, "ui/mini.html")));
   assert.ok(existsSync(path.join(root, "ui/mini.js")));
   assert.ok(existsSync(path.join(root, "ui/mini.css")));
@@ -60,6 +63,7 @@ test("mini window keeps rounded corners transparent on Windows and macOS", () =>
 
 test("mini page controls start disabled and favorite changes are published after real results", () => {
   const miniHtml = read("ui/mini.html");
+  assert.match(miniHtml, /href="\.\/audio-reactive\.css"/);
   assert.doesNotMatch(miniHtml, /id="mini-uploader"/);
   assert.doesNotMatch(miniHtml, /id="mini-status"/);
   assert.match(miniHtml, /id="mini-title-viewport"/);

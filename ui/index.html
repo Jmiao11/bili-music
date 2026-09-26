@@ -9,6 +9,7 @@
       document.documentElement.dataset.platform = /Macintosh|Mac OS X/i.test(navigator.userAgent) ? "macos" : "windows";
     </script>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./audio-reactive.css" />
     <script src="./sidebar.js"></script>
   </head>
   <body>
@@ -378,7 +379,7 @@
       </div>
 
       <p id="status" class="player-status" role="status"></p>
-      <audio id="audio" preload="auto"></audio>
+      <audio id="audio" preload="auto" crossorigin="anonymous"></audio>
     </footer>
 
     <div id="mascot-stage" aria-label="小黑咪">
@@ -653,6 +654,7 @@
     <script src="./window-controls.js"></script>
     <script src="./dynamic-background.js"></script>
     <script src="./main.js"></script>
+    <script src="./audio-reactive.js"></script>
     <script src="./appearance.js"></script>
     <script src="./lyrics.js"></script>
     <script src="./mascot.js"></script>

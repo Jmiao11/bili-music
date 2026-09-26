@@ -31,7 +31,13 @@ function element(extra = {}) {
   });
 }
 
-function setup({ stored = null, failStorage = false, failSetPosition = false } = {}) {
+function setup({
+  stored = null,
+  failStorage = false,
+  failSetPosition = false,
+  withAnimationFrame = false,
+  reducedMotion = false,
+} = {}) {
   const controls = {
     "#mini-previous": element(),
     "#mini-play-pause": element(),
@@ -89,6 +95,26 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
   const availableMonitors = () => Promise.resolve([{ position: { x: 0, y: 0 }, size: { width: 1920, height: 1080 } }]);
   const dpi = { PhysicalPosition: class PhysicalPosition { constructor(x, y) { this.x = x; this.y = y; } } };
   const window = new EventTarget();
+  const mediaQuery = Object.assign(new EventTarget(), { matches: reducedMotion });
+  window.matchMedia = () => mediaQuery;
+  const timers = new Map();
+  let nextTimer = 0;
+  window.setTimeout = (callback, delay) => {
+    const id = ++nextTimer;
+    timers.set(id, { callback, delay });
+    return id;
+  };
+  window.clearTimeout = (id) => timers.delete(id);
+  const animationFrames = new Map();
+  let nextAnimationFrame = 0;
+  if (withAnimationFrame) {
+    window.requestAnimationFrame = (callback) => {
+      const id = ++nextAnimationFrame;
+      animationFrames.set(id, callback);
+      return id;
+    };
+    window.cancelAnimationFrame = (id) => animationFrames.delete(id);
+  }
   const controller = vm.runInNewContext(`${source}\ncreateMiniPlayerController`, {
     EventTarget,
     Event,
@@ -107,6 +133,7 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
   });
   return {
     controls, root, document, window, listeners, emitted, invoked, writes, storage, windowApi, controller,
+    animationFrames, mediaQuery, timers,
     fire: (name, payload) => listeners.get(name)?.({ payload }),
   };
 }
@@ -212,6 +239,68 @@ test("start restores a valid position, signals both handshake channels, and rend
   assert.equal(app.controls["#mini-favorite"].classList.contains("is-favorited"), true);
   assert.equal(app.root.dataset.theme, "light");
   assert.equal(app.root.style["--accent-r"], "1");
+});
+
+test("playing requests bounded audio frames and ignores stale frame responses", async () => {
+  const app = setup({ withAnimationFrame: true });
+  await app.controller.start();
+  await settle();
+  app.fire("mini-player-state", {
+    title: "正在播放", thumbnailUrl: "https://example.com/a.jpg",
+    hasCurrent: true, isPlaying: true,
+  });
+
+  for (const tick of [...app.animationFrames.values()]) {
+    tick(100);
+  }
+  await settle();
+  assert.equal(app.emitted.at(-1).name, "mini-player-audio-sample-request");
+
+  assert.doesNotThrow(() => app.fire("mini-player-audio-frame", null));
+
+  app.fire("mini-player-audio-frame", {
+    sequence: 2, active: true, pulse: 2, glow: 0.5,
+  });
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0750");
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-glow-size"], "14.00px");
+
+  app.fire("mini-player-audio-frame", {
+    sequence: 1, active: true, pulse: 0, glow: 0,
+  });
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0750");
+
+  app.fire("mini-player-state", { title: "正在播放", hasCurrent: true, isPlaying: false });
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0000");
+});
+
+test("mini reacts to reduced-motion changes while playback is active", async () => {
+  const app = setup({ withAnimationFrame: true });
+  await app.controller.start();
+  const baselineFrames = app.animationFrames.size;
+  app.fire("mini-player-state", { hasCurrent: true, isPlaying: true });
+  assert.equal(app.animationFrames.size, baselineFrames + 1);
+
+  app.mediaQuery.matches = true;
+  app.mediaQuery.dispatchEvent(new Event("change"));
+  assert.equal(app.animationFrames.size, baselineFrames);
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0000");
+
+  app.mediaQuery.matches = false;
+  app.mediaQuery.dispatchEvent(new Event("change"));
+  assert.equal(app.animationFrames.size, baselineFrames + 1);
+});
+
+test("mini resets a stale visual frame after the host stops responding", async () => {
+  const app = setup();
+  await app.controller.start();
+  app.fire("mini-player-audio-frame", {
+    sequence: 1, active: true, pulse: 1, glow: 1,
+  });
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0750");
+  const timer = [...app.timers.values()][0];
+  assert.equal(timer.delay, 1000);
+  timer.callback();
+  assert.equal(app.controls["#mini-cover"].style["--audio-cover-scale"], "1.0000");
 });
 
 test("long titles scroll by their measured overflow", async () => {
