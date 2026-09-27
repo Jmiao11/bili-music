@@ -2558,6 +2558,23 @@ svg {
   font-weight: 600;
 }
 
+.pages-modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pages-modal-status {
+  margin: 0;
+}
+
+.pages-modal-status:not(:empty) {
+  margin: -8px 0 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
 .modal-sub {
   margin: 8px 0 18px;
   overflow: hidden;
@@ -2582,9 +2599,17 @@ svg {
   margin-top: 7px;
 }
 
+.pages-list li {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .pages-list-button {
   display: block;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
   padding: 11px 12px;
   overflow: hidden;
   border: 0.5px solid var(--line);
@@ -2616,6 +2641,36 @@ svg {
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-dim);
+}
+
+/* 分P标记视觉数值：按钮尺寸与禁用行灰度集中在此处。 */
+.pages-disable-button {
+  min-width: 58px;
+  padding: 0 10px;
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pages-disable-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.pages-disable-button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+.pages-list li.is-disabled {
+  opacity: 0.68;
+}
+
+.pages-list li.is-disabled .pages-list-button {
+  color: var(--text-2);
 }
 
 .modal-actions {

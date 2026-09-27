@@ -641,8 +641,12 @@
 
     <div id="pages-modal" class="modal settings-mask" aria-hidden="true" hidden>
       <div class="modal-card settings-panel panel pages-modal-card" role="dialog" aria-modal="true" aria-labelledby="pages-modal-title" aria-describedby="pages-modal-sub">
-        <h2 id="pages-modal-title">选择分P</h2>
+        <div class="pages-modal-heading">
+          <h2 id="pages-modal-title">选择分P</h2>
+          <button id="pages-modal-restore-all" class="small-button quiet" type="button" hidden>全部恢复</button>
+        </div>
         <p id="pages-modal-sub" class="modal-sub"></p>
+        <p id="pages-modal-status" class="pages-modal-status" role="alert" aria-live="assertive"></p>
         <ul id="pages-modal-list" class="pages-list"></ul>
         <div class="modal-actions">
           <button id="pages-modal-close" class="small-button" type="button">关闭</button>

@@ -160,6 +160,8 @@ const libraryState = {
   favoriteBvids: new Set(),
   playlists: [],
   unavailableBvids: new Map(),
+  disabledPages: new Map(),
+  disabledPagePending: new Map(),
   selectedPlaylistId: "",
   loadError: "",
 };
@@ -291,6 +293,8 @@ const purgeAppearanceStatus = document.querySelector("#appearance-status");
 const pagesModal = document.querySelector("#pages-modal");
 const pagesModalTitle = document.querySelector("#pages-modal-title");
 const pagesModalSub = document.querySelector("#pages-modal-sub");
+const pagesModalRestoreAll = document.querySelector("#pages-modal-restore-all");
+const pagesModalStatus = document.querySelector("#pages-modal-status");
 const pagesModalList = document.querySelector("#pages-modal-list");
 const pagesModalClose = document.querySelector("#pages-modal-close");
 let playbackNoticeTimer = null;
@@ -1150,6 +1154,10 @@ function bindTrackActivation(item, playButton, video, onPlay) {
 
 function isFavorited(bvid) {
   return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
+}
+
+function isPageDisabled(disabledPages, bvid, cid) {
+  return disabledPages.get(String(bvid).toLowerCase())?.has(cid) ?? false;
 }
 
 function setFavoriteButtonState(button, bvid) {
@@ -2079,12 +2087,16 @@ function escapeText(value) {
 
 async function loadLibrary() {
   try {
-    const [favorites, playlists, unavailableTracks] = await Promise.all([
+    const [favorites, playlists, unavailableTracks, disabledPages] = await Promise.all([
       invoke("list_favorites"),
       invoke("list_playlists"),
       invoke("list_unavailable_tracks").catch((error) => {
         console.warn("unavailable tracks load failed:", error);
         return [];
+      }),
+      invoke("list_disabled_pages").catch((error) => {
+        console.warn("disabled pages load failed:", error);
+        return {};
       }),
     ]);
     libraryState.favorites = favorites.map(normalizeTrack);
@@ -2098,12 +2110,16 @@ async function loadLibrary() {
     libraryState.unavailableBvids = new Map(
       unavailableTracks.map((item) => [item.bvid.toLowerCase(), item.reason]),
     );
+    libraryState.disabledPages = new Map(
+      Object.entries(disabledPages).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)]),
+    );
     libraryState.loadError = "";
   } catch (error) {
     libraryState.favorites = [];
     libraryState.favoriteBvids = new Set();
     libraryState.playlists = [];
     libraryState.unavailableBvids = new Map();
+    libraryState.disabledPages = new Map();
     libraryState.loadError = `本地资料库读取失败：${error}`;
     console.error("library load failed:", error);
   }
@@ -2139,22 +2155,49 @@ async function toggleFavorite(video = currentPlayableTrack()) {
 }
 
 function openPagesModal(video, videos, pages, onPlay, trigger) {
-  pagesModalContext = { pages, onPlay };
+  pagesModalContext = { video, videos, pages, onPlay };
   pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
+  pagesModalStatus.textContent = "";
+  renderPagesModal();
+
+  pagesModal.hidden = false;
+  requestAnimationFrame(() => {
+    pagesModal.classList.add("is-open");
+    pagesModal.setAttribute("aria-hidden", "false");
+    const focusTarget =
+      pagesModalList.querySelector("button[aria-current]") ??
+      pagesModalList.querySelector("button") ?? pagesModalClose;
+    pagesModalList.querySelector("button[aria-current]")?.scrollIntoView({ block: "nearest" });
+    focusTarget.focus();
+  });
+}
+
+function renderPagesModal() {
+  const { video, videos, pages } = pagesModalContext;
+  const bvidKey = video.bvid.toLowerCase();
+  const pending = libraryState.disabledPagePending.has(bvidKey);
+  const pendingCid = libraryState.disabledPagePending.get(bvidKey);
+  const disabledCids = libraryState.disabledPages.get(bvidKey);
+  const hadFocus = pagesModalList.contains(document.activeElement) ||
+    document.activeElement === pagesModalRestoreAll;
   pagesModalTitle.textContent = "选择分P";
   pagesModalSub.textContent = `${video.title || video.bvid} · 共 ${videos}P`;
+  pagesModalRestoreAll.hidden = !disabledCids?.size && !(pending && pendingCid === null);
+  pagesModalRestoreAll.disabled = pending;
+  pagesModalRestoreAll.textContent = pending && pendingCid === null ? "恢复中…" : "全部恢复";
   pagesModalList.replaceChildren();
   const currentTrack = currentPlayableTrack();
   const currentPage =
     currentTrack?.bvid.toLowerCase() === String(video.bvid).toLowerCase()
       ? currentVideoPage()
       : null;
-  let currentPageButton = null;
 
   for (const page of pages) {
     const item = document.createElement("li");
     const button = document.createElement("button");
     const isCurrent = currentPage?.cid === page.cid;
+    const isDisabled = isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
+    item.classList.toggle("is-disabled", isDisabled);
     button.type = "button";
     button.className = "pages-list-button";
     button.classList.toggle("is-current", isCurrent);
@@ -2163,26 +2206,55 @@ function openPagesModal(video, videos, pages, onPlay, trigger) {
       `${formatDuration(page.durationSeconds)}${isCurrent ? " · 当前" : ""}`;
     if (isCurrent) {
       button.setAttribute("aria-current", "true");
-      currentPageButton = button;
     }
     button.addEventListener("click", () => {
       const context = pagesModalContext;
       closePagesModal();
       context?.onPlay({ startPage: page, pages: context.pages });
     });
-    item.append(button);
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "pages-disable-button";
+    toggle.textContent = pending && pendingCid === page.cid ? "保存中…" : isDisabled ? "恢复" : "不想听";
+    toggle.setAttribute("aria-label", `${isDisabled ? "恢复" : "不想听"}：${page.part || `第 ${page.page} P`}`);
+    toggle.disabled = pending;
+    toggle.setAttribute("aria-busy", String(pending && (pendingCid === null || pendingCid === page.cid)));
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void changeDisabledPages(video.bvid, page.cid, !isDisabled);
+    });
+    item.append(button, toggle);
     pagesModalList.append(item);
   }
+  if (hadFocus) pagesModalClose.focus({ preventScroll: true });
+}
 
-  pagesModal.hidden = false;
-  requestAnimationFrame(() => {
-    pagesModal.classList.add("is-open");
-    pagesModal.setAttribute("aria-hidden", "false");
-    const focusTarget =
-      currentPageButton ?? pagesModalList.querySelector("button") ?? pagesModalClose;
-    currentPageButton?.scrollIntoView({ block: "nearest" });
-    focusTarget.focus();
-  });
+async function changeDisabledPages(bvid, cid, disabled = false) {
+  const key = bvid.toLowerCase();
+  if (libraryState.disabledPagePending.has(key)) return;
+  const before = new Set(libraryState.disabledPages.get(key) ?? []);
+  const after = new Set(before);
+  if (cid === null) after.clear();
+  else if (disabled) after.add(cid);
+  else after.delete(cid);
+  libraryState.disabledPagePending.set(key, cid);
+  if (after.size) libraryState.disabledPages.set(key, after);
+  else libraryState.disabledPages.delete(key);
+  if (pagesModalContext?.video.bvid.toLowerCase() === key) pagesModalStatus.textContent = "";
+  if (pagesModalContext?.video.bvid.toLowerCase() === key) renderPagesModal();
+  try {
+    if (cid === null) await invoke("clear_disabled_pages", { bvid });
+    else await invoke("set_page_disabled", { bvid, cid, disabled });
+  } catch (error) {
+    if (before.size) libraryState.disabledPages.set(key, before);
+    else libraryState.disabledPages.delete(key);
+    if (pagesModalContext?.video.bvid.toLowerCase() === key) {
+      pagesModalStatus.textContent = `保存分P设置失败：${error}`;
+    }
+  } finally {
+    libraryState.disabledPagePending.delete(key);
+    if (pagesModalContext?.video.bvid.toLowerCase() === key) renderPagesModal();
+  }
 }
 
 function playCurrentVideoPage(page) {
@@ -3859,6 +3931,10 @@ libraryModal?.addEventListener("transitionend", (event) => {
   }
 });
 pagesModalClose?.addEventListener("click", closePagesModal);
+pagesModalRestoreAll?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (pagesModalContext) void changeDisabledPages(pagesModalContext.video.bvid, null);
+});
 pagesModal?.addEventListener("click", (event) => {
   if (event.target === pagesModal) {
     closePagesModal();

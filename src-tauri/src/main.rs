@@ -50,12 +50,13 @@ use uuid::Uuid;
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
-    add_to_playlist, clear_playback_state, clear_search_history, clear_track_unavailable,
-    create_playlist, delete_playlist, export_data, get_play_history, get_playback_state,
-    get_search_history, get_shortcuts, import_data, is_favorite, list_favorites, list_playlists,
-    list_unavailable_tracks, mark_track_unavailable, purge_unavailable_tracks, record_play,
-    record_search_history, remove_from_playlist, rename_playlist, reorder_favorite,
-    reorder_playlist, reorder_playlist_item, save_playback_state, set_shortcuts, toggle_favorite,
+    add_to_playlist, clear_disabled_pages, clear_playback_state, clear_search_history,
+    clear_track_unavailable, create_playlist, delete_playlist, export_data, get_play_history,
+    get_playback_state, get_search_history, get_shortcuts, import_data, is_favorite,
+    list_disabled_pages, list_favorites, list_playlists, list_unavailable_tracks,
+    mark_track_unavailable, purge_unavailable_tracks, record_play, record_search_history,
+    remove_from_playlist, rename_playlist, reorder_favorite, reorder_playlist,
+    reorder_playlist_item, save_playback_state, set_page_disabled, set_shortcuts, toggle_favorite,
 };
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
@@ -1098,6 +1099,9 @@ fn main() {
             mark_track_unavailable,
             clear_track_unavailable,
             list_unavailable_tracks,
+            list_disabled_pages,
+            set_page_disabled,
+            clear_disabled_pages,
             purge_unavailable_tracks,
             ai::get_ai_config,
             ai::set_ai_config,
