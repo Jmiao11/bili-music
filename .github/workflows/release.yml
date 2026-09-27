@@ -88,7 +88,7 @@ jobs:
           else
             view_status=$?
             view_error_text="$(<"${view_error}")"
-            if [[ "${view_status}" -eq 1 && "${view_error_text}" == "release not found" ]]; then
+            if [[ "${view_status}" -eq 1 && "${view_error_text,,}" == *"release not found"* ]]; then
               is_draft=""
             else
               cat "${view_error}" >&2
@@ -140,6 +140,7 @@ jobs:
           mv release-notes.rendered.md release-notes.md
 
       - name: 创建 Draft Release（已存在则复用）
+        if: steps.meta.outputs.allow_upload == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ steps.meta.outputs.tag_name }}
@@ -165,10 +166,14 @@ jobs:
     name: Windows x64
     runs-on: windows-latest
     needs: release-metadata
-    if: needs.release-metadata.outputs.allow_upload == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: 设置 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
@@ -194,6 +199,7 @@ jobs:
           Write-Host "已生成 $zip"
 
       - name: 上传到 Draft Release
+        if: needs.release-metadata.outputs.allow_upload == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ needs.release-metadata.outputs.tag_name }}
@@ -204,7 +210,6 @@ jobs:
     name: macOS ${{ matrix.label }}
     runs-on: macos-latest
     needs: release-metadata
-    if: needs.release-metadata.outputs.allow_upload == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -218,6 +223,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: 设置 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
@@ -250,6 +260,7 @@ jobs:
           echo "asset=${asset}" >> "${GITHUB_OUTPUT}"
 
       - name: 上传到 Draft Release
+        if: needs.release-metadata.outputs.allow_upload == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ needs.release-metadata.outputs.tag_name }}
