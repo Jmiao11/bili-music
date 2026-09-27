@@ -208,6 +208,7 @@ let pagesMetaRequestVersion = 0;
 let pagesMetaStatusBeforeLoad = null;
 let pagesModalContext = null;
 let pagesModalReturnFocus = null;
+let pendingPastedBvPages = null;
 
 const searchForm = document.querySelector("#search-form");
 const searchKeyword = document.querySelector("#search-keyword");
@@ -304,6 +305,15 @@ let playbackNoticeTimer = null;
 
 function isBvId(value) {
   return /^BV[0-9A-Za-z]{10}$/i.test(value.trim());
+}
+
+function shouldOpenPastedBvPages(pending, eventBvid, currentBvid, requestVersion, pageCount) {
+  const bvid = String(pending?.bvid ?? "").toLowerCase();
+  return Boolean(
+    bvid && bvid === String(eventBvid ?? "").toLowerCase() &&
+    bvid === String(currentBvid ?? "").toLowerCase() &&
+    pending.requestVersion === requestVersion && pageCount > 1
+  );
 }
 
 function displayThumbnailUrl(url) {
@@ -3634,6 +3644,7 @@ searchForm.addEventListener("submit", async (event) => {
   }
 
   if (isBvId(query)) {
+    pendingPastedBvPages = null;
     searchState.userKeyword = "";
     searchState.requestKeyword = "";
     searchState.order = null;
@@ -3642,8 +3653,12 @@ searchForm.addEventListener("submit", async (event) => {
     searchState.hasMore = false;
     searchState.isLoadingMore = false;
     searchState.requestVersion += 1;
+    const pasteVersion = searchState.requestVersion;
     setSearchResults([]);
     await cancelCurrentPlayback();
+    if (pasteVersion === searchState.requestVersion) {
+      pendingPastedBvPages = { bvid: query, requestVersion: playerState.requestVersion + 1 };
+    }
     playBvId(query);
     searchStatus.textContent = `已识别 BV 号：${query}`;
     return;
@@ -3753,6 +3768,33 @@ searchResults.addEventListener("scroll", () => {
   if (distanceToBottom <= LOAD_MORE_THRESHOLD_PX) {
     loadMoreSearchResults();
   }
+});
+
+window.addEventListener("bili-track-changed", (event) => {
+  if (!pendingPastedBvPages) return;
+  const shouldOpen = shouldOpenPastedBvPages(
+    pendingPastedBvPages,
+    event.detail?.bvid,
+    currentPlayableTrack()?.bvid,
+    playerState.requestVersion,
+    playerState.currentPages.length,
+  );
+  pendingPastedBvPages = null;
+  if (shouldOpen) openCurrentPagesModal();
+});
+
+window.addEventListener("bilibili-music-trackchange", () => {
+  if (!pendingPastedBvPages) return;
+  const current = currentPlayableTrack();
+  if (current && (
+    current.bvid.toLowerCase() !== pendingPastedBvPages.bvid.toLowerCase() ||
+    playerState.requestVersion > pendingPastedBvPages.requestVersion ||
+    (playerState.requestVersion === pendingPastedBvPages.requestVersion && playerState.currentPages.length <= 1)
+  )) pendingPastedBvPages = null;
+});
+
+window.addEventListener("bilibili-music-notice-change", () => {
+  if (pendingPastedBvPages && playerState.consecutiveResolveFailures > 0) pendingPastedBvPages = null;
 });
 
 playerPagesButton?.addEventListener("click", openCurrentPagesModal);
