@@ -19,6 +19,12 @@ vm.runInContext(
 const classify = context.playbackFailureMessage;
 const unavailableReason = context.unavailableTrackReason;
 
+test("all-disabled pages use the chosen message without marking the video unavailable", () => {
+  const error = new Error("all pages disabled by user");
+  assert.equal(classify(error), "该视频的分P都已设为不想听");
+  assert.equal(unavailableReason(error), "");
+});
+
 test("deleted, private, and permission business codes share the unavailable message", () => {
   const errors = [
     new Error("Bilibili view failed with code 62002: 稿件不可见"),

@@ -23,6 +23,9 @@ function playbackFailureMessage(error, isPage = false) {
     // An unusual error object must not hide the playback failure notice.
   }
 
+  if (message.includes("all pages disabled by user")) {
+    return "该视频的分P都已设为不想听";
+  }
   if (
     message.includes("failed with code 62002") ||
     message.includes("failed with code -404") ||
@@ -1160,6 +1163,13 @@ function isPageDisabled(disabledPages, bvid, cid) {
   return disabledPages.get(String(bvid).toLowerCase())?.has(cid) ?? false;
 }
 
+function findEnabledPageIndex(pages, startIndex, direction, isDisabled) {
+  for (let index = startIndex; index >= 0 && index < pages.length; index += direction) {
+    if (!isDisabled(pages[index])) return index;
+  }
+  return -1;
+}
+
 function setFavoriteButtonState(button, bvid) {
   const favorited = isFavorited(bvid);
   button.classList.toggle("is-favorited", favorited);
@@ -2215,8 +2225,11 @@ function renderPagesModal() {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "pages-disable-button";
-    toggle.textContent = pending && pendingCid === page.cid ? "保存中…" : isDisabled ? "恢复" : "不想听";
-    toggle.setAttribute("aria-label", `${isDisabled ? "恢复" : "不想听"}：${page.part || `第 ${page.page} P`}`);
+    toggle.innerHTML = isDisabled
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg>';
+    toggle.title = isDisabled ? "恢复" : "不想听";
+    toggle.setAttribute("aria-label", toggle.title);
     toggle.disabled = pending;
     toggle.setAttribute("aria-busy", String(pending && (pendingCid === null || pendingCid === page.cid)));
     toggle.addEventListener("click", (event) => {
@@ -3058,6 +3071,18 @@ async function loadCurrentTrack({
       }
     }
 
+    if (!startPage && !keepPage && resumePosition === null && hasMultipleCurrentPages()) {
+      const firstEnabledPageIndex = findEnabledPageIndex(
+        playerState.currentPages,
+        0,
+        1,
+        (page) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid),
+      );
+      if (firstEnabledPageIndex < 0) throw new Error("all pages disabled by user");
+      playerState.currentPageIndex = firstEnabledPageIndex;
+      updatePlayerPagesButton();
+    }
+
     if (startPage) {
       const startPageIndex = playerState.currentPages.findIndex(
         (page) => page.cid === startPage.cid || page.page === startPage.page,
@@ -3398,8 +3423,14 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     return true;
   }
 
-  const nextPageIndex = playerState.currentPageIndex + 1;
-  if (nextPageIndex >= playerState.currentPages.length) {
+  const bvid = playerState.queue[playerState.currentIndex]?.bvid;
+  const nextPageIndex = findEnabledPageIndex(
+    playerState.currentPages,
+    playerState.currentPageIndex + 1,
+    1,
+    (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+  );
+  if (nextPageIndex < 0) {
     return false;
   }
 
@@ -3415,7 +3446,16 @@ function retreatPageWithinCurrentBv() {
     return false;
   }
 
-  playerState.currentPageIndex -= 1;
+  const bvid = playerState.queue[playerState.currentIndex]?.bvid;
+  const previousPageIndex = findEnabledPageIndex(
+    playerState.currentPages,
+    playerState.currentPageIndex - 1,
+    -1,
+    (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+  );
+  if (previousPageIndex < 0) return false;
+
+  playerState.currentPageIndex = previousPageIndex;
   playerState.currentDisplayTrack = null;
   updatePlayerPagesButton();
   loadCurrentTrack({ keepPage: true });

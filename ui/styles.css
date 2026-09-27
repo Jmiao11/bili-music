@@ -2643,16 +2643,41 @@ svg {
   background: var(--accent-dim);
 }
 
-/* 分P标记视觉数值：按钮尺寸与禁用行灰度集中在此处。 */
+/* 分P图标按钮 live 调整：按钮 30px、图标 16px、默认 .28、悬停/恢复 1、pending .16。 */
 .pages-disable-button {
-  min-width: 58px;
-  padding: 0 10px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  opacity: 0.28;
   border: 0.5px solid var(--line);
   border-radius: var(--radius-sm);
   color: var(--text-2);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+}
+
+.pages-disable-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pages-list li:hover .pages-disable-button:not(:disabled),
+.pages-disable-button:focus-visible,
+.pages-list li.is-disabled .pages-disable-button:not(:disabled) {
+  opacity: 1;
+}
+
+.pages-list li.is-disabled .pages-disable-button {
+  color: var(--text-1);
 }
 
 .pages-disable-button:focus-visible {
@@ -2661,7 +2686,7 @@ svg {
 }
 
 .pages-disable-button:disabled {
-  opacity: 0.45;
+  opacity: 0.16;
   cursor: wait;
 }
 

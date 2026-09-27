@@ -22,6 +22,7 @@ function setup() {
       timers.set(++id, { fn, delay }); return id;
     } },
     playerState: { currentIndex: 0, queue: [{}], history: [], shuffle: false, loopMode: 'sequence' },
+    libraryState: { disabledPages: new Map() },
     status: { textContent: '在线播放中。' },
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
@@ -144,6 +145,8 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits = [];
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
+  vm.runInContext(source.slice(source.indexOf('function isPageDisabled('),
+    source.indexOf('function setFavoriteButtonState(')), c);
   vm.runInContext(source.slice(source.indexOf('function takeRandomNext()'),
     source.indexOf('function playNext(')), c);
   c.playerState.queue = [{}, {}];
