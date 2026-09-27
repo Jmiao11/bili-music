@@ -43,6 +43,15 @@ function playbackFailureMessage(error, isPage = false) {
     return `${subject}没有可播放的音频`;
   }
   if (
+    message.includes("Bilibili rejected the cookie") ||
+    message.includes("Bilibili cookie file not found") ||
+    message.includes("Bilibili cookie is invalid") ||
+    message.includes("Bilibili cookie has expired") ||
+    message.includes("failed to read Bilibili cookie file")
+  ) {
+    return "yt-dlp 的登录凭证已失效";
+  }
+  if (
     message.includes("failed probe") ||
     message.includes("probe request failed") ||
     message.includes("probe returned") ||
@@ -476,6 +485,7 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
     if (requestVersion === playerState.requestVersion) {
       console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
       resetCurrentPageState();
+      showPlaybackNotice("分P列表获取失败，暂按单个视频播放。");
     }
   }
   return requestVersion === playerState.requestVersion;

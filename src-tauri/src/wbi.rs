@@ -3,6 +3,7 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use reqwest::header::{ACCEPT_ENCODING, COOKIE, REFERER, USER_AGENT};
 use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 const NAV_URL: &str = "https://api.bilibili.com/x/web-interface/nav";
@@ -22,6 +23,22 @@ pub async fn fetch_mixin_key(
     client: &reqwest::Client,
     cookie_header: Option<&str>,
 ) -> Result<String, String> {
+    fetch_mixin_key_inner(client, cookie_header, None).await
+}
+
+pub async fn fetch_mixin_key_cancellable(
+    client: &reqwest::Client,
+    cookie_header: Option<&str>,
+    cancellation: &AtomicBool,
+) -> Result<String, String> {
+    fetch_mixin_key_inner(client, cookie_header, Some(cancellation)).await
+}
+
+async fn fetch_mixin_key_inner(
+    client: &reqwest::Client,
+    cookie_header: Option<&str>,
+    cancellation: Option<&AtomicBool>,
+) -> Result<String, String> {
     let mut request = client
         .get(NAV_URL)
         .header(ACCEPT_ENCODING, "identity")
@@ -31,10 +48,11 @@ pub async fn fetch_mixin_key(
         request = request.header(COOKIE, cookie_header);
     }
 
-    let response = request
-        .send()
+    let response = crate::guest_playurl::send_with_guest_retry(request, "WBI keys", cancellation)
         .await
-        .map_err(|error| format!("failed to fetch WBI keys: {error}"))?;
+        .map_err(|error| {
+            crate::guest_playurl::format_send_error(error, "failed to fetch WBI keys")
+        })?;
     if response.status().as_u16() == 412 {
         return Err("Bilibili rejected the WBI key request with HTTP 412".to_owned());
     }

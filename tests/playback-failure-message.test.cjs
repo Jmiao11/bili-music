@@ -18,6 +18,24 @@ vm.runInContext(
 );
 const classify = context.playbackFailureMessage;
 const unavailableReason = context.unavailableTrackReason;
+const contract = JSON.parse(readFileSync(path.join(__dirname, "playback-error-contract.json"), "utf8"));
+
+test("shared error contract covers every frontend keyword and classification", () => {
+  const frontendKeywords = [...functionSource.matchAll(/message\.includes\("([^"]+)"\)/g)]
+    .map((match) => match[1]);
+  frontendKeywords.push("audio resolution was cancelled");
+  assert.ok(source.includes('String(error).includes("audio resolution was cancelled")'));
+  assert.deepEqual(
+    [...new Set(frontendKeywords)].sort(),
+    contract.map((entry) => entry.keyword).sort(),
+  );
+  for (const entry of contract) {
+    const actual = classify(entry.sampleError);
+    assert.equal(actual, entry.playbackMessage, entry.keyword);
+    assert.equal(Boolean(unavailableReason(entry.sampleError)), entry.unavailable, entry.keyword);
+    assert.ok((entry.matchTarget === "playbackMessage" ? actual : entry.sampleError).includes(entry.keyword));
+  }
+});
 
 test("all-disabled pages use the chosen message without marking the video unavailable", () => {
   const error = new Error("all pages disabled by user");

@@ -1137,6 +1137,33 @@ mod tests {
     use uuid::Uuid;
 
     #[test]
+    fn playback_error_keywords_remain_in_rust_sources() {
+        let entries: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/playback-error-contract.json")).unwrap();
+        for entry in entries {
+            let Some(path) = entry["rustSource"].as_str() else {
+                continue;
+            };
+            let source = match path {
+                "src/lib.rs" => include_str!("../../src/lib.rs"),
+                "src-tauri/src/guest_playurl.rs" => include_str!("guest_playurl.rs"),
+                other => panic!("unexpected Rust source: {other}"),
+            };
+            let keyword = entry["keyword"].as_str().unwrap();
+            assert!(
+                source.contains(keyword),
+                "{path} no longer contains {keyword:?}"
+            );
+            if let Some(template) = entry["rustTemplate"].as_str() {
+                assert!(
+                    source.contains(template),
+                    "{path} no longer contains {template:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn stream_entry_sources_construct_and_match() {
         let url = reqwest::Url::parse("https://example.bilivideo.com/audio.m4s").unwrap();
         let remote = StreamEntry {

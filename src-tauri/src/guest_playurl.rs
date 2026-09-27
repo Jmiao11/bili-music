@@ -95,7 +95,7 @@ impl GuestPlayurlClient {
         let cookie_header = guest.cookie_header();
         ensure_not_cancelled(cancellation)?;
 
-        let view = fetch_view(&self.client, bvid, &cookie_header).await?;
+        let view = fetch_view(&self.client, bvid, &cookie_header, Some(cancellation)).await?;
         ensure_not_cancelled(cancellation)?;
 
         let mixin_key = self.wbi_key(&cookie_header, cancellation).await?;
@@ -109,8 +109,15 @@ impl GuestPlayurlClient {
         {
             diag.playurl_started = Some(Instant::now());
         }
-        let playurl =
-            fetch_playurl(&self.client, bvid, target_cid, &cookie_header, &mixin_key).await?;
+        let playurl = fetch_playurl(
+            &self.client,
+            bvid,
+            target_cid,
+            &cookie_header,
+            &mixin_key,
+            Some(cancellation),
+        )
+        .await?;
         #[cfg(debug_assertions)]
         {
             diag.playurl_elapsed = diag.playurl_started.take().unwrap().elapsed();
@@ -191,7 +198,7 @@ impl GuestPlayurlClient {
         let cancellation = AtomicBool::new(false);
         let guest = self.guest_identity(&cancellation).await?;
         let cookie_header = guest.cookie_header();
-        let view = fetch_view(&self.client, bvid, &cookie_header).await?;
+        let view = fetch_view(&self.client, bvid, &cookie_header, Some(&cancellation)).await?;
         Ok(view.pages)
     }
 
@@ -207,7 +214,7 @@ impl GuestPlayurlClient {
         }
 
         ensure_not_cancelled(cancellation)?;
-        let identity = issue_guest_identity(&self.client).await?;
+        let identity = issue_guest_identity(&self.client, Some(cancellation)).await?;
         ensure_not_cancelled(cancellation)?;
         *self.guest_identity.write().await = Some(identity.clone());
         Ok(identity)
@@ -225,7 +232,12 @@ impl GuestPlayurlClient {
         }
 
         ensure_not_cancelled(cancellation)?;
-        let mixin_key = crate::wbi::fetch_mixin_key(&self.client, Some(cookie_header)).await?;
+        let mixin_key = crate::wbi::fetch_mixin_key_cancellable(
+            &self.client,
+            Some(cookie_header),
+            cancellation,
+        )
+        .await?;
         ensure_not_cancelled(cancellation)?;
         *self.wbi_cache.write().await = Some(CachedWbiKey {
             mixin_key: mixin_key.clone(),
@@ -285,11 +297,11 @@ pub async fn verify_guest_audio_playurl(bvid: &str) -> Result<GuestAudioProbe, S
     }
 
     let client = build_client()?;
-    let guest = issue_guest_identity(&client).await?;
+    let guest = issue_guest_identity(&client, None).await?;
     let cookie_header = guest.cookie_header();
-    let view = fetch_view(&client, bvid, &cookie_header).await?;
+    let view = fetch_view(&client, bvid, &cookie_header, None).await?;
     let mixin_key = crate::wbi::fetch_mixin_key(&client, Some(&cookie_header)).await?;
-    let playurl = fetch_playurl(&client, bvid, view.cid, &cookie_header, &mixin_key).await?;
+    let playurl = fetch_playurl(&client, bvid, view.cid, &cookie_header, &mixin_key, None).await?;
     let audio = select_audio(playurl.data.as_ref())?;
     let audio_url = audio
         .base_url()
@@ -576,6 +588,74 @@ fn ensure_not_cancelled(cancellation: &AtomicBool) -> Result<(), String> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RetryFailure {
+    Network,
+    HttpResponse,
+    BusinessCode,
+}
+
+fn should_retry(failure: RetryFailure, cancelled: bool, retried: bool) -> bool {
+    failure == RetryFailure::Network && !cancelled && !retried
+}
+
+fn check_cancellation(cancellation: Option<&AtomicBool>) -> Result<(), SendError> {
+    if cancellation.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        Err(SendError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) async fn send_with_guest_retry(
+    request: reqwest::RequestBuilder,
+    name: &str,
+    cancellation: Option<&AtomicBool>,
+) -> Result<reqwest::Response, SendError> {
+    check_cancellation(cancellation)?;
+    let retry = request.try_clone();
+    match request.send().await {
+        Ok(response) => Ok(response),
+        Err(error) => {
+            let network = error.is_connect() || error.is_timeout() || error.is_request();
+            let cancelled = cancellation.is_some_and(|flag| flag.load(Ordering::Acquire));
+            if !should_retry(
+                if network {
+                    RetryFailure::Network
+                } else {
+                    RetryFailure::HttpResponse
+                },
+                cancelled,
+                false,
+            ) || retry.is_none()
+            {
+                check_cancellation(cancellation)?;
+                return Err(SendError::Request(error));
+            }
+            check_cancellation(cancellation)?;
+            #[cfg(debug_assertions)]
+            eprintln!("[guest-retry] {name} attempt=2 reason={error}");
+            #[cfg(not(debug_assertions))]
+            let _ = name;
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            check_cancellation(cancellation)?;
+            retry.unwrap().send().await.map_err(SendError::Request)
+        }
+    }
+}
+
+pub(crate) enum SendError {
+    Cancelled,
+    Request(reqwest::Error),
+}
+
+pub(crate) fn format_send_error(error: SendError, prefix: &str) -> String {
+    match error {
+        SendError::Cancelled => "audio resolution was cancelled".to_owned(),
+        SendError::Request(error) => format!("{prefix}: {error}"),
+    }
+}
+
 #[cfg(debug_assertions)]
 fn debug_force_guest_failure() -> bool {
     matches!(
@@ -596,16 +676,21 @@ impl GuestIdentity {
     }
 }
 
-async fn issue_guest_identity(client: &reqwest::Client) -> Result<GuestIdentity, String> {
+async fn issue_guest_identity(
+    client: &reqwest::Client,
+    cancellation: Option<&AtomicBool>,
+) -> Result<GuestIdentity, String> {
     let mut cookies = BTreeMap::new();
     let response = client
         .get(HOME_URL)
         .header(ACCEPT_ENCODING, "identity")
         .header(USER_AGENT, DESKTOP_USER_AGENT)
-        .header(REFERER, BILIBILI_REFERER)
-        .send()
+        .header(REFERER, BILIBILI_REFERER);
+    let response = send_with_guest_retry(response, "homepage buvid", cancellation)
         .await
-        .map_err(|error| format!("failed to request Bilibili homepage for buvid: {error}"))?;
+        .map_err(|error| {
+            format_send_error(error, "failed to request Bilibili homepage for buvid")
+        })?;
     if response.status().as_u16() == 412 {
         return Err("Bilibili homepage returned HTTP 412 while issuing guest buvid".to_owned());
     }
@@ -621,7 +706,7 @@ async fn issue_guest_identity(client: &reqwest::Client) -> Result<GuestIdentity,
     }
 
     if !cookies.contains_key("buvid3") || !cookies.contains_key("buvid4") {
-        for (name, value) in issue_spi_buvid(client, &cookies).await? {
+        for (name, value) in issue_spi_buvid(client, &cookies, cancellation).await? {
             cookies.entry(name).or_insert(value);
         }
     }
@@ -635,6 +720,7 @@ async fn issue_guest_identity(client: &reqwest::Client) -> Result<GuestIdentity,
 async fn issue_spi_buvid(
     client: &reqwest::Client,
     existing: &BTreeMap<String, String>,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<BTreeMap<String, String>, String> {
     let mut request = client
         .get(SPI_URL)
@@ -652,10 +738,9 @@ async fn issue_spi_buvid(
         );
     }
 
-    let response = request
-        .send()
+    let response = send_with_guest_retry(request, "SPI buvid", cancellation)
         .await
-        .map_err(|error| format!("failed to request SPI buvid: {error}"))?;
+        .map_err(|error| format_send_error(error, "failed to request SPI buvid"))?;
     if response.status().as_u16() == 412 {
         return Err("Bilibili SPI returned HTTP 412 while issuing buvid".to_owned());
     }
@@ -684,16 +769,17 @@ async fn fetch_view(
     client: &reqwest::Client,
     bvid: &str,
     cookie_header: &str,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<ViewData, String> {
-    let response = client
+    let request = client
         .get(format!("{VIEW_URL}?bvid={bvid}"))
         .header(ACCEPT_ENCODING, "identity")
         .header(USER_AGENT, DESKTOP_USER_AGENT)
         .header(REFERER, BILIBILI_REFERER)
-        .header(COOKIE, cookie_header)
-        .send()
+        .header(COOKIE, cookie_header);
+    let response = send_with_guest_retry(request, "view", cancellation)
         .await
-        .map_err(|error| format!("Bilibili view request failed: {error}"))?;
+        .map_err(|error| format_send_error(error, "Bilibili view request failed"))?;
     if response.status().as_u16() == 412 {
         return Err("Bilibili view returned HTTP 412".to_owned());
     }
@@ -706,6 +792,7 @@ async fn fetch_view(
         .await
         .map_err(|error| format!("invalid Bilibili view response: {error}"))?;
     if envelope.code != 0 {
+        // Frontend contract for dynamic codes: failed with code 62002; failed with code -404; failed with code -403.
         return Err(format!(
             "Bilibili view failed with code {}: {}",
             envelope.code, envelope.message
@@ -770,6 +857,7 @@ async fn fetch_playurl(
     cid: u64,
     cookie_header: &str,
     mixin_key: &str,
+    cancellation: Option<&AtomicBool>,
 ) -> Result<PlayurlEnvelope, String> {
     let mut params = BTreeMap::new();
     params.insert("bvid".to_owned(), bvid.to_owned());
@@ -779,15 +867,15 @@ async fn fetch_playurl(
     params.insert("qn".to_owned(), "0".to_owned());
     let signed_query = crate::wbi::sign_parameters(params, mixin_key, unix_timestamp());
 
-    let response = client
+    let request = client
         .get(format!("{PLAYURL_URL}?{signed_query}"))
         .header(ACCEPT_ENCODING, "identity")
         .header(USER_AGENT, DESKTOP_USER_AGENT)
         .header(REFERER, BILIBILI_REFERER)
-        .header(COOKIE, cookie_header)
-        .send()
+        .header(COOKIE, cookie_header);
+    let response = send_with_guest_retry(request, "playurl", cancellation)
         .await
-        .map_err(|error| format!("Bilibili playurl request failed: {error}"))?;
+        .map_err(|error| format_send_error(error, "Bilibili playurl request failed"))?;
     if response.status().as_u16() == 412 {
         return Err("Bilibili playurl returned HTTP 412".to_owned());
     }
@@ -1198,9 +1286,18 @@ impl AudioStream {
 mod tests {
     use super::{
         first_working_audio_url, first_working_muxed_url, ordered_candidates, select_audio,
-        select_muxed_durl, AudioStream, DashData, DurlStream, FailedProbeHosts, PlayurlData,
-        ProbeResult,
+        select_muxed_durl, should_retry, AudioStream, DashData, DurlStream, FailedProbeHosts,
+        PlayurlData, ProbeResult, RetryFailure,
     };
+
+    #[test]
+    fn retries_only_first_network_failure_while_active() {
+        assert!(should_retry(RetryFailure::Network, false, false));
+        assert!(!should_retry(RetryFailure::HttpResponse, false, false));
+        assert!(!should_retry(RetryFailure::BusinessCode, false, false));
+        assert!(!should_retry(RetryFailure::Network, true, false));
+        assert!(!should_retry(RetryFailure::Network, false, true));
+    }
 
     #[test]
     fn prefers_medium_aac_then_low_aac() {

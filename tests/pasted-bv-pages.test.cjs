@@ -14,6 +14,29 @@ vm.runInContext(helper, context);
 const shouldOpen = vm.runInContext("shouldOpenPastedBvPages", context);
 const pending = { bvid: "BV1GF4X6MEb1", requestVersion: 7 };
 
+test("failed page loading notices only the current request while keeping single-page fallback", async () => {
+  const notices = [];
+  const state = { requestVersion: 7, currentPages: [{ cid: 1 }] };
+  const app = vm.createContext({
+    playerState: state,
+    invoke: async () => { throw new Error("view failed"); },
+    resetCurrentPageState: () => { state.currentPages = []; },
+    showPlaybackNotice: (message) => notices.push(message),
+    console: { warn: () => {} },
+  });
+  vm.runInContext(source.slice(
+    source.indexOf("async function loadPagesForCurrentVideo("),
+    source.indexOf("function emitCurrentTrackChanged("),
+  ), app);
+  const load = vm.runInContext("loadPagesForCurrentVideo", app);
+  assert.equal(await load({ bvid: pending.bvid }, 7), true);
+  assert.equal(state.currentPages.length, 0);
+  assert.deepEqual(notices, ["分P列表获取失败，暂按单个视频播放。"]);
+  state.requestVersion = 8;
+  assert.equal(await load({ bvid: pending.bvid }, 7), false);
+  assert.equal(notices.length, 1);
+});
+
 test("matching BV with multiple pages opens", () => {
   assert.equal(shouldOpen(pending, "bv1gf4x6meb1", "BV1GF4X6MEb1", 7, 2), true);
 });
