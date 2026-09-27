@@ -17,6 +17,10 @@ const cacheListenerCode = main.slice(
   main.indexOf('audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);')
     + 'audio.addEventListener("timeupdate", analyzeCurrentTrackAtThreshold);'.length,
 );
+const endedHandlerCode = main.slice(
+  main.indexOf('audio.addEventListener("ended", (event) => {'),
+  main.indexOf('audio.addEventListener("timeupdate"', main.indexOf('audio.addEventListener("ended", (event) => {')),
+);
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = appearance.slice(
@@ -43,12 +47,15 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
     currentPages: [{ cid: 1 }],
     activeAudioVersion: 1,
     activeAudioUrl: "http://127.0.0.1/audio/11111111111111111111111111111111",
+    audioActivatedAt: 0,
   };
   const timeupdateListeners = [];
+  const endedListeners = [];
   const playerAudio = {
-    volume: 1, duration: 100, currentTime: 0, currentSrc: state.activeAudioUrl,
+    volume: 1, duration: 100, currentTime: 0, currentSrc: state.activeAudioUrl, ended: false,
     addEventListener: (type, listener) => {
       if (type === "timeupdate") timeupdateListeners.push(listener);
+      if (type === "ended") endedListeners.push(listener);
     },
   };
   const animation = { callbacks: new Map(), cancelled: [], nextId: 1, now: 0 };
@@ -81,6 +88,7 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
       bvid: state.queue[state.currentIndex]?.bvid ?? "", title: "test", uploader: "test",
       thumbnailUrl: "https://example.test/cover.jpg", durationSeconds: 100,
     }),
+    advancePageWithinCurrentBv: () => false, playNext() {},
     window: { dispatchEvent() {} }, Event, CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
     updateRangeProgress: (_, value) => progress.push(value),
     localStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
@@ -90,10 +98,12 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
   });
   vm.runInContext(code, context);
   vm.runInContext(cacheListenerCode, context);
+  vm.runInContext(endedHandlerCode, context);
   context.initializeLoudnessNormalization();
   return {
     app: context, queries, warnings, progress, stored, state, animation,
     emitTimeUpdate: () => timeupdateListeners.forEach(listener => listener()),
+    emitEnded: () => endedListeners.forEach(listener => listener({ timeStamp: 1 })),
   };
 }
 
@@ -340,6 +350,22 @@ test("threshold analysis stays off when normalization is disabled", () => {
   app.audio.currentTime = 30;
   app.analyzeCurrentTrackAtThreshold();
   assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 0);
+});
+
+test("ended skips loudness analysis when normalization is disabled", () => {
+  const { app, queries, emitEnded } = setup();
+  app.audio.ended = true;
+  emitEnded();
+  assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 0);
+});
+
+test("ended analyzes loudness when normalization is enabled", () => {
+  const { app, queries, emitEnded } = setup(new Map([[settingKey, "true"]]));
+  app.audio.ended = true;
+  emitEnded();
+  const analysis = queries.find(query => query.command === "analyze_track_loudness");
+  assert.equal(analysis.args.key, "BV1GF4X6MEb1:1");
+  assert.equal(analysis.args.audioUrl, app.playerState.activeAudioUrl);
 });
 
 test("track change resets threshold analysis for the new track", () => {

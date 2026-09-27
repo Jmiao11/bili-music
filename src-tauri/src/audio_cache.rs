@@ -417,16 +417,9 @@ pub(crate) async fn get_audio_cache_usage() -> Result<AudioCacheUsage, String> {
 
 #[tauri::command]
 pub(crate) async fn clear_audio_cache(state: tauri::State<'_, AppState>) -> Result<u32, String> {
-    if state
-        .cache_busy
-        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .is_err()
-    {
-        return Err("正在缓存音频，请稍后重试清空。".to_owned());
-    }
-    let busy = Arc::clone(&state.cache_busy);
+    let slot = acquire_clear_cache_slot(Arc::clone(&state.cache_busy))?;
     tauri::async_runtime::spawn_blocking(move || {
-        let _slot = CacheSlot(busy);
+        let _slot = slot;
         clear_cache()
     })
     .await
@@ -442,6 +435,16 @@ fn proxy_token<'a>(audio_url: &'a str, proxy_base_url: &str) -> Result<&'a str, 
 }
 
 struct CacheSlot(Arc<AtomicBool>);
+
+fn acquire_clear_cache_slot(busy: Arc<AtomicBool>) -> Result<CacheSlot, String> {
+    if busy
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return Err("正在缓存音频，请稍后再清空。".to_owned());
+    }
+    Ok(CacheSlot(busy))
+}
 
 impl Drop for CacheSlot {
     fn drop(&mut self) {
@@ -1060,6 +1063,47 @@ mod tests {
         fs::write(temp.path().join(INDEX_FILE), b"invalid json").unwrap();
         assert!(clear_cache_at(temp.path()).is_err());
         assert!(audio.is_file());
+    }
+
+    #[test]
+    fn clear_rejects_busy_cache_without_deleting_files() {
+        let temp = TempDir::new();
+        let audio = temp.path().join("saved.m4a");
+        fs::write(&audio, b"audio").unwrap();
+        let busy = Arc::new(AtomicBool::new(true));
+        assert_eq!(
+            acquire_clear_cache_slot(Arc::clone(&busy)).err(),
+            Some("正在缓存音频，请稍后再清空。".to_owned())
+        );
+        assert!(audio.is_file());
+        assert!(busy.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn clear_holds_slot_until_done_and_releases_after_success() {
+        let temp = TempDir::new();
+        fs::write(temp.path().join("saved.m4a"), b"audio").unwrap();
+        let busy = Arc::new(AtomicBool::new(false));
+        {
+            let _slot = acquire_clear_cache_slot(Arc::clone(&busy)).unwrap();
+            assert!(busy.load(Ordering::Acquire));
+            assert_eq!(clear_cache_at(temp.path()), Ok(1));
+            assert!(busy.load(Ordering::Acquire));
+        }
+        assert!(!busy.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn clear_releases_slot_after_error() {
+        let temp = TempDir::new();
+        fs::write(temp.path().join(INDEX_FILE), b"invalid json").unwrap();
+        let busy = Arc::new(AtomicBool::new(false));
+        {
+            let _slot = acquire_clear_cache_slot(Arc::clone(&busy)).unwrap();
+            assert!(clear_cache_at(temp.path()).is_err());
+            assert!(busy.load(Ordering::Acquire));
+        }
+        assert!(!busy.load(Ordering::Acquire));
     }
 
     #[test]

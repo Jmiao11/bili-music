@@ -3706,7 +3706,7 @@ audio.addEventListener("ended", (event) => {
     if (!advancePageWithinCurrentBv({ automatic: true })) {
       playNext({ automatic: true });
     }
-    if (bvid && cid) {
+    if (bvid && cid && isLoudnessNormalizationEnabled()) {
       invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).catch((error) => {
         console.warn("analyze_track_loudness failed:", error);
       });
