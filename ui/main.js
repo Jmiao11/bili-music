@@ -733,32 +733,6 @@ function appendSearchResults(videos) {
   return uniqueVideos.length;
 }
 
-function appendQueue(videos) {
-  const knownBvids = new Set(playerState.queue.map((video) => video.bvid));
-  const uniqueVideos = videos
-    .filter((video) => {
-      if (!video?.bvid || knownBvids.has(video.bvid)) {
-        return false;
-      }
-      knownBvids.add(video.bvid);
-      return true;
-    })
-    .map(normalizeTrack);
-  if (uniqueVideos.length === 0) {
-    updateQueueUi();
-    return 0;
-  }
-
-  const startIndex = playerState.queue.length;
-  playerState.queue.push(...uniqueVideos);
-  addNewIndexesToRandomRemaining(startIndex, uniqueVideos.length);
-  renderSearchResults();
-  updateQueueUi();
-  emitCurrentTrackChanged();
-  savePlaybackState();
-  return uniqueVideos.length;
-}
-
 function updateQueueUi() {
   const hasCurrent =
     playerState.currentIndex >= 0 &&
