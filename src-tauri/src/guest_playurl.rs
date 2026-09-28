@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 
 const HOME_URL: &str = "https://www.bilibili.com/";
 const SPI_URL: &str = "https://api.bilibili.com/x/frontend/finger/spi";
-const VIEW_URL: &str = "https://api.bilibili.com/x/web-interface/view";
+const VIEW_URL: &str = "https://api.bilibili.com/x/web-interface/wbi/view";
 const PLAYURL_URL: &str = "https://api.bilibili.com/x/player/wbi/playurl";
 const AUDIO_PROBE_RANGE: &str = "bytes=0-4095";
 const PREFERRED_AUDIO_IDS: [i64; 2] = [30232, 30216];
@@ -95,10 +95,17 @@ impl GuestPlayurlClient {
         let cookie_header = guest.cookie_header();
         ensure_not_cancelled(cancellation)?;
 
-        let view = fetch_view(&self.client, bvid, &cookie_header, Some(cancellation)).await?;
+        let mixin_key = self.wbi_key(&cookie_header, cancellation).await?;
         ensure_not_cancelled(cancellation)?;
 
-        let mixin_key = self.wbi_key(&cookie_header, cancellation).await?;
+        let view = fetch_view(
+            &self.client,
+            bvid,
+            &cookie_header,
+            &mixin_key,
+            Some(cancellation),
+        )
+        .await?;
         ensure_not_cancelled(cancellation)?;
 
         let target_cid = page_hint
@@ -198,7 +205,15 @@ impl GuestPlayurlClient {
         let cancellation = AtomicBool::new(false);
         let guest = self.guest_identity(&cancellation).await?;
         let cookie_header = guest.cookie_header();
-        let view = fetch_view(&self.client, bvid, &cookie_header, Some(&cancellation)).await?;
+        let mixin_key = self.wbi_key(&cookie_header, &cancellation).await?;
+        let view = fetch_view(
+            &self.client,
+            bvid,
+            &cookie_header,
+            &mixin_key,
+            Some(&cancellation),
+        )
+        .await?;
         Ok(view.pages)
     }
 
@@ -299,8 +314,8 @@ pub async fn verify_guest_audio_playurl(bvid: &str) -> Result<GuestAudioProbe, S
     let client = build_client()?;
     let guest = issue_guest_identity(&client, None).await?;
     let cookie_header = guest.cookie_header();
-    let view = fetch_view(&client, bvid, &cookie_header, None).await?;
     let mixin_key = crate::wbi::fetch_mixin_key(&client, Some(&cookie_header)).await?;
+    let view = fetch_view(&client, bvid, &cookie_header, &mixin_key, None).await?;
     let playurl = fetch_playurl(&client, bvid, view.cid, &cookie_header, &mixin_key, None).await?;
     let audio = select_audio(playurl.data.as_ref())?;
     let audio_url = audio
@@ -765,14 +780,21 @@ async fn issue_spi_buvid(
     Ok(issued)
 }
 
+fn signed_view_url(bvid: &str, mixin_key: &str, wts: u64) -> String {
+    let params = BTreeMap::from([("bvid".to_owned(), bvid.to_owned())]);
+    let signed_query = crate::wbi::sign_parameters(params, mixin_key, wts);
+    format!("{VIEW_URL}?{signed_query}")
+}
+
 async fn fetch_view(
     client: &reqwest::Client,
     bvid: &str,
     cookie_header: &str,
+    mixin_key: &str,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ViewData, String> {
     let request = client
-        .get(format!("{VIEW_URL}?bvid={bvid}"))
+        .get(signed_view_url(bvid, mixin_key, unix_timestamp()))
         .header(ACCEPT_ENCODING, "identity")
         .header(USER_AGENT, DESKTOP_USER_AGENT)
         .header(REFERER, BILIBILI_REFERER)
@@ -1286,9 +1308,30 @@ impl AudioStream {
 mod tests {
     use super::{
         first_working_audio_url, first_working_muxed_url, ordered_candidates, select_audio,
-        select_muxed_durl, should_retry, AudioStream, DashData, DurlStream, FailedProbeHosts,
-        PlayurlData, ProbeResult, RetryFailure,
+        select_muxed_durl, should_retry, signed_view_url, AudioStream, DashData, DurlStream,
+        FailedProbeHosts, PlayurlData, ProbeResult, RetryFailure, VIEW_URL,
     };
+
+    #[test]
+    fn view_url_uses_wbi_signature() {
+        let bvid = "BV1xx411c7mD";
+        let mixin_key = "ea1db124af3c7062474693fa704f4ff8";
+        let wts = 1_702_204_169;
+        let params = std::collections::BTreeMap::from([("bvid".to_owned(), bvid.to_owned())]);
+        let url = signed_view_url(bvid, mixin_key, wts);
+
+        assert_eq!(
+            url,
+            format!(
+                "{VIEW_URL}?{}",
+                crate::wbi::sign_parameters(params, mixin_key, wts)
+            )
+        );
+        assert!(url.starts_with("https://api.bilibili.com/x/web-interface/wbi/view?"));
+        assert!(url.contains("bvid=BV1xx411c7mD"));
+        assert!(url.contains("wts=1702204169"));
+        assert!(url.contains("w_rid="));
+    }
 
     #[test]
     fn retries_only_first_network_failure_while_active() {
