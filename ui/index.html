@@ -562,13 +562,13 @@
                     class="ai-help-bubble"
                     role="tooltip"><strong>规则</strong>
                     <ul>
-                      <li>只填域名 → 自动补 /v1 + 端点</li>
-                      <li>填到版本段或自定义路径 → 只追加端点</li>
-                      <li>服务商路径不含 /v1 时（如智谱 /api/v1）必须填到版本段</li>
+                      <li>请填到服务商要求的版本段，例如 https://api.openai.com/v1</li>
+                      <li>只追加所选规范的端点，不自动补 /v1</li>
+                      <li>缺少协议头时补 https://，末尾的 / 会去掉</li>
                     </ul>
                     <strong>示例</strong>
                     <ul>
-                      <li>OpenAI / DeepSeek：可只填域名</li>
+                      <li>OpenAI：https://api.openai.com/v1</li>
                       <li>智谱：open.bigmodel.cn/api/v1</li>
                       <li>智谱 Anthropic：open.bigmodel.cn/api/anthropic/v1</li>
                       <li>百炼：dashscope.aliyuncs.com/compatible-mode/v1</li>

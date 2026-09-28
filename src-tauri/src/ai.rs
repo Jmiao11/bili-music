@@ -12,8 +12,7 @@ use crate::library::{
 };
 use crate::search::{SearchClient, SearchVideo};
 
-const VERSION: u32 = 2;
-const LEGACY_VERSION: u32 = 1;
+const VERSION: u32 = 1;
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 const AI_CONFIG_FILE: &str = "ai-config.json";
 const RECOMMENDATIONS_FILE: &str = "recommendations.json";
@@ -194,9 +193,7 @@ impl AiConfig {
     }
 
     fn ensure_supported_version(&self, path: &Path) -> Result<(), String> {
-        // v1 是无 api_format 字段的旧配置，读取时默认按 openai-chat-completions 处理，
-        // 下次保存时以 v2 落盘；不认识的版本仍然报错且不覆盖。
-        if self.version == VERSION || self.version == LEGACY_VERSION {
+        if self.version == VERSION {
             Ok(())
         } else {
             Err(format!(
@@ -439,13 +436,13 @@ async fn chat_completion_with_config(
     })?;
     if !status.is_success() {
         // 把服务端返回的真实错误体和请求端点打到终端，否则无法定位网关路径/参数问题。
-        let snippet = response_snippet(&body_text);
+        let snippet = safe_error(&response_snippet(&body_text), &config.api_key);
         eprintln!(
             "[ai] {} 请求 {} 返回 HTTP {}：{}",
             config.api_format.as_str(),
             built.endpoint,
             status.as_u16(),
-            safe_error(&snippet, &config.api_key)
+            snippet
         );
         return Err(format!("HTTP {}：{}", status.as_u16(), snippet));
     }
@@ -467,17 +464,18 @@ async fn chat_completion_with_config(
         Some(content) => Ok(content),
         None => {
             // 按所选规范没提取到文本时，打印端点、模型和原始响应体，定位网关路由/模型/参数问题。
-            let snippet = response_snippet(&body_text);
+            let snippet = safe_error(&response_snippet(&body_text), &config.api_key);
             eprintln!(
                 "[ai] {} 请求 {}（model={}）响应缺少 content，原始响应：{}",
                 config.api_format.as_str(),
                 built.endpoint,
                 config.model,
-                safe_error(&snippet, &config.api_key)
+                snippet
             );
             if let Some(reason) = output_truncated_reason(config.api_format, &body) {
-                return Err(format!(
-                    "模型输出被 max tokens 截断（{reason}），推理模型思考占用了全部输出额度；请换非推理模型或重试。"
+                return Err(safe_error(
+                    &format!("模型输出被 max tokens 截断（{reason}），推理模型思考占用了全部输出额度；请换非推理模型或重试。"),
+                    &config.api_key,
                 ));
             }
             Err(format!(
@@ -549,11 +547,7 @@ fn split_system_messages(messages: &[ChatMessage]) -> (String, Vec<&ChatMessage>
     (system_parts.join("\n\n"), rest)
 }
 
-/// Base URL 智能拼接：用户可只填服务商域名，也可填到版本段或自定义路径。
-/// Base URL 智能拼接：①无 scheme 自动补 https://；②裸域名自动补 /v1；
-/// ③路径末段是版本段（v1/v4…）或自定义路径 → 直接追加端点。
-/// 注意：程序只会自动补 /v1 这一种；服务商路径不含 /v1 时（如智谱 /api/v1），
-/// 用户必须填到版本段，由提示文案说明。
+/// Base URL 缺少协议头时补 https://，去掉末尾斜杠后追加所选规范的端点。
 fn resolve_endpoint(base_url: &str, endpoint: &str) -> String {
     let trimmed = base_url.trim().trim_end_matches('/');
     let base = if trimmed.contains("://") {
@@ -561,30 +555,14 @@ fn resolve_endpoint(base_url: &str, endpoint: &str) -> String {
     } else {
         format!("https://{trimmed}")
     };
-    let remainder = base
-        .split_once("://")
-        .map_or(base.as_str(), |(_, rest)| rest);
-    if !remainder.contains('/') {
-        return format!("{base}/{DEFAULT_VERSION_SEGMENT}/{endpoint}");
-    }
-    let last_segment = remainder.rsplit('/').next().unwrap_or("");
-    if is_version_segment(last_segment) {
-        return format!("{base}/{endpoint}");
-    }
     format!("{base}/{endpoint}")
-}
-
-fn is_version_segment(segment: &str) -> bool {
-    let bytes = segment.as_bytes();
-    bytes.len() >= 2 && bytes[0] == b'v' && bytes[1..].iter().all(u8::is_ascii_digit)
 }
 
 const OPENAI_CHAT_ENDPOINT: &str = "chat/completions";
 const OPENAI_RESPONSES_ENDPOINT: &str = "responses";
 const ANTHROPIC_MESSAGES_ENDPOINT: &str = "messages";
-const DEFAULT_VERSION_SEGMENT: &str = "v1";
 
-/// Base URL 由用户填写服务商地址（如 https://api.openai.com 或
+/// Base URL 由用户填写服务商地址（如 https://api.openai.com/v1 或
 /// https://open.bigmodel.cn/api/v1），端点路径由 resolve_endpoint 按规范拼接。
 fn build_request(config: &AiConfig, messages: &[ChatMessage], max_tokens: u32) -> BuiltRequest {
     match config.api_format {
@@ -1145,6 +1123,7 @@ mod tests {
         let parsed: AiConfig = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed, config);
+        assert!(json.contains("\"version\":1"));
         assert!(json.contains("\"api_format\":\"openai-chat-completions\""));
 
         config.api_format = ApiFormat::AnthropicMessages;
@@ -1153,23 +1132,36 @@ mod tests {
     }
 
     #[test]
-    fn legacy_v1_config_defaults_to_openai_chat_completions() {
-        let legacy = r#"{
+    fn v1_config_without_format_defaults_to_openai_chat_completions() {
+        let config = r#"{
             "version": 1,
             "base_url": "https://api.example.com/v1",
             "model": "test-model",
             "api_key": "sk-secret"
         }"#;
-        let parsed: AiConfig = serde_json::from_str(legacy).unwrap();
+        let parsed: AiConfig = serde_json::from_str(config).unwrap();
 
         assert_eq!(parsed.api_format, ApiFormat::OpenAiChatCompletions);
-        let path = unique_temp_path("legacy-v1");
-        fs::write(&path, legacy).unwrap();
+        let path = unique_temp_path("v1-no-format");
+        fs::write(&path, config).unwrap();
         let loaded = read_ai_config_from_path(&path);
         let _ = fs::remove_file(&path);
 
         assert!(loaded.is_ok());
         assert_eq!(loaded.unwrap().api_format, ApiFormat::OpenAiChatCompletions);
+    }
+
+    #[test]
+    fn v2_config_is_rejected_without_overwriting() {
+        let path = unique_temp_path("v2-unsupported");
+        let config = r#"{"version":2,"api_format":"openai-responses","base_url":"https://api.example.com/v1","model":"test-model","api_key":"sk-secret"}"#;
+        fs::write(&path, config).unwrap();
+        let result = read_ai_config_from_path(&path);
+        let unchanged = fs::read_to_string(&path).unwrap();
+        let _ = fs::remove_file(&path);
+
+        assert!(result.unwrap_err().contains("版本 2 暂不支持"));
+        assert_eq!(unchanged, config);
     }
 
     #[test]
@@ -1196,9 +1188,15 @@ mod tests {
 
         write_ai_config(&path, &config).unwrap();
         let parsed = read_ai_config_from_path(&path).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let _ = fs::remove_file(&path);
 
         assert_eq!(parsed, config);
+        assert_eq!(parsed.version, 1);
+        assert_eq!(parsed.api_format, ApiFormat::AnthropicMessages);
+        assert_eq!(json["version"], 1);
+        assert_eq!(json["api_format"], "anthropic-messages");
     }
 
     #[test]
@@ -1525,10 +1523,10 @@ mod tests {
     #[test]
     fn resolve_endpoint_covers_major_providers() {
         let cases = [
-            // OpenAI 官方：只填域名也能拼出 /v1
+            // OpenAI 官方：路径需填到 /v1
             (
                 ApiFormat::OpenAiChatCompletions,
-                "https://api.openai.com",
+                "https://api.openai.com/v1/",
                 "https://api.openai.com/v1/chat/completions",
             ),
             (
@@ -1539,7 +1537,7 @@ mod tests {
             // DeepSeek / 月之暗面 / 硅基流动
             (
                 ApiFormat::OpenAiChatCompletions,
-                "https://api.deepseek.com",
+                "https://api.deepseek.com/v1",
                 "https://api.deepseek.com/v1/chat/completions",
             ),
             (
@@ -1549,7 +1547,7 @@ mod tests {
             ),
             (
                 ApiFormat::OpenAiChatCompletions,
-                "https://api.siliconflow.cn",
+                "https://api.siliconflow.cn/v1",
                 "https://api.siliconflow.cn/v1/chat/completions",
             ),
             // 智谱：paas/v4 版本段直接追加；无 scheme 自动补 https://
@@ -1572,10 +1570,10 @@ mod tests {
             // Ollama 本地
             (
                 ApiFormat::OpenAiChatCompletions,
-                "http://localhost:11434",
+                "http://localhost:11434/v1",
                 "http://localhost:11434/v1/chat/completions",
             ),
-            // Responses：智谱 /api/v1 与 OpenAI 官方域名
+            // Responses：智谱 /api/v1 与 OpenAI 官方版本路径
             (
                 ApiFormat::OpenAiResponses,
                 "https://open.bigmodel.cn/api/v1",
@@ -1583,13 +1581,13 @@ mod tests {
             ),
             (
                 ApiFormat::OpenAiResponses,
-                "https://api.openai.com",
+                "https://api.openai.com/v1",
                 "https://api.openai.com/v1/responses",
             ),
-            // Anthropic：官方裸域名与智谱兼容网关
+            // Anthropic：官方 /v1 与智谱兼容网关
             (
                 ApiFormat::AnthropicMessages,
-                "https://api.anthropic.com",
+                "https://api.anthropic.com/v1",
                 "https://api.anthropic.com/v1/messages",
             ),
             (
@@ -1604,24 +1602,40 @@ mod tests {
     }
 
     #[test]
-    fn resolve_endpoint_bare_domain_appends_v1_only() {
-        // 裸域名只会自动补 /v1；服务商路径不含 /v1 时必须由用户填到版本段。
-        assert_eq!(
-            resolve_endpoint("https://open.bigmodel.cn", "chat/completions"),
-            "https://open.bigmodel.cn/v1/chat/completions"
-        );
-        assert_eq!(
-            resolve_endpoint("open.bigmodel.cn/api/v1", "responses"),
-            "https://open.bigmodel.cn/api/v1/responses"
-        );
-        assert_eq!(
-            resolve_endpoint("https://api.example.com", "chat/completions"),
-            "https://api.example.com/v1/chat/completions"
-        );
+    fn resolve_endpoint_preserves_v1_chat_completions_urls() {
+        let cases = [
+            (
+                "https://api.deepseek.com",
+                "https://api.deepseek.com/chat/completions",
+            ),
+            (
+                "https://api.deepseek.com/",
+                "https://api.deepseek.com/chat/completions",
+            ),
+            (
+                "https://api.openai.com/v1",
+                "https://api.openai.com/v1/chat/completions",
+            ),
+            (
+                "http://localhost:11434",
+                "http://localhost:11434/chat/completions",
+            ),
+            (
+                "https://example.com/custom/path",
+                "https://example.com/custom/path/chat/completions",
+            ),
+            (
+                "api.example.com",
+                "https://api.example.com/chat/completions",
+            ),
+        ];
+        for (base, expected) in cases {
+            assert_eq!(resolve_endpoint(base, "chat/completions"), expected);
+        }
     }
 
-    /// 启动一次性本地 mock 服务器，任意路径都返回固定 JSON。
-    fn spawn_mock_server(body: &'static str) -> String {
+    /// 启动一次性本地 mock 服务器，任意路径都返回固定响应。
+    fn spawn_mock_server(status: &'static str, body: &'static str) -> String {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
@@ -1630,7 +1644,7 @@ mod tests {
                 let mut buf = [0u8; 16384];
                 let _ = stream.read(&mut buf);
                 let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                     body.len(),
                     body
                 );
@@ -1658,7 +1672,7 @@ mod tests {
             ),
         ];
         for (format, body) in cases {
-            let base = spawn_mock_server(body);
+            let base = spawn_mock_server("200 OK", body);
             let config = chat_config(format, &base);
             let result = tauri::async_runtime::block_on(chat_completion_with_config(
                 &config,
@@ -1671,6 +1685,27 @@ mod tests {
             ))
             .unwrap();
             assert_eq!(result, "pong");
+        }
+    }
+
+    #[test]
+    fn response_body_errors_redact_api_key() {
+        for status in ["400 Bad Request", "200 OK"] {
+            let base = spawn_mock_server(status, r#"{"error":"sk-secret"}"#);
+            let config = chat_config(ApiFormat::OpenAiChatCompletions, &base);
+            let error = tauri::async_runtime::block_on(chat_completion_with_config(
+                &config,
+                vec![ChatMessage {
+                    role: "user",
+                    content: "ping".to_owned(),
+                }],
+                512,
+                10,
+            ))
+            .unwrap_err();
+
+            assert!(!error.contains(&config.api_key));
+            assert!(error.contains("[redacted]"));
         }
     }
 

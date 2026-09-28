@@ -973,9 +973,9 @@ function updateAiConfigStatus(config) {
 }
 
 const AI_BASE_URL_PLACEHOLDERS = {
-  "openai-chat-completions": "https://api.openai.com",
-  "openai-responses": "https://api.openai.com",
-  "anthropic-messages": "https://api.anthropic.com",
+  "openai-chat-completions": "https://api.openai.com/v1",
+  "openai-responses": "https://api.openai.com/v1",
+  "anthropic-messages": "https://api.anthropic.com/v1",
 };
 
 function updateAiBaseUrlPlaceholder() {
