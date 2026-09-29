@@ -3115,14 +3115,18 @@ async function loadCurrentTrack({
       }
     }
 
-    if (!startPage && !keepPage && resumePosition === null && hasMultipleCurrentPages()) {
+    const selectDefaultPage = (random = false) => {
       const isDisabled = (page) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
-      const pageIndex = randomStartPage
+      const pageIndex = random
         ? pickRandomEnabledPageIndex(playerState.currentPages, isDisabled, Math.random)
         : findEnabledPageIndex(playerState.currentPages, 0, 1, isDisabled);
       if (pageIndex < 0) throw new Error("all pages disabled by user");
       playerState.currentPageIndex = pageIndex;
       updatePlayerPagesButton();
+    };
+
+    if (!startPage && !keepPage && resumePosition === null && hasMultipleCurrentPages()) {
+      selectDefaultPage(randomStartPage);
     }
 
     if (startPage) {
@@ -3132,6 +3136,8 @@ async function loadCurrentTrack({
       if (startPageIndex >= 0) {
         playerState.currentPageIndex = startPageIndex;
         updatePlayerPagesButton();
+      } else if (hasMultipleCurrentPages()) {
+        selectDefaultPage();
       }
     }
 
@@ -3387,6 +3393,7 @@ function playQueueIndex(
     startPage = null,
     pages = [],
     randomStartPage = false,
+    historyCid = null,
   } = {},
 ) {
   if (index < 0 || index >= playerState.queue.length) {
@@ -3406,7 +3413,7 @@ function playQueueIndex(
     previousIndex >= 0 &&
     previousIndex !== index
   ) {
-    playerState.history.push(previousIndex);
+    playerState.history.push({ index: previousIndex, cid: currentVideoPage()?.cid ?? null });
   }
   playerState.currentIndex = index;
   resetCurrentPageState();
@@ -3427,7 +3434,7 @@ function playQueueIndex(
   if (currentVideoPage()) {
     loadCurrentTrack({ keepPage: true });
   } else {
-    loadCurrentTrack({ randomStartPage });
+    loadCurrentTrack({ randomStartPage, ...(historyCid != null ? { startPage: { cid: historyCid } } : {}) });
   }
 }
 
@@ -3501,6 +3508,9 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     return false;
   }
 
+  if (playerState.shuffle) {
+    playerState.history.push({ index: playerState.currentIndex, cid: currentVideoPage()?.cid ?? null, pageLevel: true });
+  }
   playerState.currentPageIndex = nextPageIndex;
   playerState.currentDisplayTrack = null;
   updatePlayerPagesButton();
@@ -3564,9 +3574,22 @@ function playPrevious() {
     return;
   }
 
-  const historicalIndex = playerState.history.pop();
-  if (historicalIndex !== undefined) {
-    playQueueIndex(historicalIndex, { recordCurrent: false });
+  const historicalEntry = playerState.history.pop();
+  if (historicalEntry !== undefined) {
+    const { index, cid } = typeof historicalEntry === "number"
+      ? { index: historicalEntry, cid: null }
+      : historicalEntry;
+    if (index === playerState.currentIndex && cid != null) {
+      const pageIndex = playerState.currentPages.findIndex((page) => page.cid === cid);
+      if (pageIndex >= 0) {
+        playerState.currentPageIndex = pageIndex;
+        playerState.currentDisplayTrack = null;
+        updatePlayerPagesButton();
+        loadCurrentTrack({ keepPage: true });
+        return;
+      }
+    }
+    playQueueIndex(index, { recordCurrent: false, historyCid: cid });
     return;
   }
 
@@ -3866,7 +3889,7 @@ skipVideoButton.addEventListener("click", () => {
   }
 });
 previousButton.addEventListener("click", () => {
-  if (retreatPageWithinCurrentBv()) {
+  if (!playerState.shuffle && retreatPageWithinCurrentBv()) {
     clearPendingResume();
     clearPlaybackNotice();
   } else {
@@ -4000,6 +4023,7 @@ shuffleToggle.addEventListener("change", () => {
     resetRandomRemaining();
   } else {
     playerState.randomRemaining = [];
+    playerState.history = playerState.history.filter((entry) => !entry?.pageLevel);
   }
   updateQueueUi();
 });
