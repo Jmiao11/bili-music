@@ -5,8 +5,8 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const functionSource = sourceSlice(source, "ui/main.js", "function unavailableTrackLocations(", "const playerState");
+const source = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
+const functionSource = sourceSlice(source, "ui/track-utils.js", "function unavailableTrackLocations(", "function isBvId(");
 assert.ok(functionSource.includes("function unavailableTrackLocations"));
 
 const context = vm.createContext({});

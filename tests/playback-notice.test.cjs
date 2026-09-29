@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'), 'utf8');
+const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.js'), "utf8");
 
 function setup() {
   const classes = new Set();
@@ -29,7 +30,7 @@ function setup() {
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
   vm.runInContext(sourceSlice(source, "ui/main.js", "function clearPlaybackNotice()", "function shuffled("), context);
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(")
+  vm.runInContext(pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
     + sourceSlice(source, "ui/main.js", "function playNext(", "function recordSearchHistoryFireAndForget("), context);
   return { context, notice, timers, events, styles };
 }
@@ -146,7 +147,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits = [];
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState("), c);
+  vm.runInContext(pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState("), c);
   vm.runInContext(sourceSlice(source, "ui/main.js", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);

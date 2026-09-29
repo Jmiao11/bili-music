@@ -21,7 +21,7 @@ test("page group is visible only with a current multi-page track", () => {
   const playerPagesGroup = { hidden: true };
   const state = { queue: [{}], currentIndex: -1, currentPages: [{}, {}], currentPageIndex: 1 };
   const context = vm.createContext({ playerState: state, playerPagesButton, playerPagesGroup });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function updatePlayerPagesButton(", "function buildDisplayTrack("), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function updatePlayerPagesButton(", "async function loadPagesForCurrentVideo("), context);
   context.updatePlayerPagesButton();
   assert.equal(playerPagesGroup.hidden, true);
 

@@ -6,7 +6,9 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const lookupSource = sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(");
+const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
+const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
+const lookupSource = pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(");
 const navigationSource = sourceSlice(source, "ui/main.js", "function advancePageWithinCurrentBv(", "function playNext(");
 const trackSource = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
@@ -378,7 +380,7 @@ function trackContext(disabledCids, videoPages = pages) {
     playNext: (options) => { nextCalls.push(options); return true; },
     showPlaybackNotice: (message) => notices.push(message),
   });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
+  vm.runInContext(sourceSlice(trackUtils, "ui/track-utils.js", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
   return { context, state, prepares, notices, nextCalls };
 }
 
