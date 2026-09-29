@@ -28,7 +28,8 @@ function setup() {
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
   vm.runInContext(source.slice(source.indexOf('function clearPlaybackNotice()'), source.indexOf('function shuffled(')), context);
-  vm.runInContext(source.slice(source.indexOf('function playNext('), source.indexOf('function recordSearchHistoryFireAndForget(')), context);
+  vm.runInContext(source.slice(source.indexOf('function isPageDisabled('), source.indexOf('function setFavoriteButtonState('))
+    + source.slice(source.indexOf('function playNext('), source.indexOf('function recordSearchHistoryFireAndForget(')), context);
   return { context, notice, timers, events, styles };
 }
 

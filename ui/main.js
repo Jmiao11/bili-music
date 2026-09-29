@@ -1213,6 +1213,24 @@ function takeRandomPageFromRound(remaining, isDisabledIndex, random) {
   };
 }
 
+function normalizeShuffleCollectionPrefs(rawOrder, rawLimit) {
+  return {
+    order: rawOrder === "sequential" ? "sequential" : "random",
+    limit: ["1", "3", "5", "10"].includes(rawLimit) ? Number(rawLimit) : 0,
+  };
+}
+
+function readShuffleCollectionPrefs() {
+  try {
+    return normalizeShuffleCollectionPrefs(
+      localStorage.getItem("bilibili-music.shuffle-collection-order"),
+      localStorage.getItem("bilibili-music.shuffle-collection-limit"),
+    );
+  } catch {
+    return normalizeShuffleCollectionPrefs(null, null);
+  }
+}
+
 function setFavoriteButtonState(button, bvid) {
   const favorited = isFavorited(bvid);
   button.classList.toggle("is-favorited", favorited);
@@ -3481,6 +3499,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     if (!randomPageRound) {
       randomPageRound = {
         bvid,
+        playedCount: 1,
         remaining: buildRandomPageRound(
           playerState.currentPages,
           playerState.currentPageIndex,
@@ -3488,14 +3507,26 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
         ),
       };
     }
-    const picked = takeRandomPageFromRound(
-      randomPageRound.remaining,
-      (index) => index === playerState.currentPageIndex ||
-        isPageDisabled(libraryState.disabledPages, bvid, playerState.currentPages[index].cid),
-      Math.random,
-    );
-    randomPageRound.remaining = picked.remaining;
-    nextPageIndex = picked.index;
+    const { order, limit } = readShuffleCollectionPrefs();
+    if (limit > 0 && randomPageRound.playedCount >= limit) return false;
+    if (order === "random") {
+      const picked = takeRandomPageFromRound(
+        randomPageRound.remaining,
+        (index) => index === playerState.currentPageIndex ||
+          isPageDisabled(libraryState.disabledPages, bvid, playerState.currentPages[index].cid),
+        Math.random,
+      );
+      randomPageRound.remaining = picked.remaining;
+      nextPageIndex = picked.index;
+    } else {
+      nextPageIndex = findEnabledPageIndex(
+        playerState.currentPages,
+        playerState.currentPageIndex + 1,
+        1,
+        (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+      );
+      randomPageRound.remaining = randomPageRound.remaining.filter((index) => index !== nextPageIndex);
+    }
   } else {
     nextPageIndex = findEnabledPageIndex(
       playerState.currentPages,
@@ -3510,6 +3541,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
 
   if (playerState.shuffle) {
     playerState.history.push({ index: playerState.currentIndex, cid: currentVideoPage()?.cid ?? null, pageLevel: true });
+    randomPageRound.playedCount += 1;
   }
   playerState.currentPageIndex = nextPageIndex;
   playerState.currentDisplayTrack = null;
@@ -3549,8 +3581,7 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
     return true;
   }
 
-  const randomStartPage = playerState.shuffle;
-  const nextIndex = randomStartPage
+  const nextIndex = playerState.shuffle
     ? takeRandomNext()
     : takeSequentialNext();
   if (
@@ -3563,7 +3594,7 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
   }
   playQueueIndex(nextIndex, {
     preserveFailureStreak: skipFailed,
-    ...(randomStartPage ? { randomStartPage: true } : {}),
+    ...(playerState.shuffle && readShuffleCollectionPrefs().order === "random" ? { randomStartPage: true } : {}),
   });
   return true;
 }

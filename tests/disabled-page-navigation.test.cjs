@@ -68,6 +68,22 @@ test("random page round excludes current and disabled pages, including pages dis
   assert.equal(take([1, 2, 3], () => false, () => 0.9999).index, 3);
 });
 
+test("shuffle collection preferences accept only exact stored values", () => {
+  const context = vm.createContext({});
+  vm.runInContext(lookupSource, context);
+  const normalize = context.normalizeShuffleCollectionPrefs;
+  assert.deepEqual({ ...normalize("random", "all") }, { order: "random", limit: 0 });
+  for (const [stored, limit] of [["1", 1], ["3", 3], ["5", 5], ["10", 10]]) {
+    assert.deepEqual({ ...normalize("sequential", stored) }, { order: "sequential", limit });
+  }
+  for (const value of [null, "", "RANDOM", "Sequential", "garbage"]) {
+    assert.equal(normalize(value, "all").order, "random");
+  }
+  for (const value of [null, "", "ALL", "03", "2", 3]) {
+    assert.equal(normalize("random", value).limit, 0);
+  }
+});
+
 function navigationContext(disabledCids, loopMode = "sequence") {
   const loads = [];
   const handlers = {};
@@ -202,6 +218,81 @@ test("single-item random queue discards a round belonging to another BV", () => 
   assert.equal(state.currentPageIndex, 1);
 });
 
+test("random collection limit counts the opening page and stops after the chosen total", () => {
+  for (const [limit, successfulMoves] of [["1", 0], ["3", 2], ["10", 3]]) {
+    const { context, state } = navigationContext([]);
+    state.shuffle = true;
+    context.localStorage = { getItem: (key) => key.endsWith("limit") ? limit : "random" };
+    vm.runInContext("Math.random = () => 0", context);
+    for (let step = 0; step < successfulMoves; step += 1) {
+      assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
+    }
+    assert.equal(context.advancePageWithinCurrentBv(), false);
+    assert.equal(state.history.length, successfulMoves);
+  }
+});
+
+test("sequential collection order skips disabled pages, records history, and obeys the limit", () => {
+  const { context, state } = navigationContext([2]);
+  state.shuffle = true;
+  context.localStorage = { getItem: (key) => key.endsWith("order") ? "sequential" : "3" };
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(state.currentPageIndex, 2);
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
+  assert.equal(state.currentPageIndex, 3);
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+  assert.deepEqual(Array.from(state.history, ({ cid, pageLevel }) => ({ cid, pageLevel })),
+    [{ cid: 1, pageLevel: true }, { cid: 3, pageLevel: true }]);
+});
+
+test("a new BV resets the collection visit count", () => {
+  const { context, state } = navigationContext([]);
+  state.shuffle = true;
+  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  context.localStorage = { getItem: (key) => key.endsWith("limit") ? "3" : "random" };
+  context.resetCurrentPageState = () => { state.currentPageIndex = 0; };
+  context.markRandomIndexPlayed = () => {};
+  context.updateQueueUi = () => {};
+  context.emitCurrentTrackChanged = () => {};
+  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext(source.slice(source.indexOf("function playQueueIndex("),
+    source.indexOf("function takeRandomNext()")), context);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(context.randomPageRound.playedCount, 2);
+  context.playQueueIndex(1);
+  assert.equal(context.randomPageRound, null);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(context.randomPageRound.playedCount, 2);
+});
+
+test("previous within a BV leaves the collection visit count unchanged", () => {
+  const { context, state } = navigationContext([]);
+  state.shuffle = true;
+  context.localStorage = { getItem: (key) => key.endsWith("limit") ? "3" : "random" };
+  vm.runInContext("Math.random = () => 0", context);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  state.history.push({ index: 0, cid: 1, pageLevel: true });
+  vm.runInContext(source.slice(source.indexOf("function playPrevious()"),
+    source.indexOf("function recordSearchHistoryFireAndForget(")), context);
+  context.playPrevious();
+  assert.equal(state.currentPageIndex, 0);
+  assert.equal(context.randomPageRound.playedCount, 2);
+  context.localStorage.getItem = (key) => key.endsWith("limit") ? "1" : "random";
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+});
+
+test("storage read errors use the default random unlimited preference", () => {
+  const { context, state } = navigationContext([]);
+  state.shuffle = true;
+  context.localStorage = { getItem() { throw Error("storage denied"); } };
+  vm.runInContext("Math.random = () => 0", context);
+  for (let step = 0; step < 3; step += 1) {
+    assert.equal(context.advancePageWithinCurrentBv(), true);
+  }
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+  assert.equal(state.currentPageIndex, 3);
+});
+
 test("only a random next index requests a random start page", () => {
   const calls = [];
   const state = { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}] };
@@ -211,7 +302,7 @@ test("only a random next index requests a random start page", () => {
     takeSequentialNext: () => 1,
     playQueueIndex: (index, options) => calls.push({ index, options }),
   });
-  vm.runInContext(source.slice(
+  vm.runInContext(lookupSource + source.slice(
     source.indexOf("function playNext("),
     source.indexOf("function playPrevious("),
   ), context);
@@ -228,6 +319,24 @@ test("only a random next index requests a random start page", () => {
   state.loopMode = "single";
   context.playNext({ automatic: true });
   assert.equal(calls[2].options.randomStartPage, undefined);
+});
+
+test("random queue navigation starts at the first enabled page for sequential collections", () => {
+  const calls = [];
+  const context = vm.createContext({
+    playerState: { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}] },
+    localStorage: { getItem: (key) => key.endsWith("order") ? "sequential" : "all" },
+    takeRandomNext: () => 1,
+    playQueueIndex: (index, options) => calls.push({ index, options }),
+  });
+  vm.runInContext(lookupSource + source.slice(source.indexOf("function playNext("),
+    source.indexOf("function playPrevious(")), context);
+  assert.equal(context.playNext(), true);
+  assert.equal(calls[0].index, 1);
+  assert.equal(calls[0].options.randomStartPage, undefined);
+  context.localStorage.getItem = () => { throw Error("storage denied"); };
+  assert.equal(context.playNext(), true);
+  assert.equal(calls[1].options.randomStartPage, true);
 });
 
 test("entering a queue item and toggling shuffle clear the page round", () => {
