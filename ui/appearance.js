@@ -19,6 +19,8 @@ const VOLUME_KEY = "bilibili-music.volume";
 // 全局快捷键步长独立于滑块，方便 live 调整每次按键的幅度。
 const GLOBAL_SHORTCUT_VOLUME_STEP = 0.05;
 const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
+const SHUFFLE_COLLECTION_ORDER_KEY = "bilibili-music.shuffle-collection-order";
+const SHUFFLE_COLLECTION_LIMIT_KEY = "bilibili-music.shuffle-collection-limit";
 let userVolume = 1.0;
 let normalizationGain = 1.0;
 let loudnessNormalizationEnabled = false;
@@ -53,6 +55,8 @@ const streamSourceSelect = document.querySelector("#stream-source-select");
 const streamSourceStatus = document.querySelector("#stream-source-status");
 const audioCacheEnabled = document.querySelector("#audio-cache-enabled");
 const audioCacheCapacity = document.querySelector("#audio-cache-capacity");
+const shuffleCollectionOrder = document.querySelector("#shuffle-collection-order");
+const shuffleCollectionLimit = document.querySelector("#shuffle-collection-limit");
 const audioCacheUsage = document.querySelector("#audio-cache-usage");
 const audioCacheStatus = document.querySelector("#audio-cache-status");
 const clearAudioCacheButton = document.querySelector("#clear-audio-cache-button");
@@ -704,6 +708,9 @@ function openSettings() {
   restoreStreamSource();
   restoreAudioCacheSettings();
   refreshAudioCacheUsage();
+  const { order, limit } = readShuffleCollectionPrefs();
+  shuffleCollectionOrder.value = order;
+  shuffleCollectionLimit.value = limit === 0 ? "all" : String(limit);
   restoreAiConfig();
   renderMascotPicker();
   requestAnimationFrame(() => {
@@ -1237,6 +1244,18 @@ streamSourceSelect?.addEventListener("change", async () => {
 
 audioCacheEnabled?.addEventListener("change", saveAudioCacheSettings);
 audioCacheCapacity?.addEventListener("change", saveAudioCacheSettings);
+for (const [select, key] of [
+  [shuffleCollectionOrder, SHUFFLE_COLLECTION_ORDER_KEY],
+  [shuffleCollectionLimit, SHUFFLE_COLLECTION_LIMIT_KEY],
+]) {
+  select.addEventListener("change", () => {
+    try {
+      localStorage.setItem(key, select.value);
+    } catch (error) {
+      appearanceStatus.textContent = `随机播放设置保存失败：${error}`;
+    }
+  });
+}
 clearAudioCacheButton?.addEventListener("click", async () => {
   clearTimeout(audioCacheStatusTimer);
   audioCacheStatusTimer = null;

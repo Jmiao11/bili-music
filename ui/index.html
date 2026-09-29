@@ -500,6 +500,26 @@
             </div>
             <small id="audio-cache-status" class="setting-note audio-cache-status" role="status" aria-live="polite"></small>
           </div>
+          <div class="setting-subgroup shuffle-collection-section">
+            <label class="shuffle-collection-row" for="shuffle-collection-order">
+              <span>随机时合集内顺序</span>
+              <select id="shuffle-collection-order" class="settings-select">
+                <option value="random">随机</option>
+                <option value="sequential">按原顺序</option>
+              </select>
+            </label>
+            <label class="shuffle-collection-row" for="shuffle-collection-limit">
+              <span>随机时每个合集播放</span>
+              <select id="shuffle-collection-limit" class="settings-select">
+                <option value="all">全部</option>
+                <option value="1">1 首</option>
+                <option value="3">3 首</option>
+                <option value="5">5 首</option>
+                <option value="10">10 首</option>
+              </select>
+            </label>
+            <small class="setting-note">开启随机播放时，遇到多P视频（合集）的播放方式。可随时点分P标识旁的跳过按钮跳过当前合集。</small>
+          </div>
         </details>
 
         <details id="accent-color-settings" class="setting-group collapsible-group">
