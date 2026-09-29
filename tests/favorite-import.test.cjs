@@ -5,8 +5,8 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const code = sourceSlice(source, "ui/main.js", "function importFavoritePlaylist() {", "function renameSelectedPlaylist() {");
+const source = readFileSync(path.join(__dirname, "../ui/library-ui.js"), "utf8");
+const code = sourceSlice(source, "ui/library-ui.js", "function importFavoritePlaylist() {", "function renameSelectedPlaylist() {");
 assert.ok(code.startsWith("function importFavoritePlaylist() {"));
 
 function setup(invoke) {
