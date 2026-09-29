@@ -362,7 +362,12 @@
       </div>
 
       <div class="right-tools">
-        <button id="player-pages-button" class="page-count-badge player-pages-button" type="button" title="查看分P" aria-label="查看分P" hidden></button>
+        <span class="player-pages-group" hidden>
+          <button id="player-pages-button" class="page-count-badge player-pages-button" type="button" title="查看分P" aria-label="查看分P" hidden></button>
+          <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本视频" aria-label="跳过本视频，播放下一首">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 6l7 6-7 6zM11 6l7 6-7 6zM18 6h2v12h-2z" /></svg>
+          </button>
+        </span>
         <span id="queue-position" class="queue-position">0 / 0</span>
         <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>

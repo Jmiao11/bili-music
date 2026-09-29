@@ -3721,6 +3721,76 @@ input[type="range"]::-webkit-slider-thumb {
   display: none;
 }
 
+.player-pages-group {
+  /* 在 DevTools 中调整跳过按钮宽度、图标和分隔线。 */
+  --skip-video-width: 30px;
+  --skip-video-icon-size: 16px;
+  --skip-video-divider-color: var(--line);
+  --skip-video-divider-opacity: 1;
+  display: inline-flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  border: 0.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  white-space: nowrap;
+}
+
+.player-pages-group[hidden] {
+  display: none;
+}
+
+.player-pages-group .player-pages-button,
+.player-pages-group .player-skip-video-button {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+}
+
+.player-pages-group .player-pages-button {
+  border-radius: 999px 0 0 999px;
+}
+
+.player-pages-group .player-skip-video-button {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 var(--skip-video-width);
+  width: var(--skip-video-width);
+  min-height: 28px;
+  place-items: center;
+  padding: 0;
+  border-radius: 0 999px 999px 0;
+}
+
+.player-pages-group .player-skip-video-button::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--skip-video-divider-color);
+  opacity: var(--skip-video-divider-opacity);
+  content: "";
+  pointer-events: none;
+}
+
+.player-pages-group .player-skip-video-button svg {
+  width: var(--skip-video-icon-size);
+  height: var(--skip-video-icon-size);
+}
+
+.player-pages-group .player-pages-button:hover,
+.player-pages-group .player-skip-video-button:hover {
+  background: var(--track-hover);
+  color: var(--text-2);
+}
+
+.player-pages-group .player-pages-button:focus-visible,
+.player-pages-group .player-skip-video-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .queue-position {
   color: var(--text-2);
   font-size: 12px;

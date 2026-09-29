@@ -107,6 +107,7 @@ const playerState = {
   currentPageIndex: 0,
   currentDisplayTrack: null,
 };
+let randomPageRound = null;
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
 let cacheRequestPromise = null;
@@ -254,6 +255,8 @@ const uploader = document.querySelector("#uploader");
 const duration = document.querySelector("#duration");
 const queuePosition = document.querySelector("#queue-position");
 const playerPagesButton = document.querySelector("#player-pages-button");
+const playerPagesGroup = document.querySelector(".player-pages-group");
+const skipVideoButton = document.querySelector("#skip-video-button");
 const previousButton = document.querySelector("#previous-button");
 const nextButton = document.querySelector("#next-button");
 const loopModeButton = document.querySelector("#loop-mode-button");
@@ -452,6 +455,7 @@ function updatePlayerPagesButton() {
       `查看分P，当前第 ${currentPage} 个，共 ${pageCount} 个`,
     );
   }
+  playerPagesGroup.hidden = playerPagesButton.hidden;
 }
 
 function buildDisplayTrack(video, info, page) {
@@ -1188,6 +1192,25 @@ function findEnabledPageIndex(pages, startIndex, direction, isDisabled) {
     if (!isDisabled(pages[index])) return index;
   }
   return -1;
+}
+
+function pickRandomEnabledPageIndex(pages, isDisabled, random) {
+  const enabledIndexes = pages.flatMap((page, index) => isDisabled(page) ? [] : [index]);
+  return enabledIndexes[Math.floor(random() * enabledIndexes.length)] ?? -1;
+}
+
+function buildRandomPageRound(pages, currentIndex, isDisabled) {
+  return pages.flatMap((page, index) => index === currentIndex || isDisabled(page) ? [] : [index]);
+}
+
+function takeRandomPageFromRound(remaining, isDisabledIndex, random) {
+  const available = remaining.filter((index) => !isDisabledIndex(index));
+  if (available.length === 0) return { index: -1, remaining: [] };
+  const picked = Math.floor(random() * available.length);
+  return {
+    index: available[picked],
+    remaining: available.filter((_, index) => index !== picked),
+  };
 }
 
 function setFavoriteButtonState(button, bvid) {
@@ -3070,6 +3093,7 @@ async function loadCurrentTrack({
   keepPage = false,
   startPage = null,
   resumePosition = null,
+  randomStartPage = false,
 } = {}) {
   const index = playerState.currentIndex;
   const video = playerState.queue[index];
@@ -3092,14 +3116,12 @@ async function loadCurrentTrack({
     }
 
     if (!startPage && !keepPage && resumePosition === null && hasMultipleCurrentPages()) {
-      const firstEnabledPageIndex = findEnabledPageIndex(
-        playerState.currentPages,
-        0,
-        1,
-        (page) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid),
-      );
-      if (firstEnabledPageIndex < 0) throw new Error("all pages disabled by user");
-      playerState.currentPageIndex = firstEnabledPageIndex;
+      const isDisabled = (page) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
+      const pageIndex = randomStartPage
+        ? pickRandomEnabledPageIndex(playerState.currentPages, isDisabled, Math.random)
+        : findEnabledPageIndex(playerState.currentPages, 0, 1, isDisabled);
+      if (pageIndex < 0) throw new Error("all pages disabled by user");
+      playerState.currentPageIndex = pageIndex;
       updatePlayerPagesButton();
     }
 
@@ -3364,11 +3386,13 @@ function playQueueIndex(
     preserveFailureStreak = false,
     startPage = null,
     pages = [],
+    randomStartPage = false,
   } = {},
 ) {
   if (index < 0 || index >= playerState.queue.length) {
     return;
   }
+  randomPageRound = null;
   clearPendingResume();
 
   if (!preserveFailureStreak) {
@@ -3403,7 +3427,7 @@ function playQueueIndex(
   if (currentVideoPage()) {
     loadCurrentTrack({ keepPage: true });
   } else {
-    loadCurrentTrack();
+    loadCurrentTrack({ randomStartPage });
   }
 }
 
@@ -3442,14 +3466,37 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     loadCurrentTrack({ keepPage: true });
     return true;
   }
-
   const bvid = playerState.queue[playerState.currentIndex]?.bvid;
-  const nextPageIndex = findEnabledPageIndex(
-    playerState.currentPages,
-    playerState.currentPageIndex + 1,
-    1,
-    (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
-  );
+
+  let nextPageIndex;
+  if (playerState.shuffle) {
+    if (randomPageRound?.bvid !== bvid) randomPageRound = null;
+    if (!randomPageRound) {
+      randomPageRound = {
+        bvid,
+        remaining: buildRandomPageRound(
+          playerState.currentPages,
+          playerState.currentPageIndex,
+          (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+        ),
+      };
+    }
+    const picked = takeRandomPageFromRound(
+      randomPageRound.remaining,
+      (index) => index === playerState.currentPageIndex ||
+        isPageDisabled(libraryState.disabledPages, bvid, playerState.currentPages[index].cid),
+      Math.random,
+    );
+    randomPageRound.remaining = picked.remaining;
+    nextPageIndex = picked.index;
+  } else {
+    nextPageIndex = findEnabledPageIndex(
+      playerState.currentPages,
+      playerState.currentPageIndex + 1,
+      1,
+      (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+    );
+  }
   if (nextPageIndex < 0) {
     return false;
   }
@@ -3492,7 +3539,8 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
     return true;
   }
 
-  const nextIndex = playerState.shuffle
+  const randomStartPage = playerState.shuffle;
+  const nextIndex = randomStartPage
     ? takeRandomNext()
     : takeSequentialNext();
   if (
@@ -3503,7 +3551,10 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
     else showPlaybackNotice(playerState.shuffle ? "本轮随机播放已结束" : "已经是最后一首了", { kind: "info" });
     return false;
   }
-  playQueueIndex(nextIndex, { preserveFailureStreak: skipFailed });
+  playQueueIndex(nextIndex, {
+    preserveFailureStreak: skipFailed,
+    ...(randomStartPage ? { randomStartPage: true } : {}),
+  });
   return true;
 }
 
@@ -3808,6 +3859,12 @@ window.addEventListener("bilibili-music-notice-change", () => {
 });
 
 playerPagesButton?.addEventListener("click", openCurrentPagesModal);
+skipVideoButton.addEventListener("click", () => {
+  if (playNext()) {
+    clearPendingResume();
+    clearPlaybackNotice();
+  }
+});
 previousButton.addEventListener("click", () => {
   if (retreatPageWithinCurrentBv()) {
     clearPendingResume();
@@ -3938,6 +3995,7 @@ loopModeButton.addEventListener("click", () => {
 
 shuffleToggle.addEventListener("change", () => {
   playerState.shuffle = shuffleToggle.checked;
+  randomPageRound = null;
   if (playerState.shuffle) {
     resetRandomRemaining();
   } else {
