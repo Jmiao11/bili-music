@@ -3781,44 +3781,6 @@ searchForm.addEventListener("submit", async (event) => {
 
   await runSearch({ userKeyword: query, recordHistory: true });
   return;
-
-  searchButton.disabled = true;
-  searchStatus.textContent = "正在搜索…";
-  const requestVersion = ++searchState.requestVersion;
-  searchState.userKeyword = query;
-  searchState.page = 1;
-  searchState.hasMore = false;
-  searchState.isLoadingMore = false;
-
-  try {
-    const searchRequest = invoke("search_videos", {
-      keyword: query,
-      page: 1,
-      rerank: true,
-    });
-    recordSearchHistoryFireAndForget(query);
-    const videos = await searchRequest;
-    if (requestVersion !== searchState.requestVersion) {
-      return;
-    }
-    setSearchResults(videos);
-    result.hidden = false;
-    searchState.hasMore = videos.length >= SEARCH_PAGE_SIZE;
-    searchStatus.textContent = videos.length
-      ? searchState.hasMore
-        ? `找到 ${videos.length} 个普通视频。`
-        : `找到 ${videos.length} 个普通视频。没有更多了`
-      : "没有找到普通视频。";
-  } catch (error) {
-    if (requestVersion !== searchState.requestVersion) {
-      return;
-    }
-    searchStatus.textContent = `搜索失败：${error}`;
-  } finally {
-    if (requestVersion === searchState.requestVersion) {
-      searchButton.disabled = false;
-    }
-  }
 });
 
 async function loadMoreSearchResults() {
