@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,14 +6,8 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
-const formatterSource = source.slice(
-  source.indexOf("function isShortcutModifierCode("),
-  source.indexOf("function shortcutButtonFor("),
-);
-const recorderSource = source.slice(
-  source.indexOf("function shortcutButtonFor("),
-  source.indexOf("async function saveShortcutBinding("),
-);
+const formatterSource = sourceSlice(source, "ui/appearance.js", "function isShortcutModifierCode(", "function shortcutButtonFor(");
+const recorderSource = sourceSlice(source, "ui/appearance.js", "function shortcutButtonFor(", "async function saveShortcutBinding(");
 assert.ok(formatterSource.startsWith("function isShortcutModifierCode("));
 assert.ok(recorderSource.startsWith("function shortcutButtonFor("));
 

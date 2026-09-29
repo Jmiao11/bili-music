@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -5,22 +6,10 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const decision = source.slice(
-  source.indexOf("function shouldRecoverAudio("),
-  source.indexOf("function waitForRecoveryMetadata("),
-);
-const metadataWait = source.slice(
-  source.indexOf("function waitForRecoveryMetadata("),
-  source.indexOf("async function recoverCurrentAudio("),
-);
-const recoverCurrentAudio = source.slice(
-  source.indexOf("async function recoverCurrentAudio("),
-  source.indexOf("function handleAudioRecoveryError("),
-);
-const loadCurrentTrack = source.slice(
-  source.indexOf("async function loadCurrentTrack("),
-  source.indexOf("async function resumePendingPlayback("),
-);
+const decision = sourceSlice(source, "ui/main.js", "function shouldRecoverAudio(", "function waitForRecoveryMetadata(");
+const metadataWait = sourceSlice(source, "ui/main.js", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
+const recoverCurrentAudio = sourceSlice(source, "ui/main.js", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
+const loadCurrentTrack = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 
 test("network recovery requires the current started audio and remaining attempts", () => {
   const context = vm.createContext({ recoveryVersion: 7, recoveryAttempts: 2 });

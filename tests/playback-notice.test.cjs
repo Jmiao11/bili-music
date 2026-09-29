@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
@@ -27,9 +28,9 @@ function setup() {
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
-  vm.runInContext(source.slice(source.indexOf('function clearPlaybackNotice()'), source.indexOf('function shuffled(')), context);
-  vm.runInContext(source.slice(source.indexOf('function isPageDisabled('), source.indexOf('function setFavoriteButtonState('))
-    + source.slice(source.indexOf('function playNext('), source.indexOf('function recordSearchHistoryFireAndForget(')), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function clearPlaybackNotice()", "function shuffled("), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(")
+    + sourceSlice(source, "ui/main.js", "function playNext(", "function recordSearchHistoryFireAndForget("), context);
   return { context, notice, timers, events, styles };
 }
 
@@ -127,8 +128,7 @@ test('manual boundary preserves pending resume; successful page change clears st
   c.nextButton = { addEventListener: (_, fn) => { handlers.next = fn; } };
   c.retreatPageWithinCurrentBv = () => false;
   c.advancePageWithinCurrentBv = () => false;
-  vm.runInContext(source.slice(source.indexOf('previousButton.addEventListener("click"'),
-    source.indexOf('resumePlayPauseButton?.addEventListener("click"')), c);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "previousButton.addEventListener(\"click\"", "resumePlayPauseButton?.addEventListener(\"click\""), c);
   handlers.previous(); handlers.next();
   assert.deepEqual(pendingResume, { positionSeconds: 42 });
   c.advancePageWithinCurrentBv = () => true;
@@ -146,10 +146,8 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits = [];
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext(source.slice(source.indexOf('function isPageDisabled('),
-    source.indexOf('function setFavoriteButtonState(')), c);
-  vm.runInContext(source.slice(source.indexOf('function takeRandomNext()'),
-    source.indexOf('function playNext(')), c);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState("), c);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);
   c.playerState.currentIndex = 1;

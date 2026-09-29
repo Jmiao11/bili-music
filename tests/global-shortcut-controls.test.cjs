@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -6,14 +7,8 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const stepDefinition = source.match(/const GLOBAL_SHORTCUT_VOLUME_STEP = [^;]+;/)?.[0];
-const volumeFunction = source.slice(
-  source.indexOf("function adjustVolumeByStep("),
-  source.indexOf("function updateEffectiveVolume("),
-);
-const eventBridge = source.slice(
-  source.indexOf("function initializeGlobalShortcutControls() {"),
-  source.indexOf("function syncImmersiveTrack("),
-);
+const volumeFunction = sourceSlice(source, "ui/appearance.js", "function adjustVolumeByStep(", "function updateEffectiveVolume(");
+const eventBridge = sourceSlice(source, "ui/appearance.js", "function initializeGlobalShortcutControls() {", "function syncImmersiveTrack(");
 assert.ok(stepDefinition);
 assert.ok(volumeFunction.startsWith("function adjustVolumeByStep("));
 assert.ok(eventBridge.startsWith("function initializeGlobalShortcutControls() {"));

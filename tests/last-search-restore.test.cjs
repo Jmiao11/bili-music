@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -7,18 +8,9 @@ const vm = require("node:vm");
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
-const helpers = source.slice(
-  source.indexOf("const LAST_SEARCH_KEY"),
-  source.indexOf("const homeState"),
-);
-const requestFns = source.slice(
-  source.indexOf("function currentSearchRequest("),
-  source.indexOf("async function runSearch("),
-);
-const runSearchFn = source.slice(
-  source.indexOf("async function runSearch("),
-  source.indexOf("searchForm.addEventListener("),
-);
+const helpers = sourceSlice(source, "ui/main.js", "const LAST_SEARCH_KEY", "const homeState");
+const requestFns = sourceSlice(source, "ui/main.js", "function currentSearchRequest(", "async function runSearch(");
+const runSearchFn = sourceSlice(source, "ui/main.js", "async function runSearch(", "searchForm.addEventListener(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
 assert.ok(runSearchFn.includes("restored"));
 

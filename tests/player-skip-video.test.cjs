@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -20,10 +21,7 @@ test("page group is visible only with a current multi-page track", () => {
   const playerPagesGroup = { hidden: true };
   const state = { queue: [{}], currentIndex: -1, currentPages: [{}, {}], currentPageIndex: 1 };
   const context = vm.createContext({ playerState: state, playerPagesButton, playerPagesGroup });
-  vm.runInContext(source.slice(
-    source.indexOf("function updatePlayerPagesButton("),
-    source.indexOf("function buildDisplayTrack("),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function updatePlayerPagesButton(", "function buildDisplayTrack("), context);
   context.updatePlayerPagesButton();
   assert.equal(playerPagesGroup.hidden, true);
 
@@ -54,10 +52,7 @@ test("skip video calls playNext directly and clears state only on a successful s
     clearPendingResume: () => calls.push(["clearPendingResume"]),
     clearPlaybackNotice: () => calls.push(["clearPlaybackNotice"]),
   });
-  vm.runInContext(source.slice(
-    source.indexOf('playerPagesButton?.addEventListener("click"'),
-    source.indexOf('resumePlayPauseButton?.addEventListener("click"'),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "playerPagesButton?.addEventListener(\"click\"", "resumePlayPauseButton?.addEventListener(\"click\""), context);
   handlers.skip();
   assert.deepEqual(calls, [
     ["playNext", []], ["clearPendingResume"], ["clearPlaybackNotice"],

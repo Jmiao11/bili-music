@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,7 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const code = source.slice(source.indexOf("function importFavoritePlaylist() {"), source.indexOf("function renameSelectedPlaylist() {"));
+const code = sourceSlice(source, "ui/main.js", "function importFavoritePlaylist() {", "function renameSelectedPlaylist() {");
 assert.ok(code.startsWith("function importFavoritePlaylist() {"));
 
 function setup(invoke) {

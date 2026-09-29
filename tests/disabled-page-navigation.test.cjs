@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,18 +6,9 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const lookupSource = source.slice(
-  source.indexOf("function isPageDisabled("),
-  source.indexOf("function setFavoriteButtonState("),
-);
-const navigationSource = source.slice(
-  source.indexOf("function advancePageWithinCurrentBv("),
-  source.indexOf("function playNext("),
-);
-const trackSource = source.slice(
-  source.indexOf("async function loadCurrentTrack("),
-  source.indexOf("async function resumePendingPlayback("),
-);
+const lookupSource = sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(");
+const navigationSource = sourceSlice(source, "ui/main.js", "function advancePageWithinCurrentBv(", "function playNext(");
+const trackSource = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
 const pages = [1, 2, 3, 4].map((cid) => ({ cid, page: cid, part: `P${cid}`, durationSeconds: 10 }));
 
@@ -114,10 +106,7 @@ function navigationContext(disabledCids, loopMode = "sequence") {
 
 test("manual next and previous skip consecutive disabled pages", () => {
   const { context, state, loads, handlers } = navigationContext([2, 3]);
-  vm.runInContext(source.slice(
-    source.indexOf('previousButton.addEventListener("click"'),
-    source.indexOf('resumePlayPauseButton?.addEventListener("click"'),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "previousButton.addEventListener(\"click\"", "resumePlayPauseButton?.addEventListener(\"click\""), context);
   handlers.next();
   assert.equal(state.currentPageIndex, 3);
   handlers.previous();
@@ -127,10 +116,7 @@ test("manual next and previous skip consecutive disabled pages", () => {
 
 test("natural end skips disabled pages, while single loop repeats the current page", () => {
   const { context, state, loads, handlers } = navigationContext([1, 2, 3]);
-  vm.runInContext(source.slice(
-    source.indexOf('audio.addEventListener("ended"'),
-    source.indexOf('audio.addEventListener("timeupdate"'),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "audio.addEventListener(\"ended\"", "audio.addEventListener(\"timeupdate\""), context);
   handlers.ended({ timeStamp: 1 });
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 1);
@@ -255,8 +241,7 @@ test("a new BV resets the collection visit count", () => {
   context.updateQueueUi = () => {};
   context.emitCurrentTrackChanged = () => {};
   vm.runInContext("Math.random = () => 0", context);
-  vm.runInContext(source.slice(source.indexOf("function playQueueIndex("),
-    source.indexOf("function takeRandomNext()")), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function playQueueIndex(", "function takeRandomNext()"), context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(context.randomPageRound.playedCount, 2);
   context.playQueueIndex(1);
@@ -272,8 +257,7 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
   vm.runInContext("Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   state.history.push({ index: 0, cid: 1, pageLevel: true });
-  vm.runInContext(source.slice(source.indexOf("function playPrevious()"),
-    source.indexOf("function recordSearchHistoryFireAndForget(")), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function playPrevious()", "function recordSearchHistoryFireAndForget("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   assert.equal(context.randomPageRound.playedCount, 2);
@@ -302,10 +286,7 @@ test("only a random next index requests a random start page", () => {
     takeSequentialNext: () => 1,
     playQueueIndex: (index, options) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + source.slice(
-    source.indexOf("function playNext("),
-    source.indexOf("function playPrevious("),
-  ), context);
+  vm.runInContext(lookupSource + sourceSlice(source, "ui/main.js", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext({ skipFailed: true }), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, true);
@@ -329,8 +310,7 @@ test("random queue navigation starts at the first enabled page for sequential co
     takeRandomNext: () => 1,
     playQueueIndex: (index, options) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + source.slice(source.indexOf("function playNext("),
-    source.indexOf("function playPrevious(")), context);
+  vm.runInContext(lookupSource + sourceSlice(source, "ui/main.js", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext(), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
@@ -349,10 +329,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
     emitCurrentTrackChanged() {}, currentVideoPage: () => null,
     loadCurrentTrack() {},
   });
-  vm.runInContext(source.slice(
-    source.indexOf("function playQueueIndex("),
-    source.indexOf("function takeRandomNext()"),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function playQueueIndex(", "function takeRandomNext()"), context);
   context.playQueueIndex(1);
   assert.equal(context.randomPageRound, null);
 
@@ -360,10 +337,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   context.randomPageRound = { bvid, remaining: [1] };
   context.shuffleToggle = { checked: true, addEventListener: (_, handler) => { change = handler; } };
   context.resetRandomRemaining = () => {};
-  vm.runInContext(source.slice(
-    source.indexOf('shuffleToggle.addEventListener("change"'),
-    source.indexOf('favoriteCurrentButton?.addEventListener("click"'),
-  ), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "shuffleToggle.addEventListener(\"change\"", "favoriteCurrentButton?.addEventListener(\"click\""), context);
   change();
   assert.equal(context.randomPageRound, null);
   context.randomPageRound = { bvid, remaining: [1] };
@@ -404,10 +378,7 @@ function trackContext(disabledCids, videoPages = pages) {
     playNext: (options) => { nextCalls.push(options); return true; },
     showPlaybackNotice: (message) => notices.push(message),
   });
-  vm.runInContext(source.slice(
-    source.indexOf("function playbackFailureMessage("),
-    source.indexOf("function unavailableTrackLocations("),
-  ) + lookupSource + trackSource, context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
   return { context, state, prepares, notices, nextCalls };
 }
 
