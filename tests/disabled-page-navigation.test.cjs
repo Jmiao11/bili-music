@@ -39,6 +39,35 @@ test("page lookup returns -1 at either edge and when every page is disabled", ()
   assert.equal(find(pages, 0, 1, () => true), -1);
 });
 
+test("random page lookup selects uniformly among enabled pages", () => {
+  const context = vm.createContext({});
+  vm.runInContext(lookupSource, context);
+  const pick = vm.runInContext("pickRandomEnabledPageIndex", context);
+  assert.equal(pick(pages, (page) => page.cid === 2, () => 0), 0);
+  assert.equal(pick(pages, (page) => page.cid === 2, () => 0.9999), 3);
+  assert.equal(pick(pages, (page) => page.cid !== 2, () => 0.9999), 1);
+  assert.equal(pick(pages, () => true, () => 0), -1);
+  assert.equal(pick([], () => false, () => 0), -1);
+  assert.equal(pick([pages[0]], () => false, () => 0.9999), 0);
+});
+
+test("random page round excludes current and disabled pages, including pages disabled later", () => {
+  const context = vm.createContext({});
+  vm.runInContext(lookupSource, context);
+  const build = vm.runInContext("buildRandomPageRound", context);
+  const take = vm.runInContext("takeRandomPageFromRound", context);
+  const remaining = Array.from(build(pages, 0, (page) => page.cid === 4));
+  assert.deepEqual(remaining, [1, 2]);
+  const first = take(remaining, () => false, () => 0);
+  assert.equal(first.index, 1);
+  assert.deepEqual(Array.from(first.remaining), [2]);
+  const disabledLater = take(first.remaining, (index) => index === 2, () => 0.9999);
+  assert.equal(disabledLater.index, -1);
+  assert.deepEqual(Array.from(disabledLater.remaining), []);
+  assert.equal(take([], () => false, () => 0).index, -1);
+  assert.equal(take([1, 2, 3], () => false, () => 0.9999).index, 3);
+});
+
 function navigationContext(disabledCids, loopMode = "sequence") {
   const loads = [];
   const handlers = {};
@@ -48,6 +77,7 @@ function navigationContext(disabledCids, loopMode = "sequence") {
     activeAudioVersion: 7, requestVersion: 7, activeAudioUrl: "audio-url", audioActivatedAt: 0,
   };
   const context = vm.createContext({
+    randomPageRound: null,
     playerState: state,
     libraryState: { disabledPages: new Map([[bvid.toLowerCase(), new Set(disabledCids)]]) },
     hasMultipleCurrentPages: () => true,
@@ -101,6 +131,138 @@ test("failed-page advancement skips disabled pages even in single loop", () => {
   assert.equal(state.currentPageIndex, 3);
 });
 
+test("random mode with multiple queue items plays every other page once before leaving", () => {
+  const { context, state, loads } = navigationContext([]);
+  state.shuffle = true;
+  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  vm.runInContext("Math.random = () => 0", context);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(state.currentPageIndex, 1);
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
+  assert.equal(state.currentPageIndex, 2);
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
+  assert.equal(state.currentPageIndex, 3);
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+  assert.equal(loads.length, 3);
+});
+
+test("a randomly selected start page stays out of its first page round", () => {
+  const { context, state } = navigationContext([]);
+  state.shuffle = true;
+  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  state.currentPageIndex = context.pickRandomEnabledPageIndex(pages, () => false, () => 0.6);
+  assert.equal(state.currentPageIndex, 2);
+  vm.runInContext("Math.random = () => 0", context);
+  const visited = [];
+  for (let step = 0; step < 3; step += 1) {
+    assert.equal(context.advancePageWithinCurrentBv(), true);
+    visited.push(state.currentPageIndex);
+  }
+  assert.deepEqual(visited, [0, 1, 3]);
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+});
+
+test("random mode still repeats the current page in automatic single loop", () => {
+  const { context, state, loads } = navigationContext([], "single");
+  state.shuffle = true;
+  state.currentPageIndex = 2;
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
+  assert.equal(state.currentPageIndex, 2);
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].keepPage, true);
+  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
+  assert.equal(state.currentPageIndex, 2);
+  assert.equal(loads.length, 2);
+});
+
+test("single-item random queue advances each enabled page once, then exits the round", () => {
+  const { context, state, loads } = navigationContext([]);
+  state.shuffle = true;
+  vm.runInContext("Math.random = () => 0", context);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(state.currentPageIndex, 1);
+  state.currentDisplayTrack = {};
+  context.libraryState.disabledPages.get(bvid.toLowerCase()).add(3);
+  assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
+  assert.equal(state.currentPageIndex, 3);
+  assert.equal(context.advancePageWithinCurrentBv(), false);
+  assert.equal(state.currentPageIndex, 3);
+  assert.equal(loads.length, 2);
+  assert.equal(state.currentDisplayTrack, null);
+});
+
+test("single-item random queue discards a round belonging to another BV", () => {
+  const { context, state } = navigationContext([]);
+  state.shuffle = true;
+  context.randomPageRound = { bvid: "BV1rW4y1Q7o7", remaining: [] };
+  vm.runInContext("Math.random = () => 0", context);
+  assert.equal(context.advancePageWithinCurrentBv(), true);
+  assert.equal(context.randomPageRound.bvid, bvid);
+  assert.equal(state.currentPageIndex, 1);
+});
+
+test("only a random next index requests a random start page", () => {
+  const calls = [];
+  const state = { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}] };
+  const context = vm.createContext({
+    playerState: state,
+    takeRandomNext: () => 1,
+    takeSequentialNext: () => 1,
+    playQueueIndex: (index, options) => calls.push({ index, options }),
+  });
+  vm.runInContext(source.slice(
+    source.indexOf("function playNext("),
+    source.indexOf("function playPrevious("),
+  ), context);
+  assert.equal(context.playNext({ skipFailed: true }), true);
+  assert.equal(calls[0].index, 1);
+  assert.equal(calls[0].options.randomStartPage, true);
+  assert.equal(calls[0].options.preserveFailureStreak, true);
+
+  state.shuffle = false;
+  context.playNext();
+  assert.equal(calls[1].options.randomStartPage, undefined);
+
+  state.shuffle = true;
+  state.loopMode = "single";
+  context.playNext({ automatic: true });
+  assert.equal(calls[2].options.randomStartPage, undefined);
+});
+
+test("entering a queue item and toggling shuffle clear the page round", () => {
+  const state = { queue: [{ bvid }, { bvid: "BV1rW4y1Q7o7" }], currentIndex: 0,
+    history: [], consecutiveResolveFailures: 0, shuffle: false, randomRemaining: [1] };
+  const context = vm.createContext({
+    randomPageRound: { bvid, remaining: [1] }, playerState: state,
+    clearPendingResume() {}, clearPlaybackNotice() {}, resetCurrentPageState() {},
+    updatePlayerPagesButton() {}, markRandomIndexPlayed() {}, updateQueueUi() {},
+    emitCurrentTrackChanged() {}, currentVideoPage: () => null,
+    loadCurrentTrack() {},
+  });
+  vm.runInContext(source.slice(
+    source.indexOf("function playQueueIndex("),
+    source.indexOf("function takeRandomNext()"),
+  ), context);
+  context.playQueueIndex(1);
+  assert.equal(context.randomPageRound, null);
+
+  let change;
+  context.randomPageRound = { bvid, remaining: [1] };
+  context.shuffleToggle = { checked: true, addEventListener: (_, handler) => { change = handler; } };
+  context.resetRandomRemaining = () => {};
+  vm.runInContext(source.slice(
+    source.indexOf('shuffleToggle.addEventListener("change"'),
+    source.indexOf('favoriteCurrentButton?.addEventListener("click"'),
+  ), context);
+  change();
+  assert.equal(context.randomPageRound, null);
+  context.randomPageRound = { bvid, remaining: [1] };
+  context.shuffleToggle.checked = false;
+  change();
+  assert.equal(context.randomPageRound, null);
+});
+
 function trackContext(disabledCids, videoPages = pages) {
   const prepares = [];
   const notices = [];
@@ -151,6 +313,20 @@ test("default start skips disabled opening pages; explicit startPage still plays
   await new Promise(setImmediate);
   assert.equal(state.currentPageIndex, 0);
   assert.equal(prepares[1].cid, 1);
+});
+
+test("random start picks an enabled page while default start keeps the first enabled page", async () => {
+  const { context, state, prepares } = trackContext([1, 3]);
+  vm.runInContext("Math.random = () => 0.9999", context);
+  void context.loadCurrentTrack({ randomStartPage: true });
+  await new Promise(setImmediate);
+  assert.equal(state.currentPageIndex, 3);
+  assert.equal(prepares[0].cid, 4);
+
+  void context.loadCurrentTrack();
+  await new Promise(setImmediate);
+  assert.equal(state.currentPageIndex, 1);
+  assert.equal(prepares[1].cid, 2);
 });
 
 test("resume position and missing page metadata bypass default disabled-page selection", async () => {

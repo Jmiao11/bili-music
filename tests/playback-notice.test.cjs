@@ -159,6 +159,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   c.playNext(); assert.equal(visits.at(-1), 0);
   c.playerState.loopMode = 'sequence';
   c.playNext(); assert.equal(notice.textContent, '本轮随机播放已结束');
+  c.playerState.shuffle = false;
   c.hasMultipleCurrentPages = () => true;
   c.playerState.currentPages = [{}, {}]; c.playerState.currentPageIndex = 0;
   c.updatePlayerPagesButton = () => {};
