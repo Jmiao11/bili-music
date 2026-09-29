@@ -6,7 +6,8 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const functionSource = sourceSlice(source, "ui/main.js", "function playbackFailureMessage(", "const playerState");
+const trackUtilsSource = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
+const functionSource = sourceSlice(trackUtilsSource, "ui/track-utils.js", "function playbackFailureMessage(", "function isBvId(");
 assert.ok(functionSource.includes("function playbackFailureMessage"));
 
 const context = vm.createContext({});
