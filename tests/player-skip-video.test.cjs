@@ -11,7 +11,7 @@ test("the skip button follows the unchanged page badge inside one hidden group",
   const group = html.match(/<span class="player-pages-group" hidden>([\s\S]*?)<\/span>/)?.[1];
   assert.ok(group);
   assert.match(group, /<button id="player-pages-button" class="page-count-badge player-pages-button"[^>]*hidden><\/button>/);
-  assert.match(group, /<button id="skip-video-button"[^>]*aria-label="跳过本视频，播放下一首"/);
+  assert.match(group, /<button id="skip-video-button"[^>]*aria-label="跳过本次合集，播放下一首"/);
   assert.ok(group.indexOf('id="player-pages-button"') < group.indexOf('id="skip-video-button"'));
 });
 
