@@ -6,7 +6,8 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const helper = sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(");
+const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
+const helper = pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(");
 const context = vm.createContext({ Map, Set });
 vm.runInContext(helper, context);
 

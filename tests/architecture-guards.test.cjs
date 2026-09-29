@@ -12,12 +12,14 @@ const expected = [
   "sidebar.js",
   "window-controls.js",
   "dynamic-background.js",
+  "page-selection.js",
   "main.js",
   "appearance.js",
   "lyrics.js",
   "mascot.js",
   "mini-player-host.js",
 ];
+const splitScripts = ["page-selection.js"];
 
 test("main-window script list and files match the approved order", () => {
   assert.deepEqual(scripts, expected);
@@ -37,6 +39,26 @@ test("main-window scripts have no duplicate top-level function names", () => {
     for (const match of source.matchAll(/^(?:async\s+)?function\s+([\w$]+)\s*\(/gm)) {
       assert.ok(!seen.has(match[1]), `${match[1]} declared in ${seen.get(match[1])} and ${script}`);
       seen.set(match[1], script);
+    }
+  }
+});
+
+test("split scripts contain only top-level function declarations and comments", () => {
+  for (const script of splitScripts) {
+    const source = readFileSync(path.join(ui, script), "utf8");
+    let position = 0;
+    while (position < source.length) {
+      const trivia = /^(?:\s+|\/\/[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)/.exec(source.slice(position));
+      if (trivia) { position += trivia[0].length; continue; }
+      assert.match(source.slice(position), /^(?:async\s+)?function\s+[\w$]+\s*\(/, `${script}: unexpected top-level code`);
+      let end = source.indexOf("}", position);
+      for (; end >= 0; end = source.indexOf("}", end + 1)) {
+        try { new vm.Script(source.slice(position, end + 1)); break; } catch (error) {
+          if (!(error instanceof SyntaxError)) throw error;
+        }
+      }
+      assert.ok(end >= 0, `${script}: incomplete function declaration`);
+      position = end + 1;
     }
   }
 });

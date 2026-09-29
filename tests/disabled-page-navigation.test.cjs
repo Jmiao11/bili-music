@@ -6,7 +6,8 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const lookupSource = sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(");
+const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
+const lookupSource = pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(");
 const navigationSource = sourceSlice(source, "ui/main.js", "function advancePageWithinCurrentBv(", "function playNext(");
 const trackSource = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
