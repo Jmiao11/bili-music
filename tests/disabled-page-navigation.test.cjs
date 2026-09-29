@@ -73,7 +73,7 @@ function navigationContext(disabledCids, loopMode = "sequence") {
   const handlers = {};
   const state = {
     queue: [{ bvid }], currentIndex: 0, currentPages: pages,
-    currentPageIndex: 0, currentDisplayTrack: {}, loopMode,
+    currentPageIndex: 0, currentDisplayTrack: {}, loopMode, history: [],
     activeAudioVersion: 7, requestVersion: 7, activeAudioUrl: "audio-url", audioActivatedAt: 0,
   };
   const context = vm.createContext({
@@ -313,6 +313,31 @@ test("default start skips disabled opening pages; explicit startPage still plays
   await new Promise(setImmediate);
   assert.equal(state.currentPageIndex, 0);
   assert.equal(prepares[1].cid, 1);
+});
+
+test("missing startPage cid falls back to the first enabled page", async () => {
+  const { context, state, prepares } = trackContext([1]);
+  void context.loadCurrentTrack({ startPage: { cid: 999 } });
+  await new Promise(setImmediate);
+  assert.equal(state.currentPageIndex, 1);
+  assert.equal(prepares[0].cid, 2);
+});
+
+test("missing startPage cid with all pages disabled reports the existing error", async () => {
+  const { context, prepares } = trackContext([1, 2, 3, 4]);
+  let reportedError;
+  context.console.error = (_, error) => { reportedError = error; };
+  await context.loadCurrentTrack({ startPage: { cid: 999 } });
+  assert.equal(prepares.length, 0);
+  assert.match(String(reportedError), /all pages disabled by user/);
+});
+
+test("matched startPage still plays a disabled page", async () => {
+  const { context, state, prepares } = trackContext([1]);
+  void context.loadCurrentTrack({ startPage: { cid: 1 } });
+  await new Promise(setImmediate);
+  assert.equal(state.currentPageIndex, 0);
+  assert.equal(prepares[0].cid, 1);
 });
 
 test("random start picks an enabled page while default start keeps the first enabled page", async () => {
