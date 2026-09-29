@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,9 +6,9 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
-const code = source.slice(source.indexOf("const BACKGROUND_PATH_KEY"), source.indexOf("const root ="))
-  + source.slice(source.indexOf("function clampNumber("), source.indexOf("function streamSourceLabel("))
-  + source.slice(source.indexOf("function normalizeAccentColor("), source.indexOf("function applyBackground("));
+const code = sourceSlice(source, "ui/appearance.js", "const BACKGROUND_PATH_KEY", "const root =")
+  + sourceSlice(source, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
+  + sourceSlice(source, "ui/appearance.js", "function normalizeAccentColor(", "function applyBackground(");
 const key = "bilibili-music.accent-color";
 const colors = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },

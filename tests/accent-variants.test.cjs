@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,9 +6,9 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
-const code = source.slice(source.indexOf("const BACKGROUND_PATH_KEY"), source.indexOf("const root ="))
-  + source.slice(source.indexOf("function clampNumber("), source.indexOf("function streamSourceLabel("))
-  + source.slice(source.indexOf("function normalizeAccentColor("), source.indexOf("function applyBackground("));
+const code = sourceSlice(source, "ui/appearance.js", "const BACKGROUND_PATH_KEY", "const root =")
+  + sourceSlice(source, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
+  + sourceSlice(source, "ui/appearance.js", "function normalizeAccentColor(", "function applyBackground(");
 const expected = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },
   blue: { dark: [122, 166, 231], light: [40, 88, 161] },
@@ -93,7 +94,7 @@ test("twelve actual variants meet contrast targets and pairs preserve hue within
   const mix = (a, b, alpha) => a.map((v, i) => v * alpha + b[i] * (1 - alpha));
   // Reuse the existing RGB/HSL implementation without initializing the background.
   const dynamic = readFileSync(path.join(__dirname, "../ui/dynamic-background.js"), "utf8");
-  vm.runInContext(dynamic.slice(0, dynamic.indexOf("function initializeDynamicBackground")), app);
+  vm.runInContext(sourceSlice(dynamic, "ui/dynamic-background.js", null, "function initializeDynamicBackground"), app);
   for (const name of Object.keys(expected)) {
     const dark = Array.from(app.accentChannels(name, "dark"));
     const light = Array.from(app.accentChannels(name, "light"));

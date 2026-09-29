@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,10 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const helper = source.slice(
-  source.indexOf("function shouldOpenPastedBvPages("),
-  source.indexOf("function displayThumbnailUrl("),
-);
+const helper = sourceSlice(source, "ui/main.js", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
 const context = vm.createContext({});
 vm.runInContext(helper, context);
 const shouldOpen = vm.runInContext("shouldOpenPastedBvPages", context);
@@ -24,10 +22,7 @@ test("failed page loading notices only the current request while keeping single-
     showPlaybackNotice: (message) => notices.push(message),
     console: { warn: () => {} },
   });
-  vm.runInContext(source.slice(
-    source.indexOf("async function loadPagesForCurrentVideo("),
-    source.indexOf("function emitCurrentTrackChanged("),
-  ), app);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "async function loadPagesForCurrentVideo(", "function emitCurrentTrackChanged("), app);
   const load = vm.runInContext("loadPagesForCurrentVideo", app);
   assert.equal(await load({ bvid: pending.bvid }, 7), true);
   assert.equal(state.currentPages.length, 0);
@@ -69,10 +64,7 @@ function eventContext() {
     currentPlayableTrack: () => ({ bvid: currentBvid }),
     openCurrentPagesModal: () => { opened += 1; },
   });
-  vm.runInContext(`let pendingPastedBvPages = null;\n${helper}\n${source.slice(
-    source.indexOf('window.addEventListener("bili-track-changed"'),
-    source.indexOf('playerPagesButton?.addEventListener("click"'),
-  )}`, app);
+  vm.runInContext(`let pendingPastedBvPages = null;\n${helper}\n${sourceSlice(source, "ui/main.js", "window.addEventListener(\"bili-track-changed\"", "playerPagesButton?.addEventListener(\"click\"")}`, app);
   return {
     app, handlers, playerState,
     mark: () => vm.runInContext('pendingPastedBvPages = { bvid: "BV1GF4X6MEb1", requestVersion: 7 }', app),

@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -179,9 +180,9 @@ test("crossfade keeps only latest pending palette; reduced motion removes fade w
 
 test("dynamic texture stays fixed; image retains three controls and ignores legacy content settings", async (t) => {
   const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
-  const code = appearance.slice(appearance.indexOf("const BACKGROUND_PATH_KEY"), appearance.indexOf("const root ="))
-    + appearance.slice(appearance.indexOf("function clampNumber("), appearance.indexOf("function streamSourceLabel("))
-    + appearance.slice(appearance.indexOf("function applyTheme("), appearance.indexOf("function applyBackground("));
+  const code = sourceSlice(appearance, "ui/appearance.js", "const BACKGROUND_PATH_KEY", "const root =")
+    + sourceSlice(appearance, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
+    + sourceSlice(appearance, "ui/appearance.js", "function applyTheme(", "function applyBackground(");
   const stored = new Map([
     ["bilibili-music.content-alpha", "75"],
     ...["glass-blur", "panel-alpha", "content-alpha", "background-dim"]

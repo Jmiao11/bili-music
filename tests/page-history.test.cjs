@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,7 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const slice = (start, end) => source.slice(source.indexOf(start), source.indexOf(end));
+const slice = (start, end) => sourceSlice(source, "ui/main.js", start, end);
 
 test("queue switches remember the departed cid and pass a history cid to track loading", () => {
   const loads = [];

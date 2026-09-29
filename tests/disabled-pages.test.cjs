@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -5,10 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const helper = source.slice(
-  source.indexOf("function isPageDisabled("),
-  source.indexOf("function setFavoriteButtonState("),
-);
+const helper = sourceSlice(source, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(");
 const context = vm.createContext({ Map, Set });
 vm.runInContext(helper, context);
 

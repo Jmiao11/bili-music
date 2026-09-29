@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -7,9 +8,9 @@ const vm = require("node:vm");
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const html = readFileSync(path.join(__dirname, "../ui/index.html"), "utf8");
-const source = main.slice(main.indexOf("function isPageDisabled("), main.indexOf("function setFavoriteButtonState("))
-  + appearance.slice(appearance.indexOf("function openSettings()"), appearance.indexOf("async function restoreAudioCacheSettings()"))
-  + appearance.slice(appearance.indexOf("for (const [select, key] of ["), appearance.indexOf('clearAudioCacheButton?.addEventListener("click"'));
+const source = sourceSlice(main, "ui/main.js", "function isPageDisabled(", "function setFavoriteButtonState(")
+  + sourceSlice(appearance, "ui/appearance.js", "function openSettings()", "async function restoreAudioCacheSettings()")
+  + sourceSlice(appearance, "ui/appearance.js", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
 
 function setup(stored = new Map()) {
   const handlers = {};

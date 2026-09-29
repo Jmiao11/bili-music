@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
@@ -6,7 +7,7 @@ const vm = require('node:vm');
 
 const source = readFileSync(join(__dirname, '../ui/appearance.js'), 'utf8');
 const context = vm.createContext({});
-vm.runInContext(source.slice(source.indexOf('function shouldForwardMediaSessionAction('), source.indexOf('function registerMediaSessionActionHandlers(')), context);
+vm.runInContext(sourceSlice(source, "ui/appearance.js", "function shouldForwardMediaSessionAction(", "function registerMediaSessionActionHandlers("), context);
 
 test('Media Session play forwards while paused', () => {
   assert.equal(context.shouldForwardMediaSessionAction('play', true), true);

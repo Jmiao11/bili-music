@@ -1,3 +1,4 @@
+const { sourceSlice } = require("./helpers/source-slice.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
@@ -6,7 +7,7 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/dynamic-background.js"), "utf8");
 const colors = vm.createContext({});
-vm.runInContext(source.slice(0, source.indexOf("function initializeDynamicBackground")), colors);
+vm.runInContext(sourceSlice(source, "ui/dynamic-background.js", null, "function initializeDynamicBackground"), colors);
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const artwork = (...areas) => new Uint8ClampedArray(areas.flatMap(([rgb, count]) =>
   Array.from({ length: count }, () => [...rgb, 255]).flat()));
