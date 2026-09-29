@@ -67,6 +67,6 @@ test("mini page controls start disabled and favorite changes are published after
     assert.match(miniHtml, new RegExp(`id="${id}"[^>]*disabled`), id);
   }
 
-  const main = read("ui/main.js");
+  const main = read("ui/library-ui.js");
   assert.ok((main.match(/bilibili-music-favorite-change/g) ?? []).length >= 2);
 });

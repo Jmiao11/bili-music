@@ -19,7 +19,7 @@ const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = sourceSlice(appearance, "ui/appearance.js", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
 const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.js", "loudnessNormalizationToggle.addEventListener(\"change\"", "progressSlider.addEventListener(\"pointerdown\"");
-const loudnessDialogCode = sourceSlice(main, "ui/main.js", "function showLoudnessNormalizationDialog(", "function validatePlaylistName(");
+const loudnessDialogCode = sourceSlice(main, "ui/main.js", "function showLoudnessNormalizationDialog(", "function waitForAudioMetadata(");
 
 function setup(stored = new Map(), { controlledAnimation = false } = {}) {
   const queries = [];
