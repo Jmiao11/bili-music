@@ -4242,6 +4242,35 @@ input[type="range"]::-webkit-slider-thumb {
   display: none;
 }
 
+.shuffle-collection-section {
+  --shuffle-collection-select-width: var(--audio-cache-select-width, 120px);
+}
+
+.shuffle-collection-section::before {
+  content: "";
+  display: block;
+  margin-bottom: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.shuffle-collection-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.shuffle-collection-row + .shuffle-collection-row {
+  margin-top: 12px;
+}
+
+.shuffle-collection-row .settings-select {
+  width: var(--shuffle-collection-select-width);
+  justify-self: end;
+}
+
 /* 设置子分组视觉数值集中区：便于 live 调整间距、字号与复选框尺寸。 */
 .setting-subgroup {
   margin-top: 18px;
