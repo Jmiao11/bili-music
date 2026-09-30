@@ -16,13 +16,14 @@ const expected = [
   "track-utils.js",
   "home.js",
   "library-ui.js",
+  "video-pages.js",
   "main.js",
   "appearance.js",
   "lyrics.js",
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.js", "track-utils.js", "home.js", "library-ui.js"];
+const splitScripts = ["page-selection.js", "track-utils.js", "home.js", "library-ui.js", "video-pages.js"];
 
 test("main-window script list and files match the approved order", () => {
   assert.deepEqual(scripts, expected);
