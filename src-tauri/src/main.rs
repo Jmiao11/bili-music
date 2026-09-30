@@ -50,9 +50,8 @@ use uuid::Uuid;
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
-    add_to_playlist, clear_track_unavailable, create_playlist, delete_playlist, get_shortcuts,
-    list_playlists, list_unavailable_tracks, mark_track_unavailable, purge_unavailable_tracks,
-    remove_from_playlist, rename_playlist, reorder_playlist, reorder_playlist_item, set_shortcuts,
+    clear_track_unavailable, get_shortcuts, list_unavailable_tracks, mark_track_unavailable,
+    purge_unavailable_tracks, set_shortcuts,
 };
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
@@ -1041,7 +1040,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             fav_import::read_public_favorite_page,
-            library::create_imported_playlist,
+            library::playlists::create_imported_playlist,
             taskbar::set_taskbar_playback_state,
             mini_player::open_mini_player,
             mini_player::mini_player_ready,
@@ -1074,14 +1073,14 @@ fn main() {
             library::favorites::is_favorite,
             library::favorites::toggle_favorite,
             library::favorites::reorder_favorite,
-            list_playlists,
-            create_playlist,
-            rename_playlist,
-            delete_playlist,
-            add_to_playlist,
-            remove_from_playlist,
-            reorder_playlist_item,
-            reorder_playlist,
+            library::playlists::list_playlists,
+            library::playlists::create_playlist,
+            library::playlists::rename_playlist,
+            library::playlists::delete_playlist,
+            library::playlists::add_to_playlist,
+            library::playlists::remove_from_playlist,
+            library::playlists::reorder_playlist_item,
+            library::playlists::reorder_playlist,
             library::history::record_search_history,
             library::history::get_search_history,
             library::history::clear_search_history,
