@@ -4,7 +4,7 @@
 
 ## 开始前
 
-1. 阅读 [README.md](README.md) 了解运行方式，并阅读 [AGENTS.md](AGENTS.md) 中对应模块的架构约束。
+1. 阅读 [README.md](README.md) 了解运行方式，并阅读 [AGENTS.md](AGENTS.md) 中对应模块的架构约束。涉及前端改动时还需阅读 [前端结构说明](docs/frontend-architecture.md)。
 2. 涉及提示、加载态、错误态、确认交互或跨窗口反馈时，必须阅读并遵守 [用户操作反馈规范](docs/notification-guidelines.md)。
 3. 从最新主分支创建单一目的的分支；提交前先检查 `git status`，保留并避开不属于本次工作的改动。
 4. 改动已固化的取流、播放队列、切歌取消、搜索、持久化或窗口控制链路前，先与维护者确认设计和影响范围。
