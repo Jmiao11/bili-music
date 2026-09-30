@@ -1,0 +1,15 @@
+[
+  { "host": "bilivideo.com", "allowed": true },
+  { "host": "a.bilivideo.com", "allowed": true },
+  { "host": "a.b.bilivideo.cn", "allowed": true },
+  { "host": "bilivideo.cn", "allowed": true },
+  { "host": "A.BILIVIDEO.COM", "allowed": true },
+  { "host": "upos-hz-mirrorakam.akamaized.net", "allowed": true },
+  { "host": "node.mcdn.bilivideo.cn", "allowed": true },
+  { "host": "node.mountaintoys.cn", "allowed": false },
+  { "host": "mountaintoys.cn", "allowed": false },
+  { "host": "bilivideo.com.example.org", "allowed": false },
+  { "host": "evilbilivideo.com", "allowed": false },
+  { "host": "unrelated.akamaized.net", "allowed": false },
+  { "host": "upos-hz-mirrorakam.akamaized.net.example.org", "allowed": false }
+]

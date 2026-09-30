@@ -1313,6 +1313,20 @@ mod tests {
     };
 
     #[test]
+    fn cdn_hosts_match_shared_fixture() {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/cdn-hosts.json")).unwrap();
+        for case in cases {
+            let host = case["host"].as_str().unwrap();
+            assert_eq!(
+                super::stream_diag_allowed_host(host),
+                case["allowed"].as_bool().unwrap(),
+                "{host}"
+            );
+        }
+    }
+
+    #[test]
     fn view_url_uses_wbi_signature() {
         let bvid = "BV1xx411c7mD";
         let mixin_key = "ea1db124af3c7062474693fa704f4ff8";

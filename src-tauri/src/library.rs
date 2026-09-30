@@ -1200,6 +1200,167 @@ mod backup_tests {
         zip.finish().unwrap()
     }
 
+    fn declared_json_files(source: &str) -> Vec<&str> {
+        let mut names = Vec::new();
+        for (position, _) in source.match_indices("const") {
+            if position > 0 && source.as_bytes()[position - 1].is_ascii_alphanumeric() {
+                continue;
+            }
+            let tail = &source[position + 5..];
+            if !tail.starts_with(char::is_whitespace) {
+                continue;
+            }
+            let tail = tail.trim_start();
+            let end = tail
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(tail.len());
+            if !tail[..end].ends_with("_FILE") {
+                continue;
+            }
+            let mut rest = &tail[end..];
+            let mut valid = true;
+            for token in [":", "&", "str", "=", "\""] {
+                if let Some(next) = rest.trim_start().strip_prefix(token) {
+                    rest = next;
+                } else {
+                    valid = false;
+                    break;
+                }
+            }
+            if valid {
+                if let Some(end) = rest.find('"') {
+                    let name = &rest[..end];
+                    if name.ends_with(".json") {
+                        names.push(name);
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    #[test]
+    fn every_declared_json_file_has_an_explicit_backup_decision() {
+        // Ratchet guard (棘轮守卫), not a complete Rust AST analysis.
+        // Visibility prefixes are irrelevant; whitespace/newlines around tokens are accepted.
+        for declaration in [
+            "const X_FILE: &str = \"index.json\";",
+            "pub const X_FILE : & str = \"index.json\";",
+            "pub(crate) const\nX_FILE\n:\n&str\n=\n\"index.json\";",
+        ] {
+            assert_eq!(declared_json_files(declaration), ["index.json"]);
+        }
+        let excluded = [
+            "index.json", // Audio cache index lives in cache/audio/, not the backed-up root.
+        ];
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut directories = vec![root.clone()];
+        let mut seen = HashSet::new();
+        while let Some(directory) = directories.pop() {
+            for entry in fs::read_dir(directory).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    directories.push(path);
+                } else if path.extension().is_some_and(|extension| extension == "rs") {
+                    let source = fs::read_to_string(&path).unwrap();
+                    for name in declared_json_files(&source) {
+                        assert!(
+                            BACKUP_JSON_FILES.contains(&name) || excluded.contains(&name),
+                            "{}: {name} has no explicit backup decision",
+                            path.display()
+                        );
+                        seen.insert(name.to_owned());
+                    }
+                    if path == root.join("library.rs") && source.contains("\"loudness.json\"") {
+                        assert!(BACKUP_JSON_FILES.contains(&"loudness.json"));
+                        seen.insert("loudness.json".to_owned());
+                    }
+                }
+            }
+        }
+        for name in BACKUP_JSON_FILES.iter().chain(excluded.iter()) {
+            assert!(
+                seen.contains(*name),
+                "{name} is no longer declared; review the decision list"
+            );
+        }
+    }
+
+    #[test]
+    fn every_backup_json_file_round_trips() {
+        let source = temp_root();
+        let target = temp_root();
+        let mut expected = BTreeMap::new();
+        let track = serde_json::json!({"bvid": "BV1GF4X6MEb1", "title": "备份测试歌曲",
+            "uploader": "测试作者", "thumbnailUrl": "https://example.test/cover.jpg",
+            "durationSeconds": 123, "addedAt": "123"});
+        for &name in BACKUP_JSON_FILES {
+            let value = match name {
+                "favorites.json" => serde_json::json!({"version": 1, "items": [track.clone()]}),
+                "search-history.json" => {
+                    serde_json::json!({"version": 1, "items": [{"keyword": "音乐", "searchedAt": "123", "count": 2}]})
+                }
+                "play-history.json" => {
+                    serde_json::json!({"version": 1, "items": [{"bvid": "BV1GF4X6MEb1", "title": "备份测试歌曲", "uploader": "测试作者", "thumbnailUrl": "https://example.test/cover.jpg", "durationSeconds": 123, "lastPlayedAt": "123", "count": 2}]})
+                }
+                "unavailable-tracks.json" => {
+                    serde_json::json!({"version": 1, "items": [{"bvid": "BV1GF4X6MEb1", "reason": "测试原因", "markedAt": 123}]})
+                }
+                "loudness.json" => {
+                    serde_json::json!({"version": 1, "items": [{"key": "BV1GF4X6MEb1:123", "lufs": -12.0, "measuredAt": 123}]})
+                }
+                "playlists.json" => {
+                    serde_json::json!({"version": 1, "playlists": [{"id": "test-list", "name": "测试歌单", "createdAt": "123", "items": [track.clone()]}]})
+                }
+                "playback-state.json" => {
+                    serde_json::json!({"version": 1, "queue": [track.clone()], "currentIndex": 0,
+                    "positionSeconds": 12.5, "page": null, "cid": null, "savedAt": 123})
+                }
+                "disabled-pages.json" => {
+                    serde_json::json!({"version": 1, "videos": {"BV1GF4X6MEb1": [123]}})
+                }
+                "shortcuts.json" => serde_json::json!({"version": 1, "bindings": {
+                    "previous": null, "playPause": "Ctrl+P", "next": null, "volumeUp": null, "volumeDown": null}}),
+                "ai-config.json" => {
+                    serde_json::json!({"version": 1, "api_format": "openai-chat-completions",
+                    "base_url": "https://example.test", "model": "test-model", "api_key": "secret"})
+                }
+                "recommendations.json" => {
+                    serde_json::json!({"version": 1, "items": [{"bvid": "BV1GF4X6MEb1", "title": "备份测试歌曲", "uploader": "测试作者", "thumbnailUrl": "https://example.test/cover.jpg", "durationSeconds": 123, "playCount": 42, "pubdate": 123}], "generated_at": 123})
+                }
+                "lyrics-offsets.json" => {
+                    serde_json::json!({"version": 1, "offsets": {"BV1GF4X6MEb1:123": 250}})
+                }
+                "lyrics-bindings.json" => {
+                    serde_json::json!({"version": 1, "bindings": {"BV1GF4X6MEb1:123": {"song_id": "123", "song_name": "测试歌曲", "singer": "测试作者", "source": "manual", "confidence": 1.0, "checked_at": 123}}})
+                }
+                "video-pages-cache.json" => {
+                    serde_json::json!({"version": 1, "entries": {"BV1GF4X6MEb1": {"videos": 1, "pages": [{"cid": 123, "page": 1, "part": "测试分P", "duration": 123}], "cached_at": 123}}})
+                }
+                other => panic!("add representative backup content for {other}"),
+            };
+            fs::write(source.join(name), serde_json::to_vec(&value).unwrap()).unwrap();
+            expected.insert(name, value);
+        }
+        let archive = export_data_at(&source, Cursor::new(Vec::new())).unwrap();
+        assert_eq!(
+            import_data_at(&target, archive, |path, bytes| fs::write(path, bytes)).unwrap(),
+            (BACKUP_JSON_FILES.len(), 0)
+        );
+        expected.get_mut(AI_CONFIG_FILE).unwrap()["api_key"] = serde_json::json!("");
+        for (name, value) in expected {
+            let restored: serde_json::Value =
+                serde_json::from_slice(&fs::read(target.join(name)).unwrap()).unwrap();
+            assert_eq!(restored, value, "{name}");
+        }
+        assert_eq!(
+            fs::read_dir(&target).unwrap().count(),
+            BACKUP_JSON_FILES.len()
+        );
+        fs::remove_dir_all(source).unwrap();
+        fs::remove_dir_all(target).unwrap();
+    }
+
     #[test]
     fn export_ai_config_removes_key_and_keeps_other_fields() {
         let root = temp_root();

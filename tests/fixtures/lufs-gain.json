@@ -1,0 +1,12 @@
+[
+  { "lufs": -14, "gain": 1 },
+  { "lufs": -12, "gain": 0.7943282347242815 },
+  { "lufs": -2, "gain": 0.251188643150958 },
+  { "lufs": 0, "gain": 0.251188643150958 },
+  { "lufs": 100, "gain": 0.251188643150958 },
+  { "lufs": -30, "gain": 1 },
+  { "lufs": null, "gain": 1 },
+  { "lufs": "NaN", "gain": 1 },
+  { "lufs": "Infinity", "gain": 1 },
+  { "lufs": "-Infinity", "gain": 1 }
+]

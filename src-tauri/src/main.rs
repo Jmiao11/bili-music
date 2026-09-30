@@ -1136,6 +1136,145 @@ mod tests {
     use std::time::{Duration, Instant};
     use uuid::Uuid;
 
+    // Test-only Rust lexical scan: blank comments without changing byte offsets or newlines.
+    fn without_rust_comments(source: &str) -> String {
+        let bytes = source.as_bytes();
+        let mut output = bytes.to_vec();
+        let mut i = 0;
+        while i < bytes.len() {
+            let start = i;
+            if bytes[i..].starts_with(b"//") {
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+            } else if bytes[i..].starts_with(b"/*") {
+                let mut depth = 1;
+                i += 2;
+                while i < bytes.len() && depth > 0 {
+                    if bytes[i..].starts_with(b"/*") {
+                        depth += 1;
+                        i += 2;
+                    } else if bytes[i..].starts_with(b"*/") {
+                        depth -= 1;
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
+                }
+            } else {
+                if bytes[i] == b'r' {
+                    let mut quote = i + 1;
+                    while bytes.get(quote) == Some(&b'#') {
+                        quote += 1;
+                    }
+                    if bytes.get(quote) == Some(&b'"') {
+                        let hashes = quote - i - 1;
+                        i = quote + 1;
+                        while i < bytes.len() {
+                            if bytes[i] == b'"'
+                                && bytes.get(i + 1..i + 1 + hashes)
+                                    == Some(&bytes[start + 1..quote])
+                            {
+                                i += 1 + hashes;
+                                break;
+                            }
+                            i += 1;
+                        }
+                        continue;
+                    }
+                }
+                // An apostrophe starts a char only if followed by an escape or one
+                // Unicode scalar and a closing quote; otherwise it is a lifetime.
+                let is_char = bytes[i] == b'\''
+                    && (bytes.get(i + 1) == Some(&b'\\')
+                        || source
+                            .get(i + 1..)
+                            .and_then(|tail| tail.chars().next())
+                            .is_some_and(|c| bytes.get(i + 1 + c.len_utf8()) == Some(&b'\'')));
+                if bytes[i] == b'"' || is_char {
+                    let quote = bytes[i];
+                    i += 1;
+                    while i < bytes.len() {
+                        if bytes[i] == b'\\' {
+                            i = (i + 2).min(bytes.len());
+                        } else if bytes[i] == quote {
+                            i += 1;
+                            break;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                } else {
+                    i += 1;
+                }
+                continue;
+            }
+            for byte in &mut output[start..i] {
+                if *byte != b'\n' && *byte != b'\r' {
+                    *byte = b' ';
+                }
+            }
+        }
+        String::from_utf8(output).unwrap()
+    }
+
+    #[test]
+    fn comment_scan_preserves_literals_lifetimes_and_newlines() {
+        let source = r###"// real comment "keyword"
+let a = "https://example.com";
+let b = "/* not comment */";
+let c = r#"// not comment"#;
+let e = r"/* raw */";
+let f = r##"// raw with " and #"##;
+/* outer /* inner */ outer */
+fn f<'a>(x: &'a str) -> char { '"' }
+let d = '\'';
+let escaped = "\"// still a string";
+let unicode = '中'; // 中文 comment
+"###;
+        let clean = without_rust_comments(source);
+        assert_eq!(source.len(), clean.len());
+        assert_eq!(
+            source
+                .match_indices('\n')
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>(),
+            clean
+                .match_indices('\n')
+                .map(|(i, _)| i)
+                .collect::<Vec<_>>()
+        );
+        for comment in ["keyword", "outer", "inner", "中文 comment"] {
+            assert!(!clean.contains(comment), "{comment}");
+        }
+        for line in source
+            .lines()
+            .filter(|line| line.starts_with("let ") || line.starts_with("fn "))
+        {
+            let code = line.split("; // 中文 comment").next().unwrap();
+            assert!(clean.contains(code), "{code}");
+        }
+        assert_eq!(
+            without_rust_comments("a/* x\r\ny */b//z\r\n"),
+            "a    \r\n    b   \r\n"
+        );
+    }
+
+    #[test]
+    fn cdn_hosts_match_shared_fixture() {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/cdn-hosts.json")).unwrap();
+        for case in cases {
+            let host = case["host"].as_str().unwrap();
+            let url = reqwest::Url::parse(&format!("https://{host}/audio.m4s")).unwrap();
+            assert_eq!(
+                validate_cdn_url(&url).is_ok(),
+                case["allowed"].as_bool().unwrap(),
+                "{host}"
+            );
+        }
+    }
+
     #[test]
     fn playback_error_keywords_remain_in_rust_sources() {
         let entries: Vec<serde_json::Value> =
@@ -1149,15 +1288,33 @@ mod tests {
                 "src-tauri/src/guest_playurl.rs" => include_str!("guest_playurl.rs"),
                 other => panic!("unexpected Rust source: {other}"),
             };
+            let source = without_rust_comments(source);
             let keyword = entry["keyword"].as_str().unwrap();
-            assert!(
-                source.contains(keyword),
-                "{path} no longer contains {keyword:?}"
-            );
             if let Some(template) = entry["rustTemplate"].as_str() {
                 assert!(
                     source.contains(template),
                     "{path} no longer contains {template:?}"
+                );
+                let sample = entry["sampleError"].as_str().unwrap();
+                let mut segments = template.split("{}");
+                let first = segments.next().unwrap();
+                let mut rest = sample
+                    .strip_prefix(first)
+                    .expect("sample must start with template prefix");
+                for segment in segments {
+                    let position = rest
+                        .find(segment)
+                        .expect("sample must contain template segments in order");
+                    rest = &rest[position + segment.len()..];
+                }
+                assert!(
+                    sample.contains(keyword),
+                    "{sample:?} does not contain {keyword:?}"
+                );
+            } else {
+                assert!(
+                    source.contains(keyword),
+                    "{path} no longer contains {keyword:?}"
                 );
             }
         }

@@ -450,6 +450,45 @@ mod tests {
     const RATE: u32 = 48_000;
 
     #[test]
+    fn lufs_gain_matches_shared_fixture() {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/lufs-gain.json")).unwrap();
+        for case in cases {
+            let lufs = match &case["lufs"] {
+                serde_json::Value::Null => None,
+                serde_json::Value::String(value) => Some(match value.as_str() {
+                    "NaN" => f64::NAN,
+                    "Infinity" => f64::INFINITY,
+                    "-Infinity" => f64::NEG_INFINITY,
+                    other => panic!("unknown LUFS fixture value: {other}"),
+                }),
+                value => Some(value.as_f64().unwrap()),
+            };
+            assert!(
+                (lufs_to_gain(lufs) - case["gain"].as_f64().unwrap()).abs() < 1e-12,
+                "{case}"
+            );
+        }
+    }
+
+    #[test]
+    fn proxy_tokens_match_shared_fixture() {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/proxy-token.json")).unwrap();
+        for case in cases {
+            assert_eq!(
+                proxy_token(
+                    case["url"].as_str().unwrap(),
+                    case["base"].as_str().unwrap()
+                )
+                .ok(),
+                case["token"].as_str(),
+                "{case}"
+            );
+        }
+    }
+
+    #[test]
     fn concurrent_analysis_skips_download_and_releases_after_error() {
         let busy = Arc::new(AtomicBool::new(false));
         tauri::async_runtime::block_on(async {
