@@ -1,30 +1,11 @@
-mod backup;
-mod disabled_pages;
+pub(crate) mod backup;
+pub(crate) mod disabled_pages;
 pub(crate) mod history;
 pub(crate) mod loudness_store;
 pub(crate) mod playback_state;
 
 pub(crate) use history::{get_play_history, get_search_history};
 pub(crate) use loudness_store::{get_track_loudness, save_track_loudness};
-
-pub use backup::{export_data, import_data};
-// 迁移期兼容：保持 main.rs 注册路径不变；这些包装宏由 tauri-macros 生成。
-#[doc(hidden)]
-#[allow(unused_imports)]
-pub use backup::{
-    __cmd__export_data, __cmd__import_data, __tauri_command_name_export_data,
-    __tauri_command_name_import_data,
-};
-
-pub use disabled_pages::{clear_disabled_pages, list_disabled_pages, set_page_disabled};
-// 迁移期兼容：保持 main.rs 注册路径不变；这些包装宏由 tauri-macros 生成。
-#[doc(hidden)]
-#[allow(unused_imports)]
-pub use disabled_pages::{
-    __cmd__clear_disabled_pages, __cmd__list_disabled_pages, __cmd__set_page_disabled,
-    __tauri_command_name_clear_disabled_pages, __tauri_command_name_list_disabled_pages,
-    __tauri_command_name_set_page_disabled,
-};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
