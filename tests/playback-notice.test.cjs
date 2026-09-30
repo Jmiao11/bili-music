@@ -31,7 +31,7 @@ function setup() {
   });
   vm.runInContext(sourceSlice(source, "ui/main.js", "function clearPlaybackNotice()", "function shuffled("), context);
   vm.runInContext(pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
-    + sourceSlice(source, "ui/main.js", "function playNext(", "function recordSearchHistoryFireAndForget("), context);
+    + sourceSlice(source, "ui/main.js", "function playNext(", "searchForm.addEventListener("), context);
   return { context, notice, timers, events, styles };
 }
 
