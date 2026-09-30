@@ -6,11 +6,13 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const searchSource = readFileSync(path.join(__dirname, "../ui/search.js"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
-const helpers = sourceSlice(source, "ui/main.js", "const LAST_SEARCH_KEY", "const homeState");
-const requestFns = sourceSlice(source, "ui/main.js", "function currentSearchRequest(", "async function runSearch(");
-const runSearchFn = sourceSlice(source, "ui/main.js", "async function runSearch(", "searchForm.addEventListener(");
+const helpers = sourceSlice(source, "ui/main.js", "const LAST_SEARCH_KEY", "const homeState")
+  + sourceSlice(searchSource, "ui/search.js", "function readLastSearchKeyword(", "function setSearchResults(");
+const requestFns = sourceSlice(searchSource, "ui/search.js", "function currentSearchRequest(", "async function runSearch(");
+const runSearchFn = sourceSlice(searchSource, "ui/search.js", "async function runSearch(", "async function loadMoreSearchResults(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
 assert.ok(runSearchFn.includes("restored"));
 

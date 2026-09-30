@@ -259,7 +259,7 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
   vm.runInContext("Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   state.history.push({ index: 0, cid: 1, pageLevel: true });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function playPrevious()", "function recordSearchHistoryFireAndForget("), context);
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function playPrevious()", "searchForm.addEventListener("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   assert.equal(context.randomPageRound.playedCount, 2);

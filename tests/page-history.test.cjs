@@ -74,7 +74,7 @@ test("previous accepts numeric history, restores a page in place, and forwards m
     playQueueIndex: (index, options) => calls.push({ index, options }),
     updatePlayerPagesButton() {}, loadCurrentTrack: (options) => calls.push({ load: options }),
   });
-  vm.runInContext(slice("function playPrevious()", "function recordSearchHistoryFireAndForget("), context);
+  vm.runInContext(slice("function playPrevious()", "searchForm.addEventListener("), context);
   context.playPrevious();
   assert.equal(calls[0].index, 2);
   assert.equal(calls[0].options.historyCid, null);
@@ -139,7 +139,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
   });
   vm.runInContext(pageSelection + slice("function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
-    + slice("function playPrevious()", "function recordSearchHistoryFireAndForget(")
+    + slice("function playPrevious()", "searchForm.addEventListener(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')
     + slice('shuffleToggle.addEventListener("change"', 'favoriteCurrentButton?.addEventListener("click"'), context);
   handlers.shuffle();
