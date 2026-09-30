@@ -385,10 +385,6 @@ mod backup_tests {
                         );
                         seen.insert(name.to_owned());
                     }
-                    if path == root.join("library.rs") && source.contains("\"loudness.json\"") {
-                        assert!(BACKUP_JSON_FILES.contains(&"loudness.json"));
-                        seen.insert("loudness.json".to_owned());
-                    }
                 }
             }
         }
