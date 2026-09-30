@@ -703,8 +703,15 @@ fn reorder_playlist_item_at(
 
 #[tauri::command]
 pub fn record_search_history(keyword: String) -> Result<(), String> {
+    record_search_history_at(search_history_path, keyword)
+}
+
+fn record_search_history_at(
+    path: impl Fn() -> Result<PathBuf, String>,
+    keyword: String,
+) -> Result<(), String> {
     let keyword = normalize_search_keyword(&keyword)?;
-    let mut file = read_search_history()?;
+    let mut file = read_search_history_at(&path()?)?;
     let key = keyword.to_lowercase();
 
     if let Some(index) = file
@@ -731,19 +738,26 @@ pub fn record_search_history(keyword: String) -> Result<(), String> {
     if file.items.len() > MAX_SEARCH_HISTORY_ITEMS {
         file.items.truncate(MAX_SEARCH_HISTORY_ITEMS);
     }
-    write_json_atomic(&search_history_path()?, &file)
+    write_json_atomic(&path()?, &file)
 }
-
 #[tauri::command]
 pub fn get_search_history() -> Result<Vec<SearchHistoryItem>, String> {
-    Ok(read_search_history()?.items)
+    get_search_history_at(search_history_path)
 }
 
+fn get_search_history_at(
+    path: impl Fn() -> Result<PathBuf, String>,
+) -> Result<Vec<SearchHistoryItem>, String> {
+    Ok(read_search_history_at(&path()?)?.items)
+}
 #[tauri::command]
 pub fn clear_search_history() -> Result<(), String> {
-    write_json_atomic(&search_history_path()?, &SearchHistoryFile::default())
+    clear_search_history_at(search_history_path)
 }
 
+fn clear_search_history_at(path: impl Fn() -> Result<PathBuf, String>) -> Result<(), String> {
+    write_json_atomic(&path()?, &SearchHistoryFile::default())
+}
 #[tauri::command]
 pub fn get_shortcuts() -> Result<Shortcuts, String> {
     let shortcuts: Shortcuts = read_json_or_default(&shortcuts_path()?)?;
@@ -767,7 +781,14 @@ pub fn set_shortcuts(app: tauri::AppHandle, bindings: ShortcutBindings) -> Resul
 
 #[tauri::command]
 pub fn record_play(track: TrackSnapshotInput) -> Result<(), String> {
-    let mut file = read_play_history()?;
+    record_play_at(play_history_path, track)
+}
+
+fn record_play_at(
+    path: impl Fn() -> Result<PathBuf, String>,
+    track: TrackSnapshotInput,
+) -> Result<(), String> {
+    let mut file = read_play_history_at(&path()?)?;
     let bvid = normalize_bvid(&track.bvid)?;
     let now = now_string();
 
@@ -803,14 +824,18 @@ pub fn record_play(track: TrackSnapshotInput) -> Result<(), String> {
     if file.items.len() > MAX_PLAY_HISTORY_ITEMS {
         file.items.truncate(MAX_PLAY_HISTORY_ITEMS);
     }
-    write_json_atomic(&play_history_path()?, &file)
+    write_json_atomic(&path()?, &file)
 }
-
 #[tauri::command]
 pub fn get_play_history() -> Result<Vec<PlayHistoryItem>, String> {
-    Ok(read_play_history()?.items)
+    get_play_history_at(play_history_path)
 }
 
+fn get_play_history_at(
+    path: impl Fn() -> Result<PathBuf, String>,
+) -> Result<Vec<PlayHistoryItem>, String> {
+    Ok(read_play_history_at(&path()?)?.items)
+}
 #[tauri::command]
 pub fn get_playback_state() -> Result<Option<PlaybackState>, String> {
     get_playback_state_from(&playback_state_path()?)
@@ -834,12 +859,12 @@ fn read_playlists() -> Result<PlaylistsFile, String> {
     read_json_or_default(&playlists_path()?)
 }
 
-fn read_search_history() -> Result<SearchHistoryFile, String> {
-    read_json_or_default(&search_history_path()?)
+fn read_search_history_at(path: &Path) -> Result<SearchHistoryFile, String> {
+    read_json_or_default(path)
 }
 
-fn read_play_history() -> Result<PlayHistoryFile, String> {
-    read_json_or_default(&play_history_path()?)
+fn read_play_history_at(path: &Path) -> Result<PlayHistoryFile, String> {
+    read_json_or_default(path)
 }
 
 pub(crate) fn read_json_or_default<T>(path: &Path) -> Result<T, String>
