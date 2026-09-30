@@ -1,0 +1,12 @@
+[
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/0123456789abcdef0123456789abcdef", "token": "0123456789abcdef0123456789abcdef" },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/ABCDEF0123456789ABCDEF0123456789", "token": "ABCDEF0123456789ABCDEF0123456789" },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12346/audio/0123456789abcdef0123456789abcdef", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://localhost:12345/audio/0123456789abcdef0123456789abcdef", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "https://127.0.0.1:12345/audio/0123456789abcdef0123456789abcdef", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/0123456789abcdef0123456789abcdeg", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/short", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/0123456789abcdef0123456789abcdef?x=1", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345/audio/0123456789abcdef0123456789abcdef/", "token": null },
+  { "base": "http://127.0.0.1:12345", "url": "http://127.0.0.1:12345.evil/audio/0123456789abcdef0123456789abcdef", "token": null }
+]

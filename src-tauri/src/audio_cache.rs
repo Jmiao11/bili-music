@@ -621,6 +621,23 @@ mod tests {
 
     static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
+    #[test]
+    fn proxy_tokens_match_shared_fixture() {
+        let cases: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/proxy-token.json")).unwrap();
+        for case in cases {
+            assert_eq!(
+                proxy_token(
+                    case["url"].as_str().unwrap(),
+                    case["base"].as_str().unwrap()
+                )
+                .ok(),
+                case["token"].as_str(),
+                "{case}"
+            );
+        }
+    }
+
     struct TempDir(PathBuf);
 
     impl TempDir {

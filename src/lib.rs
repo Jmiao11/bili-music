@@ -513,9 +513,11 @@ fn parse_session_cookie(line: &str) -> Option<(u64, &str)> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(debug_assertions)]
+    use super::{bilibili_cookie_path, yt_dlp_path};
     use super::{
-        bilibili_cookie_path, is_valid_bv_id, platform_user_data_base, run_yt_dlp_cancellable,
-        user_data_base, validate_cookie_contents, yt_dlp_path, AudioError,
+        is_valid_bv_id, platform_user_data_base, run_yt_dlp_cancellable, user_data_base,
+        validate_cookie_contents, AudioError,
     };
     use std::ffi::OsString;
     use std::path::PathBuf;
@@ -530,6 +532,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_runtime_paths_do_not_depend_on_working_directory() {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         assert_eq!(bilibili_cookie_path(), project_root.join("cookies.txt"));
