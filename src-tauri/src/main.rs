@@ -51,9 +51,8 @@ use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use library::{
     add_to_playlist, clear_track_unavailable, create_playlist, delete_playlist, get_shortcuts,
-    is_favorite, list_favorites, list_playlists, list_unavailable_tracks, mark_track_unavailable,
-    purge_unavailable_tracks, remove_from_playlist, rename_playlist, reorder_favorite,
-    reorder_playlist, reorder_playlist_item, set_shortcuts, toggle_favorite,
+    list_playlists, list_unavailable_tracks, mark_track_unavailable, purge_unavailable_tracks,
+    remove_from_playlist, rename_playlist, reorder_playlist, reorder_playlist_item, set_shortcuts,
 };
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
@@ -1071,10 +1070,10 @@ fn main() {
             open_bilibili_video,
             choose_background_image,
             load_background_image,
-            list_favorites,
-            is_favorite,
-            toggle_favorite,
-            reorder_favorite,
+            library::favorites::list_favorites,
+            library::favorites::is_favorite,
+            library::favorites::toggle_favorite,
+            library::favorites::reorder_favorite,
             list_playlists,
             create_playlist,
             rename_playlist,
