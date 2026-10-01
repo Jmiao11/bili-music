@@ -91,23 +91,8 @@ fn clear_playback_state_at(path: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::{test_path, track};
     use super::*;
-    use uuid::Uuid;
-
-    fn test_path() -> PathBuf {
-        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
-    }
-
-    fn track(title: &str) -> TrackSnapshot {
-        TrackSnapshot {
-            bvid: "BV1rW4y1Q7o7".to_owned(),
-            title: title.to_owned(),
-            uploader: "UP".to_owned(),
-            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
-            duration_seconds: 120,
-            added_at: "1".to_owned(),
-        }
-    }
 
     #[test]
     fn clamps_out_of_bounds_playback_index() {

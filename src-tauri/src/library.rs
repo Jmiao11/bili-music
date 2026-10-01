@@ -481,17 +481,12 @@ fn now_string() -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::test_support::test_path;
     use super::{
         normalize_bvid, normalize_playlist_name, read_json_or_default, validate_shortcut_bindings,
         write_json_atomic, ShortcutBindings, Shortcuts, VERSION,
     };
     use std::fs;
-    use std::path::PathBuf;
-    use uuid::Uuid;
-
-    fn test_path() -> PathBuf {
-        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
-    }
 
     #[test]
     fn shortcuts_default_to_all_unbound() {
@@ -576,5 +571,27 @@ mod tests {
     fn validates_playlist_name() {
         assert_eq!(normalize_playlist_name("  晚风  ").unwrap(), "晚风");
         assert!(normalize_playlist_name(" ").is_err());
+    }
+}
+
+#[cfg(test)]
+pub(super) mod test_support {
+    use super::TrackSnapshot;
+    use std::path::PathBuf;
+    use uuid::Uuid;
+
+    pub(super) fn test_path() -> PathBuf {
+        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
+    }
+
+    pub(super) fn track(title: &str) -> TrackSnapshot {
+        TrackSnapshot {
+            bvid: "BV1rW4y1Q7o7".to_owned(),
+            title: title.to_owned(),
+            uploader: "UP".to_owned(),
+            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
+            duration_seconds: 120,
+            added_at: "1".to_owned(),
+        }
     }
 }

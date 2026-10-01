@@ -239,19 +239,9 @@ pub(super) fn playlists_path() -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::track;
     use super::*;
     use std::fs;
-
-    fn track(title: &str) -> TrackSnapshot {
-        TrackSnapshot {
-            bvid: "BV1rW4y1Q7o7".to_owned(),
-            title: title.to_owned(),
-            uploader: "UP".to_owned(),
-            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
-            duration_seconds: 120,
-            added_at: "1".to_owned(),
-        }
-    }
 
     fn reorder_fixture() -> (PathBuf, PlaylistsFile) {
         let file = PlaylistsFile {
