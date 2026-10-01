@@ -3,6 +3,7 @@
 mod ai;
 mod appearance;
 mod audio_cache;
+mod commands;
 mod fav_import;
 mod guest_playurl;
 mod library;
@@ -37,7 +38,6 @@ use std::io::SeekFrom;
 use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
 use std::path::{Path as FilePath, PathBuf};
 use std::pin::Pin;
-use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
@@ -49,10 +49,10 @@ use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 use appearance::{choose_background_image, load_background_image};
-use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
+use guest_playurl::{GuestPageHint, GuestPlayurlClient};
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
-use search::{SearchClient, SearchVideo};
+use search::SearchClient;
 use state::{AppState, StreamSource};
 
 const STREAM_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
@@ -326,44 +326,6 @@ async fn prepare_audio(
 }
 
 #[tauri::command]
-async fn get_video_pages(
-    state: tauri::State<'_, AppState>,
-    bv_id: String,
-) -> Result<Vec<VideoPage>, String> {
-    state.guest.pages(&bv_id).await
-}
-
-#[tauri::command]
-async fn get_video_meta(
-    state: tauri::State<'_, AppState>,
-    bvid: String,
-) -> Result<lyrics::VideoMeta, String> {
-    let cookie_header = state.guest.guest_cookie_header().await?;
-    let meta = lyrics::fetch_video_meta(&bvid, &cookie_header).await?;
-    if meta.videos >= 1 {
-        let videos = meta.videos;
-        let pages = meta.pages.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            if let Err(error) = lyrics::cache_video_pages(bvid, videos, pages) {
-                eprintln!("[video-pages-cache] write failed: {error}");
-            }
-        });
-    }
-    Ok(meta)
-}
-
-#[tauri::command]
-async fn resolve_lyrics(
-    state: tauri::State<'_, AppState>,
-    bvid: String,
-    cid: i64,
-    force: Option<bool>,
-) -> Result<lyrics::ResolveOutcome, String> {
-    let cookie_header = state.guest.guest_cookie_header().await?;
-    lyrics::resolve_lyrics(&bvid, cid, force.unwrap_or(false), &cookie_header).await
-}
-
-#[tauri::command]
 fn cancel_prepare_audio(state: tauri::State<'_, AppState>) {
     state.resolver.cancel_current();
 }
@@ -383,59 +345,6 @@ async fn debug_register_local_stream(
         },
     );
     Ok(format!("{}/audio/{token}", state.proxy_base_url))
-}
-
-#[tauri::command]
-async fn search_videos(
-    state: tauri::State<'_, AppState>,
-    keyword: String,
-    page: Option<u32>,
-    tids: Option<u32>,
-    order: Option<String>,
-    sort_mode: Option<String>,
-    rerank: bool,
-) -> Result<Vec<SearchVideo>, String> {
-    state
-        .search
-        .search_videos_page(
-            &keyword,
-            page.unwrap_or(1),
-            tids,
-            order.as_deref(),
-            sort_mode.as_deref(),
-            rerank,
-        )
-        .await
-}
-
-#[tauri::command]
-async fn get_music_ranking(
-    state: tauri::State<'_, AppState>,
-    force_refresh: Option<bool>,
-) -> Result<Vec<RankingTrack>, String> {
-    if !force_refresh.unwrap_or(false) {
-        if let Some(cached) = state.ranking_cache.read().await.as_ref().cloned() {
-            return Ok(cached);
-        }
-    }
-
-    let tracks = state.ranking.music_ranking().await?;
-    *state.ranking_cache.write().await = Some(tracks.clone());
-    Ok(tracks)
-}
-
-#[tauri::command]
-async fn get_recommendations(
-    state: tauri::State<'_, AppState>,
-    user_hint: Option<String>,
-) -> Result<Vec<SearchVideo>, String> {
-    let recommendations = ai::generate_recommendations(&state.search, user_hint).await?;
-    if !recommendations.is_empty() {
-        if let Err(error) = ai::save_recommendations(&recommendations) {
-            eprintln!("failed to save recommendations: {error}");
-        }
-    }
-    Ok(recommendations)
 }
 
 async fn resolve_with_ytdlp(
@@ -464,83 +373,6 @@ async fn resolve_with_ytdlp(
             Err(message)
         }
     }
-}
-
-#[tauri::command]
-async fn get_stream_source(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    Ok(state.stream_source.read().await.as_str().to_owned())
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct YtDlpAvailability {
-    available: bool,
-    path: String,
-}
-
-#[tauri::command]
-fn get_yt_dlp_availability() -> Result<YtDlpAvailability, String> {
-    let path = yt_dlp_path();
-    Ok(YtDlpAvailability {
-        available: path.is_file(),
-        path: path.display().to_string(),
-    })
-}
-
-#[tauri::command]
-async fn set_stream_source(
-    state: tauri::State<'_, AppState>,
-    source: String,
-) -> Result<String, String> {
-    let parsed = StreamSource::parse(&source)?;
-    *state.stream_source.write().await = parsed;
-    eprintln!("[runtime] stream source switched to {}", parsed.as_str());
-    Ok(parsed.as_str().to_owned())
-}
-
-#[tauri::command]
-fn open_bilibili_video(bv_id: String) -> Result<(), String> {
-    let bv_id = bv_id.trim();
-    if !is_valid_bvid(bv_id) {
-        return Err(format!("invalid Bilibili BV ID: {bv_id}"));
-    }
-
-    let url = format!("https://www.bilibili.com/video/{bv_id}");
-    open_url_in_system_browser(&url)
-}
-
-fn is_valid_bvid(value: &str) -> bool {
-    value.len() == 12
-        && value.starts_with("BV")
-        && value[2..].bytes().all(|byte| byte.is_ascii_alphanumeric())
-}
-
-fn open_url_in_system_browser(url: &str) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    let mut command = {
-        let mut command = Command::new("rundll32.exe");
-        command.args(["url.dll,FileProtocolHandler", url]);
-        command
-    };
-
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = Command::new("open");
-        command.arg(url);
-        command
-    };
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut command = {
-        let mut command = Command::new("xdg-open");
-        command.arg(url);
-        command
-    };
-
-    command
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("failed to open system browser: {error}"))
 }
 
 async fn proxy_audio(
@@ -1012,19 +844,19 @@ fn main() {
             audio_cache::clear_audio_cache,
             library::loudness_store::get_track_loudness,
             library::loudness_store::clear_loudness_data,
-            get_video_pages,
-            get_video_meta,
+            commands::media::get_video_pages,
+            commands::media::get_video_meta,
             lyrics::get_cached_video_pages,
             lyrics::clear_video_pages_cache,
             cancel_prepare_audio,
             #[cfg(debug_assertions)]
             debug_register_local_stream,
-            search_videos,
-            get_music_ranking,
-            get_stream_source,
-            get_yt_dlp_availability,
-            set_stream_source,
-            open_bilibili_video,
+            commands::discovery::search_videos,
+            commands::discovery::get_music_ranking,
+            commands::runtime::get_stream_source,
+            commands::runtime::get_yt_dlp_availability,
+            commands::runtime::set_stream_source,
+            commands::runtime::open_bilibili_video,
             choose_background_image,
             load_background_image,
             library::favorites::list_favorites,
@@ -1065,11 +897,11 @@ fn main() {
             lyrics::clear_lyrics_cache,
             lyrics::get_lyrics_offset,
             lyrics::set_lyrics_offset,
-            resolve_lyrics,
+            commands::media::resolve_lyrics,
             lyrics::get_lyrics_binding,
             lyrics::set_lyrics_binding,
             lyrics::clear_lyrics_binding,
-            get_recommendations,
+            commands::discovery::get_recommendations,
             library::backup::export_data,
             library::backup::import_data
         ])
@@ -1080,7 +912,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_valid_bvid, local_content_range, parse_local_range, proxy_local_audio, validate_cdn_url,
+        local_content_range, parse_local_range, proxy_local_audio, validate_cdn_url,
         LocalByteRange, ResolveCoordinator, StreamEntry, StreamLocation,
     };
     use axum::http::{header, Method, StatusCode};
@@ -1501,14 +1333,5 @@ let unicode = '中'; // 中文 comment
         coordinator.cancel_current();
         assert!(!coordinator.is_current(second.id));
         assert!(second.cancellation.load(Ordering::Acquire));
-    }
-
-    #[test]
-    fn validates_bvid_before_opening_external_browser() {
-        assert!(is_valid_bvid("BV1faGX65EgK"));
-        assert!(!is_valid_bvid("av123"));
-        assert!(!is_valid_bvid(
-            "https://www.bilibili.com/video/BV1faGX65EgK"
-        ));
     }
 }
