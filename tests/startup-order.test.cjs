@@ -1,3 +1,4 @@
+const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 const assert = require("node:assert/strict");
 const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { readdirSync } = require("node:fs");
@@ -8,7 +9,7 @@ const { maskCommentsAndStrings, topLevelStatements } = require("./helpers/js-sou
 const ui = path.join(__dirname, "../ui");
 const read = (file) => readFileSync(path.join(ui, file), "utf8");
 const html = read("index.html");
-const scripts = [...html.matchAll(/<script\b[^>]*\ssrc=["']\.\/([^"']+)["'][^>]*>/g)].map((match) => match[1]);
+const { files: scripts } = collectBusinessScripts(ui);
 
 test("initial trackchange listener files retain their positions around main", () => {
   const listeners = scripts.filter((file) => {

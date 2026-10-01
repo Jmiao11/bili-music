@@ -1,3 +1,4 @@
+const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 // Known omissions: destructuring assignments ([a, x] = arr) and for (x of/in …)
 // writes are outside this ratchet. After ESM conversion, read-only imports are
 // additionally enforced by the JavaScript engine.
@@ -43,7 +44,7 @@ test("another file's top-level let permits a new binding but rejects bare assign
 test("each main-window top-level let is written only by its declaration file", () => {
   const ui = path.join(__dirname, "../ui");
   const html = readFileSync(path.join(ui, "index.html"), "utf8");
-  const scripts = [...html.matchAll(/<script\b[^>]*\ssrc=["']\.\/([^"']+)["'][^>]*>/g)].map((match) => match[1]);
+  const { files: scripts } = collectBusinessScripts(ui);
   const sources = new Map(scripts.map((file) => [file, readFileSync(path.join(ui, file), "utf8")]));
   const owners = new Map();
   for (const [file, source] of sources) {
