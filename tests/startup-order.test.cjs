@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
-const { readFileSync, readdirSync } = require("node:fs");
+const { readFileSync } = require("./helpers/module-syntax.cjs");
+const { readdirSync } = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 const { maskCommentsAndStrings, topLevelStatements } = require("./helpers/js-source.cjs");
