@@ -169,6 +169,14 @@ mod tests {
     use super::{MAX_IMAGE_EDGE, MAX_SOURCE_BYTES};
 
     #[test]
+    fn background_root_matches_library_root_without_creating_it() {
+        let expected = crate::library::library_root().unwrap();
+        let existed = expected.exists();
+        assert_eq!(super::background_store_dir().unwrap(), expected);
+        assert_eq!(expected.exists(), existed);
+    }
+
+    #[test]
     fn background_limits_remain_bounded_for_webview_use() {
         assert_eq!(MAX_IMAGE_EDGE, 2560);
         assert_eq!(MAX_SOURCE_BYTES, 50 * 1024 * 1024);

@@ -1191,6 +1191,72 @@ mod tests {
         }
     }
 
+    #[test]
+    fn ai_root_matches_library_root_without_creating_it() {
+        let expected = crate::library::library_root().unwrap();
+        let existed = expected.exists();
+        assert_eq!(super::data_root().unwrap(), expected);
+        assert_eq!(expected.exists(), existed);
+    }
+
+    #[test]
+    fn existing_ai_migration_target_short_circuits_without_exe_access() {
+        let target = unique_temp_path("migration-existing");
+        fs::write(&target, b"existing").unwrap();
+        assert!(target.exists());
+        super::migrate_legacy_ai_config(&target).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"existing");
+        fs::remove_file(target).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_ai_migration_prefers_data_and_removes_empty_directory() {
+        let root = unique_temp_path("migration-priority");
+        let exe = root.join("exe");
+        let data = exe.join("data");
+        fs::create_dir_all(&data).unwrap();
+        fs::write(data.join(AI_CONFIG_FILE), b"data").unwrap();
+        fs::write(exe.join(AI_CONFIG_FILE), b"exe").unwrap();
+        let target = root.join("destination").join(AI_CONFIG_FILE);
+        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        assert_eq!(fs::read(target).unwrap(), b"data");
+        assert_eq!(fs::read(exe.join(AI_CONFIG_FILE)).unwrap(), b"exe");
+        assert!(!data.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_ai_migration_keeps_other_files_and_nonempty_directory() {
+        let root = unique_temp_path("migration-only-config");
+        let exe = root.join("exe");
+        let data = exe.join("data");
+        fs::create_dir_all(&data).unwrap();
+        fs::write(data.join(AI_CONFIG_FILE), b"data").unwrap();
+        fs::write(data.join("favorites.json"), b"keep").unwrap();
+        fs::write(exe.join("favorites.json"), b"keep-exe").unwrap();
+        let target = root.join("destination").join(AI_CONFIG_FILE);
+        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        assert_eq!(fs::read(target).unwrap(), b"data");
+        assert_eq!(fs::read(data.join("favorites.json")).unwrap(), b"keep");
+        assert_eq!(fs::read(exe.join("favorites.json")).unwrap(), b"keep-exe");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_ai_migration_falls_back_to_exe_directory() {
+        let root = unique_temp_path("migration-fallback");
+        let exe = root.join("exe");
+        fs::create_dir_all(&exe).unwrap();
+        fs::write(exe.join(AI_CONFIG_FILE), b"exe").unwrap();
+        let target = root.join("destination").join(AI_CONFIG_FILE);
+        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        assert_eq!(fs::read(target).unwrap(), b"exe");
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn unique_temp_path(label: &str) -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
