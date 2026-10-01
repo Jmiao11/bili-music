@@ -12,6 +12,7 @@ mod mini_player;
 mod ranking;
 mod search;
 mod shortcuts;
+mod state;
 mod taskbar;
 mod wbi;
 
@@ -52,6 +53,7 @@ use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
+use state::{AppState, StreamSource};
 
 const STREAM_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
 const AUDIO_RESOLUTION_CANCELLED: &str = "audio resolution was cancelled";
@@ -72,46 +74,6 @@ struct StreamEntry {
 enum StreamLocation {
     Remote(reqwest::Url),
     Local(PathBuf),
-}
-
-struct AppState {
-    loudness_busy: Arc<AtomicBool>,
-    cache_busy: Arc<AtomicBool>,
-    proxy: ProxyState,
-    proxy_base_url: String,
-    search: SearchClient,
-    ranking: RankingClient,
-    favorite_import: fav_import::FavoriteImportClient,
-    ranking_cache: Arc<RwLock<Option<Vec<RankingTrack>>>>,
-    guest: Arc<GuestPlayurlClient>,
-    resolver: Arc<ResolveCoordinator>,
-    stream_source: Arc<RwLock<StreamSource>>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum StreamSource {
-    Auto,
-    YtDlp,
-    Guest,
-}
-
-impl StreamSource {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Auto => "auto",
-            Self::YtDlp => "yt-dlp",
-            Self::Guest => "guest",
-        }
-    }
-
-    fn parse(value: &str) -> Result<Self, String> {
-        match value {
-            "auto" => Ok(Self::Auto),
-            "yt-dlp" => Ok(Self::YtDlp),
-            "guest" => Ok(Self::Guest),
-            _ => Err(format!("unsupported stream source: {value}")),
-        }
-    }
 }
 
 #[derive(Default)]
