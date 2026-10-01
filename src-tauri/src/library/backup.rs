@@ -472,6 +472,43 @@ mod backup_tests {
     }
 
     #[test]
+    fn export_excludes_real_ai_writer_residuals_and_all_secret_bytes() {
+        let root = temp_root();
+        let target = root.join(AI_CONFIG_FILE);
+        let secret = "sk-backup-residual-test-secret";
+        let config = serde_json::json!({"version": 1, "api_key": secret, "model": "test"});
+        fs::write(&target, serde_json::to_vec(&config).unwrap()).unwrap();
+        let tmp = crate::library::atomic_temp_path(&target);
+        let bak = crate::library::atomic_backup_path(&target);
+        let legacy_backup = root.join("ai-config.json.backup");
+        for path in [&tmp, &bak, &legacy_backup] {
+            fs::write(path, secret).unwrap();
+        }
+        let output = export_data_at(&root, Cursor::new(Vec::new())).unwrap();
+        let mut archive = zip::ZipArchive::new(output).unwrap();
+        for path in [&tmp, &bak, &legacy_backup] {
+            assert!(archive
+                .by_name(path.file_name().unwrap().to_str().unwrap())
+                .is_err());
+        }
+        let exported: serde_json::Value =
+            serde_json::from_reader(archive.by_name(AI_CONFIG_FILE).unwrap()).unwrap();
+        assert!(exported.get("api_key").is_none());
+        for index in 0..archive.len() {
+            let mut contents = Vec::new();
+            archive
+                .by_index(index)
+                .unwrap()
+                .read_to_end(&mut contents)
+                .unwrap();
+            assert!(!contents
+                .windows(secret.len())
+                .any(|bytes| bytes == secret.as_bytes()));
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn export_ai_config_removes_key_and_keeps_other_fields() {
         let root = temp_root();
         fs::write(
