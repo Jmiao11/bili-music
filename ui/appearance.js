@@ -1169,6 +1169,7 @@ function initializeLoudnessNormalization() {
   applyLoudnessNormalization(enabled, false);
 }
 
+function startAppearance() {
 for (const item of navItems) {
   item.addEventListener("click", () => setActiveView(item.dataset.view));
 }
@@ -1468,3 +1469,6 @@ void restoreBackground().finally(() => {
   } catch {}
 });
 restoreStreamSource();
+}
+
+startAppearance();
