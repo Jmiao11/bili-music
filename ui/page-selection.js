@@ -35,3 +35,5 @@ function normalizeShuffleCollectionPrefs(rawOrder, rawLimit) {
   };
 }
 
+
+export { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, normalizeShuffleCollectionPrefs, pickRandomEnabledPageIndex, takeRandomPageFromRound };

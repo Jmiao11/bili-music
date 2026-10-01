@@ -5,13 +5,13 @@ const path = require("node:path");
 const { test } = require("node:test");
 const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 
-test("the current union equals the original classic script list", () => {
+test("the entry and union retain the approved complete business file set", () => {
   const root = path.join(__dirname, "../ui");
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const original = [...html.matchAll(/<script\b[^>]*\ssrc=["']\.\/([^"']+)["'][^>]*>/g)].map((match) => match[1]);
+  const original = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
   const graph = collectBusinessScripts(root);
-  assert.deepEqual(graph.entries, []);
-  assert.deepEqual(graph.files, original);
+  assert.deepEqual(graph.entries, ["app.js"]);
+  assert.deepEqual(new Set(graph.files), new Set([...original, "page-selection.js", "track-utils.js", "home.js", "library-ui.js", "video-pages.js", "search.js", "main.js", "appearance.js"]));
 });
 
 test("static module traversal collects recursive cyclic dependencies once", (t) => {

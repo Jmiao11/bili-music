@@ -1,3 +1,7 @@
+import { displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, normalizeTrack } from "./track-utils.js";
+import { bindTrackActivation } from "./video-pages.js";
+import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, appendSearchResults, createTrackActions, invoke, musicTabs, playSearchResult, result, searchButton, searchKeyword, searchResults, searchState, searchStatus, sortModeTabs, updateQueueUi } from "./main.js";
+
 function readLastSearchKeyword() {
   try {
     const value = localStorage.getItem(LAST_SEARCH_KEY);
@@ -261,3 +265,5 @@ async function loadMoreSearchResults() {
   }
 }
 
+
+export { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs };

@@ -1,3 +1,6 @@
+import { normalizeTrack } from "./track-utils.js";
+import { createTrackRow, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeState, homeSubtitle, homeTitle, invoke, playListItem, refreshRankingButton, updateQueueUi } from "./main.js";
+
 function renderRankingSkeleton() {
   if (!homeRankingList) {
     return;
@@ -322,3 +325,5 @@ function setHomeMode(mode) {
   }
 }
 
+
+export { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi };
