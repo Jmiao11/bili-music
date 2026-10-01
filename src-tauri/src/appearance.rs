@@ -10,11 +10,7 @@ use std::path::{Path, PathBuf};
 const MAX_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_IMAGE_EDGE: u32 = 2560;
 const JPEG_QUALITY: u8 = 86;
-#[cfg(not(debug_assertions))]
-const APP_DATA_DIR: &str = "bili-music";
 const BACKGROUND_FILE_STEM: &str = "background";
-#[cfg(debug_assertions)]
-const DEV_DATA_DIR: &str = ".local-data";
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -148,20 +144,7 @@ fn remove_existing_background_copies(dir: &Path) -> Result<(), String> {
 }
 
 fn background_store_dir() -> Result<PathBuf, String> {
-    #[cfg(debug_assertions)]
-    {
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let project_root = manifest_dir
-            .parent()
-            .map(Path::to_path_buf)
-            .ok_or_else(|| "无法从 CARGO_MANIFEST_DIR 定位项目根目录。".to_owned())?;
-        return Ok(project_root.join(DEV_DATA_DIR));
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        Ok(bilibili_music_core::user_data_base()?.join(APP_DATA_DIR))
-    }
+    crate::library::library_root()
 }
 
 #[cfg(test)]

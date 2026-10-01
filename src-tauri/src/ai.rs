@@ -22,13 +22,9 @@ const RECOMMENDATIONS_FILE: &str = "recommendations.json";
 const RECOMMENDATIONS_VERSION: u32 = 1;
 #[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
-#[cfg(not(debug_assertions))]
-const APP_DATA_DIR: &str = "bili-music";
 const AI_TIMEOUT_SHORT_SECS: u64 = 15;
 const AI_TIMEOUT_LONG_SECS: u64 = 90;
 const AI_CONNECT_TIMEOUT_SECS: u64 = 10;
-#[cfg(debug_assertions)]
-const DEV_DATA_DIR: &str = ".local-data";
 
 /// 用户可选的 AI 接口规范。存储值用完整规范名（kebab-case），
 /// 后续 OpenAI / Anthropic 推出新规范时新增枚举值即可。
@@ -759,20 +755,7 @@ fn ai_config_path() -> Result<PathBuf, String> {
 }
 
 fn data_root() -> Result<PathBuf, String> {
-    #[cfg(debug_assertions)]
-    {
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let project_root = manifest_dir
-            .parent()
-            .map(Path::to_path_buf)
-            .ok_or_else(|| "无法从 CARGO_MANIFEST_DIR 定位项目根目录。".to_owned())?;
-        return Ok(project_root.join(DEV_DATA_DIR));
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        Ok(bilibili_music_core::user_data_base()?.join(APP_DATA_DIR))
-    }
+    crate::library::library_root()
 }
 
 fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
