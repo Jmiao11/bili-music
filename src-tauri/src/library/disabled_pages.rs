@@ -101,14 +101,9 @@ pub fn list_disabled_pages() -> Result<BTreeMap<String, BTreeSet<u64>>, String> 
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::test_path;
     use super::*;
     use std::fs;
-    use std::path::PathBuf;
-    use uuid::Uuid;
-
-    fn test_path() -> PathBuf {
-        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
-    }
 
     #[test]
     fn disabled_pages_set_is_idempotent_and_single_restore_removes_empty_video() {

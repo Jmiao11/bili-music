@@ -178,15 +178,11 @@ pub fn purge_unavailable_tracks() -> Result<PurgeResult, String> {
 #[cfg(test)]
 mod tests {
     use super::super::playlists::Playlist;
+    use super::super::test_support::{test_path, track};
     use super::super::TrackSnapshot;
     use super::*;
     use std::fs;
-    use std::path::PathBuf;
     use uuid::Uuid;
-
-    fn test_path() -> PathBuf {
-        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
-    }
 
     #[test]
     fn unavailable_tracks_mark_update_list_and_clear() {
@@ -364,17 +360,6 @@ mod tests {
         assert_eq!(result.removed_playlist_items, 0);
         assert_eq!(result.cleared_marks, 0);
         assert!(!root.exists());
-    }
-
-    fn track(title: &str) -> TrackSnapshot {
-        TrackSnapshot {
-            bvid: "BV1rW4y1Q7o7".to_owned(),
-            title: title.to_owned(),
-            uploader: "UP".to_owned(),
-            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
-            duration_seconds: 120,
-            added_at: "1".to_owned(),
-        }
     }
 
     fn track_with_bvid(bvid: &str, title: &str) -> TrackSnapshot {

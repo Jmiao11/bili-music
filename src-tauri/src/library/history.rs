@@ -215,13 +215,9 @@ fn play_history_path() -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::test_path;
     use super::*;
     use std::fs;
-    use uuid::Uuid;
-
-    fn test_path() -> PathBuf {
-        std::env::temp_dir().join(format!("bili-music-playback-{}.json", Uuid::new_v4()))
-    }
 
     fn history_input(bvid: &str) -> TrackSnapshotInput {
         TrackSnapshotInput {

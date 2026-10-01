@@ -113,6 +113,7 @@ pub(super) fn favorites_path() -> Result<PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::super::read_json_or_default;
+    use super::super::test_support::track;
     use super::{
         reorder_favorite_at, toggle_favorite_at, FavoritesFile, TrackSnapshot, TrackSnapshotInput,
         VERSION,
@@ -120,17 +121,6 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use uuid::Uuid;
-
-    fn track(title: &str) -> TrackSnapshot {
-        TrackSnapshot {
-            bvid: "BV1rW4y1Q7o7".to_owned(),
-            title: title.to_owned(),
-            uploader: "UP".to_owned(),
-            thumbnail_url: "https://example.com/cover.jpg".to_owned(),
-            duration_seconds: 120,
-            added_at: "1".to_owned(),
-        }
-    }
 
     fn favorite_fixture() -> (PathBuf, FavoritesFile) {
         let file = FavoritesFile {
