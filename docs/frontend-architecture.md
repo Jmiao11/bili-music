@@ -1,40 +1,92 @@
 # 前端结构
 
-主窗口在 `ui/index.html` 中按下表顺序加载普通 `<script>`。这些脚本共享全局词法作用域，顶层 `const`、`let`、`class` 不能重名；`ui/mini.html` 和 `ui/mini.js` 属于独立窗口。
+## 入口与文件边界
 
-| 顺序 | 脚本 | 职责 |
+主窗口入口是 `ui/app.js`，由 `index.html` 中唯一的模块标签加载。入口先导入 main，再导入 startAppearance，最后调用一次 startAppearance。
+
+| 文件 | 形式 | 职责 |
 | --- | --- | --- |
-| 1 | `sidebar.js` | 侧栏展开、收起和宽度持久化。 |
-| 2 | `window-controls.js` | 无边框窗口的拖动、缩放与窗口按钮。 |
-| 3 | `dynamic-background.js` | 从封面提取背景配色并响应曲目变化。 |
-| 4 | `page-selection.js` | 分 P 可用性、随机轮次和合集偏好值的计算。 |
-| 5 | `track-utils.js` | 曲目规范化、格式化及播放错误分类。 |
-| 6 | `home.js` | 首页榜单和 AI 推荐的加载、渲染。 |
-| 7 | `library-ui.js` | 收藏、歌单视图、拖拽和共用浮层操作。 |
-| 8 | `video-pages.js` | 分 P 元数据查询调度、角标与弹窗。 |
-| 9 | `search.js` | 搜索执行、结果渲染、分区与分页。 |
-| 10 | `main.js` | 播放状态机、队列、恢复、搜索及资料库状态定义，DOM 引用、事件绑定和启动调用。 |
-| 11 | `appearance.js` | 设置、主题、音量、响度及沉浸页交互。 |
-| 12 | `lyrics.js` | 歌词显示与曲目变化响应。 |
-| 13 | `mascot.js` | 桌面吉祥物及 `window.BiliMascot` API。 |
-| 14 | `mini-player-host.js` | 主窗口与独立迷你窗之间的状态和命令同步。 |
+| sidebar.js | head 普通脚本 | 侧栏及宽度持久化。 |
+| window-controls.js | 普通 defer 脚本 | 窗口按钮、拖动与缩放。 |
+| dynamic-background.js | 普通 defer 脚本 | 封面配色与曲目事件响应。 |
+| app.js | ES Module 入口 | 固定的 main → startAppearance 启动顺序。 |
+| page-selection.js | ES Module | 分 P 可用性、随机轮次、合集偏好计算。 |
+| track-utils.js | ES Module | 曲目规范化、格式化、播放错误分类。 |
+| home.js | ES Module | 榜单和 AI 推荐的加载、渲染。 |
+| library-ui.js | ES Module | 收藏、歌单、拖拽及共用浮层。 |
+| video-pages.js | ES Module | 分 P 查询调度、角标与弹窗。 |
+| search.js | ES Module | 搜索、结果渲染、分区与分页。 |
+| main.js | ES Module | 播放状态机、队列、恢复、共享状态和 DOM 引用、事件绑定与启动。 |
+| appearance.js | ES Module | 设置、主题、音量、响度、沉浸页；启动语句位于 startAppearance。 |
+| lyrics.js | 普通 defer 脚本 | 歌词显示及事件交互。 |
+| mascot.js | 普通 defer 脚本 | 吉祥物及 window.BiliMascot API。 |
+| mini-player-host.js | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
 
-## 拆分约束
+head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html、mini.js 不属于主窗口模块图。
 
-从 `main.js` 拆出的六个文件只放顶层函数声明及其注释。原有状态定义、DOM 引用、事件监听和启动调用留在 `main.js`；`sidebar.js`、`appearance.js` 等原有脚本仍管理各自的局部状态与监听器。写入 `playerState` 字段的函数只能放在 `main.js`。`tests/architecture-guards.test.cjs` 检查脚本顺序、重名、拆分文件内容，以及四个状态对象的写入文件白名单。
+## 模块依赖图
 
-新增从 `main.js` 拆出的文件时：
+箭头方向为“使用方 → 提供方”，下表列出全部直接导入边。page-selection、track-utils 没有导入边。
 
-1. 在 `ui/index.html` 的 `main.js` 之前加入普通 `<script src>`，保持所需加载顺序。
-2. 同步更新架构守卫中的脚本顺序清单和“只含函数声明”清单；若新文件确需写入 `searchState`、`libraryState` 或 `homeState`，核对后更新相应的文件白名单。写入 `playerState` 的函数仍留在 `main.js`。
-3. 调整受影响测试的源码加载代码，并运行 `node --test`；函数体和既有断言不因搬迁而改变。
+| 使用方 | 提供方 |
+| --- | --- |
+| app | main、appearance |
+| home | track-utils、main |
+| library-ui | track-utils、main |
+| video-pages | page-selection、track-utils、main |
+| search | track-utils、video-pages、main |
+| main | page-selection、track-utils、home、library-ui、video-pages、search、appearance |
+| appearance | library-ui、main |
 
-测试通过 `tests/helpers/source-slice.cjs` 按标记从源码切片；标记缺失或终点不在起点之后会直接报错。若同一个源码变量还供断言检查其它文本，应保留它读取原文件，另设变量读取新文件供切片使用。
+main 与 home、library-ui、video-pages、search、appearance 存在循环导入。领域函数在运行时访问 main 的状态、DOM；声明求值阶段不能读取尚未初始化的循环绑定。appearance 声明先于 main 主体求值，初始化只保存现有 DOM 引用、Tauri invoke 引用和字面量，不调用 main 的业务函数。
 
-## 跨文件依赖
+## 执行顺序与事件
 
-拆分文件先于 `main.js` 加载，但函数只在调用时访问 `main.js` 中的状态、DOM 引用和函数；`main.js` 反过来调用这些已声明的函数。普通脚本没有 import/export，移动声明时须检查全局重名和调用时机。
+1. head 平台内联脚本、sidebar。
+2. window-controls、dynamic-background。
+3. app 模块图：依赖模块完成声明初始化；main 执行事件绑定和启动，最后一条可执行语句派发首个 bilibili-music-trackchange。
+4. app 调用一次 startAppearance，安装外观监听并执行原有初始化。
+5. lyrics、mascot、mini-player-host；随后 DOMContentLoaded。
 
-`main.js` 与 `appearance.js` 有双向依赖：`main.js` 调用后加载的 `appearance.js` 中的 `setNormalizationGain`、`isLoudnessNormalizationEnabled`；`appearance.js` 调用先加载的 `main.js` 中的 `currentPlayableTrack`、`readShuffleCollectionPrefs`、`showLoudnessNormalizationDialog`、`refreshTrackLoudness`。`appearance.js` 还在交互时通过 `window.BiliMascot` 调用后加载的吉祥物脚本。
+首个 bilibili-music-trackchange 派发时，dynamic-background 与 main 的监听已安装；appearance、mascot、mini-player-host 的监听尚未安装。appearance 的监听安装阶段与转换前一致。
 
-事件也连接这些脚本：`main.js` 发出 `bilibili-music-trackchange`，供 `appearance.js`、`dynamic-background.js` 和 `mini-player-host.js` 使用；`main.js` 发出 `bili-track-changed`，供 `lyrics.js` 使用；`library-ui.js` 发出 `bilibili-music-favorite-change`，供迷你窗宿主同步。`appearance.js` 发出 `bilibili-music-viewchange` 和 `ai-config-updated`，由 `main.js` 响应；迷你窗宿主还监听播放提示变化事件。
+main 仍派发 `bili-track-changed` 供歌词使用；收藏变动使用 `bilibili-music-favorite-change`；appearance 派发 `bilibili-music-viewchange` 和 `ai-config-updated`，由 main 响应。事件名、派发位置和业务函数体未因转换改变。
+
+普通脚本看不到模块顶层名字。跨边界只使用 window 上的显式接口或事件，例如 `window.recordPlaybackDiag`、`window.BiliLyrics`、`window.BiliMascot`；不把模块状态隐式挂到 window。
+
+## 导入与导出规则
+
+- 文件头只使用命名导入与带 .js 后缀的相对路径：`import { a, b } from "./x.js";`。
+- 导入语句按原加载顺序排列：page-selection、track-utils、home、library-ui、video-pages、search、main、appearance；花括号内名字按字母序。
+- 文件尾只有一条 `export { a, b };`，按字母序，只导出被其它模块实际导入的名字。
+- 不使用 default export、内联 export function/const、namespace import、动态 import 或别名 as。
+- app 是固定入口例外：先副作用导入 main，再命名导入 startAppearance，然后调用；不增加其它入口逻辑。
+- 六个领域文件只放声明及注释、允许的归属标量和模块语法；appearance 顶层只放声明，启动语句留在 startAppearance；main 保留播放核心和启动。
+
+## 新增模块的步骤
+
+1. 确认职责和绑定归属；播放核心、状态写入白名单、命令接口遵守既有约束，不顺手改动。
+2. 使用方添加显式静态导入，提供方尾部列表只导出实际使用项；app 启动顺序保持固定。
+3. 检查普通脚本边界、循环依赖和声明初始化：不依赖隐式全局，不在求值阶段读取未初始化绑定，不移动会改变取值的初始化。
+4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入仍只允许 main。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
+5. 调整测试加载方式而非业务断言；运行六项验证与原生模块加载测试，再做真实 WebView 手测。
+
+## 测试与守卫
+
+| 文件或 helper | 保护范围 |
+| --- | --- |
+| helpers/module-syntax.cjs、module-syntax.test.cjs | 允许语法的剥离、行号保持；普通脚本逐字不变，模块非语法行逐字不变；禁止形式抛错。 |
+| helpers/module-graph.cjs、module-graph.test.cjs | HTML 普通脚本与静态模块图的并集；递归、循环、缺失文件。 |
+| architecture-guards.test.cjs | 标签顺序、全项目词法与函数重名、拆分文件声明规则、状态写入白名单。 |
+| scalar-ownership.test.cjs | 顶层 let 的裸赋值归属；排除声明初始化及属性访问。 |
+| module-imports.test.cjs、helpers/module-bindings.cjs | 缺失与无用导入、提供方、导入顺序、排序、只导出实际使用项；显式局部同名清单。 |
+| appearance-startup.test.cjs | appearance 只有声明，app 固定三条语句。 |
+| startup-order.test.cjs | 首个事件接收阶段、main 最后可执行语句、生命周期清单、内联脚本与 defer。 |
+| native-module-loader.test.cjs | 原生链接错误、TDZ、事件记录、调用次数及临时环境清理。 |
+| real-module-startup.test.cjs | 真实 8 个模块与 app 的链接和求值；首个 trackchange 一次、由 main 派发；appearance 随后安装监听且只启动一次。 |
+
+守卫是针对当前源码的棘轮，不是完整 AST 分析。局部同名清单须人工核对；scalar 守卫不检测解构赋值或 for…of/in 写入，只读 import 另由引擎约束。
+
+按标记切片仍使用 helpers/source-slice.cjs，标记缺失或终点反向会报错。模块语法先剥离并保持行号；转换的逐字核验只允许排除头尾连续空行、尾部保留一个换行，内部切片必须完全相同。appearance 删除的启动调用仅属于本次迁移的核验例外，既有业务执行测试未整文件执行 appearance。
+
+原生加载工具只在系统临时目录写入 type=module 的 package.json 和源码副本。通用 DOM、存储、定时器和 Tauri 桩不代表真实 WebView；IPC 返回永不 settle 的 Promise。工具验证链接、同步求值、TDZ 和启动事件顺序，不能验证真实网络、布局、媒体、IPC 完成回调或平台协议加载细节。Windows WebView2 与 macOS WKWebView 的这些行为仍需手测。
