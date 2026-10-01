@@ -1,3 +1,6 @@
+import { displayThumbnailUrl, escapeText, normalizeTrack, snapshotForLibrary, unavailableTrackLocations } from "./track-utils.js";
+import { createTrackRow, currentPlayableTrack, favoriteDragState, favoritesCount, favoritesList, favoritesStatus, invoke, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, libraryState, playListItem, playerState, playlistActions, playlistDragState, playlistListDragState, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, status, updateFavoriteButtons } from "./main.js";
+
 let favoriteImportVersion = 0;
 
 function renderLibraryViews() {
@@ -914,3 +917,5 @@ function selectedPlaylist() {
   );
 }
 
+
+export { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights };

@@ -1,3 +1,11 @@
+import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, normalizeShuffleCollectionPrefs, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
+import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.js";
+import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
+import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
+import { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
+import { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs } from "./search.js";
+import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
+
 const { invoke } = window.__TAURI__.core;
 
 const LOOP_MODES = [
@@ -1923,3 +1931,5 @@ loadLibrary();
 updateMusicTabs();
 updateQueueUi();
 emitCurrentTrackChanged();
+
+export { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, SEARCH_PAGE_SIZE, activePageCountBvids, appendSearchResults, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, failedPageCountBvids, favoriteDragState, favoritesCount, favoritesList, favoritesStatus, hasMultipleCurrentPages, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeState, homeSubtitle, homeTitle, invoke, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, libraryState, musicTabs, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, pendingPageCacheTargets, playCurrentVideoPage, playListItem, playSearchResult, playerPagesButton, playerState, playlistActions, playlistDragState, playlistListDragState, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, queuedPageCountBvids, readShuffleCollectionPrefs, refreshRankingButton, refreshTrackLoudness, result, searchButton, searchKeyword, searchResults, searchState, searchStatus, showLoudnessNormalizationDialog, sortModeTabs, status, updateFavoriteButtons, updateQueueUi, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };

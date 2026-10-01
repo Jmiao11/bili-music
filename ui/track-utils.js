@@ -211,3 +211,5 @@ function escapeText(value) {
     .replaceAll('"', "&quot;");
 }
 
+
+export { buildDisplayTrack, displayThumbnailUrl, escapeText, formatDuration, formatPlayCount, formatPubdate, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, snapshotForLibrary, unavailableTrackLocations, unavailableTrackReason };

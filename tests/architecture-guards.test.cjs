@@ -13,14 +13,7 @@ const expected = [
   "sidebar.js",
   "window-controls.js",
   "dynamic-background.js",
-  "page-selection.js",
-  "track-utils.js",
-  "home.js",
-  "library-ui.js",
-  "video-pages.js",
-  "search.js",
-  "main.js",
-  "appearance.js",
+  "app.js",
   "lyrics.js",
   "mascot.js",
   "mini-player-host.js",
@@ -28,7 +21,8 @@ const expected = [
 const splitScripts = ["page-selection.js", "track-utils.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
-  assert.deepEqual(scripts, expected);
+  const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
+  assert.deepEqual(tags, expected);
   for (const script of scripts) assert.ok(existsSync(path.join(ui, script)), `missing ${script}`);
 });
 

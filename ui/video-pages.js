@@ -1,3 +1,7 @@
+import { isPageDisabled } from "./page-selection.js";
+import { formatDuration, normalizeVideoPage } from "./track-utils.js";
+import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, activePageCountBvids, currentPlayableTrack, currentVideoPage, failedPageCountBvids, hasMultipleCurrentPages, invoke, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, pendingPageCacheTargets, playCurrentVideoPage, playerPagesButton, playerState, queuedPageCountBvids, status, videoPageCounts, videoPagesByBvid, visiblePageCountTargets } from "./main.js";
+
 let pageCountObserver;
 let activePageCountLookups = 0;
 let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
@@ -481,3 +485,5 @@ function keepFocusInPagesModal(event) {
   }
 }
 
+
+export { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext };
