@@ -1,4 +1,13 @@
 const MINI_POSITION_KEY = "bilibili-music.mini-player-position";
+const MINI_AUDIO_REQUEST_EVENT = "mini-player-audio-sample-request";
+const MINI_AUDIO_FRAME_EVENT = "mini-player-audio-frame";
+const MINI_AUDIO_FRAME_INTERVAL_MS = 1000 / 15;
+const MINI_AUDIO_FRAME_TIMEOUT_MS = 1000;
+const MINI_REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const MINI_AUDIO_SCALE_RANGE = 0.075;
+const MINI_AUDIO_BRIGHTNESS_RANGE = 0.075;
+const MINI_AUDIO_GLOW_RANGE_PX = 28;
+const MINI_AUDIO_GLOW_ALPHA_RANGE = 0.38;
 function readMiniPosition(storage) {
   try {
     const parsed = JSON.parse(storage.getItem(MINI_POSITION_KEY));
@@ -72,9 +81,101 @@ function createMiniPlayerController({
   let lastPosition = null;
   let lastTitle = null;
   let titleScrollFrame = null;
-  
+  let audioSampleFrame = null;
+  let audioFrameTimeout = null;
+  let audioRequestInFlight = false;
+  let audioRequestWarned = false;
+  let lastAudioRequestAt = Number.NEGATIVE_INFINITY;
+  let lastAudioFrameSequence = -1;
+  let playbackActive = false;
+  let isPlaying = false;
+  const reducedMotion = window?.matchMedia?.(MINI_REDUCED_MOTION_QUERY) ?? null;
+
   function warn(message, error) {
     console?.warn?.(message, error);
+  }
+
+  function clampUnit(value) {
+    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+  }
+
+  function applyAudioFrame(frame = {}) {
+    frame ??= {};
+    const sequence = Number(frame.sequence);
+    if (!Number.isFinite(sequence) || sequence <= lastAudioFrameSequence) {
+      return;
+    }
+    lastAudioFrameSequence = sequence;
+    const pulse = frame.active ? clampUnit(Number(frame.pulse)) : 0;
+    const glow = frame.active ? clampUnit(Number(frame.glow)) : 0;
+    cover.style.setProperty("--audio-cover-scale", (1 + pulse * MINI_AUDIO_SCALE_RANGE).toFixed(4));
+    cover.style.setProperty("--audio-cover-brightness", (1 + glow * MINI_AUDIO_BRIGHTNESS_RANGE).toFixed(4));
+    cover.style.setProperty("--audio-cover-glow-size", `${(glow * MINI_AUDIO_GLOW_RANGE_PX).toFixed(2)}px`);
+    cover.style.setProperty("--audio-cover-glow-alpha", (glow * MINI_AUDIO_GLOW_ALPHA_RANGE).toFixed(4));
+    if (audioFrameTimeout != null) {
+      window.clearTimeout?.(audioFrameTimeout);
+    }
+    audioFrameTimeout = window.setTimeout?.(() => {
+      audioFrameTimeout = null;
+      resetAudioFrame();
+    }, MINI_AUDIO_FRAME_TIMEOUT_MS) ?? null;
+  }
+
+  function resetAudioFrame() {
+    cover.style.setProperty("--audio-cover-scale", "1.0000");
+    cover.style.setProperty("--audio-cover-brightness", "1.0000");
+    cover.style.setProperty("--audio-cover-glow-size", "0.00px");
+    cover.style.setProperty("--audio-cover-glow-alpha", "0.0000");
+  }
+
+  function stopAudioSampling() {
+    if (audioSampleFrame != null) {
+      window.cancelAnimationFrame?.(audioSampleFrame);
+      audioSampleFrame = null;
+    }
+    if (audioFrameTimeout != null) {
+      window.clearTimeout?.(audioFrameTimeout);
+      audioFrameTimeout = null;
+    }
+  }
+
+  function requestAudioSample(timestamp) {
+    audioSampleFrame = null;
+    if (disposed || !isPlaying || typeof window?.requestAnimationFrame !== "function") {
+      return;
+    }
+    if (!audioRequestInFlight && timestamp - lastAudioRequestAt >= MINI_AUDIO_FRAME_INTERVAL_MS) {
+      lastAudioRequestAt = timestamp;
+      audioRequestInFlight = true;
+      Promise.resolve(eventApi.emit(MINI_AUDIO_REQUEST_EVENT))
+        .catch((error) => {
+          if (!audioRequestWarned) {
+            audioRequestWarned = true;
+            warn("mini player audio sample request failed:", error);
+          }
+        })
+        .finally(() => {
+          audioRequestInFlight = false;
+        });
+    }
+    audioSampleFrame = window.requestAnimationFrame(requestAudioSample);
+  }
+
+  function updateAudioSampling(playing) {
+    playbackActive = Boolean(playing);
+    isPlaying = playbackActive && !reducedMotion?.matches;
+    if (!isPlaying) {
+      stopAudioSampling();
+      resetAudioFrame();
+      return;
+    }
+    if (audioSampleFrame == null && typeof window?.requestAnimationFrame === "function") {
+      audioSampleFrame = window.requestAnimationFrame(requestAudioSample);
+    }
+  }
+
+  function handleMotionPreferenceChange() {
+    updateAudioSampling(playbackActive);
   }
 
   function clearTitleScroll() {
@@ -163,6 +264,7 @@ function createMiniPlayerController({
     favoriteButton.disabled = !hasCurrent;
     playPauseButton.dataset.playing = String(Boolean(state.isPlaying));
     playPauseButton.setAttribute("aria-label", state.isPlaying ? "暂停" : "播放");
+    updateAudioSampling(state.isPlaying);
     favoriteButton.classList.toggle("is-favorited", Boolean(state.isFavorited));
     favoriteButton.setAttribute("aria-label", state.isFavorited ? "取消收藏" : "收藏");
     root.dataset.theme = state.theme === "light" ? "light" : "dark";
@@ -274,11 +376,14 @@ function createMiniPlayerController({
   }
 
   async function start() {
+    reducedMotion?.addEventListener?.("change", handleMotionPreferenceChange);
     window?.addEventListener?.("beforeunload", () => {
       disposed = true;
       if (titleScrollFrame != null) {
         window.cancelAnimationFrame?.(titleScrollFrame);
       }
+      stopAudioSampling();
+      reducedMotion?.removeEventListener?.("change", handleMotionPreferenceChange);
       if (lastPosition) {
         persistPosition(lastPosition);
       }
@@ -286,7 +391,10 @@ function createMiniPlayerController({
         Promise.resolve(unlisten()).catch(() => {});
       }
     }, { once: true });
-    await listen("mini-player-state", ({ payload }) => render(payload));
+    await Promise.all([
+      listen("mini-player-state", ({ payload }) => render(payload)),
+      listen(MINI_AUDIO_FRAME_EVENT, ({ payload }) => applyAudioFrame(payload)),
+    ]);
     bindControls();
     await restorePosition();
     try {
