@@ -1,13 +1,14 @@
+const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 const assert = require("node:assert/strict");
-const { readFileSync, existsSync } = require("node:fs");
+const { readFileSync } = require("./helpers/module-syntax.cjs");
+const { existsSync } = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
 const ui = path.join(__dirname, "../ui");
 const html = readFileSync(path.join(ui, "index.html"), "utf8");
-const scripts = [...html.matchAll(/<script\b[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>/gi)]
-  .map((match) => match[1].replace(/^\.\//, ""));
+const { files: scripts } = collectBusinessScripts(ui);
 const expected = [
   "sidebar.js",
   "window-controls.js",

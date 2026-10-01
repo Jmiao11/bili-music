@@ -1,3 +1,4 @@
+const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { sourceSlice } = require("./helpers/source-slice.cjs");
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -5,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const decision = sourceSlice(source, "ui/main.js", "function shouldRecoverAudio(", "function waitForRecoveryMetadata(");
 const metadataWait = sourceSlice(source, "ui/main.js", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
 const recoverCurrentAudio = sourceSlice(source, "ui/main.js", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");

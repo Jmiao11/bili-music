@@ -1,7 +1,7 @@
 const { sourceSlice } = require("./helpers/source-slice.cjs");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { readFileSync } = require('node:fs');
+const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { join } = require('node:path');
 const vm = require('node:vm');
 
