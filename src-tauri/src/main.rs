@@ -49,7 +49,6 @@ use uuid::Uuid;
 
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
-use library::{get_shortcuts, set_shortcuts};
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
@@ -1081,8 +1080,8 @@ fn main() {
             library::history::record_search_history,
             library::history::get_search_history,
             library::history::clear_search_history,
-            get_shortcuts,
-            set_shortcuts,
+            library::shortcut_config::get_shortcuts,
+            library::shortcut_config::set_shortcuts,
             library::history::record_play,
             library::history::get_play_history,
             library::playback_state::get_playback_state,
