@@ -3,12 +3,38 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 const { moduleDeclarations, stripModuleSyntax, readFileSync } = require("./helpers/module-syntax.cjs");
+const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 
 test("module syntax stripping preserves ordinary source bytes", () => {
   const ui = path.join(__dirname, "../ui");
-  for (const name of fs.readdirSync(ui).filter((name) => name.endsWith(".js"))) {
+  for (const name of collectBusinessScripts(ui).ordinary) {
     const file = path.join(ui, name);
     assert.equal(readFileSync(file, "utf8"), fs.readFileSync(file, "utf8"), name);
+  }
+});
+
+function assertModuleLines(source) {
+  const original = source.split(/\r?\n/);
+  const stripped = stripModuleSyntax(source).split(/\r?\n/);
+  const syntaxLines = new Set();
+  for (const declaration of moduleDeclarations(source)) {
+    const first = source.slice(0, declaration.start).split("\n").length - 1;
+    const last = source.slice(0, declaration.end).split("\n").length - 1;
+    for (let line = first; line <= last; line++) syntaxLines.add(line);
+  }
+  assert.equal(stripped.length, original.length);
+  for (let line = 0; line < original.length; line++) {
+    assert.equal(stripped[line], syntaxLines.has(line) ? "" : original[line], `line ${line + 1}`);
+  }
+}
+
+test("module stripping changes only declaration lines and preserves every other line", () => {
+  const source = 'import { a } from "./a.js";\n\nconst text = "import is text";\nimport {\n  b,\n  c\n} from "./b.js";\n// unchanged comment\nconst x = a + b + c;\n\nexport {\n x\n};\n';
+  assertModuleLines(source);
+  assertModuleLines(source.replace(/\n/g, "\r\n"));
+  const ui = path.join(__dirname, "../ui");
+  for (const name of collectBusinessScripts(ui).modules) {
+    assertModuleLines(fs.readFileSync(path.join(ui, name), "utf8"));
   }
 });
 
