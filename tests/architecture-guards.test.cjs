@@ -55,6 +55,15 @@ test("split scripts contain only top-level function declarations and comments", 
     while (position < source.length) {
       const trivia = /^(?:\s+|\/\/[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)/.exec(source.slice(position));
       if (trivia) { position += trivia[0].length; continue; }
+      const allowedLets = {
+        "library-ui.js": new Set(["favoriteImportVersion"]),
+        "video-pages.js": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
+      };
+      const declaration = /^let\s+([\w$]+)(?:\s*=\s*(?:-?\d+(?:\.\d+)?|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|true|false|null|Number\.NEGATIVE_INFINITY))?\s*;/.exec(source.slice(position));
+      if (declaration && allowedLets[script]?.has(declaration[1])) {
+        position += declaration[0].length;
+        continue;
+      }
       assert.match(source.slice(position), /^(?:async\s+)?function\s+[\w$]+\s*\(/, `${script}: unexpected top-level code`);
       let end = source.indexOf("}", position);
       for (; end >= 0; end = source.indexOf("}", end + 1)) {

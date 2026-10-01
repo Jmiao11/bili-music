@@ -117,16 +117,7 @@ const visiblePageCountTargets = new Map();
 const pageCountLookupQueue = [];
 const PAGE_COUNT_LOOKUP_CONCURRENCY = 2;
 const PAGE_COUNT_LOOKUP_INTERVAL_MS = 300;
-let pageCountObserver;
-let activePageCountLookups = 0;
-let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
-let pageCountLookupTimer = null;
 const pendingPageCacheTargets = new Map();
-let pageCacheLookupScheduled = false;
-let pagesMetaRequestVersion = 0;
-let pagesMetaStatusBeforeLoad = null;
-let pagesModalContext = null;
-let pagesModalReturnFocus = null;
 let pendingPastedBvPages = null;
 
 const searchForm = document.querySelector("#search-form");
@@ -802,7 +793,6 @@ function playCurrentVideoPage(page) {
   loadCurrentTrack({ keepPage: true });
 }
 
-let favoriteImportVersion = 0;
 
 function showLoudnessNormalizationDialog() {
   openLibraryModal("响度归一化", "");
