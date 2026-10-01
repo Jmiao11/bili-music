@@ -309,6 +309,81 @@ mod tests {
     use super::{normalize_bvid, normalize_playlist_name};
 
     #[test]
+    fn library_root_matches_expected_path_without_creating_it() {
+        #[cfg(debug_assertions)]
+        let expected = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join(".local-data");
+        #[cfg(not(debug_assertions))]
+        let expected = bilibili_music_core::user_data_base()
+            .unwrap()
+            .join("bili-music");
+        let existed = expected.exists();
+        assert_eq!(super::library_root().unwrap(), expected);
+        assert_eq!(expected.exists(), existed);
+    }
+
+    #[test]
+    fn existing_migration_target_short_circuits_without_exe_or_project_access() {
+        let target = super::test_support::test_path();
+        std::fs::write(&target, b"existing").unwrap();
+        assert!(target.exists());
+        super::migrate_legacy_file(super::FAVORITES_FILE, &target).unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"existing");
+        std::fs::remove_file(target).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_migration_prefers_data_and_removes_empty_directory() {
+        let root = super::test_support::test_path();
+        let exe = root.join("exe");
+        let data = exe.join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join(super::FAVORITES_FILE), b"data").unwrap();
+        std::fs::write(exe.join(super::FAVORITES_FILE), b"exe").unwrap();
+        let target = root.join("destination").join(super::FAVORITES_FILE);
+        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), b"data");
+        assert_eq!(
+            std::fs::read(exe.join(super::FAVORITES_FILE)).unwrap(),
+            b"exe"
+        );
+        assert!(!data.exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_migration_keeps_nonempty_directory() {
+        let root = super::test_support::test_path();
+        let exe = root.join("exe");
+        let data = exe.join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join(super::FAVORITES_FILE), b"data").unwrap();
+        std::fs::write(data.join("unrelated.json"), b"keep").unwrap();
+        let target = root.join("destination").join(super::FAVORITES_FILE);
+        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), b"data");
+        assert_eq!(std::fs::read(data.join("unrelated.json")).unwrap(), b"keep");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_migration_falls_back_to_exe_directory() {
+        let root = super::test_support::test_path();
+        let exe = root.join("exe");
+        std::fs::create_dir_all(&exe).unwrap();
+        std::fs::write(exe.join(super::FAVORITES_FILE), b"exe").unwrap();
+        let target = root.join("destination").join(super::FAVORITES_FILE);
+        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        assert_eq!(std::fs::read(target).unwrap(), b"exe");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn validates_bvid_shape() {
         assert!(normalize_bvid("BV1rW4y1Q7o7").is_ok());
         assert!(normalize_bvid("av123").is_err());
