@@ -707,8 +707,8 @@ fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), Strin
     fs::create_dir_all(parent)
         .map_err(|error| format!("无法创建 AI 配置目录 {}：{error}", parent.display()))?;
 
-    let tmp = target.with_extension(format!("json.tmp-{}-{}", std::process::id(), now_millis()));
-    let backup = target.with_extension(format!("json.bak-{}-{}", std::process::id(), now_millis()));
+    let tmp = crate::library::atomic_temp_path(target);
+    let backup = crate::library::atomic_backup_path(target);
     let json = serde_json::to_string_pretty(value)
         .map_err(|error| format!("AI 配置序列化失败：{error}"))?;
 
@@ -863,13 +863,6 @@ fn ai_request_error(is_timeout: bool, message: &str, context: &str, api_key: &st
     } else {
         format!("{context}{}", safe_error(message, api_key))
     }
-}
-
-fn now_millis() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
 }
 
 fn now_unix_seconds() -> i64 {

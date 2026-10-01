@@ -90,6 +90,14 @@ pub(crate) trait Versioned {
     }
 }
 
+pub(super) fn atomic_temp_path(target: &Path) -> PathBuf {
+    target.with_extension(format!("json.tmp-{}-{}", std::process::id(), now_millis()))
+}
+
+pub(super) fn atomic_backup_path(target: &Path) -> PathBuf {
+    target.with_extension(format!("json.bak-{}-{}", std::process::id(), now_millis()))
+}
+
 pub(crate) fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
     let parent = target
         .parent()
@@ -97,8 +105,8 @@ pub(crate) fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Resul
     fs::create_dir_all(parent)
         .map_err(|error| format!("无法创建资料库目录 {}：{error}", parent.display()))?;
 
-    let tmp = target.with_extension(format!("json.tmp-{}-{}", std::process::id(), now_millis()));
-    let backup = target.with_extension(format!("json.bak-{}-{}", std::process::id(), now_millis()));
+    let tmp = atomic_temp_path(target);
+    let backup = atomic_backup_path(target);
     let json = serde_json::to_string_pretty(value)
         .map_err(|error| format!("资料库序列化失败：{error}"))?;
 
