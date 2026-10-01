@@ -243,6 +243,15 @@ fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
             .parent()
             .map(Path::to_path_buf)
             .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
+        migrate_legacy_file_at(file_name, target, &exe_parent)?;
+    }
+    let _ = (file_name, target);
+    Ok(())
+}
+
+#[cfg(not(debug_assertions))]
+fn migrate_legacy_file_at(file_name: &str, target: &Path, exe_parent: &Path) -> Result<(), String> {
+    {
         let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
         let legacy = [legacy_data_dir.join(file_name), exe_parent.join(file_name)]
             .into_iter()
@@ -281,7 +290,6 @@ fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
             })?;
         }
     }
-    let _ = (file_name, target);
     Ok(())
 }
 
