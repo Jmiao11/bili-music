@@ -787,6 +787,15 @@ fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
             .parent()
             .map(Path::to_path_buf)
             .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
+        migrate_legacy_ai_config_at(target, &exe_parent)?;
+    }
+    let _ = target;
+    Ok(())
+}
+
+#[cfg(not(debug_assertions))]
+fn migrate_legacy_ai_config_at(target: &Path, exe_parent: &Path) -> Result<(), String> {
+    {
         let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
         let legacy = [
             legacy_data_dir.join(AI_CONFIG_FILE),
@@ -828,7 +837,6 @@ fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
             })?;
         }
     }
-    let _ = target;
     Ok(())
 }
 
