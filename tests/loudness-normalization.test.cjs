@@ -10,7 +10,7 @@ const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const code = sourceSlice(main, "ui/main.js", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
   + sourceSlice(appearance, "ui/appearance.js", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
-  + sourceSlice(appearance, "ui/appearance.js", "function applyVolume(", "for (const item of navItems)", {"endAfterStart":true})
+  + sourceSlice(appearance, "ui/appearance.js", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
   + sourceSlice(main, "ui/main.js", "function emitCurrentTrackChanged(", "function clearPlaybackNotice(")
   + sourceSlice(main, "ui/main.js", "let loudnessQueryVersion", "async function loadCurrentTrack(");
 const cacheListenerCode = sourceSlice(main, "ui/main.js", "audio.addEventListener(\"timeupdate\"", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", {"startLastBefore":"if (cacheRequestedForCurrentTrack) return;","includeEnd":true});

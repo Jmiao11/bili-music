@@ -1,3 +1,13 @@
+let pageCountObserver;
+let activePageCountLookups = 0;
+let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
+let pageCountLookupTimer = null;
+let pageCacheLookupScheduled = false;
+let pagesMetaRequestVersion = 0;
+let pagesMetaStatusBeforeLoad = null;
+let pagesModalContext = null;
+let pagesModalReturnFocus = null;
+
 function updatePageCountBadge(playButton, bvid) {
   playButton.dataset.bvid = bvid;
   const count = videoPageCounts.get(bvid);

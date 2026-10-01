@@ -52,3 +52,18 @@ test("the sole inline script stays in head and only sets the platform", () => {
   assert.ok(inline[0].index < html.indexOf("</head>"));
   assert.equal(inline[0][2].trim(), 'document.documentElement.dataset.platform = /Macintosh|Mac OS X/i.test(navigator.userAgent) ? "macos" : "windows";');
 });
+
+test("all bottom body scripts defer while head sidebar stays immediate", () => {
+  const head = html.slice(0, html.indexOf("</head>"));
+  const sidebar = /<script\b([^>]*\bsrc=["']\.\/sidebar\.js["'][^>]*)>/.exec(head);
+  assert.ok(sidebar);
+  assert.doesNotMatch(sidebar[1], /\bdefer\b/);
+  const body = html.slice(html.indexOf("<body"));
+  const bodyScripts = [...body.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
+  assert.equal(bodyScripts.length, 13);
+  for (const script of bodyScripts) {
+    assert.match(script[1], /\bsrc=["']\.\/[^"']+\.js["']/);
+    assert.match(script[1], /\bdefer\b/);
+    assert.equal(script[2].trim(), "");
+  }
+});

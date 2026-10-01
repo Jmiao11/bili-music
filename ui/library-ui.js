@@ -1,3 +1,5 @@
+let favoriteImportVersion = 0;
+
 function renderLibraryViews() {
   renderFavorites();
   renderPlaylists();
