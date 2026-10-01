@@ -49,10 +49,7 @@ use uuid::Uuid;
 
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::{GuestPageHint, GuestPlayurlClient, VideoPage};
-use library::{
-    clear_track_unavailable, get_shortcuts, list_unavailable_tracks, mark_track_unavailable,
-    purge_unavailable_tracks, set_shortcuts,
-};
+use library::{get_shortcuts, set_shortcuts};
 use loudness::analyze_track_loudness;
 use ranking::{RankingClient, RankingTrack};
 use search::{SearchClient, SearchVideo};
@@ -1091,13 +1088,13 @@ fn main() {
             library::playback_state::get_playback_state,
             library::playback_state::save_playback_state,
             library::playback_state::clear_playback_state,
-            mark_track_unavailable,
-            clear_track_unavailable,
-            list_unavailable_tracks,
+            library::unavailable::mark_track_unavailable,
+            library::unavailable::clear_track_unavailable,
+            library::unavailable::list_unavailable_tracks,
             library::disabled_pages::list_disabled_pages,
             library::disabled_pages::set_page_disabled,
             library::disabled_pages::clear_disabled_pages,
-            purge_unavailable_tracks,
+            library::unavailable::purge_unavailable_tracks,
             ai::get_ai_config,
             ai::set_ai_config,
             ai::test_ai_connection,
