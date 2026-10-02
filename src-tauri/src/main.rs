@@ -682,3 +682,434 @@ let unicode = '中'; // 中文 comment
 
 #[cfg(test)]
 mod contract_tests;
+
+#[cfg(test)]
+mod prepare_tests {
+    use super::*;
+    use crate::audio_cache::{AudioCacheMetadata, CachedAudio};
+    use crate::{fav_import::FavoriteImportClient, ranking::RankingClient, search::SearchClient};
+    use bilibili_music_core::StreamAudioInfo;
+    use std::sync::atomic::Ordering;
+    use std::sync::Mutex;
+    use tokio::sync::oneshot;
+
+    struct Gate(Mutex<Option<(oneshot::Sender<()>, oneshot::Receiver<()>)>>);
+
+    impl Gate {
+        fn new() -> (Self, oneshot::Receiver<()>, oneshot::Sender<()>) {
+            let (arrived, ready) = oneshot::channel();
+            let (release, proceed) = oneshot::channel();
+            (Self(Mutex::new(Some((arrived, proceed)))), ready, release)
+        }
+
+        async fn wait(&self) {
+            let (arrived, proceed) = self.0.lock().unwrap().take().unwrap();
+            arrived.send(()).unwrap();
+            proceed.await.unwrap();
+        }
+    }
+
+    struct FakeDependencies {
+        cached: Mutex<Option<Result<Option<CachedAudio>, String>>>,
+        guest_result: Mutex<Option<Result<StreamAudioInfo, String>>>,
+        ytdlp_result: Mutex<Option<Result<StreamAudioInfo, String>>>,
+        calls: Mutex<Vec<&'static str>>,
+        guest_gate: Option<Gate>,
+        streams_gate: Option<Gate>,
+        ytdlp_label: &'static str,
+    }
+
+    impl FakeDependencies {
+        fn new() -> Self {
+            Self {
+                cached: Mutex::new(Some(Ok(None))),
+                guest_result: Mutex::new(Some(Ok(stream_info()))),
+                ytdlp_result: Mutex::new(Some(Ok(stream_info()))),
+                calls: Mutex::new(Vec::new()),
+                guest_gate: None,
+                streams_gate: None,
+                ytdlp_label: "auto fallback",
+            }
+        }
+
+        fn calls(&self) -> Vec<&'static str> {
+            self.calls.lock().unwrap().clone()
+        }
+    }
+
+    impl PrepareDependencies for FakeDependencies {
+        fn lookup_cached_file(
+            &self,
+            bvid: &str,
+            cid: Option<u64>,
+        ) -> Result<Option<CachedAudio>, String> {
+            assert_eq!(bvid, "BV1234567890");
+            assert_eq!(cid, Some(29));
+            self.calls.lock().unwrap().push("cache");
+            self.cached.lock().unwrap().take().unwrap()
+        }
+
+        async fn guest(
+            &self,
+            _guest: &GuestPlayurlClient,
+            bvid: &str,
+            page_hint: Option<GuestPageHint>,
+            _cancellation: &AtomicBool,
+        ) -> Result<StreamAudioInfo, String> {
+            assert_eq!(bvid, "BV1234567890");
+            let hint = page_hint.unwrap();
+            assert_eq!(hint.cid, Some(17));
+            assert_eq!(hint.page, Some(3));
+            assert_eq!(hint.part.as_deref(), Some("分P"));
+            assert_eq!(hint.duration_seconds, Some(121));
+            self.calls.lock().unwrap().push("guest");
+            if let Some(gate) = &self.guest_gate {
+                gate.wait().await;
+            }
+            self.guest_result.lock().unwrap().take().unwrap()
+        }
+
+        async fn ytdlp(
+            &self,
+            bv_id_for_log: &str,
+            resolving_bv_id: &str,
+            page: Option<u32>,
+            cancellation: Arc<AtomicBool>,
+            label: &str,
+        ) -> Result<StreamAudioInfo, String> {
+            assert_eq!(bv_id_for_log, "BV1234567890");
+            assert_eq!(resolving_bv_id, bv_id_for_log);
+            assert_eq!(page, Some(3));
+            assert_eq!(label, self.ytdlp_label);
+            assert!(!cancellation.load(Ordering::Acquire));
+            self.calls.lock().unwrap().push("yt-dlp");
+            self.ytdlp_result.lock().unwrap().take().unwrap()
+        }
+
+        async fn before_streams_lock(&self) {
+            if let Some(gate) = &self.streams_gate {
+                gate.wait().await;
+            }
+        }
+    }
+
+    fn stream_info() -> StreamAudioInfo {
+        // 仅字符串，不发起网络请求；复用白名单 fixture，不调用代理或客户端，不解析 DNS。
+        let hosts: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../tests/fixtures/cdn-hosts.json")).unwrap();
+        let host = hosts.iter().find(|entry| entry["allowed"] == true).unwrap()["host"]
+            .as_str()
+            .unwrap();
+        StreamAudioInfo {
+            audio_url: format!("https://{host}/audio.m4s"),
+            title: "曲目".into(),
+            uploader: "作者".into(),
+            thumbnail_url: "http://127.0.0.1/cover.jpg".into(),
+            duration_seconds: 120.5,
+            muxed_preview: false,
+        }
+    }
+
+    fn cached_audio() -> CachedAudio {
+        CachedAudio {
+            key: "BV1234567890:29".into(),
+            path: std::env::temp_dir().join(format!("prepare-{}.m4a", Uuid::new_v4())),
+            metadata: AudioCacheMetadata {
+                title: "缓存曲目".into(),
+                uploader: "缓存作者".into(),
+                thumbnail_url: "http://127.0.0.1/cache-cover.jpg".into(),
+                duration_seconds: 42,
+            },
+        }
+    }
+
+    fn app_state(source: StreamSource) -> Arc<AppState> {
+        // 构造客户端不会发送请求；prepare 的全部 I/O 依赖均由 FakeDependencies 接管。
+        let guest = Arc::new(GuestPlayurlClient::new().unwrap());
+        Arc::new(AppState {
+            loudness_busy: Arc::new(AtomicBool::new(false)),
+            cache_busy: Arc::new(AtomicBool::new(false)),
+            proxy: ProxyState {
+                client: build_proxy_client().unwrap(),
+                streams: Arc::new(RwLock::new(HashMap::new())),
+            },
+            proxy_base_url: "http://127.0.0.1:1234".into(),
+            search: SearchClient::new(
+                std::env::temp_dir().join("unused-cookies.txt"),
+                guest.clone(),
+            )
+            .unwrap(),
+            ranking: RankingClient::new(guest.clone()).unwrap(),
+            favorite_import: FavoriteImportClient::new(guest.clone()).unwrap(),
+            ranking_cache: Arc::new(RwLock::new(None)),
+            guest,
+            resolver: Arc::new(ResolveCoordinator::default()),
+            stream_source: Arc::new(RwLock::new(source)),
+        })
+    }
+
+    async fn prepare(
+        state: &AppState,
+        dependencies: &FakeDependencies,
+    ) -> Result<AudioResponse, String> {
+        prepare_audio_with_dependencies(
+            state,
+            "BV1234567890".into(),
+            Some(17),
+            Some(29),
+            Some(3),
+            Some("分P".into()),
+            Some(120.5),
+            dependencies,
+        )
+        .await
+    }
+
+    async fn assert_remote_response(state: &AppState, response: AudioResponse) {
+        assert_eq!(response.title, "曲目");
+        assert_eq!(response.uploader, "作者");
+        assert_eq!(response.thumbnail_url, "https://127.0.0.1/cover.jpg");
+        assert_eq!(response.duration_seconds, 120.5);
+        let token = response
+            .audio_url
+            .strip_prefix("http://127.0.0.1:1234/audio/")
+            .unwrap();
+        assert_eq!(token.len(), 32);
+        let streams = state.proxy.streams.read().await;
+        assert_eq!(streams.len(), 1);
+        assert!(matches!(&streams[token].source, StreamLocation::Remote(url)
+            if url.as_str() == stream_info().audio_url));
+        assert!(streams[token].expires_at > Instant::now());
+        assert!(!state.resolver.is_current(0));
+    }
+
+    #[test]
+    fn prepare_cache_hit_registers_local_token_without_resolving() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Auto);
+            let dependencies = FakeDependencies::new();
+            let cached = cached_audio();
+            let path = cached.path.clone();
+            *dependencies.cached.lock().unwrap() = Some(Ok(Some(cached)));
+            let response = prepare(&state, &dependencies).await.unwrap();
+            assert_eq!(dependencies.calls(), ["cache"]);
+            assert_eq!(response.title, "缓存曲目");
+            assert_eq!(response.uploader, "缓存作者");
+            assert_eq!(response.thumbnail_url, "http://127.0.0.1/cache-cover.jpg");
+            assert_eq!(response.duration_seconds, 42.0);
+            let token = response
+                .audio_url
+                .strip_prefix("http://127.0.0.1:1234/audio/")
+                .unwrap();
+            assert_eq!(token.len(), 32);
+            let streams = state.proxy.streams.read().await;
+            assert_eq!(streams.len(), 1);
+            assert!(
+                matches!(&streams[token].source, StreamLocation::Local(value) if value == &path)
+            );
+            assert!(!state.resolver.is_current(0));
+        });
+    }
+
+    #[test]
+    fn prepare_corrupt_cache_lookup_falls_back_to_resolution() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let dependencies = FakeDependencies::new();
+            *dependencies.cached.lock().unwrap() = Some(Err("corrupt cache entry".into()));
+            let response = prepare(&state, &dependencies).await.unwrap();
+            assert_eq!(dependencies.calls(), ["cache", "guest"]);
+            assert_remote_response(&state, response).await;
+        });
+    }
+
+    #[test]
+    fn prepare_guest_success_registers_remote_token() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let dependencies = FakeDependencies::new();
+            let response = prepare(&state, &dependencies).await.unwrap();
+            assert_eq!(dependencies.calls(), ["cache", "guest"]);
+            assert_remote_response(&state, response).await;
+        });
+    }
+
+    #[test]
+    fn prepare_guest_failure_returns_error_without_fallback() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let dependencies = FakeDependencies::new();
+            *dependencies.guest_result.lock().unwrap() = Some(Err("guest failed".into()));
+            assert_eq!(
+                prepare(&state, &dependencies).await.err().unwrap(),
+                "guest failed"
+            );
+            assert_eq!(dependencies.calls(), ["cache", "guest"]);
+            assert!(state.proxy.streams.read().await.is_empty());
+            assert!(!state.resolver.is_current(0));
+        });
+    }
+
+    #[test]
+    fn prepare_auto_guest_failure_falls_back_to_ytdlp() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Auto);
+            let dependencies = FakeDependencies::new();
+            *dependencies.guest_result.lock().unwrap() = Some(Err("guest failed".into()));
+            let response = prepare(&state, &dependencies).await.unwrap();
+            assert_eq!(dependencies.calls(), ["cache", "guest", "yt-dlp"]);
+            assert_remote_response(&state, response).await;
+        });
+    }
+
+    #[test]
+    fn prepare_auto_cancelled_guest_error_does_not_fallback() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Auto);
+            let dependencies = FakeDependencies::new();
+            *dependencies.guest_result.lock().unwrap() =
+                Some(Err(AUDIO_RESOLUTION_CANCELLED.into()));
+            assert_eq!(
+                prepare(&state, &dependencies).await.err().unwrap(),
+                AUDIO_RESOLUTION_CANCELLED
+            );
+            assert_eq!(dependencies.calls(), ["cache", "guest"]);
+            assert!(state.proxy.streams.read().await.is_empty());
+            assert!(!state.resolver.is_current(0));
+        });
+    }
+
+    async fn guest_failure_after_job_change(supersede: bool) {
+        let state = app_state(StreamSource::Auto);
+        let mut dependencies = FakeDependencies::new();
+        *dependencies.guest_result.lock().unwrap() = Some(Err("guest failed".into()));
+        let (gate, ready, release) = Gate::new();
+        dependencies.guest_gate = Some(gate);
+        let dependencies = Arc::new(dependencies);
+        let worker_state = state.clone();
+        let worker_dependencies = dependencies.clone();
+        let task = tauri::async_runtime::spawn(async move {
+            prepare(&worker_state, &worker_dependencies).await
+        });
+        ready.await.unwrap();
+        assert!(state.resolver.is_current(0));
+        let new_job = if supersede {
+            Some(state.resolver.begin())
+        } else {
+            state.resolver.cancel_current();
+            None
+        };
+        release.send(()).unwrap();
+        assert_eq!(
+            task.await.unwrap().err().unwrap(),
+            AUDIO_RESOLUTION_CANCELLED
+        );
+        assert_eq!(dependencies.calls(), ["cache", "guest"]);
+        assert!(state.proxy.streams.read().await.is_empty());
+        assert!(!state.resolver.is_current(0));
+        if let Some(job) = new_job {
+            assert!(state.resolver.is_current(job.id));
+        }
+    }
+
+    #[test]
+    fn prepare_auto_cancelled_job_does_not_fallback() {
+        tauri::async_runtime::block_on(guest_failure_after_job_change(false));
+    }
+
+    #[test]
+    fn prepare_auto_superseded_job_does_not_fallback() {
+        tauri::async_runtime::block_on(guest_failure_after_job_change(true));
+    }
+
+    #[test]
+    fn prepare_rejected_cdn_does_not_register_token() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let dependencies = FakeDependencies::new();
+            let mut info = stream_info();
+            info.audio_url = "http://127.0.0.1/audio.m4s".into();
+            *dependencies.guest_result.lock().unwrap() = Some(Ok(info));
+            assert_eq!(
+                prepare(&state, &dependencies).await.err().unwrap(),
+                "audio CDN host is not allowed: 127.0.0.1"
+            );
+            assert_eq!(dependencies.calls(), ["cache", "guest"]);
+            assert!(state.proxy.streams.read().await.is_empty());
+            assert!(!state.resolver.is_current(0));
+        });
+    }
+
+    async fn replacement_between_registration_checks(cached: bool) {
+        let state = app_state(StreamSource::Guest);
+        let mut dependencies = FakeDependencies::new();
+        if cached {
+            *dependencies.cached.lock().unwrap() = Some(Ok(Some(cached_audio())));
+        }
+        let (gate, ready, release) = Gate::new();
+        dependencies.streams_gate = Some(gate);
+        let dependencies = Arc::new(dependencies);
+        let streams = state.proxy.streams.write().await;
+        let worker_state = state.clone();
+        let worker_dependencies = dependencies.clone();
+        let task = tauri::async_runtime::spawn(async move {
+            prepare(&worker_state, &worker_dependencies).await
+        });
+        // 钩子到达证明第一遍核验已通过；持有 streams 写锁，直到新 job 替换旧 job。
+        ready.await.unwrap();
+        assert!(state.resolver.is_current(0));
+        let new_job = state.resolver.begin();
+        release.send(()).unwrap();
+        drop(streams);
+        assert_eq!(
+            task.await.unwrap().err().unwrap(),
+            AUDIO_RESOLUTION_CANCELLED
+        );
+        assert!(state.proxy.streams.read().await.is_empty());
+        assert!(state.resolver.is_current(new_job.id));
+        assert_eq!(
+            dependencies.calls(),
+            if cached {
+                vec!["cache"]
+            } else {
+                vec!["cache", "guest"]
+            }
+        );
+    }
+
+    #[test]
+    fn prepare_cached_job_replaced_between_checks_does_not_register_token() {
+        tauri::async_runtime::block_on(replacement_between_registration_checks(true));
+    }
+
+    #[test]
+    fn prepare_remote_job_replaced_between_checks_does_not_register_token() {
+        tauri::async_runtime::block_on(replacement_between_registration_checks(false));
+    }
+
+    #[test]
+    fn prepare_old_finish_after_guest_success_keeps_new_job() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let mut dependencies = FakeDependencies::new();
+            let (gate, ready, release) = Gate::new();
+            dependencies.guest_gate = Some(gate);
+            let worker_state = state.clone();
+            let task =
+                tauri::async_runtime::spawn(
+                    async move { prepare(&worker_state, &dependencies).await },
+                );
+            ready.await.unwrap();
+            assert!(state.resolver.is_current(0));
+            let new_job = state.resolver.begin();
+            release.send(()).unwrap();
+            assert_eq!(
+                task.await.unwrap().err().unwrap(),
+                AUDIO_RESOLUTION_CANCELLED
+            );
+            assert!(state.resolver.is_current(new_job.id));
+            assert!(!new_job.cancellation.load(Ordering::Acquire));
+            assert!(state.proxy.streams.read().await.is_empty());
+        });
+    }
+}
