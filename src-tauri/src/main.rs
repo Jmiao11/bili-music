@@ -71,11 +71,97 @@ async fn prepare_audio(
     part: Option<String>,
     duration_seconds: Option<f64>,
 ) -> Result<AudioResponse, String> {
+    prepare_audio_with_dependencies(
+        &state,
+        bv_id,
+        cid,
+        cache_cid,
+        page,
+        part,
+        duration_seconds,
+        &RealPrepareDependencies,
+    )
+    .await
+}
+
+trait PrepareDependencies: Sync {
+    fn lookup_cached_file(
+        &self,
+        bvid: &str,
+        cid: Option<u64>,
+    ) -> Result<Option<audio_cache::CachedAudio>, String>;
+
+    fn guest(
+        &self,
+        guest: &GuestPlayurlClient,
+        bvid: &str,
+        page_hint: Option<GuestPageHint>,
+        cancellation: &AtomicBool,
+    ) -> impl std::future::Future<Output = Result<bilibili_music_core::StreamAudioInfo, String>> + Send;
+
+    fn ytdlp(
+        &self,
+        bv_id_for_log: &str,
+        resolving_bv_id: &str,
+        page: Option<u32>,
+        cancellation: Arc<AtomicBool>,
+        label: &str,
+    ) -> impl std::future::Future<Output = Result<bilibili_music_core::StreamAudioInfo, String>> + Send;
+
+    #[cfg(test)]
+    fn before_streams_lock(&self) -> impl std::future::Future<Output = ()> + Send {
+        async {}
+    }
+}
+
+struct RealPrepareDependencies;
+
+impl PrepareDependencies for RealPrepareDependencies {
+    fn lookup_cached_file(
+        &self,
+        bvid: &str,
+        cid: Option<u64>,
+    ) -> Result<Option<audio_cache::CachedAudio>, String> {
+        audio_cache::lookup_cached_file(bvid, cid)
+    }
+
+    async fn guest(
+        &self,
+        guest: &GuestPlayurlClient,
+        bvid: &str,
+        page_hint: Option<GuestPageHint>,
+        cancellation: &AtomicBool,
+    ) -> Result<bilibili_music_core::StreamAudioInfo, String> {
+        guest.resolve(bvid, page_hint, cancellation).await
+    }
+
+    async fn ytdlp(
+        &self,
+        bv_id_for_log: &str,
+        resolving_bv_id: &str,
+        page: Option<u32>,
+        cancellation: Arc<AtomicBool>,
+        label: &str,
+    ) -> Result<bilibili_music_core::StreamAudioInfo, String> {
+        resolve_with_ytdlp(bv_id_for_log, resolving_bv_id, page, cancellation, label).await
+    }
+}
+
+async fn prepare_audio_with_dependencies(
+    state: &AppState,
+    bv_id: String,
+    cid: Option<u64>,
+    cache_cid: Option<u64>,
+    page: Option<u32>,
+    part: Option<String>,
+    duration_seconds: Option<f64>,
+    dependencies: &impl PrepareDependencies,
+) -> Result<AudioResponse, String> {
     let job = state.resolver.begin();
     let job_id = job.id;
     let cancellation = job.cancellation;
     let result = async {
-        let cached = match audio_cache::lookup_cached_file(&bv_id, cache_cid) {
+        let cached = match dependencies.lookup_cached_file(&bv_id, cache_cid) {
             Ok(cached) => cached,
             Err(error) => {
                 #[cfg(debug_assertions)]
@@ -91,6 +177,8 @@ async fn prepare_audio(
             }
             let token = Uuid::new_v4().simple().to_string();
             let now = Instant::now();
+            #[cfg(test)]
+            dependencies.before_streams_lock().await;
             let mut streams = state.proxy.streams.write().await;
             if !state.resolver.is_current(job_id) {
                 return Err(AUDIO_RESOLUTION_CANCELLED.to_owned());
@@ -130,9 +218,8 @@ async fn prepare_audio(
         );
         let info = match source {
             StreamSource::Auto => {
-                match state
-                    .guest
-                    .resolve(&resolving_bv_id, Some(page_hint.clone()), &cancellation)
+                match dependencies
+                    .guest(&state.guest, &resolving_bv_id, Some(page_hint.clone()), &cancellation)
                     .await
                 {
                     Ok(info) => info,
@@ -145,7 +232,7 @@ async fn prepare_audio(
                         eprintln!(
                             "[prepare_audio][auto] guest failed for {bv_id}: {guest_error}; falling back to yt-dlp"
                         );
-                        resolve_with_ytdlp(
+                        dependencies.ytdlp(
                             &bv_id,
                             &resolving_bv_id,
                             page_hint.page,
@@ -157,7 +244,7 @@ async fn prepare_audio(
                 }
             }
             StreamSource::YtDlp => {
-                resolve_with_ytdlp(
+                dependencies.ytdlp(
                     &bv_id,
                     &resolving_bv_id,
                     page_hint.page,
@@ -167,9 +254,8 @@ async fn prepare_audio(
                 .await?
             }
             StreamSource::Guest => {
-                match state
-                    .guest
-                    .resolve(&resolving_bv_id, Some(page_hint.clone()), &cancellation)
+                match dependencies
+                    .guest(&state.guest, &resolving_bv_id, Some(page_hint.clone()), &cancellation)
                     .await
                 {
                     Ok(info) => info,
@@ -207,6 +293,8 @@ async fn prepare_audio(
 
         let token = Uuid::new_v4().simple().to_string();
         let now = Instant::now();
+        #[cfg(test)]
+        dependencies.before_streams_lock().await;
         let mut streams = state.proxy.streams.write().await;
         if !state.resolver.is_current(job_id) {
             return Err(AUDIO_RESOLUTION_CANCELLED.to_owned());
