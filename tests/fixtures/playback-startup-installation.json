@@ -1,0 +1,956 @@
+{
+  "firstTrackchange": 70,
+  "sequence": [
+    {
+      "action": "listen",
+      "target": "document",
+      "type": "DOMContentLoaded",
+      "options": {
+        "once": true
+      }
+    },
+    {
+      "action": "listen",
+      "target": "#window-minimize-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#window-maximize-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#window-close-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": ".window-titlebar",
+      "type": "mousedown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": ".window-titlebar",
+      "type": "dblclick",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-trackchange",
+      "options": null
+    },
+    {
+      "action": "observer",
+      "name": "MutationObserver",
+      "id": 1,
+      "options": null
+    },
+    {
+      "action": "observe",
+      "id": 1,
+      "target": "document.documentElement",
+      "options": {
+        "attributes": true,
+        "attributeFilter": [
+          "data-theme"
+        ]
+      }
+    },
+    {
+      "action": "listen",
+      "target": "document",
+      "type": "visibilitychange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "matchMedia:(prefers-reduced-motion: reduce)",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "window-set",
+      "property": "__playbackDiagLog",
+      "valueType": "object"
+    },
+    {
+      "action": "window-set",
+      "property": "recordPlaybackDiag",
+      "valueType": "function"
+    },
+    {
+      "action": "observer",
+      "name": "ResizeObserver",
+      "id": 2,
+      "options": null
+    },
+    {
+      "action": "observe",
+      "id": 2,
+      "target": "#result",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#search-form",
+      "type": "submit",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#search-results",
+      "type": "scroll",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bili-track-changed",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-trackchange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-notice-change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#player-pages-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#skip-video-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#previous-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#next-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#play-pause-button",
+      "type": "click",
+      "options": true
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "ended",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "play",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "playing",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "error",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "play",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "ended",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "error",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "stalled",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "waiting",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "document",
+      "type": "visibilitychange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "beforeunload",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#loop-mode-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-toggle",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#favorite-current-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-favorite-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-add-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#create-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#import-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#rename-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#delete-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#refresh-ranking-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-hint-apply",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-hint-input",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-setup-settings",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-ranking-error",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#close-library-modal-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#purge-unavailable-tracks-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#library-modal",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#library-modal",
+      "type": "transitionend",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#pages-modal-close",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#pages-modal-restore-all",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#pages-modal",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#pages-modal",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#pages-modal",
+      "type": "transitionend",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-viewchange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "ai-config-updated",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "DOMContentLoaded",
+      "options": {
+        "once": true
+      }
+    },
+    {
+      "action": "dispatch",
+      "target": "window",
+      "type": "bilibili-music-trackchange"
+    },
+    {
+      "action": "listen",
+      "target": "#open-settings-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#close-settings-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#settings-modal",
+      "type": "transitionend",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#settings-modal",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#glass-blur-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#panel-alpha-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#background-dim-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#choose-background-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#reset-background-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#save-ai-config-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#test-ai-connection-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#ai-api-format-select",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#stream-source-select",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio-cache-enabled",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio-cache-capacity",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-collection-order",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-collection-limit",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#clear-audio-cache-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-audio-cache-updated",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#clear-search-history-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#export-data-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#import-data-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-immersive-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#close-immersive-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-player",
+      "type": "transitionend",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-player",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-trackchange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#play-pause-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-play-pause-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-previous-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-next-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-bilibili-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-bilibili-bar-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#add-playlist-current-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#volume-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#loudness-normalization-toggle",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#loudness-normalization-toggle",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "durationchange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "loadedmetadata",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "play",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "ended",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "emptied",
+      "options": null
+    },
+    {
+      "action": "observer",
+      "name": "MutationObserver",
+      "id": 3,
+      "options": null
+    },
+    {
+      "action": "observe",
+      "id": 3,
+      "target": "document.documentElement",
+      "options": {
+        "attributes": true,
+        "attributeFilter": [
+          "data-theme"
+        ]
+      }
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "play",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "ended",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "emptied",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "error",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "beforeunload",
+      "options": {
+        "once": true
+      }
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "beforeunload",
+      "options": {
+        "once": true
+      }
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "timeupdate",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-offset-minus",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-offset-plus",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-mode-toggle",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bili-track-changed",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match-manual",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match-rematch",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-manual-search",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-manual-input",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match",
+      "type": "mouseenter",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match",
+      "type": "mouseleave",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match",
+      "type": "focusin",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#lyrics-match",
+      "type": "focusout",
+      "options": null
+    },
+    {
+      "action": "window-set",
+      "property": "BiliLyrics",
+      "valueType": "object"
+    },
+    {
+      "action": "window-set",
+      "property": "BiliMascot",
+      "valueType": "object"
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "play",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "pause",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio",
+      "type": "ended",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#mascot-stage",
+      "type": "mouseenter",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#mascot-stage",
+      "type": "mouseleave",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#mascot-stage",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-trackchange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "bilibili-music-favorite",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "document",
+      "type": "visibilitychange",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "beforeunload",
+      "options": {
+        "once": true
+      }
+    }
+  ]
+}
