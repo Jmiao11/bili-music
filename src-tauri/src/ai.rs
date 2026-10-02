@@ -5,7 +5,7 @@ use protocol::{build_request, extract_content, output_truncated_reason, response
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, File};
+use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -206,18 +206,24 @@ impl AiConfig {
 
 #[tauri::command]
 pub fn get_ai_config() -> Result<AiConfigView, String> {
-    Ok(read_ai_config()?.view())
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    Ok(read_ai_config(guard)?.view())
 }
 
 #[tauri::command]
 pub fn get_saved_recommendations() -> Result<Vec<SearchVideo>, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let path = library_root()?.join(RECOMMENDATIONS_FILE);
-    Ok(read_saved_recommendations_from_path(&path))
+    Ok(read_saved_recommendations_from_path(guard, &path))
 }
 
 pub(crate) fn save_recommendations(items: &[SearchVideo]) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let path = library_root()?.join(RECOMMENDATIONS_FILE);
-    write_recommendations_to_path(&path, items)
+    write_recommendations_to_path(guard, &path, items)
 }
 
 #[tauri::command]
@@ -227,10 +233,12 @@ pub fn set_ai_config(
     model: String,
     api_key: String,
 ) -> Result<AiConfigView, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let api_format = ApiFormat::parse(&api_format)?;
     let base_url = normalize_required("base_url", &base_url)?;
     let model = normalize_required("model", &model)?;
-    let mut config = read_ai_config()?;
+    let mut config = read_ai_config(guard)?;
     config.api_format = api_format;
     config.base_url = base_url;
     config.model = model;
@@ -238,7 +246,7 @@ pub fn set_ai_config(
     if !api_key.is_empty() {
         config.api_key = api_key.to_owned();
     }
-    write_ai_config(&ai_config_path()?, &config)?;
+    write_ai_config(guard, &ai_config_path(guard)?, &config)?;
     Ok(config.view())
 }
 
@@ -249,7 +257,7 @@ pub async fn test_ai_connection(
     model: Option<String>,
     api_key: Option<String>,
 ) -> Result<AiConnectionTestResult, String> {
-    let stored = read_ai_config()?;
+    let stored = read_ai_config(&crate::storage::lock_storage()?)?;
     let api_format = match api_format
         .as_deref()
         .map(str::trim)
@@ -373,12 +381,12 @@ pub async fn generate_recommendations(
     Ok(order_videos_by_bvids(baseline, &ordered_bvids))
 }
 
-fn read_ai_config() -> Result<AiConfig, String> {
-    read_ai_config_from_path(&ai_config_path()?)
+fn read_ai_config(guard: &crate::storage::StorageGuard) -> Result<AiConfig, String> {
+    read_ai_config_from_path(guard, &ai_config_path(guard)?)
 }
 
 async fn chat_completion(messages: Vec<ChatMessage>, max_tokens: u32) -> Result<String, String> {
-    let config = read_ai_config()?;
+    let config = read_ai_config(&crate::storage::lock_storage()?)?;
     chat_completion_with_config(&config, messages, max_tokens, AI_TIMEOUT_LONG_SECS).await
 }
 
@@ -660,11 +668,14 @@ fn order_videos_by_bvids(videos: Vec<SearchVideo>, ordered_bvids: &[String]) -> 
     ordered
 }
 
-fn read_ai_config_from_path(path: &Path) -> Result<AiConfig, String> {
+fn read_ai_config_from_path(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<AiConfig, String> {
     if !path.exists() {
         return Ok(AiConfig::default());
     }
-    let contents = fs::read_to_string(path)
+    let contents = crate::storage::read_to_string(guard, path)
         .map_err(|error| format!("无法读取 AI 配置 {}：{error}", path.display()))?;
     let parsed: AiConfig = serde_json::from_str(&contents)
         .map_err(|error| format!("{} 格式损坏：{error}", path.display()))?;
@@ -672,17 +683,28 @@ fn read_ai_config_from_path(path: &Path) -> Result<AiConfig, String> {
     Ok(parsed)
 }
 
-fn write_ai_config(path: &Path, config: &AiConfig) -> Result<(), String> {
-    write_json_atomic(path, config)
+fn write_ai_config(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+    config: &AiConfig,
+) -> Result<(), String> {
+    write_json_atomic(guard, path, config)
 }
 
-fn read_saved_recommendations_from_path(path: &Path) -> Vec<SearchVideo> {
-    read_json_or_default::<RecommendationsFile>(path)
+fn read_saved_recommendations_from_path(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Vec<SearchVideo> {
+    read_json_or_default::<RecommendationsFile>(guard, path)
         .map(|file| file.items)
         .unwrap_or_default()
 }
 
-fn write_recommendations_to_path(path: &Path, items: &[SearchVideo]) -> Result<(), String> {
+fn write_recommendations_to_path(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+    items: &[SearchVideo],
+) -> Result<(), String> {
     #[derive(Serialize)]
     struct RecommendationsFileRef<'a> {
         version: u32,
@@ -691,6 +713,7 @@ fn write_recommendations_to_path(path: &Path, items: &[SearchVideo]) -> Result<(
     }
 
     write_library_json_atomic(
+        guard,
         path,
         &RecommendationsFileRef {
             version: RECOMMENDATIONS_VERSION,
@@ -700,7 +723,11 @@ fn write_recommendations_to_path(path: &Path, items: &[SearchVideo]) -> Result<(
     )
 }
 
-fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
+fn write_json_atomic<T: Serialize>(
+    guard: &crate::storage::StorageGuard,
+    target: &Path,
+    value: &T,
+) -> Result<(), String> {
     let parent = target
         .parent()
         .ok_or_else(|| format!("无法确定 {} 的父目录。", target.display()))?;
@@ -713,8 +740,8 @@ fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), Strin
         .map_err(|error| format!("AI 配置序列化失败：{error}"))?;
 
     {
-        let mut file =
-            File::create(&tmp).map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
+        let mut file = crate::storage::create_file(guard, &tmp)
+            .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
         file.write_all(json.as_bytes())
             .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
         file.write_all(b"\n")
@@ -724,8 +751,8 @@ fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), Strin
     }
 
     if target.exists() {
-        fs::rename(target, &backup).map_err(|error| {
-            let _ = fs::remove_file(&tmp);
+        crate::storage::rename(guard, target, &backup).map_err(|error| {
+            let _ = crate::storage::remove_file(guard, &tmp);
             format!(
                 "无法备份旧 AI 配置 {} 到 {}：{error}",
                 target.display(),
@@ -734,23 +761,23 @@ fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), Strin
         })?;
     }
 
-    if let Err(error) = fs::rename(&tmp, target) {
+    if let Err(error) = crate::storage::rename(guard, &tmp, target) {
         if backup.exists() {
-            let _ = fs::rename(&backup, target);
+            let _ = crate::storage::rename(guard, &backup, target);
         }
-        let _ = fs::remove_file(&tmp);
+        let _ = crate::storage::remove_file(guard, &tmp);
         return Err(format!("无法保存 AI 配置 {}：{error}", target.display()));
     }
 
     if backup.exists() {
-        let _ = fs::remove_file(backup);
+        let _ = crate::storage::remove_file(guard, backup);
     }
     Ok(())
 }
 
-fn ai_config_path() -> Result<PathBuf, String> {
+fn ai_config_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, String> {
     let target = data_root()?.join(AI_CONFIG_FILE);
-    migrate_legacy_ai_config(&target)?;
+    migrate_legacy_ai_config(guard, &target)?;
     Ok(target)
 }
 
@@ -758,7 +785,10 @@ fn data_root() -> Result<PathBuf, String> {
     crate::library::library_root()
 }
 
-fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
+fn migrate_legacy_ai_config(
+    guard: &crate::storage::StorageGuard,
+    target: &Path,
+) -> Result<(), String> {
     #[cfg(not(debug_assertions))]
     {
         if target.exists() {
@@ -770,14 +800,18 @@ fn migrate_legacy_ai_config(target: &Path) -> Result<(), String> {
             .parent()
             .map(Path::to_path_buf)
             .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
-        migrate_legacy_ai_config_at(target, &exe_parent)?;
+        migrate_legacy_ai_config_at(guard, target, &exe_parent)?;
     }
-    let _ = target;
+    let _ = (guard, target);
     Ok(())
 }
 
 #[cfg(not(debug_assertions))]
-fn migrate_legacy_ai_config_at(target: &Path, exe_parent: &Path) -> Result<(), String> {
+fn migrate_legacy_ai_config_at(
+    guard: &crate::storage::StorageGuard,
+    target: &Path,
+    exe_parent: &Path,
+) -> Result<(), String> {
     {
         let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
         let legacy = [
@@ -793,7 +827,7 @@ fn migrate_legacy_ai_config_at(target: &Path, exe_parent: &Path) -> Result<(), S
             fs::create_dir_all(parent)
                 .map_err(|error| format!("无法创建 AI 配置目录 {}：{error}", parent.display()))?;
         }
-        fs::rename(&legacy, target).map_err(|error| {
+        crate::storage::rename(guard, &legacy, target).map_err(|error| {
             format!(
                 "无法迁移旧 AI 配置 {} 到 {}：{error}",
                 legacy.display(),
@@ -918,7 +952,7 @@ mod tests {
         assert_eq!(parsed.api_format, ApiFormat::OpenAiChatCompletions);
         let path = unique_temp_path("v1-no-format");
         fs::write(&path, config).unwrap();
-        let loaded = read_ai_config_from_path(&path);
+        let loaded = read_ai_config_from_path(&crate::storage::lock_storage().unwrap(), &path);
         let _ = fs::remove_file(&path);
 
         assert!(loaded.is_ok());
@@ -930,7 +964,7 @@ mod tests {
         let path = unique_temp_path("v2-unsupported");
         let config = r#"{"version":2,"api_format":"openai-responses","base_url":"https://api.example.com/v1","model":"test-model","api_key":"sk-secret"}"#;
         fs::write(&path, config).unwrap();
-        let result = read_ai_config_from_path(&path);
+        let result = read_ai_config_from_path(&crate::storage::lock_storage().unwrap(), &path);
         let unchanged = fs::read_to_string(&path).unwrap();
         let _ = fs::remove_file(&path);
 
@@ -960,8 +994,9 @@ mod tests {
             api_key: "sk-secret".to_owned(),
         };
 
-        write_ai_config(&path, &config).unwrap();
-        let parsed = read_ai_config_from_path(&path).unwrap();
+        write_ai_config(&crate::storage::lock_storage().unwrap(), &path, &config).unwrap();
+        let parsed =
+            read_ai_config_from_path(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         let json: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         let _ = fs::remove_file(&path);
@@ -997,7 +1032,7 @@ mod tests {
         let path = unique_temp_path("bad-file");
         fs::write(&path, "{ not json").unwrap();
 
-        let result = read_ai_config_from_path(&path);
+        let result = read_ai_config_from_path(&crate::storage::lock_storage().unwrap(), &path);
         let contents = fs::read_to_string(&path).unwrap();
         let _ = fs::remove_file(&path);
 
@@ -1018,13 +1053,19 @@ mod tests {
             pubdate: Some(1_700_000_000),
         }];
 
-        write_recommendations_to_path(&path, &items).unwrap();
-        let saved = read_saved_recommendations_from_path(&path);
+        write_recommendations_to_path(&crate::storage::lock_storage().unwrap(), &path, &items)
+            .unwrap();
+        let saved =
+            read_saved_recommendations_from_path(&crate::storage::lock_storage().unwrap(), &path);
         assert_eq!(saved.len(), 1);
         assert_eq!(saved[0].bvid, items[0].bvid);
 
         fs::write(&path, "{ not json").unwrap();
-        assert!(read_saved_recommendations_from_path(&path).is_empty());
+        assert!(read_saved_recommendations_from_path(
+            &crate::storage::lock_storage().unwrap(),
+            &path
+        )
+        .is_empty());
         let _ = fs::remove_file(&path);
     }
 
@@ -1180,7 +1221,7 @@ mod tests {
         let target = unique_temp_path("migration-existing");
         fs::write(&target, b"existing").unwrap();
         assert!(target.exists());
-        super::migrate_legacy_ai_config(&target).unwrap();
+        super::migrate_legacy_ai_config(&crate::storage::lock_storage().unwrap(), &target).unwrap();
         assert_eq!(fs::read(&target).unwrap(), b"existing");
         fs::remove_file(target).unwrap();
     }
@@ -1195,7 +1236,8 @@ mod tests {
         fs::write(data.join(AI_CONFIG_FILE), b"data").unwrap();
         fs::write(exe.join(AI_CONFIG_FILE), b"exe").unwrap();
         let target = root.join("destination").join(AI_CONFIG_FILE);
-        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        super::migrate_legacy_ai_config_at(&crate::storage::lock_storage().unwrap(), &target, &exe)
+            .unwrap();
         assert_eq!(fs::read(target).unwrap(), b"data");
         assert_eq!(fs::read(exe.join(AI_CONFIG_FILE)).unwrap(), b"exe");
         assert!(!data.exists());
@@ -1213,7 +1255,8 @@ mod tests {
         fs::write(data.join("favorites.json"), b"keep").unwrap();
         fs::write(exe.join("favorites.json"), b"keep-exe").unwrap();
         let target = root.join("destination").join(AI_CONFIG_FILE);
-        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        super::migrate_legacy_ai_config_at(&crate::storage::lock_storage().unwrap(), &target, &exe)
+            .unwrap();
         assert_eq!(fs::read(target).unwrap(), b"data");
         assert_eq!(fs::read(data.join("favorites.json")).unwrap(), b"keep");
         assert_eq!(fs::read(exe.join("favorites.json")).unwrap(), b"keep-exe");
@@ -1228,7 +1271,8 @@ mod tests {
         fs::create_dir_all(&exe).unwrap();
         fs::write(exe.join(AI_CONFIG_FILE), b"exe").unwrap();
         let target = root.join("destination").join(AI_CONFIG_FILE);
-        super::migrate_legacy_ai_config_at(&target, &exe).unwrap();
+        super::migrate_legacy_ai_config_at(&crate::storage::lock_storage().unwrap(), &target, &exe)
+            .unwrap();
         assert_eq!(fs::read(target).unwrap(), b"exe");
         fs::remove_dir_all(root).unwrap();
     }

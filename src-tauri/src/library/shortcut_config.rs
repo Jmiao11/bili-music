@@ -44,21 +44,27 @@ impl Default for Shortcuts {
 
 #[tauri::command]
 pub fn get_shortcuts() -> Result<Shortcuts, String> {
-    let shortcuts: Shortcuts = read_json_or_default(&shortcuts_path()?)?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let shortcuts: Shortcuts = read_json_or_default(guard, &shortcuts_path(guard)?)?;
     validate_shortcut_bindings(&shortcuts.bindings)?;
     Ok(shortcuts)
 }
 
 #[tauri::command]
 pub fn set_shortcuts(app: tauri::AppHandle, bindings: ShortcutBindings) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     validate_shortcut_bindings(&bindings)?;
     write_json_atomic(
-        &shortcuts_path()?,
+        guard,
+        &shortcuts_path(guard)?,
         &Shortcuts {
             version: VERSION,
             bindings,
         },
     )?;
+    drop(storage_guard);
     crate::shortcuts::reload(&app);
     Ok(())
 }
@@ -185,8 +191,8 @@ fn normalize_shortcut_key(value: &str) -> Option<String> {
     Some(key)
 }
 
-fn shortcuts_path() -> Result<PathBuf, String> {
-    library_file_path(SHORTCUTS_FILE)
+fn shortcuts_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, String> {
+    library_file_path(guard, SHORTCUTS_FILE)
 }
 
 #[cfg(test)]
@@ -211,8 +217,12 @@ mod tests {
                 ..Default::default()
             },
         };
-        write_json_atomic(&path, &shortcuts).unwrap();
-        assert_eq!(read_json_or_default::<Shortcuts>(&path).unwrap(), shortcuts);
+        write_json_atomic(&crate::storage::lock_storage().unwrap(), &path, &shortcuts).unwrap();
+        assert_eq!(
+            read_json_or_default::<Shortcuts>(&crate::storage::lock_storage().unwrap(), &path)
+                .unwrap(),
+            shortcuts
+        );
         fs::remove_file(path).unwrap();
     }
 
@@ -220,9 +230,11 @@ mod tests {
     fn shortcuts_reject_unsupported_version() {
         let path = test_path();
         fs::write(&path, r#"{"version":999,"bindings":{}}"#).unwrap();
-        assert!(read_json_or_default::<Shortcuts>(&path)
-            .unwrap_err()
-            .contains("999"));
+        assert!(
+            read_json_or_default::<Shortcuts>(&crate::storage::lock_storage().unwrap(), &path)
+                .unwrap_err()
+                .contains("999")
+        );
         fs::remove_file(path).unwrap();
     }
 

@@ -1,5 +1,11 @@
-use crate::library::{library_root, read_json_or_default, write_json_atomic, Versioned};
 use crate::AppState;
+use crate::{
+    library::{library_root, Versioned},
+    storage::{
+        read_json_or_default_without_storage_lock as read_json_or_default,
+        write_json_atomic_without_storage_lock as write_json_atomic,
+    },
+};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

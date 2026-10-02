@@ -3,6 +3,7 @@ use super::{
     PLAYBACK_STATE_FILE,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -42,25 +43,34 @@ impl Versioned for PlaybackState {
 
 #[tauri::command]
 pub fn get_playback_state() -> Result<Option<PlaybackState>, String> {
-    get_playback_state_from(&playback_state_path()?)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    get_playback_state_from(guard, &playback_state_path(guard)?)
 }
 
 #[tauri::command]
 pub fn save_playback_state(state: PlaybackState) -> Result<(), String> {
-    save_playback_state_to(&playback_state_path()?, state)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    save_playback_state_to(guard, &playback_state_path(guard)?, state)
 }
 
 #[tauri::command]
 pub fn clear_playback_state() -> Result<(), String> {
-    clear_playback_state_at(&playback_state_path()?)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    clear_playback_state_at(guard, &playback_state_path(guard)?)
 }
 
-fn playback_state_path() -> Result<PathBuf, String> {
-    library_file_path(PLAYBACK_STATE_FILE)
+fn playback_state_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, String> {
+    library_file_path(guard, PLAYBACK_STATE_FILE)
 }
 
-fn get_playback_state_from(path: &Path) -> Result<Option<PlaybackState>, String> {
-    let mut state: PlaybackState = match read_json_or_default(path) {
+fn get_playback_state_from(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<Option<PlaybackState>, String> {
+    let mut state: PlaybackState = match read_json_or_default(guard, path) {
         Ok(state) => state,
         Err(_) => return Ok(None),
     };
@@ -71,18 +81,25 @@ fn get_playback_state_from(path: &Path) -> Result<Option<PlaybackState>, String>
     Ok(Some(state))
 }
 
-fn save_playback_state_to(path: &Path, mut state: PlaybackState) -> Result<(), String> {
+fn save_playback_state_to(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+    mut state: PlaybackState,
+) -> Result<(), String> {
     if state.queue.is_empty() {
-        return clear_playback_state_at(path);
+        return clear_playback_state_at(guard, path);
     }
     state.version = PLAYBACK_STATE_VERSION;
     state.queue.truncate(200);
     state.current_index = state.current_index.min(state.queue.len() - 1);
-    write_json_atomic(path, &state)
+    write_json_atomic(guard, path, &state)
 }
 
-fn clear_playback_state_at(path: &Path) -> Result<(), String> {
-    match fs::remove_file(path) {
+fn clear_playback_state_at(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<(), String> {
+    match crate::storage::remove_file(guard, path) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(format!("无法删除播放状态 {}：{error}", path.display())),
@@ -102,9 +119,11 @@ mod tests {
             current_index: 99,
             ..PlaybackState::default()
         };
-        write_json_atomic(&path, &state).unwrap();
+        write_json_atomic(&crate::storage::lock_storage().unwrap(), &path, &state).unwrap();
 
-        let restored = get_playback_state_from(&path).unwrap().unwrap();
+        let restored = get_playback_state_from(&crate::storage::lock_storage().unwrap(), &path)
+            .unwrap()
+            .unwrap();
         assert_eq!(restored.current_index, 1);
         fs::remove_file(path).unwrap();
     }
@@ -113,6 +132,7 @@ mod tests {
     fn empty_queue_removes_playback_state_file() {
         let path = test_path();
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             &PlaybackState {
                 queue: vec![track("saved")],
@@ -121,7 +141,12 @@ mod tests {
         )
         .unwrap();
 
-        save_playback_state_to(&path, PlaybackState::default()).unwrap();
+        save_playback_state_to(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            PlaybackState::default(),
+        )
+        .unwrap();
         assert!(!path.exists());
     }
 

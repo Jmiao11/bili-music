@@ -16,8 +16,7 @@ pub(crate) use history::{get_play_history, get_search_history};
 pub(crate) use loudness_store::{get_track_loudness, save_track_loudness};
 
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -59,19 +58,14 @@ pub struct TrackSnapshotInput {
     pub duration_seconds: u64,
 }
 
-pub(crate) fn read_json_or_default<T>(path: &Path) -> Result<T, String>
+pub(crate) fn read_json_or_default<T>(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<T, String>
 where
     T: for<'de> Deserialize<'de> + Default + Versioned,
 {
-    if !path.exists() {
-        return Ok(T::default());
-    }
-    let contents = fs::read_to_string(path)
-        .map_err(|error| format!("无法读取 {}：{error}", path.display()))?;
-    let parsed: T = serde_json::from_str(&contents)
-        .map_err(|error| format!("{} 格式损坏：{error}", path.display()))?;
-    parsed.ensure_supported_version(path)?;
-    Ok(parsed)
+    crate::storage::read_json_or_default(guard, path)
 }
 
 pub(crate) trait Versioned {
@@ -98,52 +92,12 @@ pub(super) fn atomic_backup_path(target: &Path) -> PathBuf {
     target.with_extension(format!("json.bak-{}-{}", std::process::id(), now_millis()))
 }
 
-pub(crate) fn write_json_atomic<T: Serialize>(target: &Path, value: &T) -> Result<(), String> {
-    let parent = target
-        .parent()
-        .ok_or_else(|| format!("无法确定 {} 的父目录。", target.display()))?;
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("无法创建资料库目录 {}：{error}", parent.display()))?;
-
-    let tmp = atomic_temp_path(target);
-    let backup = atomic_backup_path(target);
-    let json = serde_json::to_string_pretty(value)
-        .map_err(|error| format!("资料库序列化失败：{error}"))?;
-
-    {
-        let mut file =
-            File::create(&tmp).map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.write_all(json.as_bytes())
-            .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.write_all(b"\n")
-            .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.sync_all()
-            .map_err(|error| format!("无法同步 {}：{error}", tmp.display()))?;
-    }
-
-    if target.exists() {
-        fs::rename(target, &backup).map_err(|error| {
-            let _ = fs::remove_file(&tmp);
-            format!(
-                "无法备份旧资料库 {} 到 {}：{error}",
-                target.display(),
-                backup.display()
-            )
-        })?;
-    }
-
-    if let Err(error) = fs::rename(&tmp, target) {
-        if backup.exists() {
-            let _ = fs::rename(&backup, target);
-        }
-        let _ = fs::remove_file(&tmp);
-        return Err(format!("无法保存资料库 {}：{error}", target.display()));
-    }
-
-    if backup.exists() {
-        let _ = fs::remove_file(backup);
-    }
-    Ok(())
+pub(crate) fn write_json_atomic<T: Serialize>(
+    guard: &crate::storage::StorageGuard,
+    target: &Path,
+    value: &T,
+) -> Result<(), String> {
+    crate::storage::write_json_atomic(guard, target, value)
 }
 
 pub(crate) fn snapshot_from_input(input: TrackSnapshotInput) -> Result<TrackSnapshot, String> {
@@ -189,10 +143,13 @@ fn clean_text(value: &str, fallback: &str) -> String {
     }
 }
 
-fn library_file_path(file_name: &str) -> Result<PathBuf, String> {
+fn library_file_path(
+    guard: &crate::storage::StorageGuard,
+    file_name: &str,
+) -> Result<PathBuf, String> {
     let root = library_root()?;
     let target = root.join(file_name);
-    migrate_legacy_file(file_name, &target)?;
+    migrate_legacy_file(guard, file_name, &target)?;
     Ok(target)
 }
 
@@ -213,7 +170,11 @@ pub(crate) fn library_root() -> Result<PathBuf, String> {
     }
 }
 
-fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
+fn migrate_legacy_file(
+    guard: &crate::storage::StorageGuard,
+    file_name: &str,
+    target: &Path,
+) -> Result<(), String> {
     #[cfg(debug_assertions)]
     {
         if target.exists() {
@@ -232,7 +193,7 @@ fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
             fs::create_dir_all(parent)
                 .map_err(|error| format!("无法创建资料库目录 {}：{error}", parent.display()))?;
         }
-        fs::rename(&legacy, target).map_err(|error| {
+        crate::storage::rename(guard, &legacy, target).map_err(|error| {
             format!(
                 "无法迁移旧资料库 {} 到 {}：{error}",
                 legacy.display(),
@@ -251,14 +212,19 @@ fn migrate_legacy_file(file_name: &str, target: &Path) -> Result<(), String> {
             .parent()
             .map(Path::to_path_buf)
             .ok_or_else(|| "无法定位 exe 所在目录。".to_owned())?;
-        migrate_legacy_file_at(file_name, target, &exe_parent)?;
+        migrate_legacy_file_at(guard, file_name, target, &exe_parent)?;
     }
     let _ = (file_name, target);
     Ok(())
 }
 
 #[cfg(not(debug_assertions))]
-fn migrate_legacy_file_at(file_name: &str, target: &Path, exe_parent: &Path) -> Result<(), String> {
+fn migrate_legacy_file_at(
+    guard: &crate::storage::StorageGuard,
+    file_name: &str,
+    target: &Path,
+    exe_parent: &Path,
+) -> Result<(), String> {
     {
         let legacy_data_dir = exe_parent.join(DATA_SUBDIR);
         let legacy = [legacy_data_dir.join(file_name), exe_parent.join(file_name)]
@@ -271,7 +237,7 @@ fn migrate_legacy_file_at(file_name: &str, target: &Path, exe_parent: &Path) -> 
             fs::create_dir_all(parent)
                 .map_err(|error| format!("无法创建资料库目录 {}：{error}", parent.display()))?;
         }
-        fs::rename(&legacy, target).map_err(|error| {
+        crate::storage::rename(guard, &legacy, target).map_err(|error| {
             format!(
                 "无法迁移旧资料库 {} 到 {}：{error}",
                 legacy.display(),
@@ -337,7 +303,12 @@ mod tests {
         let target = super::test_support::test_path();
         std::fs::write(&target, b"existing").unwrap();
         assert!(target.exists());
-        super::migrate_legacy_file(super::FAVORITES_FILE, &target).unwrap();
+        super::migrate_legacy_file(
+            &crate::storage::lock_storage().unwrap(),
+            super::FAVORITES_FILE,
+            &target,
+        )
+        .unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"existing");
         std::fs::remove_file(target).unwrap();
     }
@@ -352,7 +323,13 @@ mod tests {
         std::fs::write(data.join(super::FAVORITES_FILE), b"data").unwrap();
         std::fs::write(exe.join(super::FAVORITES_FILE), b"exe").unwrap();
         let target = root.join("destination").join(super::FAVORITES_FILE);
-        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        super::migrate_legacy_file_at(
+            &crate::storage::lock_storage().unwrap(),
+            super::FAVORITES_FILE,
+            &target,
+            &exe,
+        )
+        .unwrap();
         assert_eq!(std::fs::read(target).unwrap(), b"data");
         assert_eq!(
             std::fs::read(exe.join(super::FAVORITES_FILE)).unwrap(),
@@ -372,7 +349,13 @@ mod tests {
         std::fs::write(data.join(super::FAVORITES_FILE), b"data").unwrap();
         std::fs::write(data.join("unrelated.json"), b"keep").unwrap();
         let target = root.join("destination").join(super::FAVORITES_FILE);
-        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        super::migrate_legacy_file_at(
+            &crate::storage::lock_storage().unwrap(),
+            super::FAVORITES_FILE,
+            &target,
+            &exe,
+        )
+        .unwrap();
         assert_eq!(std::fs::read(target).unwrap(), b"data");
         assert_eq!(std::fs::read(data.join("unrelated.json")).unwrap(), b"keep");
         std::fs::remove_dir_all(root).unwrap();
@@ -386,7 +369,13 @@ mod tests {
         std::fs::create_dir_all(&exe).unwrap();
         std::fs::write(exe.join(super::FAVORITES_FILE), b"exe").unwrap();
         let target = root.join("destination").join(super::FAVORITES_FILE);
-        super::migrate_legacy_file_at(super::FAVORITES_FILE, &target, &exe).unwrap();
+        super::migrate_legacy_file_at(
+            &crate::storage::lock_storage().unwrap(),
+            super::FAVORITES_FILE,
+            &target,
+            &exe,
+        )
+        .unwrap();
         assert_eq!(std::fs::read(target).unwrap(), b"exe");
         std::fs::remove_dir_all(root).unwrap();
     }

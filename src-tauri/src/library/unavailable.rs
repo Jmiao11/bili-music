@@ -10,7 +10,6 @@ use std::path::Path;
 
 const MAX_UNAVAILABLE_TRACKS: usize = 500;
 // ponytail: 单文件锁串行化读写，拆分存储后再按文件细分。
-static UNAVAILABLE_TRACKS_FILE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnavailableTrack {
@@ -49,13 +48,14 @@ impl Versioned for UnavailableTracksFile {
 }
 
 fn mark_track_unavailable_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     bvid: &str,
     reason: String,
     marked_at: u128,
 ) -> Result<(), String> {
     let bvid = normalize_bvid(bvid)?;
-    let mut file: UnavailableTracksFile = read_json_or_default(path)?;
+    let mut file: UnavailableTracksFile = read_json_or_default(guard, path)?;
     file.items
         .retain(|item| !item.bvid.eq_ignore_ascii_case(&bvid));
     file.items.push(UnavailableTrack {
@@ -66,60 +66,70 @@ fn mark_track_unavailable_at(
     file.items
         .sort_by_key(|item| std::cmp::Reverse(item.marked_at));
     file.items.truncate(MAX_UNAVAILABLE_TRACKS);
-    write_json_atomic(path, &file)
+    write_json_atomic(guard, path, &file)
 }
 
 #[tauri::command]
 pub fn mark_track_unavailable(bvid: String, reason: String) -> Result<(), String> {
-    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
-        .lock()
-        .map_err(|_| "失效曲目数据锁异常。")?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     mark_track_unavailable_at(
-        &library_file_path(UNAVAILABLE_TRACKS_FILE)?,
+        guard,
+        &library_file_path(guard, UNAVAILABLE_TRACKS_FILE)?,
         &bvid,
         reason,
         now_millis(),
     )
 }
 
-fn clear_track_unavailable_at(path: &Path, bvid: &str) -> Result<(), String> {
+fn clear_track_unavailable_at(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+    bvid: &str,
+) -> Result<(), String> {
     let bvid = normalize_bvid(bvid)?;
-    let mut file: UnavailableTracksFile = read_json_or_default(path)?;
+    let mut file: UnavailableTracksFile = read_json_or_default(guard, path)?;
     let original_len = file.items.len();
     file.items
         .retain(|item| !item.bvid.eq_ignore_ascii_case(&bvid));
     if file.items.len() == original_len {
         return Ok(());
     }
-    write_json_atomic(path, &file)
+    write_json_atomic(guard, path, &file)
 }
 
 #[tauri::command]
 pub fn clear_track_unavailable(bvid: String) -> Result<(), String> {
-    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
-        .lock()
-        .map_err(|_| "失效曲目数据锁异常。")?;
-    clear_track_unavailable_at(&library_file_path(UNAVAILABLE_TRACKS_FILE)?, &bvid)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    clear_track_unavailable_at(
+        guard,
+        &library_file_path(guard, UNAVAILABLE_TRACKS_FILE)?,
+        &bvid,
+    )
 }
 
-fn list_unavailable_tracks_at(path: &Path) -> Result<Vec<UnavailableTrack>, String> {
-    Ok(read_json_or_default::<UnavailableTracksFile>(path)?.items)
+fn list_unavailable_tracks_at(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<Vec<UnavailableTrack>, String> {
+    Ok(read_json_or_default::<UnavailableTracksFile>(guard, path)?.items)
 }
 
 #[tauri::command]
 pub fn list_unavailable_tracks() -> Result<Vec<UnavailableTrack>, String> {
-    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
-        .lock()
-        .map_err(|_| "失效曲目数据锁异常。")?;
-    list_unavailable_tracks_at(&library_file_path(UNAVAILABLE_TRACKS_FILE)?)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    list_unavailable_tracks_at(guard, &library_file_path(guard, UNAVAILABLE_TRACKS_FILE)?)
 }
 
 fn purge_unavailable_tracks_at(
+    guard: &crate::storage::StorageGuard,
     favorites_path: &Path,
     playlists_path: &Path,
     unavailable_path: &Path,
 ) -> Result<PurgeResult, String> {
-    let unavailable: UnavailableTracksFile = read_json_or_default(unavailable_path)?;
+    let unavailable: UnavailableTracksFile = read_json_or_default(guard, unavailable_path)?;
     if unavailable.items.is_empty() {
         return Ok(PurgeResult::default());
     }
@@ -129,8 +139,8 @@ fn purge_unavailable_tracks_at(
         .iter()
         .map(|item| item.bvid.to_lowercase())
         .collect();
-    let mut favorites: FavoritesFile = read_json_or_default(favorites_path)?;
-    let mut playlists: PlaylistsFile = read_json_or_default(playlists_path)?;
+    let mut favorites: FavoritesFile = read_json_or_default(guard, favorites_path)?;
+    let mut playlists: PlaylistsFile = read_json_or_default(guard, playlists_path)?;
 
     let favorites_before = favorites.items.len();
     favorites
@@ -148,16 +158,13 @@ fn purge_unavailable_tracks_at(
     }
 
     if removed_favorites > 0 {
-        write_json_atomic(favorites_path, &favorites)?;
+        write_json_atomic(guard, favorites_path, &favorites)?;
     }
     if removed_playlist_items > 0 {
-        write_json_atomic(playlists_path, &playlists)?;
+        write_json_atomic(guard, playlists_path, &playlists)?;
     }
 
-    let _lock = UNAVAILABLE_TRACKS_FILE_LOCK
-        .lock()
-        .map_err(|_| "失效曲目数据锁异常。")?;
-    write_json_atomic(unavailable_path, &UnavailableTracksFile::default())?;
+    write_json_atomic(guard, unavailable_path, &UnavailableTracksFile::default())?;
 
     Ok(PurgeResult {
         removed_favorites,
@@ -168,10 +175,13 @@ fn purge_unavailable_tracks_at(
 
 #[tauri::command]
 pub fn purge_unavailable_tracks() -> Result<PurgeResult, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     purge_unavailable_tracks_at(
-        &favorites_path()?,
-        &playlists_path()?,
-        &library_file_path(UNAVAILABLE_TRACKS_FILE)?,
+        guard,
+        &favorites_path(guard)?,
+        &playlists_path(guard)?,
+        &library_file_path(guard, UNAVAILABLE_TRACKS_FILE)?,
     )
 }
 
@@ -188,6 +198,7 @@ mod tests {
     fn unavailable_tracks_mark_update_list_and_clear() {
         let path = test_path();
         super::mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "BV1GF4X6MEb1",
             "该视频已被删除或设为私密".into(),
@@ -195,6 +206,7 @@ mod tests {
         )
         .unwrap();
         super::mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "BV1GF4X6MEB1",
             "该视频没有可播放的音频".into(),
@@ -202,22 +214,45 @@ mod tests {
         )
         .unwrap();
 
-        let items = super::list_unavailable_tracks_at(&path).unwrap();
+        let items =
+            super::list_unavailable_tracks_at(&crate::storage::lock_storage().unwrap(), &path)
+                .unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].bvid, "BV1GF4X6MEB1");
         assert_eq!(items[0].reason, "该视频没有可播放的音频");
         assert_eq!(items[0].marked_at, 200);
 
-        super::clear_track_unavailable_at(&path, "BV1GF4X6MEb1").unwrap();
-        assert!(super::list_unavailable_tracks_at(&path).unwrap().is_empty());
+        super::clear_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "BV1GF4X6MEb1",
+        )
+        .unwrap();
+        assert!(
+            super::list_unavailable_tracks_at(&crate::storage::lock_storage().unwrap(), &path)
+                .unwrap()
+                .is_empty()
+        );
         fs::remove_file(path).unwrap();
     }
 
     #[test]
     fn unavailable_tracks_reject_invalid_bvid_without_writing() {
         let path = test_path();
-        assert!(super::mark_track_unavailable_at(&path, "av123", "失效".into(), 1).is_err());
-        assert!(super::clear_track_unavailable_at(&path, "av123").is_err());
+        assert!(super::mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "av123",
+            "失效".into(),
+            1
+        )
+        .is_err());
+        assert!(super::clear_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "av123"
+        )
+        .is_err());
         assert!(!path.exists());
     }
 
@@ -234,8 +269,9 @@ mod tests {
                 })
                 .collect(),
         };
-        write_json_atomic(&path, &file).unwrap();
+        write_json_atomic(&crate::storage::lock_storage().unwrap(), &path, &file).unwrap();
         super::mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "BV9999999999",
             "该视频已被删除或设为私密".into(),
@@ -243,7 +279,9 @@ mod tests {
         )
         .unwrap();
 
-        let items = super::list_unavailable_tracks_at(&path).unwrap();
+        let items =
+            super::list_unavailable_tracks_at(&crate::storage::lock_storage().unwrap(), &path)
+                .unwrap();
         assert_eq!(items.len(), 500);
         assert_eq!(items[0].bvid, "BV9999999999");
         assert!(!items.iter().any(|item| item.bvid == "BV0000000123"));
@@ -256,8 +294,18 @@ mod tests {
         let path = test_path();
         let bytes = r#"{"version":999,"items":[]}"#;
         fs::write(&path, bytes).unwrap();
-        assert!(super::list_unavailable_tracks_at(&path).is_err());
-        assert!(super::mark_track_unavailable_at(&path, "BV1GF4X6MEb1", "失效".into(), 1).is_err());
+        assert!(
+            super::list_unavailable_tracks_at(&crate::storage::lock_storage().unwrap(), &path)
+                .is_err()
+        );
+        assert!(super::mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "BV1GF4X6MEb1",
+            "失效".into(),
+            1
+        )
+        .is_err());
         assert_eq!(fs::read_to_string(&path).unwrap(), bytes);
         fs::remove_file(path).unwrap();
     }
@@ -272,6 +320,7 @@ mod tests {
         let kept_bvid = "BV1rW4y1Q7o7";
 
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &favorites_path,
             &FavoritesFile {
                 version: VERSION,
@@ -283,6 +332,7 @@ mod tests {
         )
         .unwrap();
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &playlists_path,
             &PlaylistsFile {
                 version: VERSION,
@@ -307,6 +357,7 @@ mod tests {
         )
         .unwrap();
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &unavailable_path,
             &super::UnavailableTracksFile {
                 version: VERSION,
@@ -326,22 +377,31 @@ mod tests {
         )
         .unwrap();
 
-        let result =
-            super::purge_unavailable_tracks_at(&favorites_path, &playlists_path, &unavailable_path)
-                .unwrap();
+        let result = super::purge_unavailable_tracks_at(
+            &crate::storage::lock_storage().unwrap(),
+            &favorites_path,
+            &playlists_path,
+            &unavailable_path,
+        )
+        .unwrap();
 
         assert_eq!(result.removed_favorites, 1);
         assert_eq!(result.removed_playlist_items, 2);
         assert_eq!(result.cleared_marks, 2);
-        let favorites: FavoritesFile = read_json_or_default(&favorites_path).unwrap();
+        let favorites: FavoritesFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &favorites_path)
+                .unwrap();
         assert_eq!(favorites.items.len(), 1);
         assert_eq!(favorites.items[0].bvid, kept_bvid);
-        let playlists: PlaylistsFile = read_json_or_default(&playlists_path).unwrap();
+        let playlists: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &playlists_path)
+                .unwrap();
         assert_eq!(playlists.playlists[0].items.len(), 1);
         assert_eq!(playlists.playlists[0].items[0].bvid, kept_bvid);
         assert!(playlists.playlists[1].items.is_empty());
         let unavailable: super::UnavailableTracksFile =
-            read_json_or_default(&unavailable_path).unwrap();
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &unavailable_path)
+                .unwrap();
         assert!(unavailable.items.is_empty());
         fs::remove_dir_all(root).unwrap();
     }
@@ -350,6 +410,7 @@ mod tests {
     fn purge_unavailable_tracks_without_marks_does_not_write_files() {
         let root = std::env::temp_dir().join(format!("bili-music-purge-{}", Uuid::new_v4()));
         let result = super::purge_unavailable_tracks_at(
+            &crate::storage::lock_storage().unwrap(),
             &root.join("favorites.json"),
             &root.join("playlists.json"),
             &root.join("unavailable-tracks.json"),
@@ -373,6 +434,7 @@ mod tests {
         let unavailable_path = root.join("unavailable-tracks.json");
         let bvid = "BV1GF4X6MEb1";
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &favorites_path,
             &FavoritesFile {
                 version: VERSION,
@@ -381,6 +443,7 @@ mod tests {
         )
         .unwrap();
         write_json_atomic(
+            &crate::storage::lock_storage().unwrap(),
             &playlists_path,
             &PlaylistsFile {
                 version: VERSION,
@@ -393,7 +456,14 @@ mod tests {
             },
         )
         .unwrap();
-        mark_track_unavailable_at(&unavailable_path, bvid, "失效".into(), 1).unwrap();
+        mark_track_unavailable_at(
+            &crate::storage::lock_storage().unwrap(),
+            &unavailable_path,
+            bvid,
+            "失效".into(),
+            1,
+        )
+        .unwrap();
         let playlists_before = fs::read(&playlists_path).unwrap();
         let marks_before = fs::read(&unavailable_path).unwrap();
         // 允许读取，但禁止重命名，以确定性地使第二个文件的原子写入失败。
@@ -402,11 +472,17 @@ mod tests {
             .share_mode(1)
             .open(&playlists_path)
             .unwrap();
-        let error =
-            purge_unavailable_tracks_at(&favorites_path, &playlists_path, &unavailable_path)
-                .unwrap_err();
+        let error = purge_unavailable_tracks_at(
+            &crate::storage::lock_storage().unwrap(),
+            &favorites_path,
+            &playlists_path,
+            &unavailable_path,
+        )
+        .unwrap_err();
         assert!(error.contains("无法备份旧资料库"));
-        let favorites: FavoritesFile = read_json_or_default(&favorites_path).unwrap();
+        let favorites: FavoritesFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &favorites_path)
+                .unwrap();
         assert!(favorites.items.is_empty());
         assert_eq!(fs::read(&playlists_path).unwrap(), playlists_before);
         assert_eq!(fs::read(&unavailable_path).unwrap(), marks_before);

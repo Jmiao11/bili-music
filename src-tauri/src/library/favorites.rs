@@ -29,13 +29,17 @@ impl Default for FavoritesFile {
 
 #[tauri::command]
 pub fn list_favorites() -> Result<Vec<TrackSnapshot>, String> {
-    Ok(read_favorites()?.items)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    Ok(read_favorites(guard)?.items)
 }
 
 #[tauri::command]
 pub fn is_favorite(bvid: String) -> Result<bool, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let bvid = normalize_bvid(&bvid)?;
-    Ok(read_favorites()?
+    Ok(read_favorites(guard)?
         .items
         .iter()
         .any(|track| track.bvid.eq_ignore_ascii_case(&bvid)))
@@ -43,14 +47,17 @@ pub fn is_favorite(bvid: String) -> Result<bool, String> {
 
 #[tauri::command]
 pub fn toggle_favorite(track: TrackSnapshotInput) -> Result<FavoriteToggleResult, String> {
-    toggle_favorite_at(&favorites_path()?, track)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    toggle_favorite_at(guard, &favorites_path(guard)?, track)
 }
 
 fn toggle_favorite_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     track: TrackSnapshotInput,
 ) -> Result<FavoriteToggleResult, String> {
-    let mut file: FavoritesFile = read_json_or_default(path)?;
+    let mut file: FavoritesFile = read_json_or_default(guard, path)?;
     let bvid = normalize_bvid(&track.bvid)?;
     if let Some(index) = file
         .items
@@ -58,7 +65,7 @@ fn toggle_favorite_at(
         .position(|item| item.bvid.eq_ignore_ascii_case(&bvid))
     {
         file.items.remove(index);
-        write_json_atomic(path, &file)?;
+        write_json_atomic(guard, path, &file)?;
         return Ok(FavoriteToggleResult {
             favorited: false,
             items: file.items,
@@ -66,7 +73,7 @@ fn toggle_favorite_at(
     }
 
     file.items.insert(0, snapshot_from_input(track)?);
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(FavoriteToggleResult {
         favorited: true,
         items: file.items,
@@ -75,15 +82,18 @@ fn toggle_favorite_at(
 
 #[tauri::command]
 pub fn reorder_favorite(from_index: usize, to_index: usize) -> Result<Vec<TrackSnapshot>, String> {
-    reorder_favorite_at(&favorites_path()?, from_index, to_index)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    reorder_favorite_at(guard, &favorites_path(guard)?, from_index, to_index)
 }
 
 fn reorder_favorite_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     from_index: usize,
     to_index: usize,
 ) -> Result<Vec<TrackSnapshot>, String> {
-    let mut file: FavoritesFile = read_json_or_default(path)?;
+    let mut file: FavoritesFile = read_json_or_default(guard, path)?;
     if from_index >= file.items.len() || to_index >= file.items.len() {
         return Err("收藏歌曲下标越界。".to_owned());
     }
@@ -92,12 +102,12 @@ fn reorder_favorite_at(
     }
     let item = file.items.remove(from_index);
     file.items.insert(to_index, item);
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(file.items)
 }
 
-fn read_favorites() -> Result<FavoritesFile, String> {
-    read_json_or_default(&favorites_path()?)
+fn read_favorites(guard: &crate::storage::StorageGuard) -> Result<FavoritesFile, String> {
+    read_json_or_default(guard, &favorites_path(guard)?)
 }
 
 impl Versioned for FavoritesFile {
@@ -106,8 +116,8 @@ impl Versioned for FavoritesFile {
     }
 }
 
-pub(super) fn favorites_path() -> Result<PathBuf, String> {
-    library_file_path(FAVORITES_FILE)
+pub(super) fn favorites_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, String> {
+    library_file_path(guard, FAVORITES_FILE)
 }
 
 #[cfg(test)]
@@ -158,13 +168,15 @@ mod tests {
     #[test]
     fn favorite_order_moves_forward() {
         let (path, original) = favorite_fixture();
-        let result = reorder_favorite_at(&path, 0, 3).unwrap();
+        let result =
+            reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, 0, 3).unwrap();
         let expected = [1, 2, 3, 0].map(|index| &original.items[index]);
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::to_value(expected).unwrap()
         );
-        let persisted: FavoritesFile = read_json_or_default(&path).unwrap();
+        let persisted: FavoritesFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(persisted.version, 1);
         assert_eq!(
             serde_json::to_value(persisted.items).unwrap(),
@@ -176,13 +188,15 @@ mod tests {
     #[test]
     fn favorite_order_moves_backward() {
         let (path, original) = favorite_fixture();
-        let result = reorder_favorite_at(&path, 3, 1).unwrap();
+        let result =
+            reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, 3, 1).unwrap();
         let expected = [0, 3, 1, 2].map(|index| &original.items[index]);
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::to_value(expected).unwrap()
         );
-        let persisted: FavoritesFile = read_json_or_default(&path).unwrap();
+        let persisted: FavoritesFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(
             serde_json::to_value(persisted.items).unwrap(),
             serde_json::to_value(result).unwrap()
@@ -194,7 +208,8 @@ mod tests {
     fn favorite_order_same_index_does_not_write() {
         let (path, original) = favorite_fixture();
         let before = fs::read(&path).unwrap();
-        let result = reorder_favorite_at(&path, 2, 2).unwrap();
+        let result =
+            reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, 2, 2).unwrap();
         assert_eq!(
             serde_json::to_value(result).unwrap(),
             serde_json::to_value(original.items).unwrap()
@@ -215,12 +230,17 @@ mod tests {
             (usize::MAX, 0),
             (0, usize::MAX),
         ] {
-            assert!(reorder_favorite_at(&path, from, to).is_err());
+            assert!(
+                reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, from, to)
+                    .is_err()
+            );
             assert_eq!(fs::read(&path).unwrap(), before);
         }
         let empty = serde_json::to_vec(&FavoritesFile::default()).unwrap();
         fs::write(&path, &empty).unwrap();
-        assert!(reorder_favorite_at(&path, 0, 0).is_err());
+        assert!(
+            reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, 0, 0).is_err()
+        );
         assert_eq!(fs::read(&path).unwrap(), empty);
         fs::remove_file(path).unwrap();
     }
@@ -232,7 +252,9 @@ mod tests {
         expected.sort();
         for from in 0..expected.len() {
             for to in 0..expected.len() {
-                let result = reorder_favorite_at(&path, from, to).unwrap();
+                let result =
+                    reorder_favorite_at(&crate::storage::lock_storage().unwrap(), &path, from, to)
+                        .unwrap();
                 assert_eq!(result.len(), expected.len());
                 let mut actual: Vec<_> = result.iter().map(|item| &item.bvid).collect();
                 actual.sort();
@@ -245,7 +267,12 @@ mod tests {
     #[test]
     fn toggle_favorite_inserts_new_item_at_front() {
         let (path, original) = favorite_fixture();
-        let result = toggle_favorite_at(&path, favorite_input("BV1i6K46HEcf")).unwrap();
+        let result = toggle_favorite_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            favorite_input("BV1i6K46HEcf"),
+        )
+        .unwrap();
         assert!(result.favorited);
         assert_eq!(result.items.len(), original.items.len() + 1);
         assert_eq!(result.items[0].bvid, "BV1i6K46HEcf");
@@ -255,7 +282,8 @@ mod tests {
             serde_json::to_value(&result.items[1..]).unwrap(),
             serde_json::to_value(original.items).unwrap()
         );
-        let persisted: FavoritesFile = read_json_or_default(&path).unwrap();
+        let persisted: FavoritesFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(persisted.version, 1);
         assert_eq!(
             serde_json::to_value(persisted.items).unwrap(),
@@ -268,14 +296,20 @@ mod tests {
     fn toggle_favorite_removes_existing_bvid_case_insensitively() {
         for bvid in ["BV1rW4y1Q7o7", "BV1RW4Y1Q7O7"] {
             let (path, original) = favorite_fixture();
-            let result = toggle_favorite_at(&path, favorite_input(bvid)).unwrap();
+            let result = toggle_favorite_at(
+                &crate::storage::lock_storage().unwrap(),
+                &path,
+                favorite_input(bvid),
+            )
+            .unwrap();
             assert!(!result.favorited);
             assert_eq!(result.items.len(), original.items.len() - 1);
             assert_eq!(
                 serde_json::to_value(&result.items).unwrap(),
                 serde_json::to_value(&original.items[1..]).unwrap()
             );
-            let persisted: FavoritesFile = read_json_or_default(&path).unwrap();
+            let persisted: FavoritesFile =
+                read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
             assert_eq!(
                 serde_json::to_value(persisted.items).unwrap(),
                 serde_json::to_value(result.items).unwrap()
