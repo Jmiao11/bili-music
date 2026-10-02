@@ -14,6 +14,7 @@ mod ranking;
 mod search;
 mod shortcuts;
 mod state;
+mod storage;
 mod taskbar;
 mod wbi;
 
@@ -910,7 +911,7 @@ fn main() {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::{
         local_content_range, parse_local_range, proxy_local_audio, validate_cdn_url,
         LocalByteRange, ResolveCoordinator, StreamEntry, StreamLocation,
@@ -922,7 +923,7 @@ mod tests {
     use uuid::Uuid;
 
     // Test-only Rust lexical scan: blank comments without changing byte offsets or newlines.
-    fn without_rust_comments(source: &str) -> String {
+    pub(crate) fn without_rust_comments(source: &str) -> String {
         let bytes = source.as_bytes();
         let mut output = bytes.to_vec();
         let mut i = 0;

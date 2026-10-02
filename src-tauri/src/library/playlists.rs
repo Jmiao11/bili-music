@@ -33,15 +33,18 @@ impl Default for PlaylistsFile {
 
 #[tauri::command]
 pub fn reorder_playlist(from_index: usize, to_index: usize) -> Result<Vec<Playlist>, String> {
-    reorder_playlist_at(&playlists_path()?, from_index, to_index)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    reorder_playlist_at(guard, &playlists_path(guard)?, from_index, to_index)
 }
 
 fn reorder_playlist_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     from_index: usize,
     to_index: usize,
 ) -> Result<Vec<Playlist>, String> {
-    let mut file: PlaylistsFile = read_json_or_default(path)?;
+    let mut file: PlaylistsFile = read_json_or_default(guard, path)?;
     if from_index >= file.playlists.len() || to_index >= file.playlists.len() {
         return Err("歌单下标越界。".to_owned());
     }
@@ -50,18 +53,22 @@ fn reorder_playlist_at(
     }
     let playlist = file.playlists.remove(from_index);
     file.playlists.insert(to_index, playlist);
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(file.playlists)
 }
 
 #[tauri::command]
 pub fn list_playlists() -> Result<Vec<Playlist>, String> {
-    Ok(read_playlists()?.playlists)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    Ok(read_playlists(guard)?.playlists)
 }
 
 #[tauri::command]
 pub fn create_playlist(name: String) -> Result<Vec<Playlist>, String> {
-    let mut file = read_playlists()?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let mut file = read_playlists(guard)?;
     let name = normalize_playlist_name(&name)?;
     let now = now_string();
     file.playlists.push(Playlist {
@@ -70,43 +77,50 @@ pub fn create_playlist(name: String) -> Result<Vec<Playlist>, String> {
         created_at: now,
         items: Vec::new(),
     });
-    write_json_atomic(&playlists_path()?, &file)?;
+    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
 #[tauri::command]
 pub fn rename_playlist(id: String, name: String) -> Result<Vec<Playlist>, String> {
-    let mut file = read_playlists()?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let mut file = read_playlists(guard)?;
     let name = normalize_playlist_name(&name)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
     playlist.name = name;
-    write_json_atomic(&playlists_path()?, &file)?;
+    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
 #[tauri::command]
 pub fn delete_playlist(id: String) -> Result<Vec<Playlist>, String> {
-    let mut file = read_playlists()?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let mut file = read_playlists(guard)?;
     let original_len = file.playlists.len();
     file.playlists.retain(|playlist| playlist.id != id);
     if file.playlists.len() == original_len {
         return Err("歌单不存在。".to_owned());
     }
-    write_json_atomic(&playlists_path()?, &file)?;
+    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
 #[tauri::command]
 pub fn add_to_playlist(id: String, track: TrackSnapshotInput) -> Result<Vec<Playlist>, String> {
-    add_to_playlist_at(&playlists_path()?, id, track)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    add_to_playlist_at(guard, &playlists_path(guard)?, id, track)
 }
 
 fn add_to_playlist_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     id: String,
     track: TrackSnapshotInput,
 ) -> Result<Vec<Playlist>, String> {
-    let mut file = read_json_or_default(path)?;
+    let mut file = read_json_or_default(guard, path)?;
     let snapshot = snapshot_from_input(track)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
     if playlist
@@ -117,13 +131,15 @@ fn add_to_playlist_at(
         return Err(format!("歌曲已在歌单“{}”中。", playlist.name));
     }
     playlist.items.push(snapshot);
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(file.playlists)
 }
 
 #[tauri::command]
 pub fn remove_from_playlist(id: String, bvid: String) -> Result<Vec<Playlist>, String> {
-    let mut file = read_playlists()?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let mut file = read_playlists(guard)?;
     let bvid = normalize_bvid(&bvid)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
     let original_len = playlist.items.len();
@@ -133,7 +149,7 @@ pub fn remove_from_playlist(id: String, bvid: String) -> Result<Vec<Playlist>, S
     if playlist.items.len() == original_len {
         return Err("歌曲不在这个歌单中。".to_owned());
     }
-    write_json_atomic(&playlists_path()?, &file)?;
+    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
@@ -143,16 +159,19 @@ pub fn reorder_playlist_item(
     from_index: usize,
     to_index: usize,
 ) -> Result<Vec<Playlist>, String> {
-    reorder_playlist_item_at(&playlists_path()?, &id, from_index, to_index)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    reorder_playlist_item_at(guard, &playlists_path(guard)?, &id, from_index, to_index)
 }
 
 fn reorder_playlist_item_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     id: &str,
     from_index: usize,
     to_index: usize,
 ) -> Result<Vec<Playlist>, String> {
-    let mut file: PlaylistsFile = read_json_or_default(path)?;
+    let mut file: PlaylistsFile = read_json_or_default(guard, path)?;
     let playlist = find_playlist_mut(&mut file, id)?;
     if from_index >= playlist.items.len() || to_index >= playlist.items.len() {
         return Err("歌单歌曲下标越界。".to_owned());
@@ -162,12 +181,12 @@ fn reorder_playlist_item_at(
     }
     let item = playlist.items.remove(from_index);
     playlist.items.insert(to_index, item);
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(file.playlists)
 }
 
-fn read_playlists() -> Result<PlaylistsFile, String> {
-    read_json_or_default(&playlists_path()?)
+fn read_playlists(guard: &crate::storage::StorageGuard) -> Result<PlaylistsFile, String> {
+    read_json_or_default(guard, &playlists_path(guard)?)
 }
 
 impl Versioned for PlaylistsFile {
@@ -182,15 +201,18 @@ pub fn create_imported_playlist(
     name: String,
     tracks: Vec<TrackSnapshotInput>,
 ) -> Result<Playlist, String> {
-    create_imported_playlist_at(&playlists_path()?, name, tracks)
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    create_imported_playlist_at(guard, &playlists_path(guard)?, name, tracks)
 }
 
 fn create_imported_playlist_at(
+    guard: &crate::storage::StorageGuard,
     path: &Path,
     name: String,
     tracks: Vec<TrackSnapshotInput>,
 ) -> Result<Playlist, String> {
-    let mut file: PlaylistsFile = read_json_or_default(path)?;
+    let mut file: PlaylistsFile = read_json_or_default(guard, path)?;
     let name = normalize_playlist_name(&name)?;
     if file
         .playlists
@@ -219,7 +241,7 @@ fn create_imported_playlist_at(
         items,
     };
     file.playlists.push(playlist.clone());
-    write_json_atomic(path, &file)?;
+    write_json_atomic(guard, path, &file)?;
     Ok(playlist)
 }
 
@@ -233,8 +255,8 @@ fn find_playlist_mut<'a>(
         .ok_or_else(|| "歌单不存在。".to_owned())
 }
 
-pub(super) fn playlists_path() -> Result<PathBuf, String> {
-    library_file_path(PLAYLISTS_FILE)
+pub(super) fn playlists_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, String> {
+    library_file_path(guard, PLAYLISTS_FILE)
 }
 
 #[cfg(test)]
@@ -282,7 +304,14 @@ mod tests {
     #[test]
     fn reorder_moves_item_forward() {
         let (path, original) = reorder_fixture();
-        let result = reorder_playlist_item_at(&path, "test", 0, 3).unwrap();
+        let result = reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "test",
+            0,
+            3,
+        )
+        .unwrap();
         let expected = [1, 2, 3, 0].map(|index| original.playlists[0].items[index].clone());
         assert_eq!(
             serde_json::to_value(&result[0].items).unwrap(),
@@ -292,7 +321,8 @@ mod tests {
             serde_json::to_value(&result[1]).unwrap(),
             serde_json::to_value(&original.playlists[1]).unwrap()
         );
-        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        let persisted: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(persisted.version, 1);
         assert_eq!(
             serde_json::to_value(persisted.playlists).unwrap(),
@@ -304,13 +334,21 @@ mod tests {
     #[test]
     fn reorder_moves_item_backward() {
         let (path, original) = reorder_fixture();
-        let result = reorder_playlist_item_at(&path, "test", 3, 1).unwrap();
+        let result = reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "test",
+            3,
+            1,
+        )
+        .unwrap();
         let expected = [0, 3, 1, 2].map(|index| original.playlists[0].items[index].clone());
         assert_eq!(
             serde_json::to_value(&result[0].items).unwrap(),
             serde_json::to_value(expected).unwrap()
         );
-        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        let persisted: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(
             serde_json::to_value(persisted.playlists).unwrap(),
             serde_json::to_value(result).unwrap()
@@ -322,7 +360,14 @@ mod tests {
     fn reorder_same_index_does_not_write() {
         let (path, original) = reorder_fixture();
         let before = fs::read(&path).unwrap();
-        let result = reorder_playlist_item_at(&path, "test", 2, 2).unwrap();
+        let result = reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "test",
+            2,
+            2,
+        )
+        .unwrap();
         assert_eq!(
             serde_json::to_value(result).unwrap(),
             serde_json::to_value(original.playlists).unwrap()
@@ -343,10 +388,24 @@ mod tests {
             (usize::MAX, 0),
             (0, usize::MAX),
         ] {
-            assert!(reorder_playlist_item_at(&path, "test", from, to).is_err());
+            assert!(reorder_playlist_item_at(
+                &crate::storage::lock_storage().unwrap(),
+                &path,
+                "test",
+                from,
+                to
+            )
+            .is_err());
             assert_eq!(fs::read(&path).unwrap(), before);
         }
-        assert!(reorder_playlist_item_at(&path, "empty", 0, 0).is_err());
+        assert!(reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "empty",
+            0,
+            0
+        )
+        .is_err());
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_file(path).unwrap();
     }
@@ -355,8 +414,22 @@ mod tests {
     fn reorder_missing_playlist_returns_error() {
         let (path, _) = reorder_fixture();
         let before = fs::read(&path).unwrap();
-        assert!(reorder_playlist_item_at(&path, "missing", 0, 1).is_err());
-        assert!(reorder_playlist_item_at(&path, "missing", 0, 0).is_err());
+        assert!(reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "missing",
+            0,
+            1
+        )
+        .is_err());
+        assert!(reorder_playlist_item_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "missing",
+            0,
+            0
+        )
+        .is_err());
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_file(path).unwrap();
     }
@@ -372,7 +445,14 @@ mod tests {
         expected.sort();
         for from in 0..expected.len() {
             for to in 0..expected.len() {
-                let result = reorder_playlist_item_at(&path, "test", from, to).unwrap();
+                let result = reorder_playlist_item_at(
+                    &crate::storage::lock_storage().unwrap(),
+                    &path,
+                    "test",
+                    from,
+                    to,
+                )
+                .unwrap();
                 assert_eq!(result[0].items.len(), expected.len());
                 let mut actual: Vec<_> = result[0].items.iter().map(|item| &item.bvid).collect();
                 actual.sort();
@@ -416,13 +496,15 @@ mod tests {
     #[test]
     fn playlist_order_moves_forward() {
         let (path, original) = playlist_order_fixture();
-        let result = reorder_playlist_at(&path, 0, 3).unwrap();
+        let result =
+            reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, 0, 3).unwrap();
         let expected = [1, 2, 3, 0].map(|index| &original.playlists[index]);
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::to_value(expected).unwrap()
         );
-        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        let persisted: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(persisted.version, 1);
         assert_eq!(
             serde_json::to_value(persisted.playlists).unwrap(),
@@ -434,13 +516,15 @@ mod tests {
     #[test]
     fn playlist_order_moves_backward() {
         let (path, original) = playlist_order_fixture();
-        let result = reorder_playlist_at(&path, 3, 1).unwrap();
+        let result =
+            reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, 3, 1).unwrap();
         let expected = [0, 3, 1, 2].map(|index| &original.playlists[index]);
         assert_eq!(
             serde_json::to_value(&result).unwrap(),
             serde_json::to_value(expected).unwrap()
         );
-        let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+        let persisted: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(
             serde_json::to_value(persisted.playlists).unwrap(),
             serde_json::to_value(result).unwrap()
@@ -452,7 +536,8 @@ mod tests {
     fn playlist_order_same_index_does_not_write() {
         let (path, original) = playlist_order_fixture();
         let before = fs::read(&path).unwrap();
-        let result = reorder_playlist_at(&path, 2, 2).unwrap();
+        let result =
+            reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, 2, 2).unwrap();
         assert_eq!(
             serde_json::to_value(result).unwrap(),
             serde_json::to_value(original.playlists).unwrap()
@@ -473,12 +558,17 @@ mod tests {
             (usize::MAX, 0),
             (0, usize::MAX),
         ] {
-            assert!(reorder_playlist_at(&path, from, to).is_err());
+            assert!(
+                reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, from, to)
+                    .is_err()
+            );
             assert_eq!(fs::read(&path).unwrap(), before);
         }
         let empty = serde_json::to_vec(&PlaylistsFile::default()).unwrap();
         fs::write(&path, &empty).unwrap();
-        assert!(reorder_playlist_at(&path, 0, 0).is_err());
+        assert!(
+            reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, 0, 0).is_err()
+        );
         assert_eq!(fs::read(&path).unwrap(), empty);
         fs::remove_file(path).unwrap();
     }
@@ -494,7 +584,9 @@ mod tests {
         expected.sort();
         for from in 0..expected.len() {
             for to in 0..expected.len() {
-                let result = reorder_playlist_at(&path, from, to).unwrap();
+                let result =
+                    reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, from, to)
+                        .unwrap();
                 assert_eq!(result.len(), expected.len());
                 let mut actual: Vec<_> = result.iter().map(|playlist| &playlist.id).collect();
                 actual.sort();
@@ -509,8 +601,10 @@ mod tests {
         let (path, original) = playlist_order_fixture();
         for from in 0..original.playlists.len() {
             for to in 0..original.playlists.len() {
-                reorder_playlist_at(&path, from, to).unwrap();
-                let persisted: PlaylistsFile = read_json_or_default(&path).unwrap();
+                reorder_playlist_at(&crate::storage::lock_storage().unwrap(), &path, from, to)
+                    .unwrap();
+                let persisted: PlaylistsFile =
+                    read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
                 for expected in &original.playlists {
                     let actual = persisted
                         .playlists
@@ -531,21 +625,49 @@ mod tests {
     #[test]
     fn add_to_playlist_rejects_duplicates_without_writing() {
         let path = std::env::temp_dir().join(format!("bili-add-{}.json", Uuid::new_v4()));
-        let created =
-            create_imported_playlist_at(&path, "歌单".into(), vec![input("BV1rW4y1Q7o7")]).unwrap();
+        let created = create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "歌单".into(),
+            vec![input("BV1rW4y1Q7o7")],
+        )
+        .unwrap();
         let before = fs::read(&path).unwrap();
-        let error = add_to_playlist_at(&path, "不存在".into(), input("BV1rW4y1Q7o7")).unwrap_err();
+        let error = add_to_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "不存在".into(),
+            input("BV1rW4y1Q7o7"),
+        )
+        .unwrap_err();
         assert!(error.contains("不存在"));
-        let playlists =
-            add_to_playlist_at(&path, created.id.clone(), input("BV1rW4y1Q7o7")).unwrap_err();
+        let playlists = add_to_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            created.id.clone(),
+            input("BV1rW4y1Q7o7"),
+        )
+        .unwrap_err();
         assert!(playlists.contains("歌曲已在歌单“歌单”中"));
         // 大小写不同的 BV 号也应视为重复。
-        let error =
-            add_to_playlist_at(&path, created.id.clone(), input("BV1RW4Y1Q7O7")).unwrap_err();
+        let error = add_to_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            created.id.clone(),
+            input("BV1RW4Y1Q7O7"),
+        )
+        .unwrap_err();
         assert!(error.contains("歌曲已在歌单"));
         assert_eq!(fs::read(&path).unwrap(), before);
-        add_to_playlist_at(&path, created.id, input("BV1cs411f7ZC")).unwrap();
-        let file: PlaylistsFile = read_json_or_default(&path).unwrap();
+        add_to_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            created.id,
+            input("BV1cs411f7ZC"),
+        )
+        .unwrap();
+        let file: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(file.playlists[0].items.len(), 2);
         fs::remove_file(path).unwrap();
     }
@@ -563,10 +685,15 @@ mod tests {
     #[test]
     fn import_normalizes_deduplicates_and_preserves_existing_playlists() {
         let path = std::env::temp_dir().join(format!("bili-import-{}.json", Uuid::new_v4()));
-        let first =
-            create_imported_playlist_at(&path, "原歌单".into(), vec![input("BV1rW4y1Q7o7")])
-                .unwrap();
+        let first = create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "原歌单".into(),
+            vec![input("BV1rW4y1Q7o7")],
+        )
+        .unwrap();
         let created = create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "  新歌单  ".into(),
             vec![input("BV1rW4y1Q7o7"), input("BV1RW4Y1Q7O7")],
@@ -580,16 +707,21 @@ mod tests {
             created.items[0].thumbnail_url,
             "https://example.com/cover.jpg"
         );
-        let file: PlaylistsFile = read_json_or_default(&path).unwrap();
+        let file: PlaylistsFile =
+            read_json_or_default(&crate::storage::lock_storage().unwrap(), &path).unwrap();
         assert_eq!(file.version, VERSION);
         assert_eq!(file.playlists.len(), 2);
         assert_eq!(file.playlists[0].id, first.id);
         let before = fs::read(&path).unwrap();
-        assert!(
-            create_imported_playlist_at(&path, "新歌单".into(), vec![input("BV1rW4y1Q7o7")])
-                .is_err()
-        );
         assert!(create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "新歌单".into(),
+            vec![input("BV1rW4y1Q7o7")]
+        )
+        .is_err());
+        assert!(create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "坏输入".into(),
             vec![input("BV1rW4y1Q7o7"), input("bad")]
@@ -604,23 +736,37 @@ mod tests {
         let path = std::env::temp_dir().join(format!("bili-import-{}.json", Uuid::new_v4()));
         for contents in ["broken", r#"{"version":999,"playlists":[]}"#] {
             fs::write(&path, contents).unwrap();
-            assert!(
-                create_imported_playlist_at(&path, "歌单".into(), vec![input("BV1rW4y1Q7o7")])
-                    .is_err()
-            );
+            assert!(create_imported_playlist_at(
+                &crate::storage::lock_storage().unwrap(),
+                &path,
+                "歌单".into(),
+                vec![input("BV1rW4y1Q7o7")]
+            )
+            .is_err());
             assert_eq!(fs::read_to_string(&path).unwrap(), contents);
         }
         fs::remove_file(&path).unwrap();
-        assert!(create_imported_playlist_at(&path, "歌单".into(), vec![]).is_err());
         assert!(create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            "歌单".into(),
+            vec![]
+        )
+        .is_err());
+        assert!(create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
             &path,
             "歌单".into(),
             (0..201).map(|_| input("BV1rW4y1Q7o7")).collect()
         )
         .is_err());
-        assert!(
-            create_imported_playlist_at(&path, " ".into(), vec![input("BV1rW4y1Q7o7")]).is_err()
-        );
+        assert!(create_imported_playlist_at(
+            &crate::storage::lock_storage().unwrap(),
+            &path,
+            " ".into(),
+            vec![input("BV1rW4y1Q7o7")]
+        )
+        .is_err());
         assert!(!path.exists());
     }
 }

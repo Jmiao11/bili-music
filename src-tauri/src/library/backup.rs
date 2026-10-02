@@ -68,11 +68,29 @@ fn export_data_blocking() -> Result<Option<String>, String> {
 }
 
 fn export_data_at<W: Write + Seek>(root: &Path, output: W) -> Result<W, String> {
+    let files = {
+        let guard = crate::storage::lock_storage()?;
+        export_snapshot(&guard, root)?
+    };
     let mut zip = zip::ZipWriter::new(output);
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    for (name, bytes) in files {
+        zip.start_file(&name, options)
+            .map_err(|error| format!("无法写入备份条目 {name}：{error}"))?;
+        zip.write_all(&bytes)
+            .map_err(|error| format!("无法写入备份条目 {name}：{error}"))?;
+    }
+    zip.finish()
+        .map_err(|error| format!("无法完成备份文件：{error}"))
+}
 
+fn export_snapshot(
+    guard: &crate::storage::StorageGuard,
+    root: &Path,
+) -> Result<Vec<(String, Vec<u8>)>, String> {
+    let mut files = Vec::new();
     if root.exists() {
-        for entry in fs::read_dir(&root)
+        for entry in fs::read_dir(root)
             .map_err(|error| format!("无法读取数据目录 {}：{error}", root.display()))?
         {
             let path = entry
@@ -93,30 +111,22 @@ fn export_data_at<W: Write + Seek>(root: &Path, output: W) -> Result<W, String> 
             {
                 continue;
             }
-            zip.start_file(&file_name, options)
-                .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
+            let mut bytes = crate::storage::read(guard, &path)
+                .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
             if file_name == AI_CONFIG_FILE {
-                let bytes = fs::read(&path)
-                    .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
                 let mut config: serde_json::Value = serde_json::from_slice(&bytes)
                     .map_err(|error| format!("AI 配置格式损坏：{error}"))?;
                 let fields = config
                     .as_object_mut()
                     .ok_or_else(|| "AI 配置不是 JSON 对象。".to_owned())?;
                 fields.remove("api_key");
-                serde_json::to_writer(&mut zip, &config)
-                    .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
-            } else {
-                let mut input = File::open(&path)
-                    .map_err(|error| format!("无法读取数据文件 {}：{error}", path.display()))?;
-                std::io::copy(&mut input, &mut zip)
+                bytes = serde_json::to_vec(&config)
                     .map_err(|error| format!("无法写入备份条目 {file_name}：{error}"))?;
             }
+            files.push((file_name, bytes));
         }
     }
-
-    zip.finish()
-        .map_err(|error| format!("无法完成备份文件：{error}"))
+    Ok(files)
 }
 
 fn import_data_blocking() -> Result<Option<String>, String> {
@@ -134,24 +144,22 @@ fn import_data_blocking() -> Result<Option<String>, String> {
             path.display()
         )
     })?;
-    let (imported, skipped) = import_data_at(&root, file, |path, bytes| fs::write(path, bytes))
-        .map_err(|error| {
-            if error.starts_with("回滚未完成") || error.starts_with("文件已导入") {
-                format!("导入失败：{error}")
-            } else {
-                format!("导入失败，现有数据未被修改：{error}")
-            }
-        })?;
+    let (imported, skipped) = import_data_at(&root, file, |guard, path, bytes| {
+        crate::storage::write(guard, path, bytes)
+    })
+    .map_err(|error| {
+        if error.starts_with("回滚未完成") || error.starts_with("文件已导入") {
+            format!("导入失败：{error}")
+        } else {
+            format!("导入失败，现有数据未被修改：{error}")
+        }
+    })?;
     Ok(Some(format!(
         "导入了 {imported} 个文件，跳过了 {skipped} 个不认识的条目。"
     )))
 }
 
-fn import_data_at<R: Read + Seek>(
-    root: &Path,
-    input: R,
-    mut write_file: impl FnMut(&Path, &[u8]) -> std::io::Result<()>,
-) -> Result<(usize, usize), String> {
+fn read_import_files<R: Read + Seek>(input: R) -> Result<(Vec<(String, Vec<u8>)>, usize), String> {
     let mut archive =
         zip::ZipArchive::new(input).map_err(|error| format!("备份文件不是有效 zip：{error}"))?;
     let mut files = Vec::<(String, Vec<u8>)>::new();
@@ -188,37 +196,71 @@ fn import_data_at<R: Read + Seek>(
             return Err(format!("备份条目 {name} 超过大小上限。"));
         }
         if name.ends_with(".json") {
-            let mut json: serde_json::Value = serde_json::from_slice(&bytes)
+            let _json: serde_json::Value = serde_json::from_slice(&bytes)
                 .map_err(|error| format!("备份条目 {name} 的 JSON 格式损坏：{error}"))?;
-            if name == AI_CONFIG_FILE {
-                let fields = json
-                    .as_object_mut()
-                    .ok_or_else(|| "备份中的 AI 配置不是 JSON 对象。".to_owned())?;
-                if !fields.contains_key("api_key") {
-                    let existing = root.join(AI_CONFIG_FILE);
-                    let key = if existing.exists() {
-                        let current: serde_json::Value = serde_json::from_slice(
-                            &fs::read(&existing)
-                                .map_err(|error| format!("无法读取本机 AI 配置：{error}"))?,
-                        )
-                        .map_err(|error| format!("本机 AI 配置格式损坏：{error}"))?;
-                        current
-                            .get("api_key")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("")
-                            .to_owned()
-                    } else {
-                        String::new()
-                    };
-                    fields.insert("api_key".to_owned(), serde_json::Value::String(key));
-                    bytes = serde_json::to_vec(&json)
-                        .map_err(|error| format!("无法处理 AI 配置：{error}"))?;
-                }
-            }
         }
         files.push((name, bytes));
     }
 
+    Ok((files, skipped))
+}
+
+fn import_data_at<R: Read + Seek>(
+    root: &Path,
+    input: R,
+    write_file: impl FnMut(&crate::storage::StorageGuard, &Path, &[u8]) -> std::io::Result<()>,
+) -> Result<(usize, usize), String> {
+    let (mut files, skipped) = read_import_files(input)?;
+    let guard = crate::storage::lock_storage()?;
+    complete_ai_key(&guard, root, &mut files)?;
+    import_files_at(&guard, root, files, skipped, write_file)
+}
+
+fn complete_ai_key(
+    guard: &crate::storage::StorageGuard,
+    root: &Path,
+    files: &mut [(String, Vec<u8>)],
+) -> Result<(), String> {
+    for (name, bytes) in files {
+        if name == AI_CONFIG_FILE {
+            let mut json: serde_json::Value = serde_json::from_slice(bytes)
+                .map_err(|error| format!("备份条目 {name} 的 JSON 格式损坏：{error}"))?;
+
+            let fields = json
+                .as_object_mut()
+                .ok_or_else(|| "备份中的 AI 配置不是 JSON 对象。".to_owned())?;
+            if !fields.contains_key("api_key") {
+                let existing = root.join(AI_CONFIG_FILE);
+                let key = if existing.exists() {
+                    let current: serde_json::Value = serde_json::from_slice(
+                        &crate::storage::read(guard, &existing)
+                            .map_err(|error| format!("无法读取本机 AI 配置：{error}"))?,
+                    )
+                    .map_err(|error| format!("本机 AI 配置格式损坏：{error}"))?;
+                    current
+                        .get("api_key")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("")
+                        .to_owned()
+                } else {
+                    String::new()
+                };
+                fields.insert("api_key".to_owned(), serde_json::Value::String(key));
+                *bytes = serde_json::to_vec(&json)
+                    .map_err(|error| format!("无法处理 AI 配置：{error}"))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn import_files_at(
+    guard: &crate::storage::StorageGuard,
+    root: &Path,
+    files: Vec<(String, Vec<u8>)>,
+    skipped: usize,
+    mut write_file: impl FnMut(&crate::storage::StorageGuard, &Path, &[u8]) -> std::io::Result<()>,
+) -> Result<(usize, usize), String> {
     for (name, _) in &files {
         match fs::symlink_metadata(root.join(name)) {
             Ok(metadata) if !metadata.file_type().is_file() => {
@@ -238,7 +280,7 @@ fn import_data_at<R: Read + Seek>(
     for (name, _) in &files {
         let target = root.join(name);
         if target.exists() {
-            if let Err(error) = fs::copy(&target, snapshot.join(name)) {
+            if let Err(error) = crate::storage::copy(guard, &target, snapshot.join(name)) {
                 let _ = fs::remove_dir_all(&snapshot);
                 return Err(format!("无法保存 {name} 的回滚快照：{error}"));
             }
@@ -248,14 +290,14 @@ fn import_data_at<R: Read + Seek>(
     let mut written = Vec::new();
     for (name, bytes) in &files {
         written.push(name.as_str());
-        if let Err(error) = write_file(&root.join(name), bytes) {
+        if let Err(error) = write_file(guard, &root.join(name), bytes) {
             let mut rollback_errors = Vec::new();
             for written_name in written {
                 let target = root.join(written_name);
                 let restored = if existed.contains(written_name) {
-                    fs::copy(snapshot.join(written_name), &target).map(|_| ())
+                    crate::storage::copy(guard, snapshot.join(written_name), &target).map(|_| ())
                 } else {
-                    fs::remove_file(&target).or_else(|remove_error| {
+                    crate::storage::remove_file(guard, &target).or_else(|remove_error| {
                         if remove_error.kind() == std::io::ErrorKind::NotFound {
                             Ok(())
                         } else {
@@ -454,7 +496,10 @@ mod backup_tests {
         }
         let archive = export_data_at(&source, Cursor::new(Vec::new())).unwrap();
         assert_eq!(
-            import_data_at(&target, archive, |path, bytes| fs::write(path, bytes)).unwrap(),
+            import_data_at(&target, archive, |_guard, path, bytes| fs::write(
+                path, bytes
+            ))
+            .unwrap(),
             (BACKUP_JSON_FILES.len(), 0)
         );
         expected.get_mut(AI_CONFIG_FILE).unwrap()["api_key"] = serde_json::json!("");
@@ -546,7 +591,7 @@ mod backup_tests {
             ("background.png", b"image"),
         ]);
         assert_eq!(
-            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes)).unwrap(),
             (2, 2)
         );
         assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), b"{}");
@@ -560,7 +605,7 @@ mod backup_tests {
         fs::write(root.join(FAVORITES_FILE), b"old").unwrap();
         let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"invalid")]);
         assert!(
-            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes))
+            import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes))
                 .unwrap_err()
                 .contains("JSON 格式损坏")
         );
@@ -576,7 +621,7 @@ mod backup_tests {
         fs::write(root.join(PLAYLISTS_FILE), b"old-playlists").unwrap();
         let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"{}")]);
         let mut writes = 0;
-        let error = import_data_at(&root, zip, |path, bytes| {
+        let error = import_data_at(&root, zip, |_guard, path, bytes| {
             writes += 1;
             if writes == 2 {
                 fs::write(path, b"partial")?;
@@ -608,7 +653,7 @@ mod backup_tests {
             (PLAYLISTS_FILE, br#"{"version":1,"playlists":[]}"#),
         ]);
         let mut writes = 0;
-        let error = import_data_at(&root, zip, |path, bytes| {
+        let error = import_data_at(&root, zip, |_guard, path, bytes| {
             writes += 1;
             if writes == 2 {
                 let snapshot = fs::read_dir(&root)?
@@ -652,7 +697,7 @@ mod backup_tests {
         .unwrap();
         let zip = backup(&[(AI_CONFIG_FILE, br#"{"version":1,"base_url":"https://backup.test","model":"backup","api_key":"old-backup"}"#)]);
         assert_eq!(
-            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes)).unwrap(),
             (1, 0)
         );
         let config: serde_json::Value =
@@ -675,7 +720,7 @@ mod backup_tests {
             br#"{"version":1,"base_url":"https://backup.test","model":"new"}"#,
         )]);
         assert_eq!(
-            import_data_at(&root, zip, |path, bytes| fs::write(path, bytes)).unwrap(),
+            import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes)).unwrap(),
             (1, 0)
         );
         let config: serde_json::Value =

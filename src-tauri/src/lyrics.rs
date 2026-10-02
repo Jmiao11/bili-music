@@ -28,7 +28,6 @@ const LYRICS_CACHE_TTL_SECS: i64 = 30 * 24 * 3600;
 const VIDEO_PAGES_CACHE_FILE: &str = "video-pages-cache.json";
 const VIDEO_PAGES_CACHE_VERSION: u32 = 1;
 const VIDEO_PAGES_TTL_SECS: i64 = 30 * 24 * 3600;
-static VIDEO_PAGES_CACHE_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[derive(Debug, Deserialize, Serialize)]
 struct LyricsOffsetsFile {
     version: u32,
@@ -456,25 +455,26 @@ pub async fn fetch_video_meta(bvid: &str, cookie_header: &str) -> Result<VideoMe
 pub fn get_cached_video_pages(
     bvids: Vec<String>,
 ) -> Result<HashMap<String, CachedVideoPages>, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let Ok(path) = video_pages_cache_path() else {
         return Ok(HashMap::new());
     };
-    let Ok(file) = crate::library::read_json_or_default::<VideoPagesCacheFile>(&path) else {
+    let Ok(file) = crate::library::read_json_or_default::<VideoPagesCacheFile>(guard, &path) else {
         return Ok(HashMap::new());
     };
     Ok(fresh_video_pages_entries(file, bvids, unix_now()))
 }
 
 pub fn cache_video_pages(bvid: String, videos: i64, pages: Vec<PageMeta>) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     if bvid.trim().is_empty() || videos < 1 {
         return Ok(());
     }
-    let _guard = VIDEO_PAGES_CACHE_WRITE_LOCK
-        .lock()
-        .map_err(|_| "分P缓存写入锁已损坏。".to_owned())?;
     let path = video_pages_cache_path()?;
-    let mut file =
-        crate::library::read_json_or_default::<VideoPagesCacheFile>(&path).unwrap_or_default();
+    let mut file = crate::library::read_json_or_default::<VideoPagesCacheFile>(guard, &path)
+        .unwrap_or_default();
     file.entries.insert(
         bvid.trim().to_owned(),
         CachedVideoPages {
@@ -483,21 +483,20 @@ pub fn cache_video_pages(bvid: String, videos: i64, pages: Vec<PageMeta>) -> Res
             cached_at: unix_now(),
         },
     );
-    crate::library::write_json_atomic(&path, &file)
+    crate::library::write_json_atomic(guard, &path, &file)
 }
 
 #[tauri::command]
 pub fn clear_video_pages_cache() -> Result<u32, String> {
-    let _guard = VIDEO_PAGES_CACHE_WRITE_LOCK
-        .lock()
-        .map_err(|_| "分P缓存写入锁已损坏。".to_owned())?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     let path = video_pages_cache_path()?;
-    let count = crate::library::read_json_or_default::<VideoPagesCacheFile>(&path)
+    let count = crate::library::read_json_or_default::<VideoPagesCacheFile>(guard, &path)
         .unwrap_or_default()
         .entries
         .len()
         .min(u32::MAX as usize) as u32;
-    crate::library::write_json_atomic(&path, &VideoPagesCacheFile::default())?;
+    crate::library::write_json_atomic(guard, &path, &VideoPagesCacheFile::default())?;
     Ok(count)
 }
 
@@ -756,7 +755,9 @@ fn offset_key(bvid: &str, cid: i64) -> String {
 
 #[tauri::command]
 pub async fn get_lyrics_offset(bvid: String, cid: i64) -> Result<i64, String> {
-    let file = crate::library::read_json_or_default::<LyricsOffsetsFile>(&offsets_path()?)?;
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
+    let file = crate::library::read_json_or_default::<LyricsOffsetsFile>(guard, &offsets_path()?)?;
     Ok(file
         .offsets
         .get(&offset_key(&bvid, cid))
@@ -766,19 +767,21 @@ pub async fn get_lyrics_offset(bvid: String, cid: i64) -> Result<i64, String> {
 
 #[tauri::command]
 pub async fn set_lyrics_offset(bvid: String, cid: i64, offset_ms: i64) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     if bvid.trim().is_empty() || cid <= 0 {
         return Ok(());
     }
 
     let path = offsets_path()?;
-    let mut file = crate::library::read_json_or_default::<LyricsOffsetsFile>(&path)?;
+    let mut file = crate::library::read_json_or_default::<LyricsOffsetsFile>(guard, &path)?;
     let key = offset_key(&bvid, cid);
     if offset_ms == 0 {
         file.offsets.remove(&key);
     } else {
         file.offsets.insert(key, offset_ms);
     }
-    crate::library::write_json_atomic(&path, &file)
+    crate::library::write_json_atomic(guard, &path, &file)
 }
 
 fn bindings_path() -> Result<PathBuf, String> {
@@ -791,22 +794,30 @@ fn unix_now() -> i64 {
         .map_or(0, |duration| duration.as_secs().min(i64::MAX as u64) as i64)
 }
 
-fn write_binding(bvid: &str, cid: i64, binding: LyricsBinding) -> Result<(), String> {
+fn write_binding(
+    guard: &crate::storage::StorageGuard,
+    bvid: &str,
+    cid: i64,
+    binding: LyricsBinding,
+) -> Result<(), String> {
     if bvid.trim().is_empty() || cid <= 0 {
         return Ok(());
     }
     let path = bindings_path()?;
-    let mut file = crate::library::read_json_or_default::<LyricsBindingsFile>(&path)?;
+    let mut file = crate::library::read_json_or_default::<LyricsBindingsFile>(guard, &path)?;
     file.bindings.insert(offset_key(bvid, cid), binding);
-    crate::library::write_json_atomic(&path, &file)
+    crate::library::write_json_atomic(guard, &path, &file)
 }
 
 #[tauri::command]
 pub async fn get_lyrics_binding(bvid: String, cid: i64) -> Result<Option<LyricsBinding>, String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     if bvid.trim().is_empty() || cid <= 0 {
         return Ok(None);
     }
-    let file = crate::library::read_json_or_default::<LyricsBindingsFile>(&bindings_path()?)?;
+    let file =
+        crate::library::read_json_or_default::<LyricsBindingsFile>(guard, &bindings_path()?)?;
     Ok(file.bindings.get(&offset_key(&bvid, cid)).cloned())
 }
 
@@ -818,7 +829,10 @@ pub async fn set_lyrics_binding(
     song_name: String,
     singer: String,
 ) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     write_binding(
+        guard,
         &bvid,
         cid,
         LyricsBinding {
@@ -834,15 +848,17 @@ pub async fn set_lyrics_binding(
 
 #[tauri::command]
 pub async fn clear_lyrics_binding(bvid: String, cid: i64) -> Result<(), String> {
+    let storage_guard = crate::storage::lock_storage()?;
+    let guard = &storage_guard;
     if bvid.trim().is_empty() || cid <= 0 {
         return Ok(());
     }
     let path = bindings_path()?;
-    let mut file = crate::library::read_json_or_default::<LyricsBindingsFile>(&path)?;
+    let mut file = crate::library::read_json_or_default::<LyricsBindingsFile>(guard, &path)?;
     if file.bindings.remove(&offset_key(&bvid, cid)).is_none() {
         return Ok(());
     }
-    crate::library::write_json_atomic(&path, &file)
+    crate::library::write_json_atomic(guard, &path, &file)
 }
 
 fn negative_binding_is_fresh(binding: &LyricsBinding, now: i64) -> bool {
@@ -921,6 +937,7 @@ pub async fn resolve_lyrics(
             let song_name = scored.candidate.name;
             let singer = scored.candidate.singer;
             write_binding(
+                &crate::storage::lock_storage()?,
                 bvid,
                 cid,
                 LyricsBinding {
@@ -956,6 +973,7 @@ pub async fn resolve_lyrics(
         }),
         "low" => {
             write_binding(
+                &crate::storage::lock_storage()?,
                 bvid,
                 cid,
                 LyricsBinding {

@@ -36,7 +36,8 @@ pub async fn choose_background_image() -> Result<Option<BackgroundImage>, String
     match path {
         Some(path) => tauri::async_runtime::spawn_blocking(move || {
             let mut image = prepare_background(&path)?;
-            let internal = store_background_copy(&path)?;
+            let storage_guard = crate::storage::lock_storage()?;
+            let internal = store_background_copy(&storage_guard, &path)?;
             image.path = internal.to_string_lossy().into_owned();
             Ok(Some(image))
         })
@@ -58,17 +59,15 @@ async fn load_background_path(path: PathBuf) -> Result<BackgroundImage, String> 
 }
 
 fn prepare_background(path: &Path) -> Result<BackgroundImage, String> {
-    if !path.is_file() {
-        return Err("背景图片不存在或已被移动。".to_owned());
+    let bytes = {
+        let guard = crate::storage::lock_storage()?;
+        read_background_snapshot(&guard, path)?
+    };
+    let mut reader = ImageReader::new(std::io::Cursor::new(bytes));
+    if let Ok(format) = image::ImageFormat::from_path(path) {
+        reader.set_format(format);
     }
-
-    let metadata = fs::metadata(path).map_err(|error| format!("无法读取背景图片：{error}"))?;
-    if metadata.len() > MAX_SOURCE_BYTES {
-        return Err("背景图片超过 50 MB，请选择尺寸更合适的图片。".to_owned());
-    }
-
-    let reader = ImageReader::open(path)
-        .map_err(|error| format!("无法打开背景图片：{error}"))?
+    let reader = reader
         .with_guessed_format()
         .map_err(|error| format!("无法识别背景图片格式：{error}"))?;
     let image = reader
@@ -100,11 +99,28 @@ fn prepare_background(path: &Path) -> Result<BackgroundImage, String> {
     })
 }
 
-fn store_background_copy(source: &Path) -> Result<PathBuf, String> {
+fn read_background_snapshot(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<Vec<u8>, String> {
+    if !path.is_file() {
+        return Err("背景图片不存在或已被移动。".to_owned());
+    }
+    let metadata = fs::metadata(path).map_err(|error| format!("无法读取背景图片：{error}"))?;
+    if metadata.len() > MAX_SOURCE_BYTES {
+        return Err("背景图片超过 50 MB，请选择尺寸更合适的图片。".to_owned());
+    }
+    crate::storage::read(guard, path).map_err(|error| format!("无法打开背景图片：{error}"))
+}
+
+fn store_background_copy(
+    guard: &crate::storage::StorageGuard,
+    source: &Path,
+) -> Result<PathBuf, String> {
     let dir = background_store_dir()?;
     fs::create_dir_all(&dir)
         .map_err(|error| format!("无法创建背景图片目录 {}：{error}", dir.display()))?;
-    remove_existing_background_copies(&dir)?;
+    remove_existing_background_copies(guard, &dir)?;
 
     let ext = source
         .extension()
@@ -113,7 +129,7 @@ fn store_background_copy(source: &Path) -> Result<PathBuf, String> {
         .filter(|ext| !ext.is_empty())
         .unwrap_or_else(|| "img".to_owned());
     let internal = dir.join(BACKGROUND_FILE_STEM).with_extension(ext);
-    fs::copy(source, &internal).map_err(|error| {
+    crate::storage::copy(guard, source, &internal).map_err(|error| {
         format!(
             "无法保存背景图片副本 {} 到 {}：{error}",
             source.display(),
@@ -123,7 +139,10 @@ fn store_background_copy(source: &Path) -> Result<PathBuf, String> {
     Ok(internal)
 }
 
-fn remove_existing_background_copies(dir: &Path) -> Result<(), String> {
+fn remove_existing_background_copies(
+    guard: &crate::storage::StorageGuard,
+    dir: &Path,
+) -> Result<(), String> {
     for entry in fs::read_dir(dir)
         .map_err(|error| format!("无法读取背景图片目录 {}：{error}", dir.display()))?
     {
@@ -136,7 +155,7 @@ fn remove_existing_background_copies(dir: &Path) -> Result<(), String> {
                 .and_then(|stem| stem.to_str())
                 .is_some_and(|stem| stem == BACKGROUND_FILE_STEM)
         {
-            fs::remove_file(&path)
+            crate::storage::remove_file(guard, &path)
                 .map_err(|error| format!("无法删除旧背景图片副本 {}：{error}", path.display()))?;
         }
     }
