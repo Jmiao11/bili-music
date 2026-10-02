@@ -173,8 +173,16 @@ async function refreshAiKeyState() {
   }
 }
 
+/**
+ * @template {keyof CommandMap} K
+ * @param {K} command
+ * @param {CommandMap[K]["args"]} args
+ * @param {number} timeoutMs
+ * @returns {Promise<CommandMap[K]["result"]>}
+ */
 function invokeWithTimeout(command, args, timeoutMs) {
   let timeoutId = 0;
+  /** @type {Promise<never>} */
   const timeout = new Promise((_, reject) => {
     timeoutId = window.setTimeout(() => reject(new Error("request timeout")), timeoutMs);
   });

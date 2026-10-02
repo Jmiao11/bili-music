@@ -9,6 +9,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
     "moduleDetection": "legacy",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": [],
