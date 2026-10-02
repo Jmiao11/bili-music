@@ -479,4 +479,29 @@ mod tests {
         // The final page stops as soon as the 200th valid video is collected.
         assert_eq!(skipped, 190);
     }
+
+    #[test]
+    fn import_page_contract_fixture() {
+        crate::contract_tests::assert_fixture(
+            "import-page",
+            &super::ImportPage {
+                media_id: "123".into(),
+                title: "收藏夹".into(),
+                total: 1,
+                items: vec![crate::library::TrackSnapshot {
+                    bvid: "BV1234567890".into(),
+                    title: "曲目".into(),
+                    uploader: "作者".into(),
+                    thumbnail_url: "https://example.com/cover.jpg".into(),
+                    duration_seconds: 120,
+                    added_at: "1700000000000".into(),
+                }],
+                skipped: 0,
+                duplicates: 0,
+                scanned: 1,
+                has_more: false,
+                truncated: false,
+            },
+        );
+    }
 }

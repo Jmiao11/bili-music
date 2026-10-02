@@ -1254,4 +1254,22 @@ mod tests {
             vec!["oversized"]
         );
     }
+
+    #[test]
+    fn audio_cache_command_contract_fixtures() {
+        crate::contract_tests::assert_fixture(
+            "audio-cache-settings",
+            &super::AudioCacheSettings {
+                enabled: true,
+                max_bytes: 1073741824,
+            },
+        );
+        crate::contract_tests::assert_fixture(
+            "audio-cache-usage",
+            &super::AudioCacheUsage {
+                bytes: 1024,
+                items: 2,
+            },
+        );
+    }
 }
