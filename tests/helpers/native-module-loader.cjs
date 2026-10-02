@@ -6,7 +6,7 @@ const { pathToFileURL } = require("node:url");
 const { Session } = require("node:inspector");
 
 async function loadNativeModules(sourceRoot, files, entry) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-native-esm-"));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bili-native-esm-")));
   const descriptors = new Map();
   const events = [];
   const listeners = new Map();
@@ -91,7 +91,7 @@ async function loadNativeModules(sourceRoot, files, entry) {
     session.connect();
     await post("Profiler.enable");
     await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
-    const namespace = await import(pathToFileURL(path.join(root, entry)).href);
+    const namespace = await import(pathToFileURL(fs.realpathSync(path.join(root, entry))).href);
     const { result } = await post("Profiler.takePreciseCoverage");
     const coverage = result.filter((script) => script.url.startsWith(pathToFileURL(root).href));
     return { namespace, events, coverage };
@@ -101,7 +101,7 @@ async function loadNativeModules(sourceRoot, files, entry) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor);
       else delete globalThis[name];
     }
-    assert.equal(path.dirname(path.resolve(root)), path.resolve(os.tmpdir()));
+    assert.equal(path.dirname(root), fs.realpathSync(os.tmpdir()));
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
