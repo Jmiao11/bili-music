@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [
+    "../../ui/sidebar.js",
+    "../../ui/window-controls.js",
+    "../../ui/dynamic-background.js",
+    "../../ui/app.js",
+    "../../ui/main.js",
+    "../../ui/page-selection.js",
+    "../../ui/track-utils.js",
+    "../../ui/home.js",
+    "../../ui/library-ui.js",
+    "../../ui/video-pages.js",
+    "../../ui/search.js",
+    "../../ui/appearance.js",
+    "../../ui/lyrics.js",
+    "../../ui/mascot.js",
+    "../../ui/mini-player-host.js"
+  ]
+}
