@@ -1,4 +1,5 @@
 /// <reference path="./command-contract.d.ts" />
+/// <reference path="./event-contract.d.ts" />
 // UI call sites: window-controls.js:1, mini-player-host.js:179, mini.js:320.
 interface TauriEvent<T> {
   payload: T;
@@ -29,14 +30,10 @@ interface TauriMonitor {
 
 interface Window {
   __TAURI__?: {
-    // main.js:9, appearance.js:4, lyrics.js:24; unannotated results are unknown.
+    // main.js:9, appearance.js:4, lyrics.js:24; command names select wire types.
     core: { invoke: CommandInvoke; };
     // appearance.js:533,580; mini-player-host.js:88,145; mini.js:177,182,299.
-    event: {
-      listen<T = unknown>(event: string, handler: (event: TauriEvent<T>) => void): Promise<() => void>;
-      emit(event: string, payload?: unknown): Promise<void>;
-      emitTo(target: string, event: string, payload?: unknown): Promise<void>;
-    };
+    event: TauriEventApi;
     window: {
       getCurrentWindow(): TauriWindowHandle;
       availableMonitors(): Promise<TauriMonitor[]>;

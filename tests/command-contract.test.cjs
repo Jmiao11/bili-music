@@ -84,7 +84,7 @@ test("playbackTrackSnapshot rounds fractional durations before saving playback s
 
 test("CommandMap covers debug and release registrations without exposing debug calls to UI", () => {
   const { debug, release } = registrations(fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8"));
-  const source = fs.readFileSync(path.join(root, "types/command-contract.d.ts"), "utf8");
+  const source = fs.readFileSync(path.join(root, "types/command-contract.d.ts"), "utf8").replace(/\r\n/g, "\n");
   const start = source.indexOf("interface CommandMap {");
   assert.notEqual(start, -1);
   const end = source.indexOf("\n}", start);

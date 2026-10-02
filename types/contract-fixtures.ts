@@ -172,3 +172,18 @@ invoke("record_play");
 invoke("set_stream_source", { source: false });
 // @ts-expect-error Output nullable fields are present, not optional.
 const missingNullableField: CommandContract.AiConfigView = { apiFormat: "format", baseUrl: "url", model: "model", hasKey: false };
+
+declare const eventApi: TauriEventApi;
+eventApi.listen("global-shortcut", ({ payload }) => payload.toUpperCase());
+eventApi.emit("taskbar-media-control", "play_pause");
+eventApi.emit("mini-player-command", { action: "toggle_play" });
+eventApi.emit("mini-player-ready");
+eventApi.listen("tauri://resize", ({ payload }) => { const frameworkPayload: unknown = payload; });
+// @ts-expect-error Wrong known action must not fall through to framework overloads.
+eventApi.emit("taskbar-media-control", "toggle_play");
+// @ts-expect-error Known events require their payload.
+eventApi.emit("mini-player-command");
+// @ts-expect-error Mini commands have a different action vocabulary.
+eventApi.emit("mini-player-command", { action: "play_pause" });
+// @ts-expect-error Unknown app events need an explicit external declaration.
+eventApi.listen("mini-player-unknown", () => {});
