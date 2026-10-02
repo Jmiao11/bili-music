@@ -648,4 +648,20 @@ mod tests {
         assert_eq!(calls.get(), 1);
         fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn record_play_accepts_fractional_duration_and_stores_rounded_seconds() {
+        let input: crate::library::TrackSnapshotInput = serde_json::from_str(
+            &include_str!("../../../tests/fixtures/contract/input-track-snapshot.json")
+                .replace("\"durationSeconds\":120", "\"durationSeconds\":120.5"),
+        )
+        .unwrap();
+        let path = test_path();
+        let guard = crate::storage::lock_storage().unwrap();
+        super::record_play_at(&guard, || Ok(path.clone()), input).unwrap();
+        let items = super::get_play_history_at(&guard, || Ok(path.clone())).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].duration_seconds, 121);
+        fs::remove_file(path).unwrap();
+    }
 }

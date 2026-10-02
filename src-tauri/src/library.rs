@@ -55,7 +55,47 @@ pub struct TrackSnapshotInput {
     pub title: String,
     pub uploader: String,
     pub thumbnail_url: String,
+    #[serde(deserialize_with = "deserialize_input_duration_seconds")]
     pub duration_seconds: u64,
+}
+
+fn deserialize_input_duration_seconds<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct DurationVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for DurationVisitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a finite nonnegative duration representable as u64")
+        }
+
+        fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<u64, E> {
+            Ok(value)
+        }
+
+        fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<u64, E> {
+            u64::try_from(value)
+                .map_err(|_| E::invalid_value(serde::de::Unexpected::Signed(value), &self))
+        }
+
+        fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<u64, E> {
+            if !value.is_finite() || value < 0.0 {
+                return Err(E::invalid_value(serde::de::Unexpected::Float(value), &self));
+            }
+            let rounded = value.round();
+            // u64::MAX rounds up to 2^64 as f64. Compare against the exclusive
+            // upper bound; integers never go through this floating-point path.
+            if rounded >= 18446744073709551616.0 {
+                return Err(E::invalid_value(serde::de::Unexpected::Float(value), &self));
+            }
+            Ok(rounded as u64)
+        }
+    }
+
+    deserializer.deserialize_any(DurationVisitor)
 }
 
 pub(crate) fn read_json_or_default<T>(
