@@ -733,4 +733,243 @@ mod backup_tests {
     fn disabled_pages_are_importable_from_backup() {
         assert!(super::BACKUP_JSON_FILES.contains(&super::DISABLED_PAGES_FILE));
     }
+    fn concurrent_writer(
+        root: PathBuf,
+        operation: impl FnOnce() -> Result<(), String> + Send + 'static,
+    ) -> (
+        std::thread::JoinHandle<Result<(), String>>,
+        std::sync::mpsc::Receiver<()>,
+        std::sync::mpsc::Receiver<()>,
+    ) {
+        let (attempt_tx, attempt) = std::sync::mpsc::channel();
+        let (done_tx, done) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            crate::storage::set_test_root(root);
+            crate::storage::before_lock(move || attempt_tx.send(()).unwrap());
+            let result = operation();
+            done_tx.send(()).unwrap();
+            result
+        });
+        (thread, attempt, done)
+    }
+
+    fn new_play() -> super::super::TrackSnapshotInput {
+        super::super::TrackSnapshotInput {
+            bvid: "BV1rW4y1Q7o7".into(),
+            title: "new".into(),
+            uploader: "u".into(),
+            thumbnail_url: String::new(),
+            duration_seconds: 1,
+        }
+    }
+
+    fn imported_history() -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({"version":1,"items":[{
+            "bvid":"BV1GF4X6MEb1","title":"imported","uploader":"u",
+            "thumbnailUrl":"","durationSeconds":1,"lastPlayedAt":"1","count":1
+        }]}))
+        .unwrap()
+    }
+
+    fn wait_for_blocked_writer(done: &std::sync::mpsc::Receiver<()>) -> bool {
+        // Negative assertion: after the writer reaches lock_storage, give it at least
+        // 200 ms to report completion. No sleep is used to construct the interleaving.
+        matches!(
+            done.recv_timeout(std::time::Duration::from_millis(200)),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+        )
+    }
+
+    #[test]
+    fn concurrent_lyrics_offsets_preserve_both_keys() {
+        let root = temp_root();
+        let (read_tx, read_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let first_root = root.clone();
+        let first = std::thread::spawn(move || {
+            crate::storage::set_test_root(first_root);
+            crate::storage::after_read(move |_| {
+                read_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+                true
+            });
+            tauri::async_runtime::block_on(crate::lyrics::set_lyrics_offset(
+                "BV1GF4X6MEb1".into(),
+                1,
+                100,
+            ))
+        });
+        read_rx.recv().unwrap();
+        let (second, attempted, done) = concurrent_writer(root.clone(), || {
+            tauri::async_runtime::block_on(crate::lyrics::set_lyrics_offset(
+                "BV1rW4y1Q7o7".into(),
+                2,
+                200,
+            ))
+        });
+        attempted.recv().unwrap();
+        let blocked = wait_for_blocked_writer(&done);
+        release_tx.send(()).unwrap();
+        first.join().unwrap().unwrap();
+        second.join().unwrap().unwrap();
+        let offsets: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join("lyrics-offsets.json")).unwrap()).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(offsets["offsets"]["BV1GF4X6MEb1:1"], 100);
+        assert_eq!(offsets["offsets"]["BV1rW4y1Q7o7:2"], 200);
+        assert!(
+            blocked,
+            "second offset writer completed while first held storage"
+        );
+    }
+
+    #[test]
+    fn concurrent_import_then_record_play_preserves_import_and_new_record() {
+        let root = temp_root();
+        fs::write(root.join(PLAY_HISTORY_FILE), br#"{"version":1,"items":[]}"#).unwrap();
+        let history = imported_history();
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (PLAY_HISTORY_FILE, &history),
+        ]);
+        let (written_tx, written_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let first_root = root.clone();
+        let first = std::thread::spawn(move || {
+            let mut writes = 0;
+            import_data_at(&first_root, zip, |_guard, path, bytes| {
+                fs::write(path, bytes)?;
+                writes += 1;
+                if writes == 1 {
+                    written_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                }
+                Ok(())
+            })
+        });
+        written_rx.recv().unwrap();
+        let (second, attempted, done) = concurrent_writer(root.clone(), || {
+            super::super::history::record_play(new_play())
+        });
+        attempted.recv().unwrap();
+        let blocked = wait_for_blocked_writer(&done);
+        release_tx.send(()).unwrap();
+        first.join().unwrap().unwrap();
+        second.join().unwrap().unwrap();
+        let history: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(PLAY_HISTORY_FILE)).unwrap()).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(history["items"].as_array().unwrap().len(), 2);
+        assert_eq!(history["items"][0]["bvid"], "BV1rW4y1Q7o7");
+        assert_eq!(history["items"][1]["title"], "imported");
+        assert!(blocked, "record_play completed before import finished");
+    }
+
+    #[test]
+    fn concurrent_failed_import_rolls_back_before_record_play() {
+        let root = temp_root();
+        fs::write(root.join(PLAY_HISTORY_FILE), br#"{"version":1,"items":[]}"#).unwrap();
+        let history = imported_history();
+        let zip = backup(&[
+            (PLAY_HISTORY_FILE, &history),
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+        ]);
+        let (written_tx, written_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let first_root = root.clone();
+        let first = std::thread::spawn(move || {
+            let mut writes = 0;
+            import_data_at(&first_root, zip, |_guard, path, bytes| {
+                fs::write(path, bytes)?;
+                writes += 1;
+                if writes == 1 {
+                    written_tx.send(()).unwrap();
+                    release_rx.recv().unwrap();
+                } else {
+                    return Err(Error::other("injected concurrent import failure"));
+                }
+                Ok(())
+            })
+        });
+        written_rx.recv().unwrap();
+        let (second, attempted, done) = concurrent_writer(root.clone(), || {
+            super::super::history::record_play(new_play())
+        });
+        attempted.recv().unwrap();
+        let blocked = wait_for_blocked_writer(&done);
+        release_tx.send(()).unwrap();
+        assert!(first.join().unwrap().unwrap_err().contains("已回滚"));
+        second.join().unwrap().unwrap();
+        let history: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(PLAY_HISTORY_FILE)).unwrap()).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(history["items"].as_array().unwrap().len(), 1);
+        assert_eq!(history["items"][0]["bvid"], "BV1rW4y1Q7o7");
+        assert!(blocked, "record_play completed before rollback finished");
+    }
+
+    #[test]
+    fn concurrent_export_snapshot_precedes_purge_as_one_unit() {
+        let root = temp_root();
+        let track = serde_json::json!({"bvid":"BV1GF4X6MEb1","title":"old","uploader":"u",
+            "thumbnailUrl":"","durationSeconds":1,"addedAt":"1"});
+        fs::write(
+            root.join(FAVORITES_FILE),
+            serde_json::to_vec(&serde_json::json!({"version":1,"items":[track.clone()]})).unwrap(),
+        )
+        .unwrap();
+        fs::write(root.join(PLAYLISTS_FILE), serde_json::to_vec(
+            &serde_json::json!({"version":1,"playlists":[{"id":"p","name":"p","createdAt":"1","items":[track]}]})).unwrap()).unwrap();
+        fs::write(root.join(UNAVAILABLE_TRACKS_FILE), serde_json::to_vec(
+            &serde_json::json!({"version":1,"items":[{"bvid":"BV1GF4X6MEb1","reason":"bad","markedAt":1}]})).unwrap()).unwrap();
+        let (read_tx, read_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let first_root = root.clone();
+        let first = std::thread::spawn(move || {
+            crate::storage::after_read(move |path| {
+                let name = path.file_name().unwrap().to_str().unwrap();
+                if name != FAVORITES_FILE && name != PLAYLISTS_FILE {
+                    return false;
+                }
+                read_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+                true
+            });
+            export_data_at(&first_root, Cursor::new(Vec::new()))
+        });
+        read_rx.recv().unwrap();
+        let (second, attempted, done) = concurrent_writer(root.clone(), || {
+            super::super::unavailable::purge_unavailable_tracks().map(|_| ())
+        });
+        attempted.recv().unwrap();
+        let blocked = wait_for_blocked_writer(&done);
+        release_tx.send(()).unwrap();
+        let zip = first.join().unwrap().unwrap();
+        second.join().unwrap().unwrap();
+        let mut archive = zip::ZipArchive::new(Cursor::new(zip.into_inner())).unwrap();
+        let mut favorites = String::new();
+        archive
+            .by_name(FAVORITES_FILE)
+            .unwrap()
+            .read_to_string(&mut favorites)
+            .unwrap();
+        let mut playlists = String::new();
+        archive
+            .by_name(PLAYLISTS_FILE)
+            .unwrap()
+            .read_to_string(&mut playlists)
+            .unwrap();
+        let favorites: serde_json::Value = serde_json::from_str(&favorites).unwrap();
+        let playlists: serde_json::Value = serde_json::from_str(&playlists).unwrap();
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(favorites["items"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            playlists["playlists"][0]["items"].as_array().unwrap().len(),
+            1
+        );
+        assert!(
+            blocked,
+            "purge completed while the export snapshot was being read"
+        );
+    }
 }

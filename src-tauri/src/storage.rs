@@ -19,7 +19,44 @@ pub(crate) struct StorageGuard {
     _not_send: PhantomData<Rc<()>>,
 }
 
+#[cfg(test)]
+thread_local! {
+    static TEST_ROOT: std::cell::RefCell<Option<std::path::PathBuf>> = const { std::cell::RefCell::new(None) };
+    static BEFORE_LOCK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+    static AFTER_READ: std::cell::RefCell<Option<Box<dyn FnMut(&Path) -> bool>>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn set_test_root(root: std::path::PathBuf) {
+    TEST_ROOT.with(|slot| *slot.borrow_mut() = Some(root));
+}
+#[cfg(test)]
+pub(crate) fn test_root() -> Option<std::path::PathBuf> {
+    TEST_ROOT.with(|slot| slot.borrow().clone())
+}
+#[cfg(test)]
+pub(crate) fn before_lock(hook: impl FnOnce() + 'static) {
+    BEFORE_LOCK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+}
+#[cfg(test)]
+pub(crate) fn after_read(hook: impl FnMut(&Path) -> bool + 'static) {
+    AFTER_READ.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+}
+#[cfg(test)]
+fn notify_read(path: &Path) {
+    let hook = AFTER_READ.with(|slot| slot.borrow_mut().take());
+    if let Some(mut hook) = hook {
+        if !hook(path) {
+            AFTER_READ.with(|slot| *slot.borrow_mut() = Some(hook));
+        }
+    }
+}
+
 pub(crate) fn lock_storage() -> Result<StorageGuard, String> {
+    #[cfg(test)]
+    if let Some(hook) = BEFORE_LOCK.with(|slot| slot.borrow_mut().take()) {
+        hook();
+    }
     if HELD.with(Cell::get) {
         return Err("存储锁不可重入。".to_owned());
     }
@@ -43,7 +80,10 @@ pub(crate) fn read_json_or_default<T>(_: &StorageGuard, path: &Path) -> Result<T
 where
     T: for<'de> Deserialize<'de> + Default + Versioned,
 {
-    read_json_impl(path)
+    let value = read_json_impl(path);
+    #[cfg(test)]
+    notify_read(path);
+    value
 }
 
 pub(crate) fn write_json_atomic<T: Serialize>(
@@ -70,7 +110,11 @@ pub(crate) fn write_json_atomic_without_storage_lock<T: Serialize>(
 }
 
 pub(crate) fn read(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
-    fs::read(path)
+    let path = path.as_ref();
+    let value = fs::read(path);
+    #[cfg(test)]
+    notify_read(path);
+    value
 }
 pub(crate) fn read_to_string(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::Result<String> {
     fs::read_to_string(path)
@@ -219,7 +263,17 @@ mod tests {
             }
             let source = without_rust_comments(&fs::read_to_string(&path).unwrap());
             // Existing source files put fixture helpers/tests in a trailing cfg(test) section.
-            let production = source.split("#[cfg(test)]").next().unwrap();
+            let test_module = source
+                .match_indices("#[cfg(test)]")
+                .find_map(|(offset, _)| {
+                    let declaration = source[offset + "#[cfg(test)]".len()..].trim_start();
+                    (declaration.starts_with("mod ")
+                        || declaration.starts_with("pub(crate) mod ")
+                        || declaration.starts_with("pub(super) mod "))
+                    .then_some(offset)
+                })
+                .unwrap_or(source.len());
+            let production = &source[..test_module];
             let compact: String = production.chars().filter(|c| !c.is_whitespace()).collect();
             let offsets: Vec<_> = production
                 .char_indices()
