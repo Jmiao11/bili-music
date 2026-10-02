@@ -758,9 +758,7 @@ mod tests {
     #[test]
     fn expired_deadline_stops_work() {
         assert_eq!(
-            remaining(Instant::now() - Duration::from_secs(1))
-                .unwrap_err()
-                .kind(),
+            remaining(Instant::now()).unwrap_err().kind(),
             io::ErrorKind::TimedOut
         );
         assert!(remaining(Instant::now() + ANALYSIS_TIMEOUT).is_ok());

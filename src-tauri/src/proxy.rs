@@ -39,6 +39,14 @@ pub(crate) enum StreamLocation {
     Local(PathBuf),
 }
 
+#[cfg(any(debug_assertions, test))]
+fn registered_for_ms(now: Instant, expires_at: Instant, ttl: Duration) -> u128 {
+    expires_at
+        .checked_sub(ttl)
+        .map(|registered_at| now.saturating_duration_since(registered_at).as_millis())
+        .unwrap_or(0)
+}
+
 pub(crate) async fn proxy_audio(
     State(state): State<ProxyState>,
     Path(token): Path<String>,
@@ -64,9 +72,7 @@ pub(crate) async fn proxy_audio(
         #[cfg(debug_assertions)]
         eprintln!(
             "[audio-proxy] token=...{token_tail} status=410 registered_for_ms={}",
-            Instant::now()
-                .saturating_duration_since(entry.expires_at - STREAM_SESSION_TTL)
-                .as_millis()
+            registered_for_ms(Instant::now(), entry.expires_at, STREAM_SESSION_TTL)
         );
         state.streams.write().await.remove(&token);
         return empty_response(StatusCode::GONE);
@@ -115,9 +121,7 @@ pub(crate) async fn proxy_audio(
     } else if status == StatusCode::GONE {
         eprintln!(
             "[audio-proxy] token=...{token_tail} status=410 registered_for_ms={}",
-            Instant::now()
-                .saturating_duration_since(entry.expires_at - STREAM_SESSION_TTL)
-                .as_millis()
+            registered_for_ms(Instant::now(), entry.expires_at, STREAM_SESSION_TTL)
         );
     }
     if !(status.is_success() || status.as_u16() == 206) {
@@ -429,6 +433,14 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
     use uuid::Uuid;
+
+    #[test]
+    fn registration_diagnostic_handles_unrepresentable_start() {
+        let now = Instant::now();
+        assert_eq!(super::registered_for_ms(now, now, Duration::MAX), 0);
+        let ttl = Duration::from_secs(60);
+        assert_eq!(super::registered_for_ms(now + ttl, now + ttl, ttl), 60_000);
+    }
 
     #[test]
     fn cdn_hosts_match_shared_fixture() {
@@ -882,7 +894,7 @@ mod tests {
         let entry = StreamEntry {
             source: StreamLocation::Remote(reqwest::Url::parse(url).unwrap()),
             expires_at: if expired {
-                Instant::now() - Duration::from_secs(1)
+                Instant::now()
             } else {
                 Instant::now() + Duration::from_secs(60)
             },
