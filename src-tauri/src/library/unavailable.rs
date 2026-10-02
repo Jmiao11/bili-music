@@ -362,6 +362,58 @@ mod tests {
         assert!(!root.exists());
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn purge_second_write_failure_keeps_first_write_and_marks() {
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let root = std::env::temp_dir().join(format!("bili-music-purge-{}", Uuid::new_v4()));
+        let favorites_path = root.join("favorites.json");
+        let playlists_path = root.join("playlists.json");
+        let unavailable_path = root.join("unavailable-tracks.json");
+        let bvid = "BV1GF4X6MEb1";
+        write_json_atomic(
+            &favorites_path,
+            &FavoritesFile {
+                version: VERSION,
+                items: vec![track_with_bvid(bvid, "失效收藏")],
+            },
+        )
+        .unwrap();
+        write_json_atomic(
+            &playlists_path,
+            &PlaylistsFile {
+                version: VERSION,
+                playlists: vec![Playlist {
+                    id: "one".into(),
+                    name: "歌单".into(),
+                    created_at: "1".into(),
+                    items: vec![track_with_bvid(bvid, "失效歌曲")],
+                }],
+            },
+        )
+        .unwrap();
+        mark_track_unavailable_at(&unavailable_path, bvid, "失效".into(), 1).unwrap();
+        let playlists_before = fs::read(&playlists_path).unwrap();
+        let marks_before = fs::read(&unavailable_path).unwrap();
+        // 允许读取，但禁止重命名，以确定性地使第二个文件的原子写入失败。
+        let held = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(&playlists_path)
+            .unwrap();
+        let error =
+            purge_unavailable_tracks_at(&favorites_path, &playlists_path, &unavailable_path)
+                .unwrap_err();
+        assert!(error.contains("无法备份旧资料库"));
+        let favorites: FavoritesFile = read_json_or_default(&favorites_path).unwrap();
+        assert!(favorites.items.is_empty());
+        assert_eq!(fs::read(&playlists_path).unwrap(), playlists_before);
+        assert_eq!(fs::read(&unavailable_path).unwrap(), marks_before);
+        drop(held);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn track_with_bvid(bvid: &str, title: &str) -> TrackSnapshot {
         TrackSnapshot {
             bvid: bvid.into(),

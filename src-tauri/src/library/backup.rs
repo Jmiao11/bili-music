@@ -599,6 +599,50 @@ mod backup_tests {
     }
 
     #[test]
+    fn failed_rollback_reports_files_snapshot_and_original_error() {
+        let root = temp_root();
+        fs::write(root.join(FAVORITES_FILE), b"old-favorites").unwrap();
+        fs::write(root.join(PLAYLISTS_FILE), b"old-playlists").unwrap();
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (PLAYLISTS_FILE, br#"{"version":1,"playlists":[]}"#),
+        ]);
+        let mut writes = 0;
+        let error = import_data_at(&root, zip, |path, bytes| {
+            writes += 1;
+            if writes == 2 {
+                let snapshot = fs::read_dir(&root)?
+                    .map(|entry| entry.unwrap().path())
+                    .find(|path| {
+                        path.file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .starts_with(".import-rollback-")
+                    })
+                    .unwrap();
+                fs::remove_file(snapshot.join(FAVORITES_FILE))?;
+                return Err(Error::other("injected write failure"));
+            }
+            fs::write(path, bytes)
+        })
+        .unwrap_err();
+        assert!(error.starts_with("回滚未完成（快照保留在 "));
+        assert!(error.contains(".import-rollback-"));
+        assert!(error.contains("favorites.json:"));
+        assert!(error.contains("原错误：injected write failure"));
+        assert_eq!(
+            fs::read(root.join(FAVORITES_FILE)).unwrap(),
+            br#"{"version":1,"items":[]}"#
+        );
+        assert_eq!(
+            fs::read(root.join(PLAYLISTS_FILE)).unwrap(),
+            b"old-playlists"
+        );
+        assert_eq!(fs::read_dir(&root).unwrap().count(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn old_backup_keeps_its_ai_key() {
         let root = temp_root();
         fs::write(
