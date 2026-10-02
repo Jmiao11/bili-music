@@ -185,6 +185,10 @@ pub fn purge_unavailable_tracks() -> Result<PurgeResult, String> {
     )
 }
 
+pub(super) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<UnavailableTracksFile>(file_name, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::playlists::Playlist;

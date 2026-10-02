@@ -3,6 +3,10 @@ use super::{
     PLAYBACK_STATE_FILE,
 };
 use serde::{Deserialize, Serialize};
+pub(super) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<PlaybackState>(file_name, bytes)
+}
+
 #[cfg(test)]
 use std::fs;
 use std::path::{Path, PathBuf};

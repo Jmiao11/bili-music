@@ -119,13 +119,6 @@ pub(crate) fn read(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::Result<
 pub(crate) fn read_to_string(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::Result<String> {
     fs::read_to_string(path)
 }
-pub(crate) fn write(
-    _: &StorageGuard,
-    path: impl AsRef<Path>,
-    bytes: impl AsRef<[u8]>,
-) -> std::io::Result<()> {
-    fs::write(path, bytes)
-}
 pub(crate) fn rename(
     _: &StorageGuard,
     from: impl AsRef<Path>,
@@ -145,6 +138,79 @@ pub(crate) fn remove_file(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::
 }
 pub(crate) fn create_file(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::Result<File> {
     File::create(path)
+}
+
+enum AtomicWriteError {
+    Write(std::io::Error),
+    Sync(std::io::Error),
+    Backup(std::io::Error),
+    Save(std::io::Error),
+}
+
+impl AtomicWriteError {
+    fn into_io(self) -> std::io::Error {
+        match self {
+            Self::Write(error) | Self::Sync(error) | Self::Backup(error) | Self::Save(error) => {
+                error
+            }
+        }
+    }
+}
+
+// JSON and raw imports share file writing and replacement. JSON retains the old
+// partial-temp behavior; imports clean a failed temporary write before rollback.
+fn replace_file_bytes(
+    target: &Path,
+    tmp: &Path,
+    backup: &Path,
+    chunks: &[&[u8]],
+    cleanup_failed_temp: bool,
+) -> Result<(), AtomicWriteError> {
+    let written = (|| {
+        let mut file = File::create(tmp).map_err(AtomicWriteError::Write)?;
+        for chunk in chunks {
+            file.write_all(chunk).map_err(AtomicWriteError::Write)?;
+        }
+        file.sync_all().map_err(AtomicWriteError::Sync)
+    })();
+    if let Err(error) = written {
+        if cleanup_failed_temp {
+            let _ = fs::remove_file(tmp);
+        }
+        return Err(error);
+    }
+    if target.exists() {
+        if let Err(error) = fs::rename(target, backup) {
+            let _ = fs::remove_file(tmp);
+            return Err(AtomicWriteError::Backup(error));
+        }
+    }
+    if let Err(error) = fs::rename(tmp, target) {
+        if backup.exists() {
+            let _ = fs::rename(backup, target);
+        }
+        let _ = fs::remove_file(tmp);
+        return Err(AtomicWriteError::Save(error));
+    }
+    if backup.exists() {
+        let _ = fs::remove_file(backup);
+    }
+    Ok(())
+}
+
+pub(crate) fn write_bytes_atomic(
+    _: &StorageGuard,
+    target: &Path,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    replace_file_bytes(
+        target,
+        &atomic_temp_path(target),
+        &atomic_backup_path(target),
+        &[bytes],
+        true,
+    )
+    .map_err(AtomicWriteError::into_io)
 }
 
 fn read_json_impl<T>(path: &Path) -> Result<T, String>
@@ -174,40 +240,20 @@ fn write_json_impl<T: Serialize>(target: &Path, value: &T) -> Result<(), String>
     let json = serde_json::to_string_pretty(value)
         .map_err(|error| format!("资料库序列化失败：{error}"))?;
 
-    {
-        let mut file =
-            File::create(&tmp).map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.write_all(json.as_bytes())
-            .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.write_all(b"\n")
-            .map_err(|error| format!("无法写入 {}：{error}", tmp.display()))?;
-        file.sync_all()
-            .map_err(|error| format!("无法同步 {}：{error}", tmp.display()))?;
-    }
-
-    if target.exists() {
-        fs::rename(target, &backup).map_err(|error| {
-            let _ = fs::remove_file(&tmp);
-            format!(
+    replace_file_bytes(target, &tmp, &backup, &[json.as_bytes(), b"\n"], false).map_err(|error| {
+        match error {
+            AtomicWriteError::Write(error) => format!("无法写入 {}：{error}", tmp.display()),
+            AtomicWriteError::Sync(error) => format!("无法同步 {}：{error}", tmp.display()),
+            AtomicWriteError::Backup(error) => format!(
                 "无法备份旧资料库 {} 到 {}：{error}",
                 target.display(),
                 backup.display()
-            )
-        })?;
-    }
-
-    if let Err(error) = fs::rename(&tmp, target) {
-        if backup.exists() {
-            let _ = fs::rename(&backup, target);
+            ),
+            AtomicWriteError::Save(error) => {
+                format!("无法保存资料库 {}：{error}", target.display())
+            }
         }
-        let _ = fs::remove_file(&tmp);
-        return Err(format!("无法保存资料库 {}：{error}", target.display()));
-    }
-
-    if backup.exists() {
-        let _ = fs::remove_file(backup);
-    }
-    Ok(())
+    })
 }
 
 #[cfg(test)]

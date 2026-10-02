@@ -113,6 +113,10 @@ pub fn list_disabled_pages() -> Result<BTreeMap<String, BTreeSet<u64>>, String> 
     .videos)
 }
 
+pub(super) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<DisabledPagesFile>(file_name, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_path;
