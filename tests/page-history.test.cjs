@@ -6,6 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
 const slice = (start, end) => sourceSlice(source, "ui/main.js", start, end);
 
@@ -50,7 +51,7 @@ test("only random page advancement adds a page-level history entry", () => {
     currentVideoPage: () => pages[state.currentPageIndex],
     updatePlayerPagesButton() {}, loadCurrentTrack() {},
   });
-  vm.runInContext(pageSelection + slice("function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
   vm.runInContext("Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
@@ -137,7 +138,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     playQueueIndex: (index, options) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });
-  vm.runInContext(pageSelection + slice("function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "searchForm.addEventListener(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')

@@ -7,8 +7,9 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
-const lookupSource = pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(");
+const lookupSource = pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
 const navigationSource = sourceSlice(source, "ui/main.js", "function advancePageWithinCurrentBv(", "function playNext(");
 const trackSource = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";

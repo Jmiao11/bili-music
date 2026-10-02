@@ -8,22 +8,25 @@ const { sourceSlice } = require("./helpers/source-slice.cjs");
 const read = (file) => readFileSync(path.join(__dirname, "../ui", file), "utf8");
 const main = read("main.js");
 const search = read("search.js");
+const state = read("player-state.js");
+const policy = read("playback-policy.js");
 const slice = (start, end) => sourceSlice(main, "ui/main.js", start, end);
-const stateCode = slice("const playerState =", "let randomPageRound")
-  + slice("const searchState =", "const LAST_SEARCH_KEY")
-  + slice("const homeState =", "const libraryState =")
-  + slice("const libraryState =", "const favoriteDragState =");
+const stateCode = sourceSlice(state, "ui/player-state.js", "const playerState =", "const searchState =").replace(/\n\n$/, "\n")
+  + sourceSlice(state, "ui/player-state.js", "const searchState =", "const LAST_SEARCH_KEY")
+  + sourceSlice(state, "ui/player-state.js", "const homeState =", "const libraryState =")
+  + sourceSlice(state, "ui/player-state.js", "const libraryState =", "const favoriteDragState =");
 const functions = read("page-selection.js") + read("track-utils.js")
-  + slice("function currentTrackSnapshot()", "function clearPlaybackNotice()")
-  + slice("function shuffled(", "function stopAudioElement()")
+  + slice("function currentTrackSnapshot()", "initPlaybackNotice();")
+  + sourceSlice(policy, "ui/playback-policy.js", "function shuffled(", "function readShuffleCollectionPrefs(")
+  + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")
-  + slice("function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
-  + slice("function waitForAudioMetadata()", "function shouldRecoverAudio(")
+  + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  + slice("function waitForAudioMetadata()", "function recoveryAttemptsFor(")
   + slice("async function loadCurrentTrack(", "function playBvId(")
   + slice("function playSearchResult(", "function advancePageWithinCurrentBv(")
   + slice("function playNext(", "searchForm.addEventListener(")
   + sourceSlice(search, "ui/search.js", "function setSearchResults(", "function renderSearchResults(")
-  + search.slice(search.indexOf("function currentSearchRequest("));
+  + search.slice(search.indexOf("function currentSearchRequest(")) + "\n";
 
 function deferred() {
   let resolve, reject;

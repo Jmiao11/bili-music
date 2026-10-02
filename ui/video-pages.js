@@ -1,6 +1,9 @@
 import { isPageDisabled } from "./page-selection.js";
 import { formatDuration, normalizeVideoPage } from "./track-utils.js";
-import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, activePageCountBvids, currentPlayableTrack, currentVideoPage, failedPageCountBvids, hasMultipleCurrentPages, invoke, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, pendingPageCacheTargets, playCurrentVideoPage, playerPagesButton, playerState, queuedPageCountBvids, status, videoPageCounts, videoPagesByBvid, visiblePageCountTargets } from "./main.js";
+import { invoke } from "./runtime-api.js";
+import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, status } from "./player-dom.js";
+import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets } from "./player-state.js";
+import { currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage } from "./main.js";
 
 let pageCountObserver;
 let activePageCountLookups = 0;
@@ -484,6 +487,5 @@ function keepFocusInPagesModal(event) {
     first.focus();
   }
 }
-
 
 export { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext };

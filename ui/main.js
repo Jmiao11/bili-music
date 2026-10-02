@@ -1,46 +1,16 @@
-import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, normalizeShuffleCollectionPrefs, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
+import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.js";
+import { invoke } from "./runtime-api.js";
+import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, duration, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeRankingList, homeSetupSettings, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModal, libraryModalBody, loopModeButton, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, playerPagesGroup, previousButton, purgeUnavailableTracksButton, queueCount, queuePosition, refreshRankingButton, renamePlaylistButton, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, skipVideoButton, sortModeTabs, status, thumbnail, title, uploader } from "./player-dom.js";
+import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.js";
+import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.js";
+import { clearPlaybackNotice, initPlaybackNotice, showPlaybackNotice } from "./playback-notice.js";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
 import { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
 import { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs } from "./search.js";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
 
-const { invoke } = window.__TAURI__.core;
-
-const LOOP_MODES = [
-  { id: "sequence", label: "顺序播放" },
-  { id: "list", label: "列表循环" },
-  { id: "single", label: "单曲循环" },
-];
-const MAX_CONSECUTIVE_RESOLVE_FAILURES = 5;
-const MAX_AUDIO_RECOVERIES = 2;
-const SKIP_NOTICE_DURATION_MS = 3200;
-const SEARCH_PAGE_SIZE = 20;
-const LOAD_MORE_THRESHOLD_PX = 96;
-const DEFAULT_MUSIC_TIDS = 3;
-const MUSIC_HOT_KEYWORD = "音乐";
-const PLAYBACK_STATE_SAVE_INTERVAL_MS = 15_000;
-
-const playerState = {
-  queue: [],
-  queueSource: "none",
-  queueSearchVersion: null,
-  queuePlaylistId: null,
-  currentIndex: -1,
-  loopMode: "sequence",
-  shuffle: false,
-  randomRemaining: [],
-  history: [],
-  requestVersion: 0,
-  activeAudioVersion: -1,
-  activeAudioUrl: "",
-  audioActivatedAt: Number.POSITIVE_INFINITY,
-  consecutiveResolveFailures: 0,
-  currentPages: [],
-  currentPageIndex: 0,
-  currentDisplayTrack: null,
-};
 let randomPageRound = null;
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
@@ -54,122 +24,10 @@ let recoveryAttempts = 0;
 let playingAudioVersion = -1;
 let playbackIntended = false;
 
-const searchState = {
-  results: [],
-  userKeyword: "",
-  requestKeyword: "",
-  tids: DEFAULT_MUSIC_TIDS,
-  order: null,
-  rerank: true,
-  sortMode: "all",
-  page: 0,
-  isLoadingMore: false,
-  hasMore: false,
-  requestVersion: 0,
-};
-
-const LAST_SEARCH_KEY = "bilibili-music.last-search";
 let pendingSearchRestore = null;
 
-const homeState = {
-  mode: "recommendation",
-  ranking: [],
-  recommendations: [],
-  loaded: false,
-  loading: false,
-  error: "",
-  recommendationLoaded: false,
-  recommendationLoading: false,
-  recommendationError: "",
-  userHint: "",
-  aiHasKey: null,
-};
-
-const libraryState = {
-  favorites: [],
-  favoriteBvids: new Set(),
-  playlists: [],
-  unavailableBvids: new Map(),
-  disabledPages: new Map(),
-  disabledPagePending: new Map(),
-  selectedPlaylistId: "",
-  loadError: "",
-};
-
-const favoriteDragState = {
-  drag: null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
-const playlistDragState = {
-  drag: null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
-const playlistListDragState = {
-  drag: null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
-const videoPageCounts = new Map();
-const videoPagesByBvid = new Map();
-const pageModalOpeners = new WeakMap();
-const failedPageCountBvids = new Set();
-const queuedPageCountBvids = new Set();
-const activePageCountBvids = new Set();
-const observedPageCountTargets = new Map();
-const visiblePageCountTargets = new Map();
-const pageCountLookupQueue = [];
-const PAGE_COUNT_LOOKUP_CONCURRENCY = 2;
-const PAGE_COUNT_LOOKUP_INTERVAL_MS = 300;
-const pendingPageCacheTargets = new Map();
 let pendingPastedBvPages = null;
 
-const searchForm = document.querySelector("#search-form");
-const searchKeyword = document.querySelector("#search-keyword");
-const searchButton = document.querySelector("#search-button");
-const musicTabs = [...document.querySelectorAll(".music-tab[data-tids]")];
-const sortModeTabs = [...document.querySelectorAll(".music-tab[data-sort-mode]")];
-const searchStatus = document.querySelector("#search-status");
-const playbackNotice = document.querySelector("#playback-notice");
-const searchResults = document.querySelector("#search-results");
-const homePanel = document.querySelector("#view-home");
-const homeModeTabs = [...document.querySelectorAll(".home-mode-tab[data-home-mode]")];
-const homeSourceLabel = document.querySelector("#home-source-label");
-const homeTitle = document.querySelector("#home-title");
-const homeSubtitle = homePanel?.querySelector(".home-subtitle");
-const homeCacheNote = document.querySelector("#home-cache-note");
-const homeListLabel = document.querySelector("#home-list-label");
-const homeRankingStatus = document.querySelector("#home-ranking-status");
-const homeRankingError = document.querySelector("#home-ranking-error");
-const homeRankingList = document.querySelector("#home-ranking-list");
-const homeSetupHint = document.querySelector("#home-setup-hint");
-const homeSetupTitle = document.querySelector("#home-setup-title");
-const homeSetupSub = document.querySelector("#home-setup-sub");
-const homeSetupSettings = document.querySelector("#home-setup-settings");
-const refreshRankingButton = document.querySelector("#refresh-ranking-button");
-const homeHintRow = document.querySelector("#home-hint-row");
-const homeHintInput = document.querySelector("#home-hint-input");
-const homeHintApply = document.querySelector("#home-hint-apply");
-const queueCount = document.querySelector("#queue-count");
-const status = document.querySelector("#status");
-const result = document.querySelector("#result");
-const thumbnail = document.querySelector("#thumbnail");
-const title = document.querySelector("#title");
-const uploader = document.querySelector("#uploader");
-const duration = document.querySelector("#duration");
-const queuePosition = document.querySelector("#queue-position");
-const playerPagesButton = document.querySelector("#player-pages-button");
-const playerPagesGroup = document.querySelector(".player-pages-group");
-const skipVideoButton = document.querySelector("#skip-video-button");
-const previousButton = document.querySelector("#previous-button");
-const nextButton = document.querySelector("#next-button");
-const loopModeButton = document.querySelector("#loop-mode-button");
-const shuffleToggle = document.querySelector("#shuffle-toggle");
-const audio = document.querySelector("#audio");
 window.__playbackDiagLog = [];
 window.recordPlaybackDiag = (category, message) => {
   const entry = {
@@ -186,43 +44,6 @@ window.recordPlaybackDiag = (category, message) => {
   if (window.__playbackDiagLog.length > 300) window.__playbackDiagLog.shift();
   console.info("[playback-diag]", entry);
 };
-const resumePlayPauseButton = document.querySelector("#play-pause-button");
-const resumeProgressSlider = document.querySelector("#progress-slider");
-const resumeCurrentTimeLabel = document.querySelector("#current-time");
-const immersiveResumeProgressSlider = document.querySelector("#immersive-progress-slider");
-const immersiveResumeCurrentTimeLabel = document.querySelector("#immersive-current-time");
-const immersiveResumeDurationLabel = document.querySelector("#immersive-duration");
-const favoritesStatus = document.querySelector("#favorites-status");
-const favoritesCount = document.querySelector("#favorites-count");
-const favoritesList = document.querySelector("#favorites-list");
-const playlistsStatus = document.querySelector("#playlists-status");
-const playlistsList = document.querySelector("#playlists-list");
-const playlistTitle = document.querySelector("#playlist-title");
-const playlistMeta = document.querySelector("#playlist-meta");
-const playlistTracks = document.querySelector("#playlist-tracks");
-const playlistActions = document.querySelector("#playlist-actions");
-const createPlaylistButton = document.querySelector("#create-playlist-button");
-const renamePlaylistButton = document.querySelector("#rename-playlist-button");
-const deletePlaylistButton = document.querySelector("#delete-playlist-button");
-const favoriteCurrentButton = document.querySelector("#favorite-current-button");
-const immersiveFavoriteButton = document.querySelector("#immersive-favorite-button");
-const libraryModal = document.querySelector("#library-modal");
-const closeLibraryModalButton = document.querySelector("#close-library-modal-button");
-const libraryModalTitle = document.querySelector("#library-modal-title");
-const libraryModalSubtitle = document.querySelector("#library-modal-subtitle");
-const libraryModalBody = document.querySelector("#library-modal-body");
-const libraryModalStatus = document.querySelector("#library-modal-status");
-const purgeUnavailableTracksButton = document.querySelector("#purge-unavailable-tracks-button");
-const purgeAppearanceStatus = document.querySelector("#appearance-status");
-const pagesModal = document.querySelector("#pages-modal");
-const pagesModalTitle = document.querySelector("#pages-modal-title");
-const pagesModalSub = document.querySelector("#pages-modal-sub");
-const pagesModalRestoreAll = document.querySelector("#pages-modal-restore-all");
-const pagesModalStatus = document.querySelector("#pages-modal-status");
-const pagesModalList = document.querySelector("#pages-modal-list");
-const pagesModalClose = document.querySelector("#pages-modal-close");
-let playbackNoticeTimer = null;
-
 function currentTrackSnapshot() {
   if (
     playerState.currentDisplayTrack &&
@@ -335,50 +156,7 @@ function emitCurrentTrackChanged() {
   );
 }
 
-function clearPlaybackNotice() {
-  if (playbackNoticeTimer !== null) {
-    clearTimeout(playbackNoticeTimer);
-    playbackNoticeTimer = null;
-  }
-  playbackNotice.classList.remove("is-visible");
-  playbackNotice.textContent = "";
-  window.dispatchEvent(new Event("bilibili-music-notice-change"));
-}
-
-function positionPlaybackNotice() {
-  const pauseButton = resumePlayPauseButton.getBoundingClientRect();
-  playbackNotice.style.setProperty("--playback-notice-x", `${pauseButton.left + pauseButton.width / 2}px`);
-}
-
-positionPlaybackNotice();
-new ResizeObserver(positionPlaybackNotice).observe(result);
-
-function showPlaybackNotice(message, { persistent = false, kind = "error" } = {}) {
-  positionPlaybackNotice();
-  if (kind === "info" && playbackNotice.classList.contains("is-visible") &&
-      playbackNotice.dataset.kind === "error") return;
-  if (playbackNoticeTimer !== null) {
-    clearTimeout(playbackNoticeTimer);
-    playbackNoticeTimer = null;
-  }
-  playbackNotice.dataset.kind = kind;
-  playbackNotice.textContent = message;
-  playbackNotice.classList.add("is-visible");
-  window.dispatchEvent(new Event("bilibili-music-notice-change"));
-  if (!persistent) {
-    playbackNoticeTimer = window.setTimeout(clearPlaybackNotice,
-      kind === "info" ? 2000 : SKIP_NOTICE_DURATION_MS);
-  }
-}
-
-function shuffled(values) {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1));
-    [result[index], result[target]] = [result[target], result[index]];
-  }
-  return result;
-}
+initPlaybackNotice();
 
 function resetRandomRemaining() {
   playerState.randomRemaining = shuffled(
@@ -631,17 +409,6 @@ function isFavorited(bvid) {
   return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
 
-function readShuffleCollectionPrefs() {
-  try {
-    return normalizeShuffleCollectionPrefs(
-      localStorage.getItem("bilibili-music.shuffle-collection-order"),
-      localStorage.getItem("bilibili-music.shuffle-collection-limit"),
-    );
-  } catch {
-    return normalizeShuffleCollectionPrefs(null, null);
-  }
-}
-
 function setFavoriteButtonState(button, bvid) {
   const favorited = isFavorited(bvid);
   button.classList.toggle("is-favorited", favorited);
@@ -867,10 +634,6 @@ function waitForAudioMetadata() {
   });
 }
 
-function shouldRecoverAudio(errorCode, isCurrent, hasPlayed, attempts) {
-  return errorCode === 2 && isCurrent && hasPlayed && attempts < MAX_AUDIO_RECOVERIES;
-}
-
 function recoveryAttemptsFor(version) {
   if (recoveryVersion !== version) {
     recoveryVersion = version;
@@ -985,15 +748,6 @@ function handleAudioRecoveryError(event) {
 
 let loudnessQueryVersion = 0;
 let loudnessAnalyzedForCurrentTrack = false;
-
-// 与 src-tauri/src/loudness.rs::lufs_to_gain 有两份公式实现，改一处必须同步。
-function lufsToGain(lufs) {
-  if (lufs === null || lufs === undefined || !Number.isFinite(lufs)) {
-    return 1.0;
-  }
-  const gainDb = Math.min(0, Math.max(-12, -14 - lufs));
-  return 10 ** (gainDb / 20);
-}
 
 function refreshTrackLoudness() {
   const queryVersion = ++loudnessQueryVersion;
@@ -1932,4 +1686,4 @@ updateMusicTabs();
 updateQueueUi();
 emitCurrentTrackChanged();
 
-export { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, SEARCH_PAGE_SIZE, activePageCountBvids, appendSearchResults, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, failedPageCountBvids, favoriteDragState, favoritesCount, favoritesList, favoritesStatus, hasMultipleCurrentPages, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeState, homeSubtitle, homeTitle, invoke, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, libraryState, musicTabs, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, pendingPageCacheTargets, playCurrentVideoPage, playListItem, playSearchResult, playerPagesButton, playerState, playlistActions, playlistDragState, playlistListDragState, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, queuedPageCountBvids, readShuffleCollectionPrefs, refreshRankingButton, refreshTrackLoudness, result, searchButton, searchKeyword, searchResults, searchState, searchStatus, showLoudnessNormalizationDialog, sortModeTabs, status, updateFavoriteButtons, updateQueueUi, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };
+export { appendSearchResults, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage, playListItem, playSearchResult, refreshTrackLoudness, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
