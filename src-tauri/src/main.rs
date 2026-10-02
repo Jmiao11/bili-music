@@ -1335,6 +1335,331 @@ let unicode = '中'; // 中文 comment
         assert!(!coordinator.is_current(second.id));
         assert!(second.cancellation.load(Ordering::Acquire));
     }
+
+    async fn test_proxy_request(
+        state: super::ProxyState,
+        method: Method,
+        token: &str,
+        headers: axum::http::HeaderMap,
+    ) -> (StatusCode, reqwest::header::HeaderMap, Vec<u8>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let router = axum::Router::new()
+            .route(
+                "/audio/{token}",
+                axum::routing::get(super::proxy_audio).head(super::proxy_audio),
+            )
+            .with_state(state);
+        let server = tauri::async_runtime::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        let response = reqwest::Client::new()
+            .request(method, format!("http://{address}/audio/{token}"))
+            .headers(headers)
+            .send()
+            .await
+            .unwrap();
+        let status = response.status();
+        let headers = response.headers().clone();
+        let body = response.bytes().await.unwrap().to_vec();
+        server.abort();
+        (status, headers, body)
+    }
+
+    fn test_proxy_state(url: &str, expired: bool) -> super::ProxyState {
+        let entry = StreamEntry {
+            source: StreamLocation::Remote(reqwest::Url::parse(url).unwrap()),
+            expires_at: if expired {
+                Instant::now() - Duration::from_secs(1)
+            } else {
+                Instant::now() + Duration::from_secs(60)
+            },
+        };
+        super::ProxyState {
+            client: super::build_proxy_client().unwrap(),
+            streams: std::sync::Arc::new(tokio::sync::RwLock::new(
+                std::collections::HashMap::from([("test-token".to_owned(), entry)]),
+            )),
+        }
+    }
+
+    fn test_upstream(
+        response: Vec<u8>,
+    ) -> (
+        String,
+        std::sync::mpsc::Receiver<String>,
+        std::thread::JoinHandle<()>,
+    ) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/audio.m4s", listener.local_addr().unwrap());
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut request = Vec::new();
+            let mut byte = [0];
+            while !request.ends_with(b"\r\n\r\n") {
+                stream.read_exact(&mut byte).unwrap();
+                request.push(byte[0]);
+            }
+            sender.send(String::from_utf8(request).unwrap()).unwrap();
+            stream.write_all(&response).unwrap();
+        });
+        (url, receiver, thread)
+    }
+
+    #[test]
+    fn proxy_http_missing_and_expired_tokens_have_empty_bodies() {
+        tauri::async_runtime::block_on(async {
+            let state = test_proxy_state("http://127.0.0.1:1/audio.m4s", true);
+            let (status, headers, body) =
+                test_proxy_request(state.clone(), Method::GET, "missing", Default::default()).await;
+            assert_eq!(status, StatusCode::NOT_FOUND);
+            assert_eq!(headers[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+            assert!(body.is_empty());
+            let (status, _, body) =
+                test_proxy_request(state.clone(), Method::GET, "test-token", Default::default())
+                    .await;
+            assert_eq!(status, StatusCode::GONE);
+            assert!(body.is_empty());
+            assert!(state.streams.read().await.is_empty());
+        });
+    }
+
+    #[test]
+    fn proxy_http_get_forwards_request_and_response_headers_and_body() {
+        let response = b"HTTP/1.1 206 Partial Content\r\nContent-Type: audio/mp4\r\nContent-Length: 2\r\nContent-Range: bytes 1-2/4\r\nETag: \"sample\"\r\nLast-Modified: Wed, 01 Jan 2025 00:00:00 GMT\r\nCache-Control: max-age=60\r\nConnection: close\r\n\r\nbc".to_vec();
+        let (url, request, upstream) = test_upstream(response);
+        tauri::async_runtime::block_on(async {
+            let mut headers = axum::http::HeaderMap::new();
+            headers.insert(header::RANGE, "bytes=1-2".parse().unwrap());
+            headers.insert(header::IF_RANGE, "\"sample\"".parse().unwrap());
+            let (status, headers, body) = test_proxy_request(
+                test_proxy_state(&url, false),
+                Method::GET,
+                "test-token",
+                headers,
+            )
+            .await;
+            assert_eq!(status, StatusCode::PARTIAL_CONTENT);
+            assert_eq!(body, b"bc");
+            assert_eq!(headers[header::CONTENT_TYPE], "audio/mp4");
+            assert_eq!(headers[header::CONTENT_LENGTH], "2");
+            assert_eq!(headers[header::CONTENT_RANGE], "bytes 1-2/4");
+            assert_eq!(headers[header::ETAG], "\"sample\"");
+            assert_eq!(
+                headers[header::LAST_MODIFIED],
+                "Wed, 01 Jan 2025 00:00:00 GMT"
+            );
+            assert_eq!(headers[header::CACHE_CONTROL], "max-age=60");
+            assert_eq!(headers[header::ACCEPT_RANGES], "bytes");
+            assert_eq!(headers[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+            assert_eq!(
+                headers[header::ACCESS_CONTROL_EXPOSE_HEADERS],
+                "Accept-Ranges, Content-Length, Content-Range, Content-Type, ETag, Last-Modified"
+            );
+        });
+        let request = request.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(request.starts_with("GET /audio.m4s HTTP/1.1\r\n"));
+        let headers = request.to_ascii_lowercase();
+        assert!(headers.contains("\r\nrange: bytes=1-2\r\n"));
+        assert!(headers.contains("\r\nif-range: \"sample\"\r\n"));
+        assert!(headers.contains(&format!(
+            "\r\nreferer: {}\r\n",
+            bilibili_music_core::BILIBILI_REFERER
+        )));
+        assert!(headers.contains(&format!(
+            "\r\nuser-agent: {}\r\n",
+            bilibili_music_core::DESKTOP_USER_AGENT.to_ascii_lowercase()
+        )));
+        assert!(headers.contains("\r\naccept-encoding: identity\r\n"));
+        upstream.join().unwrap();
+    }
+
+    #[test]
+    fn proxy_http_head_forwards_method_and_keeps_body_empty() {
+        let (url, request, upstream) = test_upstream(b"HTTP/1.1 200 OK\r\nContent-Type: audio/mp4\r\nContent-Length: 4\r\nConnection: close\r\n\r\n".to_vec());
+        tauri::async_runtime::block_on(async {
+            let (status, headers, body) = test_proxy_request(
+                test_proxy_state(&url, false),
+                Method::HEAD,
+                "test-token",
+                Default::default(),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(headers[header::CONTENT_LENGTH], "4");
+            assert!(body.is_empty());
+        });
+        assert!(request
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap()
+            .starts_with("HEAD /audio.m4s HTTP/1.1\r\n"));
+        upstream.join().unwrap();
+    }
+
+    #[test]
+    fn proxy_http_normalizes_octet_stream_and_missing_mime() {
+        for content_type in ["Content-Type: application/octet-stream\r\n", ""] {
+            let response = format!("HTTP/1.1 200 OK\r\n{content_type}Content-Length: 4\r\nConnection: close\r\n\r\ndata");
+            let (url, request, upstream) = test_upstream(response.into_bytes());
+            tauri::async_runtime::block_on(async {
+                let (status, headers, body) = test_proxy_request(
+                    test_proxy_state(&url, false),
+                    Method::GET,
+                    "test-token",
+                    Default::default(),
+                )
+                .await;
+                assert_eq!(status, StatusCode::OK);
+                assert_eq!(headers[header::CONTENT_TYPE], "audio/mp4");
+                assert_eq!(body, b"data");
+            });
+            request.recv_timeout(Duration::from_secs(5)).unwrap();
+            upstream.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn proxy_http_preserves_upstream_failure_status_and_body() {
+        for (code, reason) in [(404, "Not Found"), (502, "Bad Gateway")] {
+            let response = format!("HTTP/1.1 {code} {reason}\r\nContent-Type: text/plain\r\nContent-Length: 4\r\nConnection: close\r\n\r\noops");
+            let (url, request, upstream) = test_upstream(response.into_bytes());
+            tauri::async_runtime::block_on(async {
+                let (status, headers, body) = test_proxy_request(
+                    test_proxy_state(&url, false),
+                    Method::GET,
+                    "test-token",
+                    Default::default(),
+                )
+                .await;
+                assert_eq!(status.as_u16(), code);
+                assert_eq!(headers[header::CONTENT_TYPE], "text/plain");
+                assert_eq!(body, b"oops");
+            });
+            request.recv_timeout(Duration::from_secs(5)).unwrap();
+            upstream.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn proxy_http_connection_failure_maps_to_bad_gateway() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/audio.m4s", listener.local_addr().unwrap());
+        drop(listener);
+        tauri::async_runtime::block_on(async {
+            let (status, _, body) = test_proxy_request(
+                test_proxy_state(&url, false),
+                Method::GET,
+                "test-token",
+                Default::default(),
+            )
+            .await;
+            assert_eq!(status, StatusCode::BAD_GATEWAY);
+            assert!(body.is_empty());
+        });
+    }
+
+    #[test]
+    fn local_stream_bodies_match_full_partial_head_and_unsatisfiable_ranges() {
+        let path = std::env::temp_dir().join(format!("local-bodies-{}.m4a", Uuid::new_v4()));
+        std::fs::write(&path, b"abcd").unwrap();
+        tauri::async_runtime::block_on(async {
+            for (method, range, expected_status, expected_body) in [
+                (Method::GET, None, StatusCode::OK, &b"abcd"[..]),
+                (
+                    Method::GET,
+                    Some("bytes=1-2"),
+                    StatusCode::PARTIAL_CONTENT,
+                    &b"bc"[..],
+                ),
+                (Method::HEAD, None, StatusCode::OK, &b""[..]),
+                (
+                    Method::HEAD,
+                    Some("bytes=1-2"),
+                    StatusCode::PARTIAL_CONTENT,
+                    &b""[..],
+                ),
+                (
+                    Method::GET,
+                    Some("bytes=4-"),
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    &b""[..],
+                ),
+            ] {
+                let response = proxy_local_audio(&path, method, range).await;
+                assert_eq!(response.status(), expected_status);
+                let body = axum::body::to_bytes(response.into_body(), 1024)
+                    .await
+                    .unwrap();
+                assert_eq!(body.as_ref(), expected_body);
+            }
+        });
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn coordinator_old_finish_after_new_begin_keeps_new_job() {
+        let coordinator = std::sync::Arc::new(ResolveCoordinator::default());
+        let (started, ready) = std::sync::mpsc::channel();
+        let (release, proceed) = std::sync::mpsc::channel();
+        let old = coordinator.clone();
+        let thread = std::thread::spawn(move || {
+            let job = old.begin();
+            started.send(job.id).unwrap();
+            proceed.recv().unwrap();
+            old.finish(job.id);
+        });
+        let old_id = ready.recv().unwrap();
+        let new = coordinator.begin();
+        assert!(!coordinator.is_current(old_id));
+        release.send(()).unwrap();
+        thread.join().unwrap();
+        assert!(coordinator.is_current(new.id));
+    }
+
+    #[test]
+    fn coordinator_cancel_between_current_checks_invalidates_job() {
+        let coordinator = std::sync::Arc::new(ResolveCoordinator::default());
+        let job = coordinator.begin();
+        let (release, proceed) = std::sync::mpsc::channel();
+        let worker = coordinator.clone();
+        let thread = std::thread::spawn(move || {
+            proceed.recv().unwrap();
+            worker.cancel_current();
+        });
+        assert!(coordinator.is_current(job.id));
+        release.send(()).unwrap();
+        thread.join().unwrap();
+        assert!(!coordinator.is_current(job.id));
+        assert!(job.cancellation.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn coordinator_two_threads_begin_supersedes_first_job() {
+        let coordinator = std::sync::Arc::new(ResolveCoordinator::default());
+        let (started, ready) = std::sync::mpsc::channel();
+        let (release, proceed) = std::sync::mpsc::channel();
+        let first = coordinator.clone();
+        let thread = std::thread::spawn(move || {
+            let job = first.begin();
+            started.send(job.id).unwrap();
+            proceed.recv().unwrap();
+            assert!(job.cancellation.load(Ordering::Acquire));
+            assert!(!first.is_current(job.id));
+        });
+        let first_id = ready.recv().unwrap();
+        let second = coordinator.clone();
+        let next = std::thread::spawn(move || second.begin()).join().unwrap();
+        assert_ne!(first_id, next.id);
+        assert!(coordinator.is_current(next.id));
+        assert!(!next.cancellation.load(Ordering::Acquire));
+        release.send(()).unwrap();
+        thread.join().unwrap();
+    }
 }
 
 #[cfg(test)]
