@@ -55,6 +55,12 @@ jobs:
       - name: 运行 Node 测试
         run: node --test
 
+      - name: 安装类型检查依赖
+        run: npm ci
+
+      - name: 检查前端类型诊断清单
+        run: npm run typecheck
+
       - name: 检查 Tauri 平台配置一致性
         if: matrix.os == 'windows-latest'
         run: node scripts/check-tauri-window-config.cjs

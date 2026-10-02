@@ -90,3 +90,42 @@ main 仍派发 `bili-track-changed` 供歌词使用；收藏变动使用 `bilibi
 按标记切片仍使用 helpers/source-slice.cjs，标记缺失或终点反向会报错。模块语法先剥离并保持行号；转换的逐字核验只允许排除头尾连续空行、尾部保留一个换行，内部切片必须完全相同。appearance 删除的启动调用仅属于本次迁移的核验例外，既有业务执行测试未整文件执行 appearance。
 
 原生加载工具只在系统临时目录写入 type=module 的 package.json 和源码副本。通用 DOM、存储、定时器和 Tauri 桩不代表真实 WebView；IPC 返回永不 settle 的 Promise。工具验证链接、同步求值、TDZ 和启动事件顺序，不能验证真实网络、布局、媒体、IPC 完成回调或平台协议加载细节。Windows WebView2 与 macOS WKWebView 的这些行为仍需手测。
+
+## 类型检查
+
+根目录仅安装开发依赖 TypeScript 7.0.2，精确版本写入 package.json 与 package-lock.json；不设置 package 的 type，不改变 UI 脚本加载方式。检查使用 noEmit，配置和声明都在 ui/ 之外，Tauri 的 frontendDist 仍只包含 ui/。
+
+检查有两个独立项目：scripts/typecheck/tsconfig.main.json 的 files 对应 index.html 普通脚本与 app.js 静态模块图的并集；tsconfig.mini.json 只检查 mini.js。两者继承 tsconfig.base.json，不让主窗口普通脚本的全局绑定污染迷你窗。主窗口外部接口位于 types/main-window.d.ts，两项目共用 types/tauri.d.ts。新增主窗口脚本后需同步 files；Node 测试会核对 files 与 HTML/模块图。
+
+基础配置为 allowJs、checkJs、noEmit，strict:false、noImplicitAny:false，target ES2022、module ESNext、moduleResolution Bundler、moduleDetection legacy，lib 为 ES2023、DOM、DOM.Iterable，types 为空且 skipLibCheck。它保留普通脚本与 ES Module 的现有可见性边界，不把所有文件强制变成模块。
+
+```bash
+npm ci
+npm run typecheck
+```
+
+typecheck 的成功表示诊断与已审查清单一致，不表示零诊断。scripts/typecheck/diagnostics.json 的键是仓库相对路径（使用 /）、错误码、空白规范化后的消息，值是出现次数，不含行号。新增键或次数增加均失败；修复使键消失或次数下降也先失败，要求显式缩减清单，以免以后重新引入已修复的问题。编译器异常退出、缺配置及无法解析的输出均失败。
+
+修复诊断后运行：
+
+```bash
+npm run typecheck -- --update
+```
+
+--update 只能删除键或降低次数，发现增长不会写文件。审查 diagnostics.json 的 diff 后再提交。--rebaseline 是人工重建模式，可增加诊断，仅在维护者明确授权时使用；本批因 unknown 返回值暴露原先未检查的访问获一次授权。默认 npm run typecheck 和 CI 都不调用它，不能用它绕过新增错误。
+
+声明只描述 UI 实际使用的接口；禁止 any、宽泛的 Window/Element 扩展或任意 __TAURI__。无法确定的值用 unknown。invoke 未显式指定类型参数时返回 Promise<unknown>；本批不按个别命令补返回类型来降低诊断数。声明新增或修改时必须核对 UI 使用点和事件派发点，不能为压掉错误虚构类型。
+
+现有 Node 守卫继续保留：
+
+| 守卫 | 与类型检查的关系 |
+| --- | --- |
+| 缺失导入检查 | 与未定义名字诊断重叠，但还固定提供方与显式局部同名清单，本批不删。 |
+| 导入/导出语法、排序、无用导入与只导出实际使用项 | 类型检查配置不强制这些项目约定。 |
+| 全项目顶层名字唯一、拆分文件声明规则 | ES Module 允许不同模块重名；tsc 不保护本项目的职责边界。 |
+| 状态写入白名单、scalar-ownership | 类型正确不代表写入方有权修改该状态。 |
+| HTML 脚本清单、启动顺序与 appearance 启动一次 | 类型检查不验证标签顺序、求值时机或事件先后。 |
+| 原生模块加载、TDZ 与真实模块启动测试 | 检查运行时链接、求值与调用次数，不能由类型检查替代。 |
+| 播放错误契约与业务切片测试 | 保护字符串契约和实际行为，类型检查不覆盖这些断言。 |
+
+Node 自测只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript。CI 在 Windows、macOS 的 Node 测试之后分别执行 npm ci 与 npm run typecheck。TypeScript 通过 optionalDependencies 安装对应平台原生包；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。

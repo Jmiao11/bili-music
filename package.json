@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "typecheck": "node scripts/typecheck/check.cjs"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}

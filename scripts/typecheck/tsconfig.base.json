@@ -1,0 +1,17 @@
+{
+  "include": ["../../types/tauri.d.ts"],
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "legacy",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "skipLibCheck": true
+  }
+}
