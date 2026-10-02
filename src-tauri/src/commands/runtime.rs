@@ -92,4 +92,15 @@ mod tests {
             "https://www.bilibili.com/video/BV1faGX65EgK"
         ));
     }
+
+    #[test]
+    fn yt_dlp_availability_contract_fixture() {
+        crate::contract_tests::assert_fixture(
+            "yt-dlp-availability",
+            &super::YtDlpAvailability {
+                available: true,
+                path: "C:/tools/yt-dlp.exe".into(),
+            },
+        );
+    }
 }

@@ -1,0 +1,1 @@
+{"status":"matched","song_id":"song-1","song_name":"歌曲","singer":"歌手","lyrics":{"lrc":"[00:01.00]歌词","trans":"译文","hasLyric":true},"offset_ms":100,"used_keyword":"歌曲","candidates":[{"candidate":{"song_id":"song-1","name":"歌曲","singer":"歌手","duration":120},"score":0.9}]}

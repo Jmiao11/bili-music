@@ -183,4 +183,18 @@ mod tests {
         assert_eq!(MAX_IMAGE_EDGE, 2560);
         assert_eq!(MAX_SOURCE_BYTES, 50 * 1024 * 1024);
     }
+
+    #[test]
+    fn background_image_contract_fixture() {
+        crate::contract_tests::assert_fixture(
+            "background-image",
+            &super::BackgroundImage {
+                path: "C:/data/background.jpg".into(),
+                display_name: "背景".into(),
+                data_url: "data:image/jpeg;base64,/9j/".into(),
+                width: 1920,
+                height: 1080,
+            },
+        );
+    }
 }

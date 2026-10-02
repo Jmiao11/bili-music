@@ -1336,3 +1336,6 @@ let unicode = '中'; // 中文 comment
         assert!(second.cancellation.load(Ordering::Acquire));
     }
 }
+
+#[cfg(test)]
+mod contract_tests;
