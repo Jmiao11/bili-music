@@ -49,7 +49,7 @@ mod tests {
 
         assert_fixture(
             "audio-response",
-            &crate::AudioResponse {
+            &crate::resolve::AudioResponse {
                 audio_url: "http://127.0.0.1:1234/audio/token".into(),
                 title: "曲目".into(),
                 uploader: "作者".into(),
