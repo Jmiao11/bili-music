@@ -31,6 +31,8 @@
 每个 PR 至少执行与改动相符的验证，并在 PR 描述中如实列出命令及结果：
 
 ```bash
+npm ci
+npm run typecheck
 node --test tests/*.test.cjs
 cargo test --workspace
 ```
