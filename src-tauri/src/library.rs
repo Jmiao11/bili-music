@@ -154,6 +154,10 @@ fn library_file_path(
 }
 
 pub(crate) fn library_root() -> Result<PathBuf, String> {
+    #[cfg(test)]
+    if let Some(root) = crate::storage::test_root() {
+        return Ok(root);
+    }
     #[cfg(debug_assertions)]
     {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
