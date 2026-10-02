@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["../../types/tauri.d.ts", "../../types/main-window.d.ts"],
+  "include": ["../../types/tauri.d.ts", "../../types/main-window.d.ts", "../../types/contract-fixtures.ts"],
   "files": [
     "../../ui/sidebar.js",
     "../../ui/window-controls.js",

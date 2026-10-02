@@ -81,3 +81,21 @@ test("playbackTrackSnapshot rounds fractional durations before saving playback s
   const snapshot = vm.runInContext("playbackTrackSnapshot", context);
   assert.equal(snapshot({ durationSeconds: 120.5 }).durationSeconds, 121);
 });
+
+test("CommandMap covers debug and release registrations without exposing debug calls to UI", () => {
+  const { debug, release } = registrations(fs.readFileSync(path.join(root, "src-tauri/src/main.rs"), "utf8"));
+  const source = fs.readFileSync(path.join(root, "types/command-contract.d.ts"), "utf8");
+  const start = source.indexOf("interface CommandMap {");
+  assert.notEqual(start, -1);
+  const end = source.indexOf("\n}", start);
+  assert.notEqual(end, -1);
+  const keys = new Set();
+  for (const entry of source.slice(start + "interface CommandMap {".length, end).split(/\r?\n/).filter((line) => line.trim())) {
+    const match = /^\s*([a-z][a-z0-9_]*): \{ args: .+; result: .+ \};$/.exec(entry);
+    assert.ok(match, `Unsupported CommandMap entry: ${entry}`);
+    assert.ok(!keys.has(match[1]), `Duplicate CommandMap key: ${match[1]}`);
+    keys.add(match[1]);
+  }
+  assert.deepEqual([...keys].sort(), [...debug].sort());
+  assert.deepEqual([...keys].filter((name) => !DEBUG_ONLY_COMMANDS.has(name)).sort(), [...release].sort());
+});
