@@ -1,6 +1,6 @@
+use crate::resolve::ResolveCoordinator;
 use crate::{
-    fav_import, GuestPlayurlClient, ProxyState, RankingClient, RankingTrack, ResolveCoordinator,
-    SearchClient,
+    fav_import, GuestPlayurlClient, ProxyState, RankingClient, RankingTrack, SearchClient,
 };
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
