@@ -16,7 +16,7 @@ const stateCode = sourceSlice(state, "ui/player-state.js", "const playerState ="
   + sourceSlice(state, "ui/player-state.js", "const homeState =", "const libraryState =")
   + sourceSlice(state, "ui/player-state.js", "const libraryState =", "const favoriteDragState =");
 const functions = read("page-selection.js") + read("track-utils.js")
-  + slice("function currentTrackSnapshot()", "function clearPlaybackNotice()")
+  + slice("function currentTrackSnapshot()", "initPlaybackNotice();")
   + sourceSlice(policy, "ui/playback-policy.js", "function shuffled(", "function readShuffleCollectionPrefs(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")

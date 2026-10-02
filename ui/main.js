@@ -1,16 +1,16 @@
 import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.js";
 import { invoke } from "./runtime-api.js";
-import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, duration, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeRankingList, homeSetupSettings, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModal, libraryModalBody, loopModeButton, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playbackNotice, playerPagesButton, playerPagesGroup, previousButton, purgeUnavailableTracksButton, queueCount, queuePosition, refreshRankingButton, renamePlaylistButton, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, skipVideoButton, sortModeTabs, status, thumbnail, title, uploader } from "./player-dom.js";
+import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, duration, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeRankingList, homeSetupSettings, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModal, libraryModalBody, loopModeButton, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, playerPagesGroup, previousButton, purgeUnavailableTracksButton, queueCount, queuePosition, refreshRankingButton, renamePlaylistButton, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, skipVideoButton, sortModeTabs, status, thumbnail, title, uploader } from "./player-dom.js";
 import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.js";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.js";
+import { clearPlaybackNotice, initPlaybackNotice, showPlaybackNotice } from "./playback-notice.js";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
 import { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
 import { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs } from "./search.js";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
 
-const SKIP_NOTICE_DURATION_MS = 3200;
 let randomPageRound = null;
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
@@ -44,8 +44,6 @@ window.recordPlaybackDiag = (category, message) => {
   if (window.__playbackDiagLog.length > 300) window.__playbackDiagLog.shift();
   console.info("[playback-diag]", entry);
 };
-let playbackNoticeTimer = null;
-
 function currentTrackSnapshot() {
   if (
     playerState.currentDisplayTrack &&
@@ -158,41 +156,7 @@ function emitCurrentTrackChanged() {
   );
 }
 
-function clearPlaybackNotice() {
-  if (playbackNoticeTimer !== null) {
-    clearTimeout(playbackNoticeTimer);
-    playbackNoticeTimer = null;
-  }
-  playbackNotice.classList.remove("is-visible");
-  playbackNotice.textContent = "";
-  window.dispatchEvent(new Event("bilibili-music-notice-change"));
-}
-
-function positionPlaybackNotice() {
-  const pauseButton = resumePlayPauseButton.getBoundingClientRect();
-  playbackNotice.style.setProperty("--playback-notice-x", `${pauseButton.left + pauseButton.width / 2}px`);
-}
-
-positionPlaybackNotice();
-new ResizeObserver(positionPlaybackNotice).observe(result);
-
-function showPlaybackNotice(message, { persistent = false, kind = "error" } = {}) {
-  positionPlaybackNotice();
-  if (kind === "info" && playbackNotice.classList.contains("is-visible") &&
-      playbackNotice.dataset.kind === "error") return;
-  if (playbackNoticeTimer !== null) {
-    clearTimeout(playbackNoticeTimer);
-    playbackNoticeTimer = null;
-  }
-  playbackNotice.dataset.kind = kind;
-  playbackNotice.textContent = message;
-  playbackNotice.classList.add("is-visible");
-  window.dispatchEvent(new Event("bilibili-music-notice-change"));
-  if (!persistent) {
-    playbackNoticeTimer = window.setTimeout(clearPlaybackNotice,
-      kind === "info" ? 2000 : SKIP_NOTICE_DURATION_MS);
-  }
-}
+initPlaybackNotice();
 
 function resetRandomRemaining() {
   playerState.randomRemaining = shuffled(

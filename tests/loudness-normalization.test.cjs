@@ -12,7 +12,7 @@ const code = sourceSlice(main, "ui/main.js", "let cacheRequestedForCurrentTrack 
   + sourceSlice(appearance, "ui/appearance.js", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
   + sourceSlice(appearance, "ui/appearance.js", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
-  + sourceSlice(main, "ui/main.js", "function emitCurrentTrackChanged(", "function clearPlaybackNotice(")
+  + sourceSlice(main, "ui/main.js", "function emitCurrentTrackChanged(", "initPlaybackNotice();")
   + sourceSlice(main, "ui/main.js", "let loudnessQueryVersion", "function refreshTrackLoudness(")
   + sourceSlice(policy, "ui/playback-policy.js", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
   + sourceSlice(main, "ui/main.js", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
