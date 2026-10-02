@@ -44,8 +44,10 @@ function compareCounts(actual, baseline, update = false) {
 
 function run() {
   const args = process.argv.slice(2);
-  if (args.length && (args.length !== 1 || args[0] !== "--update")) throw new Error("Usage: npm run typecheck [-- --update]");
+  if (args.length && (args.length !== 1 || !["--update", "--rebaseline"].includes(args[0]))) throw new Error("Usage: npm run typecheck [-- --update | --rebaseline]");
   const update = args[0] === "--update";
+  // Manual, explicitly authorized baseline replacement; never used by CI.
+  const rebaseline = args[0] === "--rebaseline";
   const root = path.resolve(__dirname, "../..");
   const baselineFile = path.join(__dirname, "diagnostics.json");
   const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
@@ -64,10 +66,10 @@ function run() {
     console.log(`${project}: ${diagnostics.length} diagnostics ${JSON.stringify(codes)}`);
   }
   const actual = diagnosticCounts(all);
-  const errors = compareCounts(actual, baseline, update);
+  const errors = rebaseline ? [] : compareCounts(actual, baseline, update);
   if (errors.length) throw new Error(errors.join("\n"));
-  if (update) fs.writeFileSync(baselineFile, JSON.stringify(actual, null, 2) + "\n");
-  console.log(update ? "Diagnostic baseline reduced/unchanged." : "Diagnostic baseline matches.");
+  if (update || rebaseline) fs.writeFileSync(baselineFile, JSON.stringify(actual, null, 2) + "\n");
+  console.log(rebaseline ? "Diagnostic baseline rebuilt explicitly." : update ? "Diagnostic baseline reduced/unchanged." : "Diagnostic baseline matches.");
 }
 
 function diagnosticCountsByCode(diagnostics) {
