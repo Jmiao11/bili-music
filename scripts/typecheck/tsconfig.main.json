@@ -1,6 +1,10 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["../../types/tauri.d.ts", "../../types/main-window.d.ts", "../../types/contract-fixtures.ts"],
+  "include": [
+    "../../types/tauri.d.ts",
+    "../../types/main-window.d.ts",
+    "../../types/contract-fixtures.ts"
+  ],
   "files": [
     "../../ui/sidebar.js",
     "../../ui/window-controls.js",
@@ -9,6 +13,9 @@
     "../../ui/main.js",
     "../../ui/page-selection.js",
     "../../ui/track-utils.js",
+    "../../ui/runtime-api.js",
+    "../../ui/player-dom.js",
+    "../../ui/player-state.js",
     "../../ui/home.js",
     "../../ui/library-ui.js",
     "../../ui/video-pages.js",

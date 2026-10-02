@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.js", "track-utils.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -50,6 +50,27 @@ test("split scripts contain only top-level function declarations and comments", 
     while (position < source.length) {
       const trivia = /^(?:\s+|\/\/[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)/.exec(source.slice(position));
       if (trivia) { position += trivia[0].length; continue; }
+      const remaining = source.slice(position);
+      const runtime = /^const \{ invoke \} = window\.__TAURI__\.core;/.exec(remaining);
+      const dom = /^const [\w$]+ = (?:document\.(?:querySelector|getElementById)\("[^"\r\n]+"\)|\[\.\.\.document\.querySelectorAll\("[^"\r\n]+"\)\]|homePanel\?\.querySelector\("[^"\r\n]+"\));/.exec(remaining);
+      if ((script === "runtime-api.js" && runtime) || (script === "player-dom.js" && dom)) {
+        position += (script === "runtime-api.js" ? runtime : dom)[0].length;
+        continue;
+      }
+      if (script === "player-state.js" && /^const\s+[\w$]+\s*=/.test(remaining)) {
+        const end = remaining.indexOf(";");
+        const text = remaining.slice(0, end + 1);
+        new vm.Script(text);
+        const initializer = maskCommentsAndStrings(text).slice(text.indexOf("=") + 1)
+          .replace(/new (?:Map|Set|WeakMap)\(\)/g, "")
+          .replace(/Number\.(?:POSITIVE|NEGATIVE)_INFINITY/g, "")
+          .replace(/\b[\w$]+\s*:/g, "")
+          .replace(/\b(?:true|false|null|DEFAULT_MUSIC_TIDS)\b/g, "")
+          .replace(/[\s\d_,.\[\]{};+-]/g, "");
+        assert.equal(initializer, "", `${script}: state initializer must contain only literals and native collections`);
+        position += text.length;
+        continue;
+      }
       const allowedLets = {
         "library-ui.js": new Set(["favoriteImportVersion"]),
         "video-pages.js": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),

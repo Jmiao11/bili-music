@@ -1,6 +1,9 @@
 import { displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, normalizeTrack } from "./track-utils.js";
+import { invoke } from "./runtime-api.js";
+import { musicTabs, result, searchButton, searchKeyword, searchResults, searchStatus, sortModeTabs } from "./player-dom.js";
+import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, searchState } from "./player-state.js";
 import { bindTrackActivation } from "./video-pages.js";
-import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, appendSearchResults, createTrackActions, invoke, musicTabs, playSearchResult, result, searchButton, searchKeyword, searchResults, searchState, searchStatus, sortModeTabs, updateQueueUi } from "./main.js";
+import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./main.js";
 
 function readLastSearchKeyword() {
   try {
@@ -264,6 +267,5 @@ async function loadMoreSearchResults() {
     }
   }
 }
-
 
 export { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs };

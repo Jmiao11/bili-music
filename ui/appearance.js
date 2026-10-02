@@ -1474,5 +1474,4 @@ void restoreBackground().finally(() => {
 restoreStreamSource();
 }
 
-
 export { isLoudnessNormalizationEnabled, setNormalizationGain, startAppearance };
