@@ -290,7 +290,7 @@ mod tests {
             ("lyrics.rs", "write_lyrics_cache"),      // lyrics/<id>.json subdirectory.
             ("lyrics.rs", "clear_lyrics_cache"),      // lyrics/<id>.json subdirectory.
             ("loudness.rs", "local_audio_source"),    // Reading an audio-cache file for analysis.
-            ("main.rs", "proxy_local_audio"), // Playback core: serving a local audio-cache file.
+            ("proxy.rs", "proxy_local_audio"), // Playback core: serving a local audio-cache file.
             ("search.rs", "read_netscape_cookies"), // External cookie file, not stored application data.
             ("library/backup.rs", "export_data_blocking"), // User-selected ZIP output, outside snapshot lock.
             ("library/backup.rs", "import_data_blocking"), // User-selected ZIP input, decompressed outside lock.
