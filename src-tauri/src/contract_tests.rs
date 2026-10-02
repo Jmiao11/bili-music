@@ -280,4 +280,63 @@ mod tests {
         let _: crate::library::shortcut_config::ShortcutBindings =
             serde_json::from_str("{}").unwrap();
     }
+
+    fn input_duration(
+        value: &str,
+    ) -> Result<crate::library::TrackSnapshotInput, serde_json::Error> {
+        serde_json::from_str(
+            &include_str!("../../tests/fixtures/contract/input-track-snapshot.json").replace(
+                "\"durationSeconds\":120",
+                &format!("\"durationSeconds\":{value}"),
+            ),
+        )
+    }
+
+    #[test]
+    fn contract_duration_accepts_and_rounds_without_losing_integer_precision() {
+        for (value, expected) in [
+            ("0", 0),
+            ("-0", 0),
+            ("-0.0", 0),
+            ("0.4", 0),
+            ("0.5", 1),
+            ("120.5", 121),
+            ("9007199254740993", 9007199254740993),
+            ("18446744073709551615", u64::MAX),
+            ("18446744073709549568.0", 18446744073709549568),
+        ] {
+            assert_eq!(
+                input_duration(value).unwrap().duration_seconds,
+                expected,
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn contract_duration_rejects_negative_and_out_of_range_numbers() {
+        for value in [
+            "-0.1",
+            "-0.4",
+            "-1",
+            "18446744073709551616",
+            "18446744073709551616.0",
+            "18446744073709551615.9",
+            "1e100",
+        ] {
+            assert!(input_duration(value).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn contract_stored_tracks_and_playback_state_remain_strict() {
+        let track = include_str!("../../tests/fixtures/contract/track-snapshot.json")
+            .replace("\"durationSeconds\":120", "\"durationSeconds\":120.5");
+        assert!(serde_json::from_str::<crate::library::TrackSnapshot>(&track).is_err());
+        let state = include_str!("../../tests/fixtures/contract/playback-state-some.json")
+            .replace("\"durationSeconds\":120", "\"durationSeconds\":120.5");
+        assert!(
+            serde_json::from_str::<crate::library::playback_state::PlaybackState>(&state).is_err()
+        );
+    }
 }
