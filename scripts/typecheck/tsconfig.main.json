@@ -16,6 +16,7 @@
     "../../ui/runtime-api.js",
     "../../ui/player-dom.js",
     "../../ui/player-state.js",
+    "../../ui/playback-policy.js",
     "../../ui/home.js",
     "../../ui/library-ui.js",
     "../../ui/video-pages.js",

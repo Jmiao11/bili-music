@@ -7,7 +7,9 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const decision = sourceSlice(source, "ui/main.js", "function shouldRecoverAudio(", "function waitForRecoveryMetadata(");
+const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.js"), "utf8");
+const decision = sourceSlice(policy, "ui/playback-policy.js", "function shouldRecoverAudio(", "// 与 src-tauri/")
+  + sourceSlice(source, "ui/main.js", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
 const metadataWait = sourceSlice(source, "ui/main.js", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
 const recoverCurrentAudio = sourceSlice(source, "ui/main.js", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
 const loadCurrentTrack = sourceSlice(source, "ui/main.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");

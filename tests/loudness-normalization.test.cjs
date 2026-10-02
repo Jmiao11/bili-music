@@ -7,12 +7,15 @@ const vm = require("node:vm");
 
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.js"), "utf8");
 const code = sourceSlice(main, "ui/main.js", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
   + sourceSlice(appearance, "ui/appearance.js", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
   + sourceSlice(appearance, "ui/appearance.js", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
   + sourceSlice(main, "ui/main.js", "function emitCurrentTrackChanged(", "function clearPlaybackNotice(")
-  + sourceSlice(main, "ui/main.js", "let loudnessQueryVersion", "async function loadCurrentTrack(");
+  + sourceSlice(main, "ui/main.js", "let loudnessQueryVersion", "function refreshTrackLoudness(")
+  + sourceSlice(policy, "ui/playback-policy.js", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
+  + sourceSlice(main, "ui/main.js", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
 const cacheListenerCode = sourceSlice(main, "ui/main.js", "audio.addEventListener(\"timeupdate\"", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", {"startLastBefore":"if (cacheRequestedForCurrentTrack) return;","includeEnd":true});
 const endedHandlerCode = sourceSlice(main, "ui/main.js", "audio.addEventListener(\"ended\", (event) => {", "audio.addEventListener(\"timeupdate\"", {"endAfterStart":true});
 const settingKey = "bilibili-music.loudness-normalization";

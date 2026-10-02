@@ -1,8 +1,9 @@
-import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, normalizeShuffleCollectionPrefs, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
+import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.js";
 import { invoke } from "./runtime-api.js";
 import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, duration, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeRankingList, homeSetupSettings, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModal, libraryModalBody, loopModeButton, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playbackNotice, playerPagesButton, playerPagesGroup, previousButton, purgeUnavailableTracksButton, queueCount, queuePosition, refreshRankingButton, renamePlaylistButton, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, skipVideoButton, sortModeTabs, status, thumbnail, title, uploader } from "./player-dom.js";
 import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.js";
+import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.js";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
 import { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
@@ -191,15 +192,6 @@ function showPlaybackNotice(message, { persistent = false, kind = "error" } = {}
     playbackNoticeTimer = window.setTimeout(clearPlaybackNotice,
       kind === "info" ? 2000 : SKIP_NOTICE_DURATION_MS);
   }
-}
-
-function shuffled(values) {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1));
-    [result[index], result[target]] = [result[target], result[index]];
-  }
-  return result;
 }
 
 function resetRandomRemaining() {
@@ -453,17 +445,6 @@ function isFavorited(bvid) {
   return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
 
-function readShuffleCollectionPrefs() {
-  try {
-    return normalizeShuffleCollectionPrefs(
-      localStorage.getItem("bilibili-music.shuffle-collection-order"),
-      localStorage.getItem("bilibili-music.shuffle-collection-limit"),
-    );
-  } catch {
-    return normalizeShuffleCollectionPrefs(null, null);
-  }
-}
-
 function setFavoriteButtonState(button, bvid) {
   const favorited = isFavorited(bvid);
   button.classList.toggle("is-favorited", favorited);
@@ -689,10 +670,6 @@ function waitForAudioMetadata() {
   });
 }
 
-function shouldRecoverAudio(errorCode, isCurrent, hasPlayed, attempts) {
-  return errorCode === 2 && isCurrent && hasPlayed && attempts < MAX_AUDIO_RECOVERIES;
-}
-
 function recoveryAttemptsFor(version) {
   if (recoveryVersion !== version) {
     recoveryVersion = version;
@@ -807,15 +784,6 @@ function handleAudioRecoveryError(event) {
 
 let loudnessQueryVersion = 0;
 let loudnessAnalyzedForCurrentTrack = false;
-
-// 与 src-tauri/src/loudness.rs::lufs_to_gain 有两份公式实现，改一处必须同步。
-function lufsToGain(lufs) {
-  if (lufs === null || lufs === undefined || !Number.isFinite(lufs)) {
-    return 1.0;
-  }
-  const gainDb = Math.min(0, Math.max(-12, -14 - lufs));
-  return 10 ** (gainDb / 20);
-}
 
 function refreshTrackLoudness() {
   const queryVersion = ++loudnessQueryVersion;
@@ -1754,4 +1722,4 @@ updateMusicTabs();
 updateQueueUi();
 emitCurrentTrackChanged();
 
-export { appendSearchResults, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage, playListItem, playSearchResult, readShuffleCollectionPrefs, refreshTrackLoudness, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { appendSearchResults, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage, playListItem, playSearchResult, refreshTrackLoudness, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };

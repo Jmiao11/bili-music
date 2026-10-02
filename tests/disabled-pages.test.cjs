@@ -6,8 +6,9 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
-const helper = pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(");
+const helper = pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
 const context = vm.createContext({ Map, Set });
 vm.runInContext(helper, context);
 

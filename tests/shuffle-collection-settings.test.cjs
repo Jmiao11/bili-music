@@ -6,10 +6,11 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const html = readFileSync(path.join(__dirname, "../ui/index.html"), "utf8");
-const source = pageSelection + sourceSlice(main, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
+const source = pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + sourceSlice(appearance, "ui/appearance.js", "function openSettings()", "async function restoreAudioCacheSettings()")
   + sourceSlice(appearance, "ui/appearance.js", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
 

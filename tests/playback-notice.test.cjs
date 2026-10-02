@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require("./helpers/module-syntax.cjs");
 const vm = require('node:vm');
 const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'), 'utf8');
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.js'), "utf8");
 
 function setup() {
@@ -29,8 +30,8 @@ function setup() {
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "function clearPlaybackNotice()", "function shuffled("), context);
-  vm.runInContext(pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState(")
+  vm.runInContext(sourceSlice(source, "ui/main.js", "function clearPlaybackNotice()", "function resetRandomRemaining("), context);
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + sourceSlice(source, "ui/main.js", "function playNext(", "searchForm.addEventListener("), context);
   return { context, notice, timers, events, styles };
 }
@@ -147,7 +148,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits = [];
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext(pageSelection + sourceSlice(source, "ui/main.js", "function readShuffleCollectionPrefs(", "function setFavoriteButtonState("), c);
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
   vm.runInContext(sourceSlice(source, "ui/main.js", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);
