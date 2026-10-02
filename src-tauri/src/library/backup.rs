@@ -145,7 +145,7 @@ fn import_data_blocking() -> Result<Option<String>, String> {
         )
     })?;
     let (imported, skipped) = import_data_at(&root, file, |guard, path, bytes| {
-        crate::storage::write(guard, path, bytes)
+        crate::storage::write_bytes_atomic(guard, path, bytes)
     })
     .map_err(|error| {
         if error.starts_with("回滚未完成") || error.starts_with("文件已导入") {
@@ -196,8 +196,11 @@ fn read_import_files<R: Read + Seek>(input: R) -> Result<(Vec<(String, Vec<u8>)>
             return Err(format!("备份条目 {name} 超过大小上限。"));
         }
         if name.ends_with(".json") {
-            let _json: serde_json::Value = serde_json::from_slice(&bytes)
+            let json: serde_json::Value = serde_json::from_slice(&bytes)
                 .map_err(|error| format!("备份条目 {name} 的 JSON 格式损坏：{error}"))?;
+            if name != AI_CONFIG_FILE || json.get("api_key").is_some() || !json.is_object() {
+                validate_backup_json(&name, &bytes)?;
+            }
         }
         files.push((name, bytes));
     }
@@ -248,10 +251,32 @@ fn complete_ai_key(
                 fields.insert("api_key".to_owned(), serde_json::Value::String(key));
                 *bytes = serde_json::to_vec(&json)
                     .map_err(|error| format!("无法处理 AI 配置：{error}"))?;
+                validate_backup_json(name, bytes)?;
             }
         }
     }
     Ok(())
+}
+
+fn validate_backup_json(name: &str, bytes: &[u8]) -> Result<(), String> {
+    let result = match name {
+        FAVORITES_FILE => super::favorites::validate_import_json(name, bytes),
+        PLAYLISTS_FILE => super::playlists::validate_import_json(name, bytes),
+        SEARCH_HISTORY_FILE => super::history::validate_search_import_json(name, bytes),
+        PLAY_HISTORY_FILE => super::history::validate_play_import_json(name, bytes),
+        PLAYBACK_STATE_FILE => super::playback_state::validate_import_json(name, bytes),
+        UNAVAILABLE_TRACKS_FILE => super::unavailable::validate_import_json(name, bytes),
+        DISABLED_PAGES_FILE => super::disabled_pages::validate_import_json(name, bytes),
+        SHORTCUTS_FILE => super::shortcut_config::validate_import_json(name, bytes),
+        "loudness.json" => super::loudness_store::validate_import_json(name, bytes),
+        AI_CONFIG_FILE | "recommendations.json" => crate::ai::validate_import_json(name, bytes),
+        "lyrics-offsets.json" | "lyrics-bindings.json" | "video-pages-cache.json" => {
+            crate::lyrics::validate_import_json(name, bytes)
+        }
+        _ => unreachable!("backup JSON dispatch must cover the whitelist"),
+    };
+    result
+        .map_err(|_| crate::ai::safe_error(&format!("备份条目 {name} 的数据结构或版本无效。"), ""))
 }
 
 fn import_files_at(
@@ -585,7 +610,7 @@ mod backup_tests {
     fn import_skips_unknown_entries_and_counts_them() {
         let root = temp_root();
         let zip = backup(&[
-            (FAVORITES_FILE, b"{}"),
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
             ("surprise.json", b"{}"),
             ("nested/playlists.json", b"{}"),
             ("background.png", b"image"),
@@ -594,7 +619,10 @@ mod backup_tests {
             import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes)).unwrap(),
             (2, 2)
         );
-        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), b"{}");
+        assert_eq!(
+            fs::read(root.join(FAVORITES_FILE)).unwrap(),
+            br#"{"version":1,"items":[]}"#
+        );
         assert!(!root.join("surprise.json").exists());
         fs::remove_dir_all(root).unwrap();
     }
@@ -603,7 +631,10 @@ mod backup_tests {
     fn invalid_json_rejects_entire_backup_before_writing() {
         let root = temp_root();
         fs::write(root.join(FAVORITES_FILE), b"old").unwrap();
-        let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"invalid")]);
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (PLAYLISTS_FILE, b"invalid"),
+        ]);
         assert!(
             import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes))
                 .unwrap_err()
@@ -619,7 +650,10 @@ mod backup_tests {
         let root = temp_root();
         fs::write(root.join(FAVORITES_FILE), b"old-favorites").unwrap();
         fs::write(root.join(PLAYLISTS_FILE), b"old-playlists").unwrap();
-        let zip = backup(&[(FAVORITES_FILE, b"{}"), (PLAYLISTS_FILE, b"{}")]);
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (PLAYLISTS_FILE, br#"{"version":1,"playlists":[]}"#),
+        ]);
         let mut writes = 0;
         let error = import_data_at(&root, zip, |_guard, path, bytes| {
             writes += 1;
@@ -971,5 +1005,200 @@ mod backup_tests {
             blocked,
             "purge completed while the export snapshot was being read"
         );
+    }
+    fn minimal_backup_json(name: &str) -> serde_json::Value {
+        match name {
+            FAVORITES_FILE
+            | SEARCH_HISTORY_FILE
+            | PLAY_HISTORY_FILE
+            | UNAVAILABLE_TRACKS_FILE
+            | "loudness.json" => serde_json::json!({"version":1,"items":[]}),
+            PLAYLISTS_FILE => serde_json::json!({"version":1,"playlists":[]}),
+            PLAYBACK_STATE_FILE => serde_json::json!({"version":1,"queue":[],
+                "currentIndex":0,"positionSeconds":0.0,"page":null,"cid":null,"savedAt":0}),
+            DISABLED_PAGES_FILE => serde_json::json!({"version":1,"videos":{}}),
+            SHORTCUTS_FILE => serde_json::json!({"version":1,"bindings":{}}),
+            AI_CONFIG_FILE => serde_json::json!({"version":1,"base_url":"https://example.test",
+                "model":"m","api_key":"backup-key"}),
+            "recommendations.json" => serde_json::json!({"version":1,"items":[],"generated_at":0}),
+            "lyrics-offsets.json" => serde_json::json!({"version":1,"offsets":{}}),
+            "lyrics-bindings.json" => serde_json::json!({"version":1,"bindings":{}}),
+            "video-pages-cache.json" => serde_json::json!({"version":1,"entries":{}}),
+            _ => panic!("add a valid minimal fixture for {name}"),
+        }
+    }
+
+    fn disk_snapshot(root: &Path) -> BTreeMap<String, Vec<u8>> {
+        fs::read_dir(root)
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                assert!(
+                    path.is_file(),
+                    "unexpected disk mutation: {}",
+                    path.display()
+                );
+                (
+                    path.file_name().unwrap().to_str().unwrap().to_owned(),
+                    fs::read(path).unwrap(),
+                )
+            })
+            .collect()
+    }
+
+    fn assert_invalid_import_unchanged(name: &str, bytes: &[u8]) {
+        let root = temp_root();
+        fs::write(root.join("keep.json"), b"keep").unwrap();
+        let before = disk_snapshot(&root);
+        let good_name = if name == FAVORITES_FILE {
+            PLAYLISTS_FILE
+        } else {
+            FAVORITES_FILE
+        };
+        let good = serde_json::to_vec(&minimal_backup_json(good_name)).unwrap();
+        let zip = backup(&[(good_name, &good), (name, bytes)]);
+        let mut writes = 0;
+        let error = import_data_at(&root, zip, |guard, path, bytes| {
+            writes += 1;
+            crate::storage::write_bytes_atomic(guard, path, bytes)
+        })
+        .unwrap_err();
+        assert_eq!(writes, 0, "{name}");
+        assert_eq!(disk_snapshot(&root), before, "{name}");
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(error, format!("备份条目 {name} 的数据结构或版本无效。"));
+    }
+
+    #[test]
+    fn import_rejects_wrong_structure_for_every_whitelisted_json_without_writing() {
+        for &name in BACKUP_JSON_FILES {
+            assert_invalid_import_unchanged(name, b"{}");
+        }
+    }
+
+    #[test]
+    fn import_rejects_unknown_versions_for_every_whitelisted_json_without_writing() {
+        for &name in BACKUP_JSON_FILES {
+            let mut value = minimal_backup_json(name);
+            value["version"] = serde_json::json!(999);
+            assert_invalid_import_unchanged(name, &serde_json::to_vec(&value).unwrap());
+        }
+    }
+
+    #[test]
+    fn import_rejects_ai_config_missing_required_fields_without_writing() {
+        for field in ["version", "base_url", "model"] {
+            let mut value = minimal_backup_json(AI_CONFIG_FILE);
+            value.as_object_mut().unwrap().remove(field);
+            assert_invalid_import_unchanged(AI_CONFIG_FILE, &serde_json::to_vec(&value).unwrap());
+        }
+    }
+
+    #[test]
+    fn import_ai_key_completion_failure_changes_no_files() {
+        let root = temp_root();
+        fs::write(
+            root.join(AI_CONFIG_FILE),
+            serde_json::to_vec(&minimal_backup_json(AI_CONFIG_FILE)).unwrap(),
+        )
+        .unwrap();
+        fs::write(root.join(FAVORITES_FILE), b"old-favorites").unwrap();
+        let before = disk_snapshot(&root);
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (
+                AI_CONFIG_FILE,
+                br#"{"version":1,"base_url":"https://example.test","model":42}"#,
+            ),
+        ]);
+        let mut writes = 0;
+        let error = import_data_at(&root, zip, |guard, path, bytes| {
+            writes += 1;
+            crate::storage::write_bytes_atomic(guard, path, bytes)
+        })
+        .unwrap_err();
+        assert_eq!(writes, 0);
+        assert_eq!(disk_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+        assert_eq!(error, "备份条目 ai-config.json 的数据结构或版本无效。");
+    }
+
+    #[test]
+    fn import_preserves_original_bytes_for_every_complete_json_and_background() {
+        let root = temp_root();
+        let files: Vec<_> = BACKUP_JSON_FILES
+            .iter()
+            .map(|&name| {
+                let mut value = minimal_backup_json(name);
+                value["unknown_preserved_field"] = serde_json::json!("kept");
+                let bytes = format!(
+                    " 
+{}
+
+",
+                    serde_json::to_string_pretty(&value).unwrap()
+                )
+                .into_bytes();
+                (name, bytes)
+            })
+            .collect();
+        let mut entries: Vec<_> = files
+            .iter()
+            .map(|(name, bytes)| (*name, bytes.as_slice()))
+            .collect();
+        entries.push(("background.png", b"not decoded in this batch"));
+        let zip = backup(&entries);
+        assert_eq!(
+            import_data_at(&root, zip, crate::storage::write_bytes_atomic).unwrap(),
+            (BACKUP_JSON_FILES.len() + 1, 0)
+        );
+        for (name, bytes) in files {
+            assert_eq!(fs::read(root.join(name)).unwrap(), bytes, "{name}");
+        }
+        assert_eq!(
+            fs::read(root.join("background.png")).unwrap(),
+            b"not decoded in this batch"
+        );
+        assert_eq!(
+            fs::read_dir(&root).unwrap().count(),
+            BACKUP_JSON_FILES.len() + 1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn import_without_local_ai_config_fills_an_empty_key() {
+        let root = temp_root();
+        let mut value = minimal_backup_json(AI_CONFIG_FILE);
+        value.as_object_mut().unwrap().remove("api_key");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let zip = backup(&[(AI_CONFIG_FILE, &bytes)]);
+        assert_eq!(
+            import_data_at(&root, zip, crate::storage::write_bytes_atomic).unwrap(),
+            (1, 0)
+        );
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(root.join(AI_CONFIG_FILE)).unwrap()).unwrap();
+        assert_eq!(restored["api_key"], "");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn import_with_damaged_local_ai_config_changes_no_files() {
+        let root = temp_root();
+        fs::write(root.join(AI_CONFIG_FILE), b"{damaged-local-secret").unwrap();
+        let before = disk_snapshot(&root);
+        let mut value = minimal_backup_json(AI_CONFIG_FILE);
+        value.as_object_mut().unwrap().remove("api_key");
+        let bytes = serde_json::to_vec(&value).unwrap();
+        let zip = backup(&[
+            (FAVORITES_FILE, br#"{"version":1,"items":[]}"#),
+            (AI_CONFIG_FILE, &bytes),
+        ]);
+        let error = import_data_at(&root, zip, crate::storage::write_bytes_atomic).unwrap_err();
+        assert!(error.starts_with("本机 AI 配置格式损坏："));
+        assert!(!error.contains("damaged-local-secret"));
+        assert_eq!(disk_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
     }
 }

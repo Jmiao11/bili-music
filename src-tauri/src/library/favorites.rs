@@ -120,6 +120,10 @@ pub(super) fn favorites_path(guard: &crate::storage::StorageGuard) -> Result<Pat
     library_file_path(guard, FAVORITES_FILE)
 }
 
+pub(super) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<FavoritesFile>(file_name, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::read_json_or_default;

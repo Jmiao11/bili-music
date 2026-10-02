@@ -992,6 +992,21 @@ pub async fn resolve_lyrics(
     }
 }
 
+pub(crate) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    match file_name {
+        LYRICS_OFFSETS_FILE => {
+            crate::library::validate_json_bytes::<LyricsOffsetsFile>(file_name, bytes)
+        }
+        LYRICS_BINDINGS_FILE => {
+            crate::library::validate_json_bytes::<LyricsBindingsFile>(file_name, bytes)
+        }
+        VIDEO_PAGES_CACHE_FILE => {
+            crate::library::validate_json_bytes::<VideoPagesCacheFile>(file_name, bytes)
+        }
+        _ => unreachable!("lyrics backup dispatch must use a declared file"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

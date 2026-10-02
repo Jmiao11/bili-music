@@ -259,6 +259,10 @@ pub(super) fn playlists_path(guard: &crate::storage::StorageGuard) -> Result<Pat
     library_file_path(guard, PLAYLISTS_FILE)
 }
 
+pub(super) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<PlaylistsFile>(file_name, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_support::track;

@@ -68,6 +68,14 @@ where
     crate::storage::read_json_or_default(guard, path)
 }
 
+pub(crate) fn validate_json_bytes<T>(file_name: &str, bytes: &[u8]) -> Result<(), String>
+where
+    T: for<'de> Deserialize<'de> + Versioned,
+{
+    let parsed: T = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+    parsed.ensure_supported_version(Path::new(file_name))
+}
+
 pub(crate) trait Versioned {
     fn version(&self) -> u32;
 

@@ -884,7 +884,7 @@ fn key_hint(api_key: &str) -> Option<String> {
     Some(format!("••••{}", tail.into_iter().collect::<String>()))
 }
 
-fn safe_error(message: &str, api_key: &str) -> String {
+pub(super) fn safe_error(message: &str, api_key: &str) -> String {
     if api_key.is_empty() {
         return message.to_owned();
     }
@@ -903,6 +903,20 @@ fn now_unix_seconds() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs().min(i64::MAX as u64) as i64)
+}
+
+pub(crate) fn validate_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    match file_name {
+        AI_CONFIG_FILE => {
+            let parsed: AiConfig =
+                serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+            parsed.ensure_supported_version(Path::new(file_name))
+        }
+        RECOMMENDATIONS_FILE => {
+            crate::library::validate_json_bytes::<RecommendationsFile>(file_name, bytes)
+        }
+        _ => unreachable!("AI backup dispatch must use a declared file"),
+    }
 }
 
 #[cfg(test)]

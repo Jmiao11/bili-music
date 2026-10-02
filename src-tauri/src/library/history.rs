@@ -236,6 +236,14 @@ fn play_history_path(guard: &crate::storage::StorageGuard) -> Result<PathBuf, St
     library_file_path(guard, PLAY_HISTORY_FILE)
 }
 
+pub(super) fn validate_search_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<SearchHistoryFile>(file_name, bytes)
+}
+
+pub(super) fn validate_play_import_json(file_name: &str, bytes: &[u8]) -> Result<(), String> {
+    super::validate_json_bytes::<PlayHistoryFile>(file_name, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_path;
