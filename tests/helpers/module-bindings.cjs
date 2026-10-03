@@ -21,7 +21,7 @@ function references(source) {
   for (const match of code.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
     const before = code.slice(0, match.index).trimEnd();
     const after = code.slice(match.index + match[0].length);
-    if (before.endsWith(".")) continue;
+    if (before.endsWith(".") && !before.endsWith("...")) continue;
     if (/^\s*:/.test(after) && /[{,]$/.test(before)) continue;
     names.add(match[0]);
   }
