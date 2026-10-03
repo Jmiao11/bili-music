@@ -597,25 +597,7 @@ function showLoudnessNormalizationDialog() {
 }
 
 function waitForAudioMetadata() {
-  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve, reject) => {
-    const cleanup = () => {
-      audio.removeEventListener("loadedmetadata", handleLoaded);
-      audio.removeEventListener("error", handleError);
-    };
-    const handleLoaded = () => {
-      cleanup();
-      resolve();
-    };
-    const handleError = () => {
-      cleanup();
-      reject(audio.error ?? new Error("audio metadata load failed"));
-    };
-    audio.addEventListener("loadedmetadata", handleLoaded);
-    audio.addEventListener("error", handleError);
-  });
+  return waitForRecoveryMetadata(playerState.requestVersion);
 }
 
 function recoveryAttemptsFor(version) {
