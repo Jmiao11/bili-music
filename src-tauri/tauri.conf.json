@@ -4,7 +4,10 @@
   "version": "0.8.0",
   "identifier": "com.bili.music",
   "build": {
-    "frontendDist": "../ui"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "withGlobalTauri": true,
