@@ -8,6 +8,15 @@ use std::time::Duration;
 
 const NAV_URL: &str = "https://api.bilibili.com/x/web-interface/nav";
 pub const WBI_CACHE_TTL: Duration = Duration::from_secs(60 * 60);
+
+pub(crate) fn should_refresh_wbi(code: i64, message: &str, has_v_voucher: bool) -> bool {
+    if code != 0 {
+        message.to_ascii_lowercase().contains("wbi") || message.contains("签名")
+    } else {
+        has_v_voucher
+    }
+}
+
 const WBI_ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'_')
@@ -144,6 +153,27 @@ pub(crate) fn gen_mixin_key(raw_key: &str) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::{gen_mixin_key, sign_parameters, BTreeMap};
+
+    #[test]
+    fn refresh_wbi_predicate_table() {
+        let cases = [
+            (-403, "wbi expired", false, true),
+            (-403, "WBI expired", false, true),
+            (-403, "签名失效", false, true),
+            (-403, "权限不足", false, false),
+            (-403, "权限不足", true, false),
+            (0, "0", true, true),
+            (0, "0", false, false),
+            (0, "WBI 签名", false, false),
+        ];
+        for (code, message, has_v_voucher, expected) in cases {
+            assert_eq!(
+                super::should_refresh_wbi(code, message, has_v_voucher),
+                expected,
+                "code={code} message={message} has_v_voucher={has_v_voucher}"
+            );
+        }
+    }
 
     #[test]
     fn generates_documented_mixin_key() {
