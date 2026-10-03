@@ -7,7 +7,7 @@ const { loadNativeModules } = require("./helpers/native-module-loader.cjs");
 test("real module graph dispatches once during main before appearance starts once", async () => {
   const ui = path.join(__dirname, "../ui");
   const { modules } = collectBusinessScripts(ui);
-  assert.equal(modules.length, 14);
+  assert.equal(modules.length, 15);
   const loaded = await loadNativeModules(ui, modules, "app.js");
   const changes = loaded.events.filter((event) => event.type === "bilibili-music-trackchange");
   const dispatches = changes.filter((event) => event.action === "dispatch");

@@ -5,6 +5,7 @@ import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistBut
 import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.js";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.js";
 import { clearPlaybackNotice, initPlaybackNotice, showPlaybackNotice } from "./playback-notice.js";
+import { initPlaybackDiagnostics } from "./playback-diagnostics.js";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openLibraryModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
 import { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
@@ -28,22 +29,7 @@ let pendingSearchRestore = null;
 
 let pendingPastedBvPages = null;
 
-window.__playbackDiagLog = [];
-window.recordPlaybackDiag = (category, message) => {
-  const entry = {
-    timestamp: new Date().toISOString(),
-    category,
-    message,
-    paused: audio.paused,
-    currentTime: audio.currentTime,
-    readyState: audio.readyState,
-    networkState: audio.networkState,
-    currentSrcTail: audio.currentSrc.slice(-8),
-  };
-  window.__playbackDiagLog.push(entry);
-  if (window.__playbackDiagLog.length > 300) window.__playbackDiagLog.shift();
-  console.info("[playback-diag]", entry);
-};
+initPlaybackDiagnostics();
 function currentTrackSnapshot() {
   if (
     playerState.currentDisplayTrack &&

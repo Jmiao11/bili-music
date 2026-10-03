@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
