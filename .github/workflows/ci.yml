@@ -17,6 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 设置 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装前端开发依赖
+        run: npm ci
+
+      - name: 检查前端构建产物与开发页面
+        run: npm run verify:dist
+
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -40,11 +51,6 @@ jobs:
       - name: 测试
         run: cargo test --workspace
 
-      - name: 设置 Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: 校验前端脚本语法
         shell: bash
         run: |
@@ -54,9 +60,6 @@ jobs:
 
       - name: 运行 Node 测试
         run: node --test
-
-      - name: 安装类型检查依赖
-        run: npm ci
 
       - name: 检查前端类型诊断清单
         run: npm run typecheck

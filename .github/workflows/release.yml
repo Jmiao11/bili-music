@@ -175,6 +175,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: 安装前端开发依赖
+        run: npm ci
+
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
 
@@ -228,6 +231,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: 安装前端开发依赖
+        run: npm ci
 
       - name: 安装 Rust 工具链
         uses: dtolnay/rust-toolchain@stable
