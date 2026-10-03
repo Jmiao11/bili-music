@@ -22,6 +22,7 @@ const functions = read("page-selection.js") + read("track-utils.js")
   + slice("function stopAudioElement()", "function updateQueueUi()")
   + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + slice("function waitForAudioMetadata()", "function recoveryAttemptsFor(")
+  + slice("function waitForRecoveryMetadata(", "async function recoverCurrentAudio(")
   + slice("async function loadCurrentTrack(", "function playBvId(")
   + slice("function playSearchResult(", "function advancePageWithinCurrentBv(")
   + slice("function playNext(", "function initPlaybackSearch(")
@@ -402,5 +403,49 @@ for (const change of ["bvid", "cid", "page"]) {
     assert.equal(h.context.cacheRequestedForCurrentTrack, false);
     assert.equal(h.context.cacheRequestPromise, null);
     assert.equal(h.events.length, 2);
+  });
+}
+
+for (const action of ["cancel", "switch"]) {
+  test(`ordinary metadata waiting ends after ${action} without affecting a newer load`, async () => {
+    const h = setup();
+    h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
+    h.playerState.currentIndex = 0;
+    let finished = false;
+    const old = h.context.loadCurrentTrack({ resumePosition: 35 }).then(() => { finished = true; });
+    (await h.request("get_video_pages")).resolve(pages(11));
+    (await h.request("prepare_audio")).resolve(info("old"));
+    await h.metadataRequested.promise;
+    let current;
+    if (action === "cancel") {
+      const cancelling = h.context.cancelCurrentPlayback();
+      h.audio.dispatchEvent(new Event("emptied"));
+      await cancelling;
+      await Promise.resolve();
+      assert.equal(finished, true);
+      assert.equal(h.audio.src, "");
+      assert.equal(h.audio.currentTime, 0);
+      assert.equal(h.playerState.activeAudioVersion, -1);
+    }
+    h.playerState.currentIndex = 1;
+    current = h.context.loadCurrentTrack();
+    h.audio.dispatchEvent(new Event("emptied"));
+    (await h.request("get_video_pages", 1)).resolve(pages(22));
+    (await h.request("prepare_audio", 1)).resolve(info("new"));
+    await current;
+    assert.equal(finished, true);
+    await old;
+    assert.equal(h.audio.src, info("new").audioUrl);
+    assert.equal(h.audio.currentTime, 0);
+    assert.equal(h.playerState.activeAudioVersion, h.playerState.requestVersion);
+    assert.equal(h.context.title.textContent, "new");
+    assert.equal(h.context.status.textContent, "在线播放中。");
+    assert.equal(h.calls.filter(call => call.command === "save_playback_state").length, 1);
+    const listeners = require("node:events").getEventListeners;
+    for (const event of ["loadedmetadata", "error", "emptied"]) {
+      assert.equal(listeners(h.audio, event).length, 0);
+    }
+    h.audio.dispatchEvent(new Event("loadedmetadata"));
+    assert.equal(h.audio.currentTime, 0);
   });
 }
