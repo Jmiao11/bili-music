@@ -181,3 +181,95 @@ test("without a recovery, prepare_audio starts synchronously as before", () => {
   vm.runInContext("loadCurrentTrack({ keepPage: true })", context);
   assert.deepEqual(calls, ["prepare_audio"]);
 });
+
+test("expired token network error after a long pause re-resolves the same page and resumes its position", async () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise(yes => { resolve = yes; });
+    return { promise, resolve };
+  };
+  const prepareStarted = deferred(), prepareResult = deferred(), metadataListening = deferred();
+  const calls = [], diagnostics = [], notices = [];
+  let now = 0, plays = 0;
+  const oldUrl = "http://127.0.0.1/audio/expired-token";
+  const newUrl = "http://127.0.0.1/audio/new-token";
+  const state = {
+    requestVersion: 7, activeAudioVersion: 7, activeAudioUrl: oldUrl, audioActivatedAt: 0,
+    currentIndex: 0, currentPageIndex: 1,
+    queue: [{ bvid: "BV0000000001" }],
+    currentPages: [{ page: 1, cid: 11 }, { page: 2, cid: 42, part: "P2", durationSeconds: 400 }],
+  };
+  const audio = new EventTarget();
+  Object.assign(audio, {
+    src: oldUrl, currentTime: 120, duration: 400, readyState: 1, error: null, paused: true,
+    pause() { this.paused = true; this.dispatchEvent(new Event("pause")); },
+    play() { plays += 1; this.paused = false; this.dispatchEvent(new Event("play")); return Promise.resolve(); },
+    load() {
+      this.currentTime = 0; this.readyState = 0; this.error = null;
+      this.dispatchEvent(new Event("emptied"));
+    },
+  });
+  Object.defineProperty(audio, "currentSrc", { get: () => audio.src });
+  const addListener = audio.addEventListener.bind(audio);
+  audio.addEventListener = (type, listener, options) => {
+    addListener(type, listener, options);
+    if (type === "loadedmetadata") metadataListening.resolve();
+  };
+  const context = vm.createContext({
+    Event, audio, playerState: state, MAX_AUDIO_RECOVERIES: 2,
+    HTMLMediaElement: { HAVE_METADATA: 1 }, performance: { now: () => now },
+    playRecordedForCurrentTrack: true, cacheRequestedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
+    window: { recordPlaybackDiag: (...entry) => diagnostics.push(entry) },
+    showPlaybackNotice: message => notices.push(message),
+    invoke(command, args) {
+      calls.push({ command, args }); prepareStarted.resolve();
+      return prepareResult.promise;
+    },
+  });
+  const mainSource = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+  const chain = sourceSlice(source, "ui/playback-core.js", "let recoveryPromise =", "let pendingPastedBvPages =")
+    + sourceSlice(source, "ui/playback-core.js", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
+    + sourceSlice(policy, "ui/playback-policy.js", "function shouldRecoverAudio(", "// 与 src-tauri/")
+    + sourceSlice(source, "ui/playback-core.js", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
+    + sourceSlice(source, "ui/playback-core.js", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
+    + "\ninitPlaybackAudioIdentity();\n"
+    + sourceSlice(mainSource, "ui/main.js", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
+  vm.runInContext(chain, context);
+  await audio.play();
+  audio.dispatchEvent(new Event("playing"));
+  audio.pause();
+  now += (60 * 60 + 1) * 1000; // Advance past proxy TTL without sleeping.
+  assert.equal(audio.currentTime, 120);
+  await audio.play();
+  // The existing proxy Rust test verifies the expired-token 410/empty body.
+  // For an already usable resource, HTML maps fatal network failure to code 2.
+  audio.error = { code: 2, message: "HTTP 410 Gone" };
+  audio.dispatchEvent(new Event("error"));
+  const recovery = vm.runInContext("recoveryPromise", context);
+  await prepareStarted.promise;
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "prepare_audio");
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0].args)), {
+    bvId: "BV0000000001", cid: 42, cacheCid: 42, page: 2, part: "P2", durationSeconds: 400,
+  });
+  prepareResult.resolve({ audioUrl: newUrl });
+  await metadataListening.promise;
+  assert.equal(audio.src, newUrl);
+  assert.equal(audio.currentTime, 0);
+  audio.readyState = 1;
+  audio.dispatchEvent(new Event("loadedmetadata"));
+  await recovery;
+  assert.equal(audio.currentTime, 120);
+  assert.equal(audio.paused, false);
+  assert.equal(plays, 3);
+  assert.equal(state.activeAudioUrl, newUrl);
+  assert.equal(state.requestVersion, 7);
+  assert.equal(state.currentIndex, 0);
+  assert.equal(state.currentPageIndex, 1);
+  assert.equal(context.playRecordedForCurrentTrack, true);
+  assert.equal(context.cacheRequestedForCurrentTrack, true);
+  assert.equal(context.loudnessAnalyzedForCurrentTrack, true);
+  assert.equal(vm.runInContext("recoveryPromise", context), null);
+  assert.deepEqual(notices, []);
+  assert.equal(diagnostics.at(-1)[1], "success attempt=1");
+});
