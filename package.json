@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "verify:dist": "node scripts/vite/verify-dist.mjs",
     "typecheck": "node scripts/typecheck/check.cjs"
   },
   "devDependencies": {
