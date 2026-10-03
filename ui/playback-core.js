@@ -125,11 +125,16 @@ async function loadPagesForCurrentVideo(video, requestVersion) {
 }
 
 function emitCurrentTrackChanged() {
-  playRecordedForCurrentTrack = false;
-  loudnessAnalyzedForCurrentTrack = false;
-  cacheRequestedForCurrentTrack = false;
-  cacheRequestPromise = null;
   const snapshot = currentTrackSnapshot();
+  const cid = currentAudioCacheCid();
+  const identity = JSON.stringify([snapshot.bvid, cid === null ? "page" : "cid", cid ?? playerState.currentPageIndex]);
+  if (identity !== playerState.lastEmittedTrackIdentity) {
+    playerState.lastEmittedTrackIdentity = identity;
+    playRecordedForCurrentTrack = false;
+    loudnessAnalyzedForCurrentTrack = false;
+    cacheRequestedForCurrentTrack = false;
+    cacheRequestPromise = null;
+  }
   window.dispatchEvent(
     new CustomEvent("bilibili-music-trackchange", {
       detail: snapshot,

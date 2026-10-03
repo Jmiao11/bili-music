@@ -358,3 +358,49 @@ test("pagination extends the playback queue only when it belongs to this search"
     assert.equal(h.playerState.requestVersion, 0);
   }
 });
+
+test("appending search results preserves per-track flags and still broadcasts", () => {
+  const h = setup();
+  h.playerState.queue = [track("BV0000000001")];
+  h.playerState.currentIndex = 0;
+  h.playerState.currentPages = pages(11);
+  h.searchState.results = [...h.playerState.queue];
+  h.playerState.queueSearchVersion = h.searchState.requestVersion;
+  h.context.emitCurrentTrackChanged();
+  const pendingCache = Promise.resolve();
+  Object.assign(h.context, {
+    playRecordedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
+    cacheRequestedForCurrentTrack: true, cacheRequestPromise: pendingCache,
+  });
+  assert.equal(h.context.appendSearchResults([track("BV0000000002")]), 1);
+  assert.equal(h.context.playRecordedForCurrentTrack, true);
+  assert.equal(h.context.loudnessAnalyzedForCurrentTrack, true);
+  assert.equal(h.context.cacheRequestedForCurrentTrack, true);
+  assert.equal(h.context.cacheRequestPromise, pendingCache);
+  assert.equal(h.events.length, 2);
+  assert.equal(h.events[1].detail.bvid, "BV0000000001");
+  assert.equal(h.playerState.queue.length, 2);
+});
+
+for (const change of ["bvid", "cid", "page"]) {
+  test(`changing the current ${change} resets per-track flags`, () => {
+    const h = setup();
+    h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
+    h.playerState.currentIndex = 0;
+    h.playerState.currentPages = change === "page" ? [] : pages(11);
+    h.context.emitCurrentTrackChanged();
+    Object.assign(h.context, {
+      playRecordedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
+      cacheRequestedForCurrentTrack: true, cacheRequestPromise: Promise.resolve(),
+    });
+    if (change === "bvid") h.playerState.currentIndex = 1;
+    else if (change === "cid") h.playerState.currentPages = pages(22);
+    else h.playerState.currentPageIndex = 1;
+    h.context.emitCurrentTrackChanged();
+    assert.equal(h.context.playRecordedForCurrentTrack, false);
+    assert.equal(h.context.loudnessAnalyzedForCurrentTrack, false);
+    assert.equal(h.context.cacheRequestedForCurrentTrack, false);
+    assert.equal(h.context.cacheRequestPromise, null);
+    assert.equal(h.events.length, 2);
+  });
+}
