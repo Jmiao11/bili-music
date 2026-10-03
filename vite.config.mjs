@@ -24,8 +24,8 @@ export default defineConfig({
     emptyOutDir: true,
     modulePreload: false,
     minify: false,
-    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",
-    sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    target: "esnext",
+    sourcemap: false,
     rolldownOptions: {
       input: { main: `${ui}index.html`, mini: `${ui}mini.html` },
     },

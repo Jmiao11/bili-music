@@ -14,8 +14,31 @@ const pages = ["index.html", "mini.html"];
 const { loadNativeModules } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cjs");
 const tempParent = path.join(os.tmpdir(), "bili-music-verify");
 fs.mkdirSync(tempParent, { recursive: true });
-const output = fs.mkdtempSync(path.join(tempParent, "vite-dist-"));
+const temp = fs.mkdtempSync(path.join(tempParent, "vite-dist-"));
+const output = path.join(temp, "windows");
 const sourceHtml = (page) => fs.readFileSync(path.join(ui, page), "utf8");
+
+async function checkPlatformBuilds() {
+  const originalPlatform = process.env.TAURI_ENV_PLATFORM;
+  const darwin = path.join(temp, "darwin");
+  try {
+    for (const [platform, outDir] of [["windows", output], ["darwin", darwin]]) {
+      process.env.TAURI_ENV_PLATFORM = platform;
+      await build({ configFile, build: { outDir, emptyOutDir: true } });
+    }
+  } finally {
+    if (originalPlatform === undefined) delete process.env.TAURI_ENV_PLATFORM;
+    else process.env.TAURI_ENV_PLATFORM = originalPlatform;
+  }
+  const files = (directory) => fs.readdirSync(directory, { recursive: true }).filter((file) => /\.(?:js|html|css)$/.test(file)).sort();
+  const windowsFiles = files(output);
+  assert.deepEqual(files(darwin), windowsFiles, "Windows/darwin JS/HTML/CSS file inventories differ");
+  for (const file of windowsFiles) {
+    assert.deepEqual(fs.readFileSync(path.join(output, file)), fs.readFileSync(path.join(darwin, file)),
+      `Windows/darwin bytes differ: ${file}`);
+  }
+  console.log(`PASS PLATFORM: windows/darwin ${windowsFiles.length} JS/HTML/CSS files byte-identical`);
+}
 
 function localFile(directory, reference) {
   const file = path.resolve(directory, decodeURIComponent(reference.split(/[?#]/)[0]));
@@ -149,13 +172,13 @@ async function checkDevelopment() {
 }
 
 try {
-  await build({ configFile, build: { outDir: output, emptyOutDir: true } });
+  await checkPlatformBuilds();
   for (const page of pages) { checkPage(page); console.log(`PASS DIST ${page}: HTML, references, ordinary bytes, CSS`); }
   await checkStartup();
   checkCounterexamples();
   await checkDevelopment();
 } finally {
-  assert.equal(path.dirname(output), tempParent);
-  fs.rmSync(output, { recursive: true, force: true });
+  assert.equal(path.dirname(temp), tempParent);
+  fs.rmSync(temp, { recursive: true, force: true });
 }
 console.log("PASS verify:dist (temporary build removed; dev server closed)");
