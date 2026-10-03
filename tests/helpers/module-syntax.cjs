@@ -17,7 +17,7 @@ function moduleDeclarations(source) {
     const relative = String.raw`["'](\./[^"'\r\n]+\.js)["']`;
     const pattern = keyword[0] === "import"
       ? new RegExp(String.raw`^import\s+(?:\{\s*(${names})\s*\}\s+from\s+)?${relative}\s*;`)
-      : new RegExp(String.raw`^export\s*\{\s*(${names})\s*\}\s*;`);
+      : new RegExp(String.raw`^export\s*\{\s*(${names})?\s*\}\s*;`);
     const match = pattern.exec(text);
     if (!match) throw new Error(`Unsupported module syntax: ${text.slice(0, 80)}`);
     declarations.push({ kind: keyword[0], names: match[1]?.split(",").map((name) => name.trim()).filter(Boolean) || [], specifier: keyword[0] === "import" ? match[2] : null, start: index, end: index + match[0].length });

@@ -1,6 +1,6 @@
 import { readShuffleCollectionPrefs } from "./playback-policy.js";
 import { choosePlaylistAndAdd } from "./library-ui.js";
-import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./main.js";
+import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.js";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
 

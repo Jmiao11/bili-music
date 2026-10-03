@@ -6,9 +6,10 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
-const slice = (start, end) => sourceSlice(source, "ui/main.js", start, end);
+const slice = (start, end, options) => sourceSlice(start.startsWith("function") || start.startsWith("shuffleToggle") ? core : source, start.startsWith("function") || start.startsWith("shuffleToggle") ? "ui/playback-core.js" : "ui/main.js", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
 
 test("queue switches remember the departed cid and pass a history cid to track loading", () => {
   const loads = [];
@@ -75,7 +76,7 @@ test("previous accepts numeric history, restores a page in place, and forwards m
     playQueueIndex: (index, options) => calls.push({ index, options }),
     updatePlayerPagesButton() {}, loadCurrentTrack: (options) => calls.push({ load: options }),
   });
-  vm.runInContext(slice("function playPrevious()", "searchForm.addEventListener("), context);
+  vm.runInContext(slice("function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal(calls[0].index, 2);
   assert.equal(calls[0].options.historyCid, null);
@@ -140,9 +141,9 @@ test("turning shuffle off removes page history and previous no longer jumps forw
   });
   vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
-    + slice("function playPrevious()", "searchForm.addEventListener(")
+    + slice("function playPrevious()", "function initPlaybackSearch(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')
-    + slice('shuffleToggle.addEventListener("change"', 'favoriteCurrentButton?.addEventListener("click"'), context);
+    + slice('shuffleToggle.addEventListener("change"', "\n}\n", { endAfterStart: true }), context);
   handlers.shuffle();
   assert.equal(state.shuffle, false);
   assert.equal(state.history.length, 2);

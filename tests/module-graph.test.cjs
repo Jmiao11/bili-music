@@ -11,7 +11,7 @@ test("the entry and union retain the approved complete business file set", () =>
   const original = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
   const graph = collectBusinessScripts(root);
   assert.deepEqual(graph.entries, ["app.js"]);
-  assert.deepEqual(new Set(graph.files), new Set([...original, "page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js", "main.js", "appearance.js"]));
+  assert.deepEqual(new Set(graph.files), new Set([...original, "page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js", "playback-core.js", "main.js", "appearance.js"]));
 });
 
 test("static module traversal collects recursive cyclic dependencies once", (t) => {

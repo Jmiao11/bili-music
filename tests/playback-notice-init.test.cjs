@@ -12,7 +12,7 @@ test("main initializes playback notice once after diagnostics and before search 
   const init = topLevelStatements(source).find((statement) => statement.text.trim() === "initPlaybackNotice();");
   assert.ok(init);
   const diagnostics = topLevelStatements(source).find((statement) => /^initPlaybackDiagnostics\(\);$/.test(statement.code));
-  const search = topLevelStatements(source).find((statement) => /^searchForm\.addEventListener\(/.test(statement.code));
+  const search = topLevelStatements(source).find((statement) => /^initPlaybackSearch\(\);$/.test(statement.code));
   assert.ok(diagnostics);
   assert.ok(search);
   assert.ok(diagnostics.end < init.start);

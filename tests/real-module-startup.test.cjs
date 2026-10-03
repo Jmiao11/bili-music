@@ -7,14 +7,14 @@ const { loadNativeModules } = require("./helpers/native-module-loader.cjs");
 test("real module graph dispatches once during main before appearance starts once", async () => {
   const ui = path.join(__dirname, "../ui");
   const { modules } = collectBusinessScripts(ui);
-  assert.equal(modules.length, 15);
+  assert.equal(modules.length, 16);
   const loaded = await loadNativeModules(ui, modules, "app.js");
   const changes = loaded.events.filter((event) => event.type === "bilibili-music-trackchange");
   const dispatches = changes.filter((event) => event.action === "dispatch");
   assert.equal(dispatches.length, 1);
-  assert.match(dispatches[0].stack, /emitCurrentTrackChanged .*main\.js/);
+  assert.match(dispatches[0].stack, /emitCurrentTrackChanged .*playback-core\.js/);
   assert.match(dispatches[0].stack, /at file:.*\/main\.js:\d+:\d+/);
-  const mainListener = changes.find((event) => event.action === "listen" && /\/main\.js:/.test(event.stack));
+  const mainListener = changes.find((event) => event.action === "listen" && /\/playback-core\.js:/.test(event.stack));
   const appearanceListener = changes.find((event) => event.action === "listen" && /startAppearance .*appearance\.js/.test(event.stack));
   assert.ok(mainListener);
   assert.ok(appearanceListener);
