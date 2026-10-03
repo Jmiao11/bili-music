@@ -11,7 +11,7 @@ const stateSource = readFileSync(path.join(__dirname, "../ui/player-state.js"), 
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
 const helpers = sourceSlice(stateSource, "ui/player-state.js", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
-  + sourceSlice(source, "ui/main.js", "let pendingSearchRestore", "let pendingPastedBvPages")
+  + sourceSlice(source, "ui/main.js", "let pendingSearchRestore", "initPlaybackDiagnostics();")
   + sourceSlice(searchSource, "ui/search.js", "function readLastSearchKeyword(", "function setSearchResults(");
 const requestFns = sourceSlice(searchSource, "ui/search.js", "function currentSearchRequest(", "async function runSearch(");
 const runSearchFn = sourceSlice(searchSource, "ui/search.js", "async function runSearch(", "async function loadMoreSearchResults(");

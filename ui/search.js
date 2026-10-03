@@ -3,7 +3,7 @@ import { invoke } from "./runtime-api.js";
 import { musicTabs, result, searchButton, searchKeyword, searchResults, searchStatus, sortModeTabs } from "./player-dom.js";
 import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, searchState } from "./player-state.js";
 import { bindTrackActivation } from "./video-pages.js";
-import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./main.js";
+import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./playback-core.js";
 
 function readLastSearchKeyword() {
   try {

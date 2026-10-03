@@ -5,8 +5,8 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const helpers = sourceSlice(source, "ui/main.js", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()");
+const source = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8");
+const helpers = sourceSlice(source, "ui/playback-core.js", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()");
 assert.ok(helpers.includes("function currentAudioCacheCid()"));
 
 function cacheCid(currentPages, currentPageIndex = 0) {

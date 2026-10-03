@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -77,6 +77,7 @@ test("split scripts contain only top-level function declarations and comments", 
         continue;
       }
       const allowedLets = {
+        "playback-core.js": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
         "playback-notice.js": new Set(["playbackNoticeTimer"]),
         "library-ui.js": new Set(["favoriteImportVersion"]),
         "video-pages.js": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
@@ -207,9 +208,9 @@ test("state-write scanner recognizes writes and ignores reads and comments", () 
 test("state fields are written only by approved scripts", () => {
   // A textual scan cannot detect writes through aliases, e.g. const q = playerState.queue; q.push(x).
   const allowedWriters = {
-    playerState: new Set(["main.js"]),
-    searchState: new Set(["main.js", "search.js"]),
-    libraryState: new Set(["main.js", "library-ui.js", "video-pages.js"]),
+    playerState: new Set(["playback-core.js"]),
+    searchState: new Set(["main.js", "playback-core.js", "search.js"]),
+    libraryState: new Set(["playback-core.js", "library-ui.js", "video-pages.js"]),
     homeState: new Set(["main.js", "home.js"]),
   };
   const unexpected = [];

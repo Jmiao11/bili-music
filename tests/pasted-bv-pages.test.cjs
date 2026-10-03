@@ -5,7 +5,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
 const helper = sourceSlice(readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8"), "ui/track-utils.js", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
 const context = vm.createContext({});
 vm.runInContext(helper, context);
@@ -22,7 +22,7 @@ test("failed page loading notices only the current request while keeping single-
     showPlaybackNotice: (message) => notices.push(message),
     console: { warn: () => {} },
   });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "async function loadPagesForCurrentVideo(", "function emitCurrentTrackChanged("), app);
+  vm.runInContext(sourceSlice(source, "ui/playback-core.js", "async function loadPagesForCurrentVideo(", "function emitCurrentTrackChanged("), app);
   const load = vm.runInContext("loadPagesForCurrentVideo", app);
   assert.equal(await load({ bvid: pending.bvid }, 7), true);
   assert.equal(state.currentPages.length, 0);
@@ -64,7 +64,7 @@ function eventContext() {
     currentPlayableTrack: () => ({ bvid: currentBvid }),
     openCurrentPagesModal: () => { opened += 1; },
   });
-  vm.runInContext(`let pendingPastedBvPages = null;\n${helper}\n${sourceSlice(source, "ui/main.js", "window.addEventListener(\"bili-track-changed\"", "playerPagesButton?.addEventListener(\"click\"")}`, app);
+  vm.runInContext(`let pendingPastedBvPages = null;\n${helper}\n${sourceSlice(source, "ui/playback-core.js", "window.addEventListener(\"bili-track-changed\"", "\n}\n", { endAfterStart: true }) + "\n\n"}`, app);
   return {
     app, handlers, playerState,
     mark: () => vm.runInContext('pendingPastedBvPages = { bvid: "BV1GF4X6MEb1", requestVersion: 7 }', app),

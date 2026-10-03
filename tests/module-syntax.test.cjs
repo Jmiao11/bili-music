@@ -56,3 +56,13 @@ test("forbidden or unsupported module syntax fails closed", () => {
     'export { x as y };', 'export { x } from "./x.js";',
   ]) assert.throws(() => stripModuleSyntax(source), /Unsupported module syntax/);
 });
+
+test("empty export list preserves source lines without relaxing import syntax", () => {
+  assert.deepEqual(moduleDeclarations("export {};\n").map((item) => item.names), [[]]);
+  assert.equal(stripModuleSyntax("export {};\n"), "\n");
+  assertModuleLines("const x = 1;\nexport {};\n");
+  assertModuleLines("const x = 1;\r\nexport {};\r\n");
+  for (const source of ['import {} from "./x.js";', 'export {,};', 'export {} from "./x.js";']) {
+    assert.throws(() => stripModuleSyntax(source), /Unsupported module syntax/);
+  }
+});
