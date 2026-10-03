@@ -95,7 +95,7 @@ impl GuestPlayurlClient {
         let cookie_header = guest.cookie_header();
         ensure_not_cancelled(cancellation)?;
 
-        let mixin_key = self.wbi_key(&cookie_header, cancellation).await?;
+        let mixin_key = self.wbi_key(&cookie_header, cancellation, false).await?;
         ensure_not_cancelled(cancellation)?;
 
         let view = fetch_view(
@@ -104,6 +104,7 @@ impl GuestPlayurlClient {
             &cookie_header,
             &mixin_key,
             Some(cancellation),
+            || self.wbi_key(&cookie_header, cancellation, true),
         )
         .await?;
         ensure_not_cancelled(cancellation)?;
@@ -123,6 +124,7 @@ impl GuestPlayurlClient {
             &cookie_header,
             &mixin_key,
             Some(cancellation),
+            || self.wbi_key(&cookie_header, cancellation, true),
         )
         .await?;
         #[cfg(debug_assertions)]
@@ -205,13 +207,14 @@ impl GuestPlayurlClient {
         let cancellation = AtomicBool::new(false);
         let guest = self.guest_identity(&cancellation).await?;
         let cookie_header = guest.cookie_header();
-        let mixin_key = self.wbi_key(&cookie_header, &cancellation).await?;
+        let mixin_key = self.wbi_key(&cookie_header, &cancellation, false).await?;
         let view = fetch_view(
             &self.client,
             bvid,
             &cookie_header,
             &mixin_key,
             Some(&cancellation),
+            || self.wbi_key(&cookie_header, &cancellation, true),
         )
         .await?;
         Ok(view.pages)
@@ -239,10 +242,13 @@ impl GuestPlayurlClient {
         &self,
         cookie_header: &str,
         cancellation: &AtomicBool,
+        force_refresh: bool,
     ) -> Result<String, String> {
-        if let Some(cached) = self.wbi_cache.read().await.as_ref() {
-            if cached.fetched_at.elapsed() < crate::wbi::WBI_CACHE_TTL {
-                return Ok(cached.mixin_key.clone());
+        if !force_refresh {
+            if let Some(cached) = self.wbi_cache.read().await.as_ref() {
+                if cached.fetched_at.elapsed() < crate::wbi::WBI_CACHE_TTL {
+                    return Ok(cached.mixin_key.clone());
+                }
             }
         }
 
@@ -315,8 +321,20 @@ pub async fn verify_guest_audio_playurl(bvid: &str) -> Result<GuestAudioProbe, S
     let guest = issue_guest_identity(&client, None).await?;
     let cookie_header = guest.cookie_header();
     let mixin_key = crate::wbi::fetch_mixin_key(&client, Some(&cookie_header)).await?;
-    let view = fetch_view(&client, bvid, &cookie_header, &mixin_key, None).await?;
-    let playurl = fetch_playurl(&client, bvid, view.cid, &cookie_header, &mixin_key, None).await?;
+    let view = fetch_view(&client, bvid, &cookie_header, &mixin_key, None, || {
+        crate::wbi::fetch_mixin_key(&client, Some(&cookie_header))
+    })
+    .await?;
+    let playurl = fetch_playurl(
+        &client,
+        bvid,
+        view.cid,
+        &cookie_header,
+        &mixin_key,
+        None,
+        || crate::wbi::fetch_mixin_key(&client, Some(&cookie_header)),
+    )
+    .await?;
     let audio = select_audio(playurl.data.as_ref())?;
     let audio_url = audio
         .base_url()
@@ -786,56 +804,194 @@ fn signed_view_url(bvid: &str, mixin_key: &str, wts: u64) -> String {
     format!("{VIEW_URL}?{signed_query}")
 }
 
-async fn fetch_view(
+#[derive(Debug)]
+enum WbiAttemptError {
+    RefreshWbi(String),
+    Fatal(String),
+}
+
+async fn with_wbi_refresh<T, A, AF, R, RF>(
+    mixin_key: &str,
+    attempt: A,
+    refresh: R,
+    cancellation: Option<&AtomicBool>,
+) -> Result<T, String>
+where
+    A: Fn(String) -> AF,
+    AF: std::future::Future<Output = Result<T, WbiAttemptError>>,
+    R: FnOnce() -> RF,
+    RF: std::future::Future<Output = Result<String, String>>,
+{
+    match attempt(mixin_key.to_owned()).await {
+        Ok(result) => Ok(result),
+        Err(WbiAttemptError::Fatal(error)) => Err(error),
+        Err(WbiAttemptError::RefreshWbi(first_error)) => {
+            check_cancellation(cancellation)
+                .map_err(|error| format_send_error(error, "failed to fetch WBI keys"))?;
+            let refreshed_key = refresh().await?;
+            check_cancellation(cancellation)
+                .map_err(|error| format_send_error(error, "failed to fetch WBI keys"))?;
+            attempt(refreshed_key).await.map_err(|error| match error {
+                WbiAttemptError::RefreshWbi(second_error) => format!(
+                    "Bilibili rejected the refreshed WBI signature: {second_error}; first error: {first_error}"
+                ),
+                WbiAttemptError::Fatal(error) => error,
+            })
+        }
+    }
+}
+
+fn wbi_refresh_reason(body: &[u8]) -> Option<String> {
+    let envelope: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let code = envelope.get("code")?.as_i64()?;
+    let message = envelope.get("message")?.as_str()?;
+    let has_v_voucher = envelope
+        .get("data")
+        .and_then(|data| data.get("v_voucher"))
+        .and_then(serde_json::Value::as_str)
+        .is_some();
+    if !crate::wbi::should_refresh_wbi(code, message, has_v_voucher) {
+        return None;
+    }
+    Some(if code != 0 {
+        format!("code {code}: {message}")
+    } else {
+        "the response contained v_voucher".to_owned()
+    })
+}
+
+async fn fetch_view<R, RF>(
     client: &reqwest::Client,
     bvid: &str,
     cookie_header: &str,
     mixin_key: &str,
     cancellation: Option<&AtomicBool>,
-) -> Result<ViewData, String> {
-    let request = client
-        .get(signed_view_url(bvid, mixin_key, unix_timestamp()))
-        .header(ACCEPT_ENCODING, "identity")
-        .header(USER_AGENT, DESKTOP_USER_AGENT)
-        .header(REFERER, BILIBILI_REFERER)
-        .header(COOKIE, cookie_header);
-    let response = send_with_guest_retry(request, "view", cancellation)
-        .await
-        .map_err(|error| format_send_error(error, "Bilibili view request failed"))?;
-    if response.status().as_u16() == 412 {
-        return Err("Bilibili view returned HTTP 412".to_owned());
-    }
-    if !response.status().is_success() {
-        return Err(format!("Bilibili view returned HTTP {}", response.status()));
-    }
+    refresh: R,
+) -> Result<ViewData, String>
+where
+    R: FnOnce() -> RF,
+    RF: std::future::Future<Output = Result<String, String>>,
+{
+    fetch_view_with_http(
+        client,
+        bvid,
+        cookie_header,
+        mixin_key,
+        cancellation,
+        VIEW_URL,
+        |request| send_with_guest_retry(request, "view", cancellation),
+        refresh,
+    )
+    .await
+}
 
-    let envelope: ViewEnvelope = response
-        .json()
-        .await
-        .map_err(|error| format!("invalid Bilibili view response: {error}"))?;
-    if envelope.code != 0 {
-        // Frontend contract for dynamic codes: failed with code 62002; failed with code -404; failed with code -403.
-        return Err(format!(
-            "Bilibili view failed with code {}: {}",
-            envelope.code, envelope.message
-        ));
+async fn fetch_view_with_http<S, SF, R, RF>(
+    client: &reqwest::Client,
+    bvid: &str,
+    cookie_header: &str,
+    mixin_key: &str,
+    cancellation: Option<&AtomicBool>,
+    request_url: &str,
+    send: S,
+    refresh: R,
+) -> Result<ViewData, String>
+where
+    S: Fn(reqwest::RequestBuilder) -> SF,
+    SF: std::future::Future<Output = Result<reqwest::Response, SendError>>,
+    R: FnOnce() -> RF,
+    RF: std::future::Future<Output = Result<String, String>>,
+{
+    let send = &send;
+    with_wbi_refresh(mixin_key, |key| async move {
+        fetch_view_once(client, bvid, cookie_header, &key, request_url, send).await
+    }, refresh, cancellation).await
+}
+
+async fn fetch_view_once<S, SF>(
+    client: &reqwest::Client,
+    bvid: &str,
+    cookie_header: &str,
+    mixin_key: &str,
+    request_url: &str,
+    send: &S,
+) -> Result<ViewData, WbiAttemptError>
+where
+    S: Fn(reqwest::RequestBuilder) -> SF,
+    SF: std::future::Future<Output = Result<reqwest::Response, SendError>>,
+{
+    let response = async {
+        let request = client
+            .get(format!(
+                "{request_url}?{}",
+                signed_view_url(bvid, mixin_key, unix_timestamp())
+                    .split_once('?')
+                    .unwrap()
+                    .1
+            ))
+            .header(ACCEPT_ENCODING, "identity")
+            .header(USER_AGENT, DESKTOP_USER_AGENT)
+            .header(REFERER, BILIBILI_REFERER)
+            .header(COOKIE, cookie_header);
+        let response = send(request)
+            .await
+            .map_err(|error| format_send_error(error, "Bilibili view request failed"))?;
+        if response.status().as_u16() == 412 {
+            return Err("Bilibili view returned HTTP 412".to_owned());
+        }
+        if !response.status().is_success() {
+            return Err(format!("Bilibili view returned HTTP {}", response.status()));
+        }
+        Ok(response)
     }
-    let data = envelope
-        .data
-        .ok_or_else(|| "Bilibili view response has no data".to_owned())?;
-    let cid = data
-        .cid
-        .or_else(|| data.pages.first().map(|page| page.cid))
-        .ok_or_else(|| "Bilibili view response has no cid".to_owned())?;
-    let pages = normalize_view_pages(&data.pages, cid, &data.title, data.duration);
-    Ok(ViewData {
-        cid,
-        title: data.title,
-        uploader: data.owner.name,
-        thumbnail_url: data.pic,
-        duration_seconds: data.duration,
-        pages,
-    })
+    .await
+    .map_err(WbiAttemptError::Fatal)?;
+    let response_url = response.url().clone();
+    let body = response.bytes().await.map_err(|error| {
+        WbiAttemptError::Fatal(format!("invalid Bilibili view response: {error}"))
+    })?;
+    if let Some(reason) = wbi_refresh_reason(&body) {
+        return Err(WbiAttemptError::RefreshWbi(reason));
+    }
+    // Replay the same bytes and URL through the original typed JSON decoder so
+    // non-WBI decode errors retain reqwest's original error text.
+    use reqwest::ResponseBuilderExt;
+    let response = reqwest::Response::from(
+        axum::http::Response::builder()
+            .url(response_url)
+            .body(body)
+            .unwrap(),
+    );
+    let parsed = async {
+        let envelope: ViewEnvelope = response
+            .json()
+            .await
+            .map_err(|error| format!("invalid Bilibili view response: {error}"))?;
+        if envelope.code != 0 {
+            // Frontend contract for dynamic codes: failed with code 62002; failed with code -404; failed with code -403.
+            return Err(format!(
+                "Bilibili view failed with code {}: {}",
+                envelope.code, envelope.message
+            ));
+        }
+        let data = envelope
+            .data
+            .ok_or_else(|| "Bilibili view response has no data".to_owned())?;
+        let cid = data
+            .cid
+            .or_else(|| data.pages.first().map(|page| page.cid))
+            .ok_or_else(|| "Bilibili view response has no cid".to_owned())?;
+        let pages = normalize_view_pages(&data.pages, cid, &data.title, data.duration);
+        Ok(ViewData {
+            cid,
+            title: data.title,
+            uploader: data.owner.name,
+            thumbnail_url: data.pic,
+            duration_seconds: data.duration,
+            pages,
+        })
+    }
+    .await;
+    parsed.map_err(WbiAttemptError::Fatal)
 }
 
 fn normalize_view_pages(
@@ -873,65 +1029,137 @@ fn normalize_view_pages(
         .collect()
 }
 
-async fn fetch_playurl(
+async fn fetch_playurl<R, RF>(
     client: &reqwest::Client,
     bvid: &str,
     cid: u64,
     cookie_header: &str,
     mixin_key: &str,
     cancellation: Option<&AtomicBool>,
-) -> Result<PlayurlEnvelope, String> {
-    let mut params = BTreeMap::new();
-    params.insert("bvid".to_owned(), bvid.to_owned());
-    params.insert("cid".to_owned(), cid.to_string());
-    params.insert("fnval".to_owned(), "4048".to_owned());
-    params.insert("fnver".to_owned(), "0".to_owned());
-    params.insert("qn".to_owned(), "0".to_owned());
-    let signed_query = crate::wbi::sign_parameters(params, mixin_key, unix_timestamp());
+    refresh: R,
+) -> Result<PlayurlEnvelope, String>
+where
+    R: FnOnce() -> RF,
+    RF: std::future::Future<Output = Result<String, String>>,
+{
+    fetch_playurl_with_http(
+        client,
+        bvid,
+        cid,
+        cookie_header,
+        mixin_key,
+        cancellation,
+        PLAYURL_URL,
+        |request| send_with_guest_retry(request, "playurl", cancellation),
+        refresh,
+    )
+    .await
+}
 
-    let request = client
-        .get(format!("{PLAYURL_URL}?{signed_query}"))
-        .header(ACCEPT_ENCODING, "identity")
-        .header(USER_AGENT, DESKTOP_USER_AGENT)
-        .header(REFERER, BILIBILI_REFERER)
-        .header(COOKIE, cookie_header);
-    let response = send_with_guest_retry(request, "playurl", cancellation)
-        .await
-        .map_err(|error| format_send_error(error, "Bilibili playurl request failed"))?;
-    if response.status().as_u16() == 412 {
-        return Err("Bilibili playurl returned HTTP 412".to_owned());
-    }
-    if !response.status().is_success() {
-        return Err(format!(
-            "Bilibili playurl returned HTTP {}",
-            response.status()
-        ));
-    }
+async fn fetch_playurl_with_http<S, SF, R, RF>(
+    client: &reqwest::Client,
+    bvid: &str,
+    cid: u64,
+    cookie_header: &str,
+    mixin_key: &str,
+    cancellation: Option<&AtomicBool>,
+    request_url: &str,
+    send: S,
+    refresh: R,
+) -> Result<PlayurlEnvelope, String>
+where
+    S: Fn(reqwest::RequestBuilder) -> SF,
+    SF: std::future::Future<Output = Result<reqwest::Response, SendError>>,
+    R: FnOnce() -> RF,
+    RF: std::future::Future<Output = Result<String, String>>,
+{
+    let send = &send;
+    with_wbi_refresh(
+        mixin_key,
+        |key| async move {
+            fetch_playurl_once(client, bvid, cid, cookie_header, &key, request_url, send).await
+        },
+        refresh,
+        cancellation,
+    )
+    .await
+}
 
+async fn fetch_playurl_once<S, SF>(
+    client: &reqwest::Client,
+    bvid: &str,
+    cid: u64,
+    cookie_header: &str,
+    mixin_key: &str,
+    request_url: &str,
+    send: &S,
+) -> Result<PlayurlEnvelope, WbiAttemptError>
+where
+    S: Fn(reqwest::RequestBuilder) -> SF,
+    SF: std::future::Future<Output = Result<reqwest::Response, SendError>>,
+{
+    let response = async {
+        let mut params = BTreeMap::new();
+        params.insert("bvid".to_owned(), bvid.to_owned());
+        params.insert("cid".to_owned(), cid.to_string());
+        params.insert("fnval".to_owned(), "4048".to_owned());
+        params.insert("fnver".to_owned(), "0".to_owned());
+        params.insert("qn".to_owned(), "0".to_owned());
+        let signed_query = crate::wbi::sign_parameters(params, mixin_key, unix_timestamp());
+
+        let request = client
+            .get(format!("{request_url}?{signed_query}"))
+            .header(ACCEPT_ENCODING, "identity")
+            .header(USER_AGENT, DESKTOP_USER_AGENT)
+            .header(REFERER, BILIBILI_REFERER)
+            .header(COOKIE, cookie_header);
+        let response = send(request)
+            .await
+            .map_err(|error| format_send_error(error, "Bilibili playurl request failed"))?;
+        if response.status().as_u16() == 412 {
+            return Err("Bilibili playurl returned HTTP 412".to_owned());
+        }
+        if !response.status().is_success() {
+            return Err(format!(
+                "Bilibili playurl returned HTTP {}",
+                response.status()
+            ));
+        }
+        Ok(response)
+    }
+    .await
+    .map_err(WbiAttemptError::Fatal)?;
     let content_encoding = response
         .headers()
         .get(reqwest::header::CONTENT_ENCODING)
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
-    let body = response
-        .bytes()
-        .await
-        .map_err(|error| format!("failed to read Bilibili playurl response body: {error}"))?;
-    let envelope: PlayurlEnvelope = serde_json::from_slice(&body).map_err(|error| {
-        format!(
-            "invalid Bilibili playurl response: {error}; content-encoding={}; first-bytes-hex={}; first-text={}",
-            content_encoding.as_deref().unwrap_or("<none>"),
-            first_bytes_hex(&body),
-            first_text_lossy(&body)
-        )
+    let body = response.bytes().await.map_err(|error| {
+        WbiAttemptError::Fatal(format!(
+            "failed to read Bilibili playurl response body: {error}"
+        ))
     })?;
-    if envelope.code != 0 {
-        return Err(format!(
-            "Bilibili playurl failed with code {}: {}",
-            envelope.code, envelope.message
-        ));
+    if let Some(reason) = wbi_refresh_reason(&body) {
+        return Err(WbiAttemptError::RefreshWbi(reason));
     }
-    Ok(envelope)
+    let parsed = async {
+        let envelope: PlayurlEnvelope = serde_json::from_slice(&body).map_err(|error| {
+            format!(
+                "invalid Bilibili playurl response: {error}; content-encoding={}; first-bytes-hex={}; first-text={}",
+                content_encoding.as_deref().unwrap_or("<none>"),
+                first_bytes_hex(&body),
+                first_text_lossy(&body)
+            )
+        })?;
+        if envelope.code != 0 {
+            return Err(format!(
+                "Bilibili playurl failed with code {}: {}",
+                envelope.code, envelope.message
+            ));
+        }
+        Ok(envelope)
+    }.await;
+    parsed.map_err(WbiAttemptError::Fatal)
 }
 
 fn select_audio(data: Option<&PlayurlData>) -> Result<&AudioStream, String> {
@@ -1311,6 +1539,268 @@ mod tests {
         select_muxed_durl, should_retry, signed_view_url, AudioStream, DashData, DurlStream,
         FailedProbeHosts, PlayurlData, ProbeResult, RetryFailure, VIEW_URL,
     };
+
+    // Fake HTTP responses only; all request URLs are loopback and are never sent.
+    async fn wbi_http_case(
+        endpoint: &str,
+        bodies: &[serde_json::Value],
+        refresh_error: Option<&str>,
+        cancel_during_refresh: bool,
+        cancel_on_retry: bool,
+    ) -> (Result<(), String>, Vec<reqwest::Url>, usize) {
+        use reqwest::ResponseBuilderExt;
+        use std::sync::{atomic::AtomicUsize, Mutex};
+        let cancellation = std::sync::atomic::AtomicBool::new(false);
+        let requests = Mutex::new(Vec::new());
+        let replies = Mutex::new(
+            bodies
+                .iter()
+                .map(ToString::to_string)
+                .collect::<std::collections::VecDeque<_>>(),
+        );
+        let refreshes = AtomicUsize::new(0);
+        let client = reqwest::Client::new();
+        let send = |builder: reqwest::RequestBuilder| {
+            let request = builder.build().unwrap();
+            let requests = &requests;
+            let replies = &replies;
+            let cancellation = &cancellation;
+            async move {
+                if cancel_on_retry && !requests.lock().unwrap().is_empty() {
+                    cancellation.store(true, super::Ordering::Release);
+                }
+                super::check_cancellation(Some(cancellation))?;
+                assert_eq!(request.url().host_str(), Some("127.0.0.1"));
+                assert_eq!(
+                    request.headers()[reqwest::header::REFERER],
+                    bilibili_music_core::BILIBILI_REFERER
+                );
+                assert_eq!(request.headers()[reqwest::header::COOKIE], "buvid3=fake");
+                requests.lock().unwrap().push(request.url().clone());
+                let body = replies
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("unexpected extra HTTP attempt");
+                Ok(reqwest::Response::from(
+                    axum::http::Response::builder()
+                        .status(200)
+                        .url(request.url().clone())
+                        .body(body)
+                        .unwrap(),
+                ))
+            }
+        };
+        let refresh = || async {
+            refreshes.fetch_add(1, super::Ordering::AcqRel);
+            if cancel_during_refresh {
+                cancellation.store(true, super::Ordering::Release);
+            }
+            if let Some(error) = refresh_error {
+                return Err(error.to_owned());
+            }
+            Ok("new-key".to_owned())
+        };
+        let result = if endpoint == "view" {
+            super::fetch_view_with_http(
+                &client,
+                "BV0000000001",
+                "buvid3=fake",
+                "old-key",
+                Some(&cancellation),
+                "http://127.0.0.1/view",
+                send,
+                refresh,
+            )
+            .await
+            .map(|data| {
+                assert_eq!(data.cid, 11);
+            })
+        } else {
+            super::fetch_playurl_with_http(
+                &client,
+                "BV0000000001",
+                11,
+                "buvid3=fake",
+                "old-key",
+                Some(&cancellation),
+                "http://127.0.0.1/playurl",
+                send,
+                refresh,
+            )
+            .await
+            .map(|data| {
+                assert_eq!(data.code, 0);
+            })
+        };
+        let urls = requests.into_inner().unwrap();
+        for (index, url) in urls.iter().enumerate() {
+            let mut params: super::BTreeMap<String, String> = url
+                .query_pairs()
+                .map(|(key, value)| (key.into_owned(), value.into_owned()))
+                .collect();
+            let wts = params.remove("wts").unwrap().parse().unwrap();
+            let actual = params.remove("w_rid").unwrap();
+            let key = if index == 0 { "old-key" } else { "new-key" };
+            let expected = crate::wbi::sign_parameters(params, key, wts);
+            assert!(
+                expected.ends_with(&format!("w_rid={actual}")),
+                "attempt {index} must sign with {key}"
+            );
+        }
+        (result, urls, refreshes.load(super::Ordering::Acquire))
+    }
+
+    fn wbi_success_body(endpoint: &str) -> serde_json::Value {
+        if endpoint == "view" {
+            serde_json::json!({"code":0,"message":"0","data":{"cid":11,"title":"test","owner":{"name":"test"},"pic":"","duration":20}})
+        } else {
+            serde_json::json!({"code":0,"message":"0","data":{"dash":{"audio":[]}}})
+        }
+    }
+
+    async fn assert_wbi_refresh_success(first: serde_json::Value) {
+        let mut outcomes = Vec::new();
+        let mut attempts = Vec::new();
+        for endpoint in ["view", "playurl"] {
+            let (result, urls, refreshes) = wbi_http_case(
+                endpoint,
+                &[first.clone(), wbi_success_body(endpoint)],
+                None,
+                false,
+                false,
+            )
+            .await;
+            outcomes.push(result);
+            attempts.push((urls.len(), refreshes));
+        }
+        assert_eq!(outcomes, vec![Ok(()), Ok(())]);
+        assert_eq!(attempts, vec![(2, 1), (2, 1)]);
+    }
+
+    #[tokio::test]
+    async fn guest_wbi_message_refreshes_once() {
+        assert_wbi_refresh_success(serde_json::json!({"code":-403,"message":"wbi expired"})).await;
+    }
+
+    #[tokio::test]
+    async fn guest_uppercase_wbi_message_refreshes_once() {
+        assert_wbi_refresh_success(serde_json::json!({"code":-403,"message":"WBI expired"})).await;
+    }
+
+    #[tokio::test]
+    async fn guest_signature_message_refreshes_once() {
+        assert_wbi_refresh_success(serde_json::json!({"code":-403,"message":"签名失效"})).await;
+    }
+
+    #[tokio::test]
+    async fn guest_v_voucher_refreshes_once() {
+        assert_wbi_refresh_success(
+            serde_json::json!({"code":0,"message":"0","data":{"v_voucher":"voucher_test"}}),
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn guest_rejected_refreshed_signature_reports_both_errors_without_more_retries() {
+        for endpoint in ["view", "playurl"] {
+            let first = serde_json::json!({"code":-403,"message":"wbi first"});
+            let second = serde_json::json!({"code":-403,"message":"签名 second"});
+            let (result, urls, refreshes) =
+                wbi_http_case(endpoint, &[first, second], None, false, false).await;
+            assert_eq!(result, Err("Bilibili rejected the refreshed WBI signature: code -403: 签名 second; first error: code -403: wbi first".to_owned()));
+            assert_eq!((urls.len(), refreshes), (2, 1));
+        }
+    }
+
+    #[tokio::test]
+    async fn guest_ordinary_business_error_never_refreshes() {
+        for endpoint in ["view", "playurl"] {
+            let body = serde_json::json!({"code":-403,"message":"权限不足"});
+            let (result, urls, refreshes) =
+                wbi_http_case(endpoint, &[body], None, false, false).await;
+            assert_eq!(
+                result,
+                Err(format!(
+                    "Bilibili {endpoint} failed with code -403: 权限不足"
+                ))
+            );
+            assert_eq!((urls.len(), refreshes), (1, 0));
+        }
+    }
+
+    #[tokio::test]
+    async fn guest_non_wbi_decode_errors_keep_original_text_and_url() {
+        use reqwest::ResponseBuilderExt;
+        for endpoint in ["view", "playurl"] {
+            for body in [
+                serde_json::json!({"code":"bad","message":"0","data":{}}),
+                serde_json::json!({"code":0,"message":123,"data":{}}),
+                serde_json::json!({"code":-403,"message":"权限不足","data":{"v_voucher":"voucher_test","dash":"bad"}}),
+            ] {
+                let (result, urls, refreshes) =
+                    wbi_http_case(endpoint, &[body.clone()], None, false, false).await;
+                let text = body.to_string();
+                let expected = if endpoint == "view" {
+                    let response = reqwest::Response::from(
+                        axum::http::Response::builder()
+                            .url(urls[0].clone())
+                            .body(text)
+                            .unwrap(),
+                    );
+                    let error = response.json::<super::ViewEnvelope>().await.err().unwrap();
+                    format!("invalid Bilibili view response: {error}")
+                } else {
+                    let error = serde_json::from_slice::<super::PlayurlEnvelope>(text.as_bytes())
+                        .err()
+                        .unwrap();
+                    format!("invalid Bilibili playurl response: {error}; content-encoding=<none>; first-bytes-hex={}; first-text={}", super::first_bytes_hex(text.as_bytes()), super::first_text_lossy(text.as_bytes()))
+                };
+                assert_eq!(result, Err(expected));
+                assert_eq!((urls.len(), refreshes), (1, 0));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn guest_refresh_failure_and_second_fatal_error_follow_search_error_selection() {
+        for endpoint in ["view", "playurl"] {
+            let first = serde_json::json!({"code":-403,"message":"wbi first"});
+            let (result, urls, refreshes) = wbi_http_case(
+                endpoint,
+                &[first.clone()],
+                Some("key refresh failed"),
+                false,
+                false,
+            )
+            .await;
+            assert_eq!(result, Err("key refresh failed".to_owned()));
+            assert_eq!((urls.len(), refreshes), (1, 1));
+            let second = serde_json::json!({"code":-403,"message":"权限不足"});
+            let (result, urls, refreshes) =
+                wbi_http_case(endpoint, &[first, second], None, false, false).await;
+            assert_eq!(
+                result,
+                Err(format!(
+                    "Bilibili {endpoint} failed with code -403: 权限不足"
+                ))
+            );
+            assert_eq!((urls.len(), refreshes), (2, 1));
+        }
+    }
+
+    #[tokio::test]
+    async fn guest_cancellation_during_refresh_or_retry_keeps_cancellation_error() {
+        for endpoint in ["view", "playurl"] {
+            for during_refresh in [true, false] {
+                let first = serde_json::json!({"code":-403,"message":"wbi first"});
+                let (result, urls, refreshes) =
+                    wbi_http_case(endpoint, &[first], None, during_refresh, !during_refresh).await;
+                assert_eq!(result, Err("audio resolution was cancelled".to_owned()));
+                assert_eq!((urls.len(), refreshes), (1, 1));
+            }
+        }
+    }
 
     #[test]
     fn cdn_hosts_match_shared_fixture() {

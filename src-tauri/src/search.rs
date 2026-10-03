@@ -179,9 +179,7 @@ impl SearchClient {
         }
         if envelope.code != 0 {
             let details = format!("code {}: {}", envelope.code, envelope.message);
-            if envelope.message.to_ascii_lowercase().contains("wbi")
-                || envelope.message.contains("签名")
-            {
+            if crate::wbi::should_refresh_wbi(envelope.code, &envelope.message, false) {
                 return Err(SearchAttemptError::RefreshWbi(details));
             }
             return Err(SearchAttemptError::Fatal(format!(
@@ -192,7 +190,11 @@ impl SearchClient {
         let data = envelope.data.ok_or_else(|| {
             SearchAttemptError::Fatal("Bilibili search response has no data".to_owned())
         })?;
-        if data.v_voucher.is_some() {
+        if crate::wbi::should_refresh_wbi(
+            envelope.code,
+            &envelope.message,
+            data.v_voucher.is_some(),
+        ) {
             return Err(SearchAttemptError::RefreshWbi(
                 "the response contained v_voucher".to_owned(),
             ));
