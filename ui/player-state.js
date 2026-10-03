@@ -36,6 +36,7 @@ const playerState = {
   currentPages: [],
   currentPageIndex: 0,
   currentDisplayTrack: null,
+  lastEmittedTrackIdentity: "",
 };
 
 const searchState = {
