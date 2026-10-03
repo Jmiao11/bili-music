@@ -1335,6 +1335,7 @@ searchForm.addEventListener("submit", async (event) => {
     const pasteVersion = searchState.requestVersion;
     setSearchResults([]);
     await cancelCurrentPlayback();
+    if (pasteVersion !== searchState.requestVersion) return;
     if (pasteVersion === searchState.requestVersion) {
       pendingPastedBvPages = { bvid: query, requestVersion: playerState.requestVersion + 1 };
     }
