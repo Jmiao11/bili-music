@@ -31,6 +31,22 @@
 
 head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html、mini.js 不属于主窗口模块图。
 
+## 构建与开发流水线
+
+前端源码仍是 ui/ 下的原生 HTML、JavaScript、CSS。根目录 vite.config.mjs 使用精确锁定的 Vite 8.3.2，以 ui 为 root、./ 为 base，index.html 与 mini.html 为两个入口，输出到 dist。modulePreload 与 minify 均关闭，便于检查启动顺序与产物。配置参考 [Tauri v2 的 Vite 指南](https://v2.tauri.app/start/frontend/vite/)。
+
+开发流程为 `cargo tauri dev` → beforeDevCommand (`npm run dev`) → localhost:1420 → WebView；构建流程为 `cargo tauri build` → beforeBuildCommand (`npm run build`) → dist → Rust 编译与前端嵌入。Node/npm 和前端依赖必须先准备好。withGlobalTauri 保持 true，CSP 保持 null，不引入 @tauri-apps/api。
+
+scripts/vite/preserve-html.mjs 仅在 build 阶段生效：收集两份源 HTML 引用的普通脚本（含 mini.js），逐字节输出到 dist 的原路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留，模块仍在 dynamic-background 之后、lyrics 之前。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
+
+开发服务器使用 Vite 默认行为，插件不改写开发 HTML。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`./window-controls.js` → `/window-controls.js`、`./dynamic-background.js` → `/dynamic-background.js`、`app.js` → `/app.js`、`./lyrics.js` → `/lyrics.js`、`./mascot.js` → `/mascot.js`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
+
+`npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.mjs 通过 Vite API 在系统临时目录构建，核对 HTML 引用存在、普通脚本字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。
+
+检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 156 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+
+源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
+
 ## 模块依赖图
 
 箭头方向为“使用方 → 提供方”，下表列出全部直接导入边。runtime-api、player-dom、player-state、page-selection、track-utils 没有导入边。
@@ -114,7 +130,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 
 ## 类型检查
 
-根目录仅安装开发依赖 TypeScript 7.0.2，精确版本写入 package.json 与 package-lock.json；不设置 package 的 type，不改变 UI 脚本加载方式。检查使用 noEmit，配置和声明都在 ui/ 之外，Tauri 的 frontendDist 仍只包含 ui/。
+TypeScript 7.0.2 与 Vite 8.3.2 均为开发依赖，精确版本写入 package.json 与 package-lock.json；不设置 package 的 type，UI 源码的普通脚本与模块边界保持不变。类型检查使用 noEmit，配置和声明都在 ui/ 之外；Tauri 的 frontendDist 为 dist，不包含测试、类型声明或构建配置。
 
 检查有两个独立项目：scripts/typecheck/tsconfig.main.json 的 files 对应 index.html 普通脚本与 app.js 静态模块图的并集；tsconfig.mini.json 只检查 mini.js。两者继承 tsconfig.base.json，不让主窗口普通脚本的全局绑定污染迷你窗。主窗口外部接口位于 types/main-window.d.ts，两项目共用 types/tauri.d.ts。新增主窗口脚本后需同步 files；Node 测试会核对 files 与 HTML/模块图。
 
@@ -149,4 +165,4 @@ npm run typecheck -- --update
 | 原生模块加载、TDZ 与真实模块启动测试 | 检查运行时链接、求值与调用次数，不能由类型检查替代。 |
 | 播放错误契约与业务切片测试 | 保护字符串契约和实际行为，类型检查不覆盖这些断言。 |
 
-Node 自测只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript。CI 在 Windows、macOS 的 Node 测试之后分别执行 npm ci 与 npm run typecheck。TypeScript 通过 optionalDependencies 安装对应平台原生包；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。
+Node 自测只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript 或 Vite。CI 在 Windows、macOS 的 Cargo 步骤之前执行 npm ci 与 npm run verify:dist，并保留 Node 测试和 npm run typecheck。TypeScript 通过 optionalDependencies 安装对应平台原生包；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。

@@ -9,6 +9,22 @@
 3. 从最新主分支创建单一目的的分支；提交前先检查 `git status`，保留并避开不属于本次工作的改动。
 4. 改动已固化的取流、播放队列、切歌取消、搜索、持久化或窗口控制链路前，先与维护者确认设计和影响范围。
 
+## 本地开发与构建
+
+前端使用精确锁定的 Vite 8.3.2；建议使用 Node.js 22.12 或更高版本（CI 使用 Node 22），并准备既有 Rust、Tauri CLI 和平台构建依赖。首次检出或 package-lock.json 变化后，在仓库根目录执行：
+
+```bash
+npm ci
+```
+
+`cargo tauri dev` 会先运行 `npm run dev`，启动固定端口 1420 的 Vite 开发服务器，再启动 Rust 应用；WebView 从 http://localhost:1420 加载 ui/，不需要提前构建 dist。端口被占用时启动失败，不自动换端口。不要同时手动启动另一个占用该端口的 Vite 服务。
+
+`cargo tauri build` 会先运行 `npm run build`，生成 dist/index.html、dist/mini.html 和脚本/样式资源，再编译并嵌入这些前端文件；首次构建前同样需要 npm ci。Windows 的免安装构建可继续使用 `cargo tauri build --no-bundle`，最终 exe 不依赖旁边的 dist 目录。
+
+开发模式的 localStorage 属于 localhost:1420，与正式版的应用源分开；主题、侧栏宽度等前端保存项不会自动继承正式版。Rust 端的 `.local-data/` 与正式版路径策略保持原有约定。仅在浏览器打开 Vite 页面不能替代 Tauri WebView 的 IPC、媒体或窗口手测。
+
+直接运行 `cargo build --workspace` / `cargo test --workspace`（含 --release）不会执行前端钩子；当前未启用 custom-protocol 且配置 devUrl，因此不要求 dist 存在。生成可分发应用应使用 Tauri CLI。前端改动另行执行 `npm run verify:dist`，它在系统临时目录构建、检查产物及开发页面，结束后删除临时产物并关闭服务器，不写入仓库 dist。
+
 ## 必须遵守的架构与安全约束
 
 - 项目采用 Tauri v2、Rust 后端和原生 HTML/JavaScript 前端；优先复用既有 command、状态机、模块和测试，不创建平行实现。
@@ -34,6 +50,7 @@
 ```bash
 npm ci
 npm run typecheck
+npm run verify:dist
 node --test tests/*.test.cjs
 cargo test --workspace
 ```
