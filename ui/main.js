@@ -8,7 +8,7 @@ import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelected
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
 import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.js";
-import { isLoudnessNormalizationEnabled } from "./appearance.js";
+import { isLoudnessNormalizationEnabled } from "./appearance.ts";
 
 let pendingSearchRestore = null;
 

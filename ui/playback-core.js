@@ -8,7 +8,7 @@ import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
-import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
+import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 
 let randomPageRound = null;
 let playRecordedForCurrentTrack = false;

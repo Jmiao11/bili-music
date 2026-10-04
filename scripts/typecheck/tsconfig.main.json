@@ -24,7 +24,7 @@
     "../../ui/library-ui.ts",
     "../../ui/video-pages.ts",
     "../../ui/search.ts",
-    "../../ui/appearance.js",
+    "../../ui/appearance.ts",
     "../../ui/lyrics.js",
     "../../ui/mascot.js",
     "../../ui/mini-player-host.js"

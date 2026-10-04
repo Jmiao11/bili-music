@@ -15,14 +15,14 @@ test("real module graph dispatches once during main before appearance starts onc
   assert.match(dispatches[0].stack, /emitCurrentTrackChanged .*playback-core\.js/);
   assert.match(dispatches[0].stack, /at file:.*\/main\.js:\d+:\d+/);
   const mainListener = changes.find((event) => event.action === "listen" && /\/playback-core\.js:/.test(event.stack));
-  const appearanceListener = changes.find((event) => event.action === "listen" && /startAppearance .*appearance\.js/.test(event.stack));
+  const appearanceListener = changes.find((event) => event.action === "listen" && /startAppearance .*appearance\.ts/.test(event.stack));
   assert.ok(mainListener);
   assert.ok(appearanceListener);
   assert.ok(loaded.events.indexOf(mainListener) < loaded.events.indexOf(dispatches[0]));
   assert.ok(loaded.events.indexOf(appearanceListener) > loaded.events.indexOf(dispatches[0]));
-  const appearanceEvents = loaded.events.filter((event) => /startAppearance .*appearance\.js/.test(event.stack));
+  const appearanceEvents = loaded.events.filter((event) => /startAppearance .*appearance\.ts/.test(event.stack));
   assert.ok(appearanceEvents.length > 0);
   assert.ok(appearanceEvents.every((event) => loaded.events.indexOf(event) > loaded.events.indexOf(dispatches[0])));
-  const functions = loaded.coverage.filter((script) => /\/appearance\.js$/.test(script.url)).flatMap((script) => script.functions);
+  const functions = loaded.coverage.filter((script) => /\/appearance\.ts$/.test(script.url)).flatMap((script) => script.functions);
   assert.equal(functions.find((fn) => fn.functionName === "startAppearance").ranges[0].count, 1);
 });
