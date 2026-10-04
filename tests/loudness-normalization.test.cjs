@@ -8,14 +8,14 @@ const vm = require("node:vm");
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
-const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.js"), "utf8");
+const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
 const code = sourceSlice(core, "ui/playback-core.js", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
   + sourceSlice(appearance, "ui/appearance.js", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
   + sourceSlice(appearance, "ui/appearance.js", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
   + sourceSlice(core, "ui/playback-core.js", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
   + sourceSlice(core, "ui/playback-core.js", "let loudnessQueryVersion", "function refreshTrackLoudness(")
-  + sourceSlice(policy, "ui/playback-policy.js", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
+  + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
   + sourceSlice(core, "ui/playback-core.js", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
 const cacheListenerCode = sourceSlice(core, "ui/playback-core.js", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
   + sourceSlice(main, "ui/main.js", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });

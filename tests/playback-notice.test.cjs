@@ -5,8 +5,8 @@ const { readFileSync } = require("./helpers/module-syntax.cjs");
 const vm = require('node:vm');
 const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'), 'utf8');
 const core = readFileSync(require('node:path').join(__dirname, '../ui/playback-core.js'), 'utf8');
-const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
-const noticeSource = readFileSync(require('node:path').join(__dirname, '../ui/playback-notice.js'), 'utf8');
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
+const noticeSource = readFileSync(require('node:path').join(__dirname, '../ui/playback-notice.ts'), 'utf8');
 const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.ts'), "utf8");
 
 function setup() {
@@ -32,10 +32,10 @@ function setup() {
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
-  vm.runInContext(sourceSlice(noticeSource, "ui/playback-notice.js", "function clearPlaybackNotice()", "function initPlaybackNotice(")
-    + sourceSlice(noticeSource, "ui/playback-notice.js", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
-    + sourceSlice(noticeSource, "ui/playback-notice.js", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext(sourceSlice(noticeSource, "ui/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
+    + sourceSlice(noticeSource, "ui/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
+    + sourceSlice(noticeSource, "ui/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + sourceSlice(core, "ui/playback-core.js", "function playNext(", "function initPlaybackSearch("), context);
   return { context, notice, timers, events, styles };
 }
@@ -152,7 +152,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits = [];
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
   vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);
