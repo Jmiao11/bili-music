@@ -89,7 +89,7 @@ async function loadCachedVideoPagesBatch(): Promise<void> {
   const batch = new Map(pendingPageCacheTargets);
   pendingPageCacheTargets.clear();
   const bvids = [...batch.keys()].filter((bvid) => !videoPageCounts.has(bvid));
-  let cached = {};
+  let cached: CommandMap["get_cached_video_pages"]["result"] = {};
   if (bvids.length > 0) {
     try {
       cached = await invoke("get_cached_video_pages", { bvids });
@@ -308,8 +308,8 @@ async function loadVideoPagesForModal(video: CommandContract.TrackSnapshotInput,
 }
 
 function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
-  let clickTimer = null;
-  pageModalOpeners.set(playButton, (trigger) => {
+  let clickTimer: ReturnType<typeof window.setTimeout> | null = null;
+  pageModalOpeners.set(playButton, (trigger: HTMLElement) => {
     void loadVideoPagesForModal(video, onPlay, trigger);
   });
   updatePageCountBadge(playButton, video.bvid);
