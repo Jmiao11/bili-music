@@ -2,7 +2,7 @@ import { invoke } from "./runtime-api.ts";
 import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, immersiveFavoriteButton, libraryModal, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, previousButton, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, skipVideoButton, sortModeTabs } from "./player-dom.ts";
 import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, homeState, playerState, searchState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
-import { initPlaybackDiagnostics } from "./playback-diagnostics.js";
+import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.js";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";

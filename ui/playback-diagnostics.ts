@@ -1,9 +1,9 @@
 import { audio } from "./player-dom.ts";
 
-function initPlaybackDiagnostics() {
+function initPlaybackDiagnostics(): void {
 window.__playbackDiagLog = [];
-window.recordPlaybackDiag = (category, message) => {
-  const entry = {
+window.recordPlaybackDiag = (category: string, message: string): void => {
+  const entry: PlaybackDiagEntry = {
     timestamp: new Date().toISOString(),
     category,
     message,
