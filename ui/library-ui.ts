@@ -389,7 +389,7 @@ async function loadLibrary(): Promise<void> {
     const [favorites, playlists, unavailableTracks, disabledPages] = await Promise.all([
       invoke("list_favorites"),
       invoke("list_playlists"),
-      invoke("list_unavailable_tracks").catch((error) => {
+      invoke("list_unavailable_tracks").catch((error): CommandMap["list_unavailable_tracks"]["result"] => {
         console.warn("unavailable tracks load failed:", error);
         return [];
       }),
@@ -693,7 +693,7 @@ function importFavoritePlaylist(): void {
   linkInput.placeholder = "https://space.bilibili.com/…/favlist?fid=…";
   const { field: nameField, input: nameInput } = createNameField();
   nameField.hidden = true;
-  let firstPage = null;
+  let firstPage: CommandMap["read_public_favorite_page"]["result"] | null = null;
   let busy = false;
   const { actions, primaryButton } = createLibraryActions("读取收藏夹", async () => {
     if (busy) return;
