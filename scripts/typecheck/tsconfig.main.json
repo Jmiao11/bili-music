@@ -16,7 +16,7 @@
     "../../ui/player-state.ts",
     "../../ui/playback-notice.ts",
     "../../ui/playback-diagnostics.ts",
-    "../../ui/home.js",
+    "../../ui/home.ts",
     "../../ui/track-utils.ts",
     "../../ui/playback-core.js",
     "../../ui/page-selection.ts",

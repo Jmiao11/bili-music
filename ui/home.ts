@@ -4,7 +4,7 @@ import { homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel
 import { homeState } from "./player-state.ts";
 import { createTrackRow, playListItem, updateQueueUi } from "./playback-core.js";
 
-function renderRankingSkeleton() {
+function renderRankingSkeleton(): void {
   if (!homeRankingList) {
     return;
   }
@@ -25,11 +25,11 @@ function renderRankingSkeleton() {
   }
 }
 
-function isPopularFallback() {
+function isPopularFallback(): boolean {
   return homeState.mode === "recommendation" && homeState.aiHasKey === false;
 }
 
-function updateHomeModeUi() {
+function updateHomeModeUi(): void {
   const isRecommendation = homeState.mode === "recommendation";
   const showPopular = isPopularFallback();
   homePanel?.setAttribute("data-home-mode", showPopular ? "popular" : homeState.mode);
@@ -69,7 +69,7 @@ function updateHomeModeUi() {
   }
 }
 
-function renderHomeRanking() {
+function renderHomeRanking(): void {
   if (!homeRankingList) {
     return;
   }
@@ -106,7 +106,7 @@ function renderHomeRanking() {
   updateQueueUi();
 }
 
-function showHomeNotice(title, sub, inline = false) {
+function showHomeNotice(title: string, sub: string, inline: boolean = false): void {
   homeSetupTitle.textContent = title;
   homeSetupSub.textContent = sub;
   homeSetupHint.hidden = false;
@@ -114,7 +114,7 @@ function showHomeNotice(title, sub, inline = false) {
   homePanel?.classList.toggle("needs-setup", !inline);
 }
 
-function renderRecommendations() {
+function renderRecommendations(): void {
   if (!homeRankingList) {
     return;
   }
@@ -156,7 +156,7 @@ function renderRecommendations() {
   updateQueueUi();
 }
 
-function renderHomeContent() {
+function renderHomeContent(): void {
   if (homeState.mode === "recommendation" && !isPopularFallback()) {
     renderRecommendations();
   } else {
@@ -164,7 +164,7 @@ function renderHomeContent() {
   }
 }
 
-async function refreshAiKeyState() {
+async function refreshAiKeyState(): Promise<void> {
   try {
     const config = await invoke("get_ai_config");
     homeState.aiHasKey = !!config.hasKey;
@@ -176,17 +176,9 @@ async function refreshAiKeyState() {
   }
 }
 
-/**
- * @template {keyof CommandMap} K
- * @param {K} command
- * @param {CommandMap[K]["args"]} args
- * @param {number} timeoutMs
- * @returns {Promise<CommandMap[K]["result"]>}
- */
-function invokeWithTimeout(command, args, timeoutMs) {
+function invokeWithTimeout<K extends keyof CommandMap>(command: K, args: CommandMap[K]["args"], timeoutMs: number): Promise<CommandMap[K]["result"]> {
   let timeoutId = 0;
-  /** @type {Promise<never>} */
-  const timeout = new Promise((_, reject) => {
+  const timeout: Promise<never> = new Promise((_, reject) => {
     timeoutId = window.setTimeout(() => reject(new Error("request timeout")), timeoutMs);
   });
   return Promise.race([invoke(command, args), timeout]).finally(() => {
@@ -194,7 +186,7 @@ function invokeWithTimeout(command, args, timeoutMs) {
   });
 }
 
-async function loadHomeRanking({ forceRefresh = false } = {}) {
+async function loadHomeRanking({ forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<void> {
   if (!forceRefresh && homeState.loaded && homeState.ranking.length > 0) {
     renderHomeRanking();
     return;
@@ -233,7 +225,7 @@ async function loadHomeRanking({ forceRefresh = false } = {}) {
   }
 }
 
-async function loadSavedRecommendations() {
+async function loadSavedRecommendations(): Promise<void> {
   if (homeState.recommendationLoaded || homeState.recommendationLoading) {
     renderRecommendations();
     return;
@@ -265,11 +257,11 @@ async function loadSavedRecommendations() {
   }
 }
 
-function loadRecommendationHome() {
+function loadRecommendationHome(): Promise<void> {
   return homeState.aiHasKey === false ? loadHomeRanking() : loadSavedRecommendations();
 }
 
-async function loadRecommendations({ forceRefresh = false } = {}) {
+async function loadRecommendations({ forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<void> {
   if (homeHintInput) {
     homeState.userHint = homeHintInput.value;
   }
@@ -320,7 +312,7 @@ async function loadRecommendations({ forceRefresh = false } = {}) {
   }
 }
 
-function setHomeMode(mode) {
+function setHomeMode(mode: string): void {
   const nextMode = mode === "recommendation" ? "recommendation" : "ranking";
   if (homeState.mode === nextMode) {
     renderHomeContent();

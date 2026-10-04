@@ -26,7 +26,7 @@
   "ui/appearance.js TS2339: Property 'volume' does not exist on type 'Element'.": 3,
   "ui/appearance.js TS2345: Argument of type 'string | Element' is not assignable to parameter of type 'string'. Type 'Element' is not assignable to type 'string'.": 1,
   "ui/appearance.js TS2551: Property 'value' does not exist on type 'string | Element'. Did you mean 'valueOf'? Property 'value' does not exist on type 'string'.": 1,
-  "ui/home.js TS2345: Argument of type '[CommandMap[K][\"args\"]]' is not assignable to parameter of type 'CommandArguments<K>'.": 1,
+  "ui/home.ts TS2345: Argument of type '[CommandMap[K][\"args\"]]' is not assignable to parameter of type 'CommandArguments<K>'.": 1,
   "ui/library-ui.js TS2339: Property 'dataset' does not exist on type 'Element'.": 2,
   "ui/library-ui.js TS2339: Property 'mode' does not exist on type '{ playlist?: null; track?: null; }'.": 1,
   "ui/library-ui.js TS2353: Object literal may only specify known properties, and 'mode' does not exist in type '{ playlist?: any; track?: any; }'.": 2,

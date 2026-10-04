@@ -67,3 +67,11 @@ test("empty export list preserves source lines without relaxing import syntax", 
     assert.throws(() => stripModuleSyntax(source), /Unsupported module syntax/);
   }
 });
+
+
+test("ui sources never suppress TypeScript diagnostics", () => {
+  const ui = path.join(__dirname, "../ui");
+  for (const name of fs.readdirSync(ui, { recursive: true }).filter((name) => fs.statSync(path.join(ui, name)).isFile())) {
+    assert.doesNotMatch(fs.readFileSync(path.join(ui, name), "utf8"), /@ts-(?:ignore|expect-error|nocheck)\b/, name);
+  }
+});
