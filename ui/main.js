@@ -1,6 +1,6 @@
 import { invoke } from "./runtime-api.ts";
 import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, immersiveFavoriteButton, libraryModal, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, previousButton, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, skipVideoButton, sortModeTabs } from "./player-dom.js";
-import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, homeState, playerState, searchState } from "./player-state.js";
+import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, homeState, playerState, searchState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.js";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.js";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.js";

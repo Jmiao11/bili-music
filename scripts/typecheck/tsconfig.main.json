@@ -13,7 +13,7 @@
     "../../ui/main.js",
     "../../ui/runtime-api.ts",
     "../../ui/player-dom.js",
-    "../../ui/player-state.js",
+    "../../ui/player-state.ts",
     "../../ui/playback-notice.js",
     "../../ui/playback-diagnostics.js",
     "../../ui/home.js",

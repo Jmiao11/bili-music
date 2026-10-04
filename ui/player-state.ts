@@ -1,32 +1,32 @@
-const LOOP_MODES = [
+const LOOP_MODES: { id: string; label: string }[] = [
   { id: "sequence", label: "顺序播放" },
   { id: "list", label: "列表循环" },
   { id: "single", label: "单曲循环" },
 ];
 
-const MAX_CONSECUTIVE_RESOLVE_FAILURES = 5;
+const MAX_CONSECUTIVE_RESOLVE_FAILURES: number = 5;
 
-const MAX_AUDIO_RECOVERIES = 2;
+const MAX_AUDIO_RECOVERIES: number = 2;
 
-const SEARCH_PAGE_SIZE = 20;
+const SEARCH_PAGE_SIZE: number = 20;
 
-const LOAD_MORE_THRESHOLD_PX = 96;
+const LOAD_MORE_THRESHOLD_PX: number = 96;
 
-const DEFAULT_MUSIC_TIDS = 3;
+const DEFAULT_MUSIC_TIDS: number = 3;
 
 const MUSIC_HOT_KEYWORD = "音乐";
 
-const PLAYBACK_STATE_SAVE_INTERVAL_MS = 15_000;
+const PLAYBACK_STATE_SAVE_INTERVAL_MS: number = 15_000;
 
 const playerState = {
   queue: [],
   queueSource: "none",
-  queueSearchVersion: null,
-  queuePlaylistId: null,
+  queueSearchVersion: null as number | null,
+  queuePlaylistId: null as string | null,
   currentIndex: -1,
   loopMode: "sequence",
   shuffle: false,
-  randomRemaining: [],
+  randomRemaining: [] as number[],
   history: [],
   requestVersion: 0,
   activeAudioVersion: -1,
@@ -66,16 +66,16 @@ const homeState = {
   recommendationLoading: false,
   recommendationError: "",
   userHint: "",
-  aiHasKey: null,
+  aiHasKey: null as boolean | null,
 };
 
 const libraryState = {
   favorites: [],
-  favoriteBvids: new Set(),
+  favoriteBvids: new Set<string>(),
   playlists: [],
-  unavailableBvids: new Map(),
-  disabledPages: new Map(),
-  disabledPagePending: new Map(),
+  unavailableBvids: new Map<string, string>(),
+  disabledPages: new Map<string, Set<number>>(),
+  disabledPagePending: new Map<string, number>(),
   selectedPlaylistId: "",
   loadError: "",
 };
@@ -98,27 +98,27 @@ const playlistListDragState = {
   suppressClickUntil: 0,
 };
 
-const videoPageCounts = new Map();
+const videoPageCounts = new Map<string, number>();
 
 const videoPagesByBvid = new Map();
 
 const pageModalOpeners = new WeakMap();
 
-const failedPageCountBvids = new Set();
+const failedPageCountBvids = new Set<string>();
 
-const queuedPageCountBvids = new Set();
+const queuedPageCountBvids = new Set<string>();
 
-const activePageCountBvids = new Set();
+const activePageCountBvids = new Set<string>();
 
 const observedPageCountTargets = new Map();
 
 const visiblePageCountTargets = new Map();
 
-const pageCountLookupQueue = [];
+const pageCountLookupQueue: string[] = [];
 
-const PAGE_COUNT_LOOKUP_CONCURRENCY = 2;
+const PAGE_COUNT_LOOKUP_CONCURRENCY: number = 2;
 
-const PAGE_COUNT_LOOKUP_INTERVAL_MS = 300;
+const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 

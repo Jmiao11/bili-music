@@ -1,5 +1,5 @@
 import { normalizeShuffleCollectionPrefs } from "./page-selection.ts";
-import { MAX_AUDIO_RECOVERIES } from "./player-state.js";
+import { MAX_AUDIO_RECOVERIES } from "./player-state.ts";
 
 function shuffled(values) {
   const result = [...values];

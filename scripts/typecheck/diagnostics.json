@@ -37,7 +37,7 @@
   "ui/library-ui.js TS2339: Property 'hidden' does not exist on type 'Element'.": 3,
   "ui/library-ui.js TS2339: Property 'mode' does not exist on type '{ playlist?: null; track?: null; }'.": 1,
   "ui/library-ui.js TS2353: Object literal may only specify known properties, and 'mode' does not exist in type '{ playlist?: any; track?: any; }'.": 2,
-  "ui/library-ui.js TS2769: No overload matches this call. The last overload gave the following error. Argument of type 'any[][]' is not assignable to parameter of type 'readonly (readonly [any, any])[]'. Type 'any[]' is not assignable to type 'readonly [any, any]'. Target requires 2 element(s) but source may have fewer.": 1,
+  "ui/library-ui.js TS2769: No overload matches this call. The last overload gave the following error. Argument of type 'any[][]' is not assignable to parameter of type 'readonly (readonly [string, string])[]'. Type 'any[]' is not assignable to type 'readonly [string, string]'. Target requires 2 element(s) but source may have fewer.": 1,
   "ui/lyrics.js TS2339: Property 'currentTime' does not exist on type 'Element'.": 2,
   "ui/lyrics.js TS2339: Property 'disabled' does not exist on type 'Element'.": 4,
   "ui/lyrics.js TS2339: Property 'focus' does not exist on type 'Element'.": 2,

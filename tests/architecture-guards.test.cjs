@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.js", "player-state.ts", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -62,12 +62,12 @@ test("split scripts contain only top-level function declarations and comments", 
         position += (script === "runtime-api.ts" ? runtime : dom)[0].length;
         continue;
       }
-      if (script === "player-state.js" && /^const\s+[\w$]+\s*=/.test(remaining)) {
+      if (script === "player-state.ts" && /^const\s+[\w$]+\s*=/.test(remaining)) {
         const end = remaining.indexOf(";");
         const text = remaining.slice(0, end + 1);
         new vm.Script(text);
         const initializer = maskCommentsAndStrings(text).slice(text.indexOf("=") + 1)
-          .replace(/new (?:Map|Set|WeakMap)\(\)/g, "")
+          .replace(/new (?:Map|Set|WeakMap)\s*\(\)/g, "")
           .replace(/Number\.(?:POSITIVE|NEGATIVE)_INFINITY/g, "")
           .replace(/\b[\w$]+\s*:/g, "")
           .replace(/\b(?:true|false|null|DEFAULT_MUSIC_TIDS)\b/g, "")

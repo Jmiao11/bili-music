@@ -7,10 +7,10 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const searchSource = readFileSync(path.join(__dirname, "../ui/search.js"), "utf8");
-const stateSource = readFileSync(path.join(__dirname, "../ui/player-state.js"), "utf8");
+const stateSource = readFileSync(path.join(__dirname, "../ui/player-state.ts"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
-const helpers = sourceSlice(stateSource, "ui/player-state.js", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
+const helpers = sourceSlice(stateSource, "ui/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
   + sourceSlice(source, "ui/main.js", "let pendingSearchRestore", "initPlaybackDiagnostics();")
   + sourceSlice(searchSource, "ui/search.js", "function readLastSearchKeyword(", "function setSearchResults(");
 const requestFns = sourceSlice(searchSource, "ui/search.js", "function currentSearchRequest(", "async function runSearch(");
