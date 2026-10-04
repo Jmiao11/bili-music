@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.js", "home.ts", "library-ui.js", "video-pages.js", "search.ts"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.js", "home.ts", "library-ui.js", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -80,7 +80,7 @@ test("split scripts contain only top-level function declarations and comments", 
         "playback-core.js": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.js": new Set(["favoriteImportVersion"]),
-        "video-pages.js": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
+        "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
       };
       const declaration = /^let\s+([\w$]+)(?:\s*=\s*(?:-?\d+(?:\.\d+)?|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|true|false|null|Number\.NEGATIVE_INFINITY))?\s*;/.exec(source.slice(position));
       if (declaration && allowedLets[script]?.has(declaration[1])) {
@@ -210,7 +210,7 @@ test("state fields are written only by approved scripts", () => {
   const allowedWriters = {
     playerState: new Set(["playback-core.js"]),
     searchState: new Set(["main.js", "playback-core.js", "search.ts"]),
-    libraryState: new Set(["playback-core.js", "library-ui.js", "video-pages.js"]),
+    libraryState: new Set(["playback-core.js", "library-ui.js", "video-pages.ts"]),
     homeState: new Set(["main.js", "home.ts"]),
   };
   const unexpected = [];

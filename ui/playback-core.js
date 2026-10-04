@@ -6,7 +6,7 @@ import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLA
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
-import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.js";
+import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
 

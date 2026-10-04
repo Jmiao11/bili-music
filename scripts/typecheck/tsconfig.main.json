@@ -22,7 +22,7 @@
     "../../ui/page-selection.ts",
     "../../ui/playback-policy.ts",
     "../../ui/library-ui.js",
-    "../../ui/video-pages.js",
+    "../../ui/video-pages.ts",
     "../../ui/search.ts",
     "../../ui/appearance.js",
     "../../ui/lyrics.js",
