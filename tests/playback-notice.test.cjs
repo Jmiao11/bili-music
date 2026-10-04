@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require("./helpers/module-syntax.cjs");
 const vm = require('node:vm');
 const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'), 'utf8');
-const core = readFileSync(require('node:path').join(__dirname, '../ui/playback-core.js'), 'utf8');
+const core = readFileSync(require('node:path').join(__dirname, '../ui/playback-core.ts'), 'utf8');
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const noticeSource = readFileSync(require('node:path').join(__dirname, '../ui/playback-notice.ts'), 'utf8');
 const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.ts'), "utf8");
@@ -36,7 +36,7 @@ function setup() {
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
   vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
-    + sourceSlice(core, "ui/playback-core.js", "function playNext(", "function initPlaybackSearch("), context);
+    + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function initPlaybackSearch("), context);
   return { context, notice, timers, events, styles };
 }
 
@@ -153,7 +153,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   c.playQueueIndex = index => visits.push(index);
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
   vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function takeRandomNext()", "function playNext("), c);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);
   c.playerState.currentIndex = 1;

@@ -18,7 +18,7 @@
     "../../ui/playback-diagnostics.ts",
     "../../ui/home.ts",
     "../../ui/track-utils.ts",
-    "../../ui/playback-core.js",
+    "../../ui/playback-core.ts",
     "../../ui/page-selection.ts",
     "../../ui/playback-policy.ts",
     "../../ui/library-ui.ts",

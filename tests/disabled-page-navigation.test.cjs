@@ -6,13 +6,13 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
+const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.ts"), "utf8");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
 const lookupSource = pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
-const navigationSource = sourceSlice(core, "ui/playback-core.js", "function advancePageWithinCurrentBv(", "function playNext(");
-const trackSource = sourceSlice(core, "ui/playback-core.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
+const navigationSource = sourceSlice(core, "ui/playback-core.ts", "function advancePageWithinCurrentBv(", "function playNext(");
+const trackSource = sourceSlice(core, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
 const pages = [1, 2, 3, 4].map((cid) => ({ cid, page: cid, part: `P${cid}`, durationSeconds: 10 }));
 
@@ -245,7 +245,7 @@ test("a new BV resets the collection visit count", () => {
   context.updateQueueUi = () => {};
   context.emitCurrentTrackChanged = () => {};
   vm.runInContext("Math.random = () => 0", context);
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(context.randomPageRound.playedCount, 2);
   context.playQueueIndex(1);
@@ -261,7 +261,7 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
   vm.runInContext("Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   state.history.push({ index: 0, cid: 1, pageLevel: true });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function playPrevious()", "function initPlaybackSearch("), context);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   assert.equal(context.randomPageRound.playedCount, 2);
@@ -290,7 +290,7 @@ test("only a random next index requests a random start page", () => {
     takeSequentialNext: () => 1,
     playQueueIndex: (index, options) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.js", "function playNext(", "function playPrevious("), context);
+  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext({ skipFailed: true }), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, true);
@@ -314,7 +314,7 @@ test("random queue navigation starts at the first enabled page for sequential co
     takeRandomNext: () => 1,
     playQueueIndex: (index, options) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.js", "function playNext(", "function playPrevious("), context);
+  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext(), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
@@ -333,7 +333,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
     emitCurrentTrackChanged() {}, currentVideoPage: () => null,
     loadCurrentTrack() {},
   });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   context.playQueueIndex(1);
   assert.equal(context.randomPageRound, null);
 
@@ -341,7 +341,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   context.randomPageRound = { bvid, remaining: [1] };
   context.shuffleToggle = { checked: true, addEventListener: (_, handler) => { change = handler; } };
   context.resetRandomRemaining = () => {};
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "shuffleToggle.addEventListener(\"change\"", "\n}\n", { endAfterStart: true }) + "\n\n", context);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "shuffleToggle.addEventListener(\"change\"", "\n}\n", { endAfterStart: true }) + "\n\n", context);
   change();
   assert.equal(context.randomPageRound, null);
   context.randomPageRound = { bvid, remaining: [1] };

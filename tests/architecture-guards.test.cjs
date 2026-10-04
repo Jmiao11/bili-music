@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.js", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -77,7 +77,7 @@ test("split scripts contain only top-level function declarations and comments", 
         continue;
       }
       const allowedLets = {
-        "playback-core.js": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
+        "playback-core.ts": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.ts": new Set(["favoriteImportVersion"]),
         "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
@@ -208,9 +208,9 @@ test("state-write scanner recognizes writes and ignores reads and comments", () 
 test("state fields are written only by approved scripts", () => {
   // A textual scan cannot detect writes through aliases, e.g. const q = playerState.queue; q.push(x).
   const allowedWriters = {
-    playerState: new Set(["playback-core.js"]),
-    searchState: new Set(["main.js", "playback-core.js", "search.ts"]),
-    libraryState: new Set(["playback-core.js", "library-ui.ts", "video-pages.ts"]),
+    playerState: new Set(["playback-core.ts"]),
+    searchState: new Set(["main.js", "playback-core.ts", "search.ts"]),
+    libraryState: new Set(["playback-core.ts", "library-ui.ts", "video-pages.ts"]),
     homeState: new Set(["main.js", "home.ts"]),
   };
   const unexpected = [];

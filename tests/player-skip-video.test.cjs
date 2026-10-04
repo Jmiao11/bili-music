@@ -6,7 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8");
+const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8");
 const html = readFileSync(path.join(__dirname, "../ui/index.html"), "utf8");
 
 test("the skip button follows the unchanged page badge inside one hidden group", () => {
@@ -22,7 +22,7 @@ test("page group is visible only with a current multi-page track", () => {
   const playerPagesGroup = { hidden: true };
   const state = { queue: [{}], currentIndex: -1, currentPages: [{}, {}], currentPageIndex: 1 };
   const context = vm.createContext({ playerState: state, playerPagesButton, playerPagesGroup });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.js", "function updatePlayerPagesButton(", "async function loadPagesForCurrentVideo("), context);
+  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function updatePlayerPagesButton(", "async function loadPagesForCurrentVideo("), context);
   context.updatePlayerPagesButton();
   assert.equal(playerPagesGroup.hidden, true);
 

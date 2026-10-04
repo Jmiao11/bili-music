@@ -15,7 +15,6 @@
   "ui/mascot.js TS2339: Property 'offsetWidth' does not exist on type 'Element'.": 2,
   "ui/mascot.js TS2339: Property 'paused' does not exist on type 'Element'.": 1,
   "ui/mascot.js TS2339: Property 'style' does not exist on type 'Element'.": 1,
-  "ui/playback-core.js TS2339: Property 'dataset' does not exist on type 'Element'.": 3,
   "ui/sidebar.js TS2339: Property 'title' does not exist on type 'Element'.": 1,
   "ui/window-controls.js TS2339: Property 'button' does not exist on type 'Event'.": 1,
   "ui/window-controls.js TS2339: Property 'dataset' does not exist on type 'Element'.": 1,
