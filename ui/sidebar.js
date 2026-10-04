@@ -1,3 +1,4 @@
+/** @typedef {{ width: number; collapsed: boolean }} SidebarState */
 const SIDEBAR_KEY = "bilibili-music.sidebar";
 const SIDEBAR_DEFAULT = 220;
 const SIDEBAR_MIN = 200;
@@ -9,6 +10,7 @@ function sidebarDefaultState() {
   return { width: SIDEBAR_DEFAULT, collapsed: false };
 }
 
+/** @param {string | null} value @returns {SidebarState} */
 function parseSidebarState(value) {
   try {
     const state = JSON.parse(value);
@@ -21,6 +23,7 @@ function parseSidebarState(value) {
   }
 }
 
+/** @param {Pick<Storage, "getItem">} storage */
 function readSidebarState(storage) {
   try {
     return parseSidebarState(storage.getItem(SIDEBAR_KEY));
@@ -29,6 +32,7 @@ function readSidebarState(storage) {
   }
 }
 
+/** @param {SidebarState} state @param {number} candidate */
 function resizeSidebarState(state, candidate) {
   if (!Number.isFinite(candidate)) return state;
   if (state.collapsed && candidate < SIDEBAR_EXPAND) return state;
@@ -36,12 +40,14 @@ function resizeSidebarState(state, candidate) {
   return { width: Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, candidate)), collapsed: false };
 }
 
+/** @param {SidebarState} state */
 function sidebarVisibleWidth(state) {
   return state.collapsed ? SIDEBAR_COLLAPSED : state.width;
 }
 
 function initializeSidebar() {
   const root = document.documentElement;
+  /** @type {SidebarState} */
   let state;
   try {
     state = readSidebarState(window.localStorage);
@@ -49,8 +55,11 @@ function initializeSidebar() {
     // Access to localStorage itself can throw in a restricted WebView.
     state = sidebarDefaultState();
   }
+  /** @type {HTMLButtonElement | null} */
   let toggle;
+  /** @type {HTMLDivElement | null} */
   let handle;
+  /** @type {{ id: number; x: number; width: number } | null} */
   let drag = null;
 
   function render() {
@@ -81,6 +90,7 @@ function initializeSidebar() {
     save();
   }
 
+  /** @param {Event & Partial<PointerEvent>} event */
   function finishDrag(event) {
     if (!drag || (event?.pointerId !== undefined && event.pointerId !== drag.id)) return;
     const id = drag.id;
