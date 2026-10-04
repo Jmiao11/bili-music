@@ -7,18 +7,18 @@ const { moduleDeclarations } = require("./helpers/module-syntax.cjs");
 const { topLevelNames, references } = require("./helpers/module-bindings.cjs");
 const { maskCommentsAndStrings } = require("./helpers/js-source.cjs");
 
-const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.js", "library-ui.js", "video-pages.js", "search.js", "playback-core.js", "main.js", "appearance.js"];
+const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts", "playback-core.js", "main.js", "appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
   ["track-utils.ts:result", "unavailableTrackLocations local Map"],
   ["playback-policy.ts:result", "shuffled local array"],
-  ["home.js:title", "showHomeNotice parameter"],
-  ["library-ui.js:result", "toggle, purge and favorite-import local results"],
-  ["library-ui.js:title", "openLibraryModal parameter and purge row local element"],
-  ["video-pages.js:currentTrack", "openPagesModal local currentPlayableTrack result"],
-  ["appearance.js:status", "refreshYtDlpAvailability local response"],
-  ["appearance.js:result", "testAiConnection and import button local responses"],
+  ["home.ts:title", "showHomeNotice parameter"],
+  ["library-ui.ts:result", "toggle, purge and favorite-import local results"],
+  ["library-ui.ts:title", "openLibraryModal parameter and purge row local element"],
+  ["video-pages.ts:currentTrack", "openPagesModal local currentPlayableTrack result"],
+  ["appearance.ts:status", "refreshYtDlpAvailability local response"],
+  ["appearance.ts:result", "testAiConnection and import button local responses"],
 ]);
 
 test("modules import every cross-module binding and have no unused imports", () => {

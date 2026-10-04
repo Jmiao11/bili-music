@@ -6,18 +6,18 @@ import { createTrackRow, currentPlayableTrack, playListItem, updateFavoriteButto
 
 let favoriteImportVersion = 0;
 
-function renderLibraryViews() {
+function renderLibraryViews(): void {
   renderFavorites();
   renderPlaylists();
   updateFavoriteButtons();
   updateLibraryHighlights();
 }
 
-function isFavoriteDragClickSuppressed() {
+function isFavoriteDragClickSuppressed(): boolean {
   return favoriteDragState.drag !== null || performance.now() < favoriteDragState.suppressClickUntil;
 }
 
-function finishFavoriteDrag() {
+function finishFavoriteDrag(): void {
   const drag = favoriteDragState.drag;
   drag?.row.classList.remove("is-dragging");
   drag?.target?.classList.remove("is-drop-before", "is-drop-after");
@@ -26,7 +26,7 @@ function finishFavoriteDrag() {
   favoriteDragState.suppressClickUntil = performance.now() + 400;
 }
 
-function bindFavoriteDrag(row, index) {
+function bindFavoriteDrag(row: HTMLElement, index: number): void {
   row.draggable = true;
   row.querySelectorAll("img").forEach((image) => { image.draggable = false; });
   for (const eventName of ["click", "dblclick"]) {
@@ -58,7 +58,7 @@ function bindFavoriteDrag(row, index) {
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event) => {
+  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
     const drag = favoriteDragState.drag;
     if (drag?.target === row && !row.contains(event.relatedTarget)) {
       row.classList.remove("is-drop-before", "is-drop-after");
@@ -97,7 +97,7 @@ function bindFavoriteDrag(row, index) {
   row.addEventListener("dragend", finishFavoriteDrag);
 }
 
-function renderFavorites() {
+function renderFavorites(): void {
   if (!favoritesList) {
     return;
   }
@@ -129,11 +129,11 @@ function renderFavorites() {
   }
 }
 
-function isPlaylistDragClickSuppressed() {
+function isPlaylistDragClickSuppressed(): boolean {
   return playlistDragState.drag !== null || performance.now() < playlistDragState.suppressClickUntil;
 }
 
-function finishPlaylistDrag() {
+function finishPlaylistDrag(): void {
   const drag = playlistDragState.drag;
   drag?.row.classList.remove("is-dragging");
   drag?.target?.classList.remove("is-drop-before", "is-drop-after");
@@ -142,7 +142,7 @@ function finishPlaylistDrag() {
   playlistDragState.suppressClickUntil = performance.now() + 400;
 }
 
-function bindPlaylistItemDrag(row, playlistId, index) {
+function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: number): void {
   row.draggable = true;
   row.querySelectorAll("img").forEach((image) => { image.draggable = false; });
   for (const eventName of ["click", "dblclick"]) {
@@ -174,7 +174,7 @@ function bindPlaylistItemDrag(row, playlistId, index) {
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event) => {
+  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
     const drag = playlistDragState.drag;
     if (drag?.target === row && !row.contains(event.relatedTarget)) {
       row.classList.remove("is-drop-before", "is-drop-after");
@@ -210,11 +210,11 @@ function bindPlaylistItemDrag(row, playlistId, index) {
   row.addEventListener("dragend", finishPlaylistDrag);
 }
 
-function isPlaylistListDragClickSuppressed() {
+function isPlaylistListDragClickSuppressed(): boolean {
   return playlistListDragState.drag !== null || performance.now() < playlistListDragState.suppressClickUntil;
 }
 
-function finishPlaylistListDrag() {
+function finishPlaylistListDrag(): void {
   const drag = playlistListDragState.drag;
   drag?.row.classList.remove("is-dragging");
   drag?.target?.classList.remove("is-drop-before", "is-drop-after");
@@ -223,7 +223,7 @@ function finishPlaylistListDrag() {
   playlistListDragState.suppressClickUntil = performance.now() + 400;
 }
 
-function bindPlaylistDrag(row, index) {
+function bindPlaylistDrag(row: HTMLElement, index: number): void {
   row.draggable = true;
   for (const eventName of ["click", "dblclick"]) {
     row.addEventListener(eventName, (event) => {
@@ -254,7 +254,7 @@ function bindPlaylistDrag(row, index) {
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event) => {
+  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
     const drag = playlistListDragState.drag;
     if (drag?.target === row && !row.contains(event.relatedTarget)) {
       row.classList.remove("is-drop-before", "is-drop-after");
@@ -289,7 +289,7 @@ function bindPlaylistDrag(row, index) {
   row.addEventListener("dragend", finishPlaylistListDrag);
 }
 
-function renderPlaylists() {
+function renderPlaylists(): void {
   if (!playlistsList) {
     return;
   }
@@ -357,9 +357,9 @@ function renderPlaylists() {
   }
 }
 
-function updateLibraryHighlights() {
+function updateLibraryHighlights(): void {
   if (favoritesList) {
-    for (const button of favoritesList.querySelectorAll("button.track")) {
+    for (const button of favoritesList.querySelectorAll<HTMLButtonElement>("button.track")) {
       const index = Number(button.dataset.libraryIndex);
       if (playerState.queueSource === "favorites" && index === playerState.currentIndex) {
         button.setAttribute("aria-current", "true");
@@ -369,7 +369,7 @@ function updateLibraryHighlights() {
     }
   }
   if (playlistTracks) {
-    for (const button of playlistTracks.querySelectorAll("button.track")) {
+    for (const button of playlistTracks.querySelectorAll<HTMLButtonElement>("button.track")) {
       const index = Number(button.dataset.libraryIndex);
       if (
         playerState.queueSource === "playlist" &&
@@ -384,7 +384,7 @@ function updateLibraryHighlights() {
   }
 }
 
-async function loadLibrary() {
+async function loadLibrary(): Promise<void> {
   try {
     const [favorites, playlists, unavailableTracks, disabledPages] = await Promise.all([
       invoke("list_favorites"),
@@ -407,7 +407,7 @@ async function loadLibrary() {
       items: (playlist.items ?? []).map(normalizeTrack),
     }));
     libraryState.unavailableBvids = new Map(
-      unavailableTracks.map((item) => [item.bvid.toLowerCase(), item.reason]),
+      unavailableTracks.map((item): [string, string] => [item.bvid.toLowerCase(), item.reason]),
     );
     libraryState.disabledPages = new Map(
       Object.entries(disabledPages).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)]),
@@ -453,7 +453,7 @@ async function toggleFavorite(video = currentPlayableTrack()) {
   }
 }
 
-function openLibraryModal(title, subtitle) {
+function openLibraryModal(title: string, subtitle: string): void {
   favoriteImportVersion += 1;
   libraryModalTitle.textContent = title;
   libraryModalSubtitle.textContent = subtitle;
@@ -467,13 +467,13 @@ function openLibraryModal(title, subtitle) {
   });
 }
 
-function closeLibraryModal() {
+function closeLibraryModal(): void {
   favoriteImportVersion += 1;
   libraryModal.classList.remove("is-open");
   libraryModal.setAttribute("aria-hidden", "true");
 }
 
-function validatePlaylistName(name, { excludeId = "" } = {}) {
+function validatePlaylistName(name: string, { excludeId = "" }: { excludeId?: string } = {}) {
   const normalized = name.trim();
   if (!normalized) {
     return { ok: false, message: "歌单名不能为空。" };
@@ -503,7 +503,7 @@ function createNameField(initialValue = "") {
   return { field, input };
 }
 
-function createLibraryActions(primaryLabel, onPrimary, secondaryLabel = "取消") {
+function createLibraryActions(primaryLabel: string, onPrimary: () => void, secondaryLabel: string = "取消") {
   const actions = document.createElement("div");
   const cancelButton = document.createElement("button");
   const primaryButton = document.createElement("button");
@@ -520,7 +520,7 @@ function createLibraryActions(primaryLabel, onPrimary, secondaryLabel = "取消"
   return { actions, primaryButton };
 }
 
-async function openPurgeUnavailableTracksModal() {
+async function openPurgeUnavailableTracksModal(): Promise<void> {
   purgeUnavailableTracksButton.disabled = true;
   let unavailable;
   try {
@@ -613,7 +613,7 @@ async function openPurgeUnavailableTracksModal() {
   primaryButton.focus();
 }
 
-function showPlaylistNameDialog({ mode, playlist = null, track = null } = {}) {
+function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?: string; playlist?: CommandContract.Playlist; track?: CommandContract.TrackSnapshotInput } = {}): void {
   const isRename = mode === "rename";
   openLibraryModal(
     isRename ? "重命名歌单" : "新建歌单",
@@ -679,11 +679,11 @@ function showPlaylistNameDialog({ mode, playlist = null, track = null } = {}) {
   input.select();
 }
 
-function createPlaylist() {
+function createPlaylist(): void {
   showPlaylistNameDialog({ mode: "create" });
 }
 
-function importFavoritePlaylist() {
+function importFavoritePlaylist(): void {
   openLibraryModal("导入 B站收藏夹", "仅支持公开收藏夹，最多导入 200 个有效视频；失效或无法导入的条目将跳过。");
   const version = favoriteImportVersion;
   const active = () => version === favoriteImportVersion;
@@ -774,7 +774,7 @@ function importFavoritePlaylist() {
   linkInput.focus();
 }
 
-function renameSelectedPlaylist() {
+function renameSelectedPlaylist(): void {
   const playlist = selectedPlaylist();
   if (!playlist) {
     return;
@@ -782,7 +782,7 @@ function renameSelectedPlaylist() {
   showPlaylistNameDialog({ mode: "rename", playlist });
 }
 
-function deleteSelectedPlaylist() {
+function deleteSelectedPlaylist(): void {
   const playlist = selectedPlaylist();
   if (!playlist) {
     return;
@@ -886,7 +886,7 @@ function choosePlaylistAndAdd(video = currentPlayableTrack()) {
   libraryModalBody.append(list, divider, field, actions);
 }
 
-async function addTrackToPlaylist(playlist, track) {
+async function addTrackToPlaylist(playlist: CommandContract.Playlist, track: CommandContract.TrackSnapshotInput): Promise<void> {
   libraryModalStatus.textContent = `正在加入“${playlist.name}”…`;
   try {
     libraryState.playlists = await invoke("add_to_playlist", {
@@ -905,7 +905,7 @@ async function addTrackToPlaylist(playlist, track) {
   }
 }
 
-async function removeTrackFromPlaylist(id, bvid) {
+async function removeTrackFromPlaylist(id: string, bvid: string): Promise<void> {
   try {
     libraryState.playlists = await invoke("remove_from_playlist", { id, bvid });
     renderLibraryViews();
@@ -914,7 +914,7 @@ async function removeTrackFromPlaylist(id, bvid) {
   }
 }
 
-function selectedPlaylist() {
+function selectedPlaylist(): CommandContract.Playlist | undefined {
   return libraryState.playlists.find(
     (playlist) => playlist.id === libraryState.selectedPlaylistId,
   );

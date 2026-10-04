@@ -8,11 +8,11 @@ const vm = require("node:vm");
 const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
-const appearance = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
+const appearance = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "utf8");
 const html = readFileSync(path.join(__dirname, "../ui/index.html"), "utf8");
 const source = pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
-  + sourceSlice(appearance, "ui/appearance.js", "function openSettings()", "async function restoreAudioCacheSettings()")
-  + sourceSlice(appearance, "ui/appearance.js", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
+  + sourceSlice(appearance, "ui/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
+  + sourceSlice(appearance, "ui/appearance.ts", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
 
 function setup(stored = new Map()) {
   const handlers = {};

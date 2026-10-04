@@ -5,10 +5,10 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/appearance.js"), "utf8");
-const code = sourceSlice(source, "ui/appearance.js", "const BACKGROUND_PATH_KEY", "const root =")
-  + sourceSlice(source, "ui/appearance.js", "function clampNumber(", "function streamSourceLabel(")
-  + sourceSlice(source, "ui/appearance.js", "function normalizeAccentColor(", "function applyBackground(");
+const source = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "utf8");
+const code = sourceSlice(source, "ui/appearance.ts", "const BACKGROUND_PATH_KEY", "const root =")
+  + sourceSlice(source, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
+  + sourceSlice(source, "ui/appearance.ts", "function normalizeAccentColor(", "function applyBackground(");
 const key = "bilibili-music.accent-color";
 const colors = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },

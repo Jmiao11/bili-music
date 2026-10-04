@@ -1,5 +1,5 @@
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
-import { choosePlaylistAndAdd } from "./library-ui.js";
+import { choosePlaylistAndAdd } from "./library-ui.ts";
 import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.js";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
@@ -31,54 +31,54 @@ let loudnessNormalizationEnabled = false;
 let normalizationAnimationFrame = null;
 
 const root = document.documentElement;
-const navItems = [...document.querySelectorAll(".nav-item[data-view]")];
-const homeView = document.querySelector("#view-home");
-const searchView = document.querySelector("#view-search");
-const favoritesView = document.querySelector("#view-favorites");
-const playlistsView = document.querySelector("#view-playlists");
-const placeholderView = document.querySelector("#view-placeholder");
-const placeholderTitle = document.querySelector("#placeholder-title");
-const settingsModal = document.querySelector("#settings-modal");
-const openSettingsButton = document.querySelector("#open-settings-button");
-const closeSettingsButton = document.querySelector("#close-settings-button");
-const themeOptions = [...document.querySelectorAll("[data-theme-option]")];
-const accentColorOptions = [...document.querySelectorAll("[data-accent-color]")];
-const mascotPicker = document.querySelector("#mascot-picker");
-const chooseBackgroundButton = document.querySelector("#choose-background-button");
-const resetBackgroundButton = document.querySelector("#reset-background-button");
-const backgroundName = document.querySelector("#background-name");
-const appearanceStatus = document.querySelector("#appearance-status");
-const imageOnlyGroups = [...document.querySelectorAll(".image-only")];
-const glassBlurSlider = document.querySelector("#glass-blur-slider");
-const glassBlurValue = document.querySelector("#glass-blur-value");
-const panelAlphaSlider = document.querySelector("#panel-alpha-slider");
-const panelAlphaValue = document.querySelector("#panel-alpha-value");
-const backgroundDimSlider = document.querySelector("#background-dim-slider");
-const backgroundDimValue = document.querySelector("#background-dim-value");
-const streamSourceSelect = document.querySelector("#stream-source-select");
-const streamSourceStatus = document.querySelector("#stream-source-status");
-const audioCacheEnabled = document.querySelector("#audio-cache-enabled");
-const audioCacheCapacity = document.querySelector("#audio-cache-capacity");
-const shuffleCollectionOrder = document.querySelector("#shuffle-collection-order");
-const shuffleCollectionLimit = document.querySelector("#shuffle-collection-limit");
-const audioCacheUsage = document.querySelector("#audio-cache-usage");
-const audioCacheStatus = document.querySelector("#audio-cache-status");
-const clearAudioCacheButton = document.querySelector("#clear-audio-cache-button");
-let audioCacheSettings = null;
+const navItems = [...document.querySelectorAll<HTMLButtonElement>(".nav-item[data-view]")];
+const homeView = document.querySelector<HTMLElement>("#view-home");
+const searchView = document.querySelector<HTMLElement>("#view-search");
+const favoritesView = document.querySelector<HTMLElement>("#view-favorites");
+const playlistsView = document.querySelector<HTMLElement>("#view-playlists");
+const placeholderView = document.querySelector<HTMLElement>("#view-placeholder");
+const placeholderTitle = document.querySelector<HTMLHeadingElement>("#placeholder-title");
+const settingsModal = document.querySelector<HTMLDivElement>("#settings-modal");
+const openSettingsButton = document.querySelector<HTMLButtonElement>("#open-settings-button");
+const closeSettingsButton = document.querySelector<HTMLButtonElement>("#close-settings-button");
+const themeOptions = [...document.querySelectorAll<HTMLButtonElement>("[data-theme-option]")];
+const accentColorOptions = [...document.querySelectorAll<HTMLInputElement & { nextElementSibling: HTMLElement }>("[data-accent-color]")];
+const mascotPicker = document.querySelector<HTMLDivElement>("#mascot-picker");
+const chooseBackgroundButton = document.querySelector<HTMLButtonElement>("#choose-background-button");
+const resetBackgroundButton = document.querySelector<HTMLButtonElement>("#reset-background-button");
+const backgroundName = document.querySelector<HTMLElement>("#background-name");
+const appearanceStatus = document.querySelector<HTMLParagraphElement>("#appearance-status");
+const imageOnlyGroups = [...document.querySelectorAll<HTMLElement>(".image-only")];
+const glassBlurSlider = document.querySelector<HTMLInputElement>("#glass-blur-slider");
+const glassBlurValue = document.querySelector<HTMLElement>("#glass-blur-value");
+const panelAlphaSlider = document.querySelector<HTMLInputElement>("#panel-alpha-slider");
+const panelAlphaValue = document.querySelector<HTMLElement>("#panel-alpha-value");
+const backgroundDimSlider = document.querySelector<HTMLInputElement>("#background-dim-slider");
+const backgroundDimValue = document.querySelector<HTMLElement>("#background-dim-value");
+const streamSourceSelect = document.querySelector<HTMLSelectElement>("#stream-source-select");
+const streamSourceStatus = document.querySelector<HTMLElement>("#stream-source-status");
+const audioCacheEnabled = document.querySelector<HTMLInputElement>("#audio-cache-enabled");
+const audioCacheCapacity = document.querySelector<HTMLSelectElement>("#audio-cache-capacity");
+const shuffleCollectionOrder = document.querySelector<HTMLSelectElement>("#shuffle-collection-order");
+const shuffleCollectionLimit = document.querySelector<HTMLSelectElement>("#shuffle-collection-limit");
+const audioCacheUsage = document.querySelector<HTMLElement>("#audio-cache-usage");
+const audioCacheStatus = document.querySelector<HTMLElement>("#audio-cache-status");
+const clearAudioCacheButton = document.querySelector<HTMLButtonElement>("#clear-audio-cache-button");
+let audioCacheSettings: CommandContract.AudioCacheSettings | null = null;
 let audioCacheStatusTimer = null;
-const clearSearchHistoryButton = document.querySelector("#clear-search-history-button");
-const exportDataButton = document.querySelector("#export-data-button");
-const importDataButton = document.querySelector("#import-data-button");
-const aiApiFormatSelect = document.querySelector("#ai-api-format-select");
-const aiBaseUrlInput = document.querySelector("#ai-base-url-input");
-const aiModelInput = document.querySelector("#ai-model-input");
-const aiApiKeyInput = document.querySelector("#ai-api-key-input");
-const saveAiConfigButton = document.querySelector("#save-ai-config-button");
-const testAiConnectionButton = document.querySelector("#test-ai-connection-button");
-const aiConfigStatus = document.querySelector("#ai-config-status");
-const shortcutRecordButtons = [...document.querySelectorAll("[data-shortcut-action]")];
-const shortcutClearButtons = [...document.querySelectorAll("[data-shortcut-clear]")];
-let shortcutBindings = {
+const clearSearchHistoryButton = document.querySelector<HTMLButtonElement>("#clear-search-history-button");
+const exportDataButton = document.querySelector<HTMLButtonElement>("#export-data-button");
+const importDataButton = document.querySelector<HTMLButtonElement>("#import-data-button");
+const aiApiFormatSelect = document.querySelector<HTMLSelectElement>("#ai-api-format-select");
+const aiBaseUrlInput = document.querySelector<HTMLInputElement>("#ai-base-url-input");
+const aiModelInput = document.querySelector<HTMLInputElement>("#ai-model-input");
+const aiApiKeyInput = document.querySelector<HTMLInputElement>("#ai-api-key-input");
+const saveAiConfigButton = document.querySelector<HTMLButtonElement>("#save-ai-config-button");
+const testAiConnectionButton = document.querySelector<HTMLButtonElement>("#test-ai-connection-button");
+const aiConfigStatus = document.querySelector<HTMLElement>("#ai-config-status");
+const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-shortcut-action]")];
+const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-shortcut-clear]")];
+let shortcutBindings: CommandContract.ShortcutBindings = {
   previous: null,
   playPause: null,
   next: null,
@@ -87,36 +87,36 @@ let shortcutBindings = {
 };
 let recordingShortcutAction = null;
 
-const playerAudio = document.querySelector("#audio");
-const playPauseButton = document.querySelector("#play-pause-button");
-const progressSlider = document.querySelector("#progress-slider");
-const currentTimeLabel = document.querySelector("#current-time");
-const durationLabel = document.querySelector("#duration");
-const playbackStatus = document.querySelector("#status");
-const openImmersiveButton = document.querySelector("#open-immersive-button");
-const immersivePlayer = document.querySelector("#immersive-player");
-const closeImmersiveButton = document.querySelector("#close-immersive-button");
-const immersiveCover = document.querySelector("#immersive-cover");
-const immersiveReflection = document.querySelector("#immersive-reflection");
-const immersiveTitle = document.querySelector("#immersive-title");
-const immersiveUploader = document.querySelector("#immersive-uploader");
-const immersivePreviousButton = document.querySelector("#immersive-previous-button");
-const immersiveNextButton = document.querySelector("#immersive-next-button");
-const immersivePlayPauseButton = document.querySelector("#immersive-play-pause-button");
-const immersiveProgressSlider = document.querySelector("#immersive-progress-slider");
-const immersiveCurrentTimeLabel = document.querySelector("#immersive-current-time");
-const immersiveDurationLabel = document.querySelector("#immersive-duration");
-const openBilibiliButton = document.querySelector("#open-bilibili-button");
-const openBilibiliBarButton = document.querySelector("#open-bilibili-bar-button");
-const addPlaylistCurrentButton = document.querySelector("#add-playlist-current-button");
-const previousButtonForImmersive = document.querySelector("#previous-button");
-const nextButtonForImmersive = document.querySelector("#next-button");
-const volumeSlider = document.querySelector("#volume-slider");
-const loudnessNormalizationToggle = document.querySelector("#loudness-normalization-toggle");
+const playerAudio = document.querySelector<HTMLAudioElement>("#audio");
+const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button");
+const progressSlider = document.querySelector<HTMLInputElement>("#progress-slider");
+const currentTimeLabel = document.querySelector<HTMLSpanElement>("#current-time");
+const durationLabel = document.querySelector<HTMLSpanElement>("#duration");
+const playbackStatus = document.querySelector<HTMLParagraphElement>("#status");
+const openImmersiveButton = document.querySelector<HTMLButtonElement>("#open-immersive-button");
+const immersivePlayer = document.querySelector<HTMLElement>("#immersive-player");
+const closeImmersiveButton = document.querySelector<HTMLButtonElement>("#close-immersive-button");
+const immersiveCover = document.querySelector<HTMLImageElement>("#immersive-cover");
+const immersiveReflection = document.querySelector<HTMLImageElement>("#immersive-reflection");
+const immersiveTitle = document.querySelector<HTMLHeadingElement>("#immersive-title");
+const immersiveUploader = document.querySelector<HTMLParagraphElement>("#immersive-uploader");
+const immersivePreviousButton = document.querySelector<HTMLButtonElement>("#immersive-previous-button");
+const immersiveNextButton = document.querySelector<HTMLButtonElement>("#immersive-next-button");
+const immersivePlayPauseButton = document.querySelector<HTMLButtonElement>("#immersive-play-pause-button");
+const immersiveProgressSlider = document.querySelector<HTMLInputElement>("#immersive-progress-slider");
+const immersiveCurrentTimeLabel = document.querySelector<HTMLSpanElement>("#immersive-current-time");
+const immersiveDurationLabel = document.querySelector<HTMLSpanElement>("#immersive-duration");
+const openBilibiliButton = document.querySelector<HTMLButtonElement>("#open-bilibili-button");
+const openBilibiliBarButton = document.querySelector<HTMLButtonElement>("#open-bilibili-bar-button");
+const addPlaylistCurrentButton = document.querySelector<HTMLButtonElement>("#add-playlist-current-button");
+const previousButtonForImmersive = document.querySelector<HTMLButtonElement>("#previous-button");
+const nextButtonForImmersive = document.querySelector<HTMLButtonElement>("#next-button");
+const volumeSlider = document.querySelector<HTMLInputElement>("#volume-slider");
+const loudnessNormalizationToggle = document.querySelector<HTMLInputElement>("#loudness-normalization-toggle");
 
 let isSeeking = false;
 let ytDlpAvailable = false;
-let currentTrack = {
+let currentTrack: CurrentTrackDetail = {
   bvid: "",
   title: "尚未播放",
   uploader: "—",
@@ -131,7 +131,7 @@ const viewLabels = {
   local: "本地音乐",
 };
 
-function clampNumber(value, min, max, fallback) {
+function clampNumber(value: unknown, min: number, max: number, fallback: number) {
   if (value === null || value === undefined || value === "") {
     return fallback;
   }
@@ -146,7 +146,7 @@ function isShortcutModifierCode(code) {
   return /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(code);
 }
 
-function shortcutFromKeyboardEvent(event) {
+function shortcutFromKeyboardEvent(event: KeyboardEvent) {
   const code = event.code || "";
   if (isShortcutModifierCode(code) || code === "Escape") {
     return null;
@@ -226,13 +226,13 @@ function renderShortcutButton(action) {
   }
 }
 
-function handleShortcutRecordingPointerDown(event) {
+function handleShortcutRecordingPointerDown(event: PointerEvent & { target: Element }) {
   if (!event.target.closest?.("[data-shortcut-action]")) {
     cancelShortcutRecording();
   }
 }
 
-function handleShortcutRecordingKeydown(event) {
+function handleShortcutRecordingKeydown(event: KeyboardEvent) {
   if (!recordingShortcutAction) return;
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -321,7 +321,7 @@ function updateStreamSourceAvailability() {
   if (!streamSourceSelect) {
     return;
   }
-  const autoOption = streamSourceSelect.querySelector('option[value="auto"]');
+  const autoOption = streamSourceSelect.querySelector<HTMLOptionElement>('option[value="auto"]');
   if (autoOption) {
     autoOption.disabled = !ytDlpAvailable;
     autoOption.title = ytDlpAvailable ? "" : streamSourceDisabledHint();
@@ -356,11 +356,11 @@ function formatPlaybackTime(value) {
     : `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function updateRangeProgress(slider, percent) {
+function updateRangeProgress(slider: HTMLInputElement, percent: string) {
   slider.style.setProperty("--progress", percent);
 }
 
-function updateProgress(value = playerAudio.currentTime) {
+function updateProgress(value: number | string = playerAudio.currentTime) {
   const mediaDuration = Number.isFinite(playerAudio.duration)
     ? playerAudio.duration
     : 0;
@@ -385,7 +385,7 @@ function updatePlayPauseButton() {
   }
 }
 
-function withMediaSession(callback) {
+function withMediaSession(callback: (mediaSession: MediaSession) => void) {
   try {
     if (!("mediaSession" in navigator)) {
       return;
@@ -396,7 +396,7 @@ function withMediaSession(callback) {
   }
 }
 
-function syncMediaSessionTrack(track) {
+function syncMediaSessionTrack(track: CurrentTrackDetail) {
   withMediaSession((mediaSession) => {
     if (!track?.hasCurrent) {
       mediaSession.metadata = null;
@@ -412,7 +412,7 @@ function syncMediaSessionTrack(track) {
   });
 }
 
-function syncMediaSessionPlaybackState(state) {
+function syncMediaSessionPlaybackState(state: MediaSessionPlaybackState) {
   withMediaSession((mediaSession) => {
     mediaSession.playbackState = state;
   });
@@ -648,7 +648,7 @@ function closeImmersive() {
 
 function syncMascotPickerSelection() {
   const activeId = window.BiliMascot?.getActive?.();
-  for (const tile of mascotPicker?.querySelectorAll(".mascot-tile") ?? []) {
+  for (const tile of mascotPicker?.querySelectorAll<HTMLButtonElement>(".mascot-tile") ?? []) {
     const selected = tile.dataset.mascotId === activeId;
     tile.classList.toggle("is-selected", selected);
     tile.setAttribute("aria-pressed", String(selected));
@@ -917,7 +917,7 @@ function setBackgroundDim(value, persist = true) {
   }
 }
 
-function applyBackground(image) {
+function applyBackground(image: CommandContract.BackgroundImage) {
   root.style.setProperty("--app-background", `url("${image.dataUrl}")`);
   backgroundName.textContent = `${image.displayName} · ${image.width}×${image.height}`;
   backgroundName.title = image.path;
@@ -973,7 +973,7 @@ async function restoreStreamSource() {
   }
 }
 
-function updateAiConfigStatus(config) {
+function updateAiConfigStatus(config: CommandContract.AiConfigView) {
   if (!aiConfigStatus) {
     return;
   }
@@ -1252,7 +1252,7 @@ audioCacheCapacity?.addEventListener("change", saveAudioCacheSettings);
 for (const [select, key] of [
   [shuffleCollectionOrder, SHUFFLE_COLLECTION_ORDER_KEY],
   [shuffleCollectionLimit, SHUFFLE_COLLECTION_LIMIT_KEY],
-]) {
+] as [HTMLSelectElement, string][]) {
   select.addEventListener("change", () => {
     try {
       localStorage.setItem(key, select.value);
@@ -1335,7 +1335,7 @@ immersivePlayer.addEventListener("transitionend", (event) => {
     immersivePlayer.hidden = true;
   }
 });
-immersivePlayer.addEventListener("click", (event) => {
+immersivePlayer.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
   if (event.target.dataset.closeImmersive === "true") {
     closeImmersive();
   }

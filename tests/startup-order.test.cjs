@@ -18,13 +18,13 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.js", "appearance.js", "mascot.js", "mini-player-host.js"]);
+  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.js", "appearance.ts", "mascot.js", "mini-player-host.js"]);
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
   const entry = tags.indexOf("app.js");
   assert.ok(tags.indexOf("dynamic-background.js") < entry);
   assert.match(read("dynamic-background.js"), /initializeDynamicBackground\(\);\s*$/);
   for (const file of ["mascot.js", "mini-player-host.js"]) assert.ok(tags.indexOf(file) > entry);
-  const appearance = topLevelStatements(read("appearance.js"));
+  const appearance = topLevelStatements(read("appearance.ts"));
   assert.ok(appearance.every((statement) => /^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code)));
 });
 

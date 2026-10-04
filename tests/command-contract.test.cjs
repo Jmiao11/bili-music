@@ -41,10 +41,10 @@ function invokedCommands(source, file) {
     if (literal) { commands.add(literal[2]); continue; }
     // A forwarding implementation is not a command-name call site. Validate
     // its exact forwarding expression; callers of the wrapper must be literal.
-    assert.equal(file, "ui/home.js", `${file}: nonliteral command at offset ${match.index}`);
-    const wrapper = sourceSlice(source, file, "function invokeWithTimeout(", "async function loadHomeRanking(");
+    assert.equal(file, "ui/home.ts", `${file}: nonliteral command at offset ${match.index}`);
+    const wrapper = sourceSlice(source, file, "function invokeWithTimeout                            (", "async function loadHomeRanking(");
     const wrapperStart = source.indexOf(wrapper);
-    assert.ok(file === "ui/home.js" && match[1] === "invoke"
+    assert.ok(file === "ui/home.ts" && match[1] === "invoke"
       && match.index >= wrapperStart && match.index < wrapperStart + wrapper.length
       && /^\s*command\s*,\s*args\s*\)/.test(source.slice(offset)),
     `${file}: nonliteral command at offset ${match.index}`);

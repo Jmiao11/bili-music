@@ -2,10 +2,10 @@ import { displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, no
 import { invoke } from "./runtime-api.ts";
 import { musicTabs, result, searchButton, searchKeyword, searchResults, searchStatus, sortModeTabs } from "./player-dom.ts";
 import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, searchState } from "./player-state.ts";
-import { bindTrackActivation } from "./video-pages.js";
+import { bindTrackActivation } from "./video-pages.ts";
 import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./playback-core.js";
 
-function readLastSearchKeyword() {
+function readLastSearchKeyword(): string {
   try {
     const value = localStorage.getItem(LAST_SEARCH_KEY);
     return typeof value === "string" ? value.trim().slice(0, 100) : "";
@@ -14,7 +14,7 @@ function readLastSearchKeyword() {
   }
 }
 
-function saveLastSearchKeyword(keyword) {
+function saveLastSearchKeyword(keyword: string): void {
   try {
     localStorage.setItem(LAST_SEARCH_KEY, keyword);
   } catch (error) {
@@ -22,13 +22,13 @@ function saveLastSearchKeyword(keyword) {
   }
 }
 
-function setSearchResults(videos) {
+function setSearchResults(videos: readonly CommandContract.SearchVideo[]): void {
   searchState.results = videos.map(normalizeTrack);
   renderSearchResults();
   updateQueueUi();
 }
 
-function renderSearchResults() {
+function renderSearchResults(): void {
   searchResults.replaceChildren();
 
   searchState.results.forEach((video, index) => {
@@ -98,13 +98,13 @@ function renderSearchResults() {
   updateQueueUi();
 }
 
-function recordSearchHistoryFireAndForget(keyword) {
+function recordSearchHistoryFireAndForget(keyword: string): void {
   invoke("record_search_history", { keyword }).catch((error) => {
     console.warn("record_search_history failed:", error);
   });
 }
 
-function updateMusicTabs() {
+function updateMusicTabs(): void {
   for (const tab of musicTabs) {
     const selected = Number(tab.dataset.tids) === searchState.tids;
     tab.classList.toggle("is-active", selected);
@@ -112,7 +112,7 @@ function updateMusicTabs() {
   }
 }
 
-function updateSortModeTabs() {
+function updateSortModeTabs(): void {
   for (const tab of sortModeTabs) {
     const selected = tab.dataset.sortMode === searchState.sortMode;
     tab.classList.toggle("is-active", selected);
@@ -120,7 +120,7 @@ function updateSortModeTabs() {
   }
 }
 
-function currentSearchRequest(userKeyword) {
+function currentSearchRequest(userKeyword: string) {
   const trimmed = userKeyword.trim();
   if (trimmed) {
     return {
@@ -142,7 +142,7 @@ async function runSearch({
   userKeyword = searchKeyword.value.trim(),
   recordHistory = false,
   restored = false,
-} = {}) {
+}: { userKeyword?: string; recordHistory?: boolean; restored?: boolean } = {}): Promise<void> {
   const query = currentSearchRequest(userKeyword);
   searchButton.disabled = true;
   if (query.userKeyword) {
@@ -162,7 +162,7 @@ async function runSearch({
   searchState.isLoadingMore = false;
 
   try {
-    const payload = {
+    const payload: CommandMap["search_videos"]["args"] = {
       keyword: searchState.requestKeyword,
       page: 1,
       tids: searchState.tids,
@@ -212,7 +212,7 @@ async function runSearch({
   }
 }
 
-async function loadMoreSearchResults() {
+async function loadMoreSearchResults(): Promise<void> {
   if (
     !searchState.requestKeyword ||
     !searchState.hasMore ||
@@ -227,7 +227,7 @@ async function loadMoreSearchResults() {
   searchStatus.textContent = `正在加载第 ${nextPage} 页…`;
 
   try {
-    const payload = {
+    const payload: CommandMap["search_videos"]["args"] = {
       keyword: searchState.requestKeyword,
       page: nextPage,
       tids: searchState.tids,
