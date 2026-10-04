@@ -1,3 +1,6 @@
+type ShortcutAction = keyof CommandContract.ShortcutBindings;
+type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
+
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
 import { choosePlaylistAndAdd } from "./library-ui.ts";
 import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.ts";
@@ -28,7 +31,7 @@ const SHUFFLE_COLLECTION_LIMIT_KEY = "bilibili-music.shuffle-collection-limit";
 let userVolume = 1.0;
 let normalizationGain = 1.0;
 let loudnessNormalizationEnabled = false;
-let normalizationAnimationFrame = null;
+let normalizationAnimationFrame: number | null = null;
 
 const root = document.documentElement;
 const navItems = [...document.querySelectorAll<HTMLButtonElement>(".nav-item[data-view]")];
@@ -65,7 +68,7 @@ const audioCacheUsage = document.querySelector<HTMLElement>("#audio-cache-usage"
 const audioCacheStatus = document.querySelector<HTMLElement>("#audio-cache-status");
 const clearAudioCacheButton = document.querySelector<HTMLButtonElement>("#clear-audio-cache-button");
 let audioCacheSettings: CommandContract.AudioCacheSettings | null = null;
-let audioCacheStatusTimer = null;
+let audioCacheStatusTimer: ReturnType<typeof window.setTimeout> | null = null;
 const clearSearchHistoryButton = document.querySelector<HTMLButtonElement>("#clear-search-history-button");
 const exportDataButton = document.querySelector<HTMLButtonElement>("#export-data-button");
 const importDataButton = document.querySelector<HTMLButtonElement>("#import-data-button");
@@ -76,8 +79,8 @@ const aiApiKeyInput = document.querySelector<HTMLInputElement>("#ai-api-key-inpu
 const saveAiConfigButton = document.querySelector<HTMLButtonElement>("#save-ai-config-button");
 const testAiConnectionButton = document.querySelector<HTMLButtonElement>("#test-ai-connection-button");
 const aiConfigStatus = document.querySelector<HTMLElement>("#ai-config-status");
-const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-shortcut-action]")];
-const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-shortcut-clear]")];
+const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutAction: ShortcutAction } }>("[data-shortcut-action]")];
+const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutClear: ShortcutAction } }>("[data-shortcut-clear]")];
 let shortcutBindings: CommandContract.ShortcutBindings = {
   previous: null,
   playPause: null,
@@ -85,7 +88,7 @@ let shortcutBindings: CommandContract.ShortcutBindings = {
   volumeUp: null,
   volumeDown: null,
 };
-let recordingShortcutAction = null;
+let recordingShortcutAction: ShortcutAction | null = null;
 
 const playerAudio = document.querySelector<HTMLAudioElement>("#audio");
 const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button");
@@ -125,7 +128,7 @@ let currentTrack: CurrentTrackDetail = {
   hasCurrent: false,
 };
 
-const viewLabels = {
+const viewLabels: Partial<Record<string, string>> = {
   favorites: "我的收藏",
   playlists: "我的歌单",
   local: "本地音乐",
@@ -142,7 +145,7 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   return Math.min(Math.max(number, min), max);
 }
 
-function isShortcutModifierCode(code) {
+function isShortcutModifierCode(code: string) {
   return /^(Control|Alt|Shift|Meta)(Left|Right)$/.test(code);
 }
 
@@ -185,7 +188,7 @@ function shortcutFromKeyboardEvent(event: KeyboardEvent) {
   return [...modifiers, key].join("+");
 }
 
-function shortcutDisplayLabel(binding) {
+function shortcutDisplayLabel(binding: string | null | undefined) {
   if (!binding) {
     return "未设置";
   }
@@ -214,11 +217,11 @@ function shortcutDisplayLabel(binding) {
     .join("+");
 }
 
-function shortcutButtonFor(action) {
+function shortcutButtonFor(action: ShortcutAction) {
   return shortcutRecordButtons.find((button) => button.dataset.shortcutAction === action);
 }
 
-function renderShortcutButton(action) {
+function renderShortcutButton(action: ShortcutAction) {
   const button = shortcutButtonFor(action);
   if (button) {
     button.textContent = shortcutDisplayLabel(shortcutBindings[action]);
@@ -263,7 +266,7 @@ function cancelShortcutRecording() {
   window.removeEventListener("blur", cancelShortcutRecording);
 }
 
-function startShortcutRecording(action) {
+function startShortcutRecording(action: ShortcutAction) {
   cancelShortcutRecording();
   recordingShortcutAction = action;
   const button = shortcutButtonFor(action);
@@ -275,7 +278,7 @@ function startShortcutRecording(action) {
   window.addEventListener("blur", cancelShortcutRecording);
 }
 
-async function saveShortcutBinding(action, value) {
+async function saveShortcutBinding(action: ShortcutAction, value: string | null) {
   const nextBindings = { ...shortcutBindings, [action]: value };
   try {
     await invokeAppearance("set_shortcuts", { bindings: nextBindings });
@@ -306,7 +309,7 @@ async function initializeShortcutSettings() {
   }
 }
 
-function streamSourceLabel(source) {
+function streamSourceLabel(source: string) {
   if (source === "guest") {
     return "当前：游客直连";
   }
@@ -343,7 +346,7 @@ async function refreshYtDlpAvailability() {
   return ytDlpAvailable;
 }
 
-function formatPlaybackTime(value) {
+function formatPlaybackTime(value: number) {
   if (!Number.isFinite(value) || value < 0) {
     return "0:00";
   }
@@ -439,7 +442,7 @@ function syncMediaSessionPosition() {
   });
 }
 
-function shouldForwardMediaSessionAction(action, paused) {
+function shouldForwardMediaSessionAction(action: string, paused: boolean) {
   return action === "play" ? paused : action === "pause" && !paused;
 }
 
@@ -503,8 +506,8 @@ function registerMediaSessionActionHandlers() {
 
 function initializeTaskbarControls() {
   let disposed = false;
-  let unlisten = null;
-  let lastReported = null;
+  let unlisten: Unlisten | null = null;
+  let lastReported: boolean | null = null;
   let reports = Promise.resolve();
   const events = ["play", "pause", "ended", "emptied", "error"];
 
@@ -526,7 +529,7 @@ function initializeTaskbarControls() {
     });
   };
 
-  const stopListening = (stop) => {
+  const stopListening = (stop: Unlisten) => {
     Promise.resolve(stop()).catch((error) => {
       console.warn("[taskbar] event cleanup failed:", error);
     });
@@ -570,9 +573,9 @@ function initializeTaskbarControls() {
 
 function initializeGlobalShortcutControls() {
   let disposed = false;
-  let unlisten = null;
+  let unlisten: Unlisten | null = null;
 
-  const stopListening = (stop) => {
+  const stopListening = (stop: Unlisten) => {
     Promise.resolve(stop()).catch((error) => {
       console.warn("[shortcut] event cleanup failed:", error);
     });
@@ -787,11 +790,11 @@ function closeSettings() {
   settingsModal.setAttribute("aria-hidden", "true");
 }
 
-function setActiveView(view) {
+function setActiveView(view: string) {
   for (const item of navItems) {
     item.classList.toggle("active", item.dataset.view === view);
   }
-  const realViews = {
+  const realViews: Partial<Record<string, HTMLElement>> = {
     home: homeView,
     search: searchView,
     favorites: favoritesView,
@@ -813,8 +816,8 @@ function setActiveView(view) {
   );
 }
 
-function normalizeAccentColor(value) {
-  return typeof value === "string" && Object.hasOwn(ACCENT_COLORS, value) ? value : "pink";
+function normalizeAccentColor(value: unknown): keyof typeof ACCENT_COLORS {
+  return typeof value === "string" && Object.hasOwn(ACCENT_COLORS, value) ? value as keyof typeof ACCENT_COLORS : "pink";
 }
 
 function readAccentColor() {
@@ -825,11 +828,11 @@ function readAccentColor() {
   }
 }
 
-function accentChannels(color, theme) {
+function accentChannels(color: unknown, theme: string | null | undefined) {
   return ACCENT_COLORS[normalizeAccentColor(color)][theme === "light" ? "light" : "dark"];
 }
 
-function applyAccentColor(value, persist = true) {
+function applyAccentColor(value: unknown, persist = true) {
   const color = normalizeAccentColor(value);
   currentAccentColor = color;
   accentChannels(color, root.dataset.theme).forEach((channel, index) => {
@@ -858,7 +861,7 @@ function initializeAccentColor() {
     .observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
-function applyTheme(theme, persist = true) {
+function applyTheme(theme: string, persist = true) {
   const safeTheme = ["dark", "light", "image", "dynamic"].includes(theme) ? theme : "dark";
   root.dataset.theme = safeTheme;
   for (const option of themeOptions) {
@@ -885,7 +888,7 @@ function applyTheme(theme, persist = true) {
   }
 }
 
-function setGlassBlur(value, persist = true) {
+function setGlassBlur(value: unknown, persist = true) {
   const safeValue = clampNumber(value, 0, 80, 40);
   root.style.setProperty("--glass-blur", `${safeValue}px`);
   glassBlurSlider.value = String(safeValue);
@@ -895,7 +898,7 @@ function setGlassBlur(value, persist = true) {
   }
 }
 
-function setPanelAlpha(value, persist = true) {
+function setPanelAlpha(value: unknown, persist = true) {
   panelAlphaSlider.min = "20";
   const safeValue = clampNumber(value, 20, 100, 72);
   root.style.setProperty("--panel-alpha", String(safeValue / 100));
@@ -906,7 +909,7 @@ function setPanelAlpha(value, persist = true) {
   }
 }
 
-function setBackgroundDim(value, persist = true) {
+function setBackgroundDim(value: unknown, persist = true) {
   backgroundDimSlider.min = "40";
   const safeValue = clampNumber(value, 40, 95, 90);
   root.style.setProperty("--background-dim", String(safeValue / 100));
@@ -983,7 +986,7 @@ function updateAiConfigStatus(config: CommandContract.AiConfigView) {
   aiConfigStatus.textContent = keyText;
 }
 
-const AI_BASE_URL_PLACEHOLDERS = {
+const AI_BASE_URL_PLACEHOLDERS: Partial<Record<string, string>> = {
   "openai-chat-completions": "https://api.openai.com/v1",
   "openai-responses": "https://api.openai.com/v1",
   "anthropic-messages": "https://api.anthropic.com/v1",
@@ -1089,7 +1092,7 @@ async function openCurrentBilibiliVideo() {
   }
 }
 
-function applyVolume(value, persist = true) {
+function applyVolume(value: unknown, persist = true) {
   const safeValue = clampNumber(value, 0, 1, 1);
   if (normalizationAnimationFrame !== null) {
     cancelAnimationFrame(normalizationAnimationFrame);
@@ -1104,7 +1107,7 @@ function applyVolume(value, persist = true) {
   }
 }
 
-function adjustVolumeByStep(direction) {
+function adjustVolumeByStep(direction: number) {
   const nextVolume = Math.min(
     1,
     Math.max(0, userVolume + direction * GLOBAL_SHORTCUT_VOLUME_STEP),
@@ -1116,7 +1119,7 @@ function updateEffectiveVolume() {
   playerAudio.volume = clampNumber(userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1), 0, 1, 1);
 }
 
-function setNormalizationGain(gain) {
+function setNormalizationGain(gain: unknown) {
   if (normalizationAnimationFrame !== null) {
     cancelAnimationFrame(normalizationAnimationFrame);
     normalizationAnimationFrame = null;
@@ -1131,8 +1134,8 @@ function setNormalizationGain(gain) {
   );
   if (startVolume === targetVolume) return;
 
-  let startedAt = null;
-  const step = (now) => {
+  let startedAt: number | null = null;
+  const step = (now: number) => {
     startedAt ??= now;
     const progress = Math.min(1, (now - startedAt) / 250);
     playerAudio.volume = startVolume + (targetVolume - startVolume) * progress;
@@ -1149,7 +1152,7 @@ function isLoudnessNormalizationEnabled() {
   return loudnessNormalizationEnabled;
 }
 
-function applyLoudnessNormalization(enabled, persist = true) {
+function applyLoudnessNormalization(enabled: unknown, persist = true) {
   loudnessNormalizationEnabled = enabled === true;
   loudnessNormalizationToggle.checked = loudnessNormalizationEnabled;
   setNormalizationGain(1);
