@@ -80,7 +80,7 @@ const playbackNoneInput: CommandMap["save_playback_state"]["args"] = { state: fi
 const bindingsSomeInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtureShortcutBindingsSome };
 const bindingsNoneInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtureShortcutBindingsNone };
 const bindingsOmittedInput: CommandMap["set_shortcuts"]["args"] = { bindings: {} };
-const commandResults = {
+const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   read_public_favorite_page: fixtureImportPage,
   create_imported_playlist: fixturePlaylist,
   set_taskbar_playback_state: null,
