@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require("./helpers/module-syntax.cjs");
 const vm = require('node:vm');
-const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'), 'utf8');
+const source = readFileSync(require('node:path').join(__dirname, '../ui/main.ts'), 'utf8');
 const core = readFileSync(require('node:path').join(__dirname, '../ui/playback-core.ts'), 'utf8');
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const noticeSource = readFileSync(require('node:path').join(__dirname, '../ui/playback-notice.ts'), 'utf8');
@@ -134,7 +134,7 @@ test('manual boundary preserves pending resume; successful page change clears st
   c.nextButton = { addEventListener: (_, fn) => { handlers.next = fn; } };
   c.retreatPageWithinCurrentBv = () => false;
   c.advancePageWithinCurrentBv = () => false;
-  vm.runInContext(sourceSlice(source, "ui/main.js", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), c);
+  vm.runInContext(sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), c);
   handlers.previous(); handlers.next();
   assert.deepEqual(pendingResume, { positionSeconds: 42 });
   c.advancePageWithinCurrentBv = () => true;

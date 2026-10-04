@@ -10,7 +10,7 @@
     "../../ui/window-controls.js",
     "../../ui/dynamic-background.js",
     "../../ui/app.js",
-    "../../ui/main.js",
+    "../../ui/main.ts",
     "../../ui/runtime-api.ts",
     "../../ui/player-dom.ts",
     "../../ui/player-state.ts",

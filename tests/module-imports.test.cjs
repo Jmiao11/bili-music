@@ -7,7 +7,7 @@ const { moduleDeclarations } = require("./helpers/module-syntax.cjs");
 const { topLevelNames, references } = require("./helpers/module-bindings.cjs");
 const { maskCommentsAndStrings } = require("./helpers/js-source.cjs");
 
-const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts", "playback-core.ts", "main.js", "appearance.ts"];
+const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts", "playback-core.ts", "main.ts", "appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([

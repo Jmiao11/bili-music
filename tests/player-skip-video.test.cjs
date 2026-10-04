@@ -5,7 +5,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8");
 const html = readFileSync(path.join(__dirname, "../ui/index.html"), "utf8");
 
@@ -53,7 +53,7 @@ test("skip video calls playNext directly and clears state only on a successful s
     clearPendingResume: () => calls.push(["clearPendingResume"]),
     clearPlaybackNotice: () => calls.push(["clearPlaybackNotice"]),
   });
-  vm.runInContext(sourceSlice(source, "ui/main.js", "playerPagesButton?.addEventListener(\"click\"", "initPlaybackResume();"), context);
+  vm.runInContext(sourceSlice(source, "ui/main.ts", "playerPagesButton?.addEventListener(\"click\"", "initPlaybackResume();"), context);
   handlers.skip();
   assert.deepEqual(calls, [
     ["playNext", []], ["clearPendingResume"], ["clearPlaybackNotice"],

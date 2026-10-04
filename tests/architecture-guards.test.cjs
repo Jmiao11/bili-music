@@ -209,9 +209,9 @@ test("state fields are written only by approved scripts", () => {
   // A textual scan cannot detect writes through aliases, e.g. const q = playerState.queue; q.push(x).
   const allowedWriters = {
     playerState: new Set(["playback-core.ts"]),
-    searchState: new Set(["main.js", "playback-core.ts", "search.ts"]),
+    searchState: new Set(["main.ts", "playback-core.ts", "search.ts"]),
     libraryState: new Set(["playback-core.ts", "library-ui.ts", "video-pages.ts"]),
-    homeState: new Set(["main.js", "home.ts"]),
+    homeState: new Set(["main.ts", "home.ts"]),
   };
   const unexpected = [];
   for (const script of scripts) {

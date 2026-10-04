@@ -5,7 +5,7 @@ const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { maskCommentsAndStrings, topLevelStatements } = require("./helpers/js-source.cjs");
 
 test("main initializes playback notice once after diagnostics and before search listeners", () => {
-  const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+  const source = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
   const code = maskCommentsAndStrings(source);
   assert.equal([...code.matchAll(/\binitPlaybackNotice\s*\(/g)].length, 1);
   assert.equal([...code.matchAll(/\binitPlaybackDiagnostics\s*\(/g)].length, 1);

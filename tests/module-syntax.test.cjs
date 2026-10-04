@@ -40,7 +40,7 @@ test("module stripping changes only declaration lines and preserves every other 
 });
 
 test("single and multiline named declarations and side-effect imports preserve lines", () => {
-  const source = 'import { a, b } from "./a.js";\nimport {\n  c,\n  d\n} from "./b.js";\nimport "./main.js";\nconst x = 1;\nexport {\n x\n};\n';
+  const source = 'import { a, b } from "./a.js";\nimport {\n  c,\n  d\n} from "./b.js";\nimport "./main.ts";\nconst x = 1;\nexport {\n x\n};\n';
   const stripped = stripModuleSyntax(source);
   assert.equal(stripped, "\n\n\n\n\n\nconst x = 1;\n\n\n\n");
   assert.equal(stripped.split("\n").length, source.split("\n").length);

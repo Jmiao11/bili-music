@@ -6,7 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "utf8");
-const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const main = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
 const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
@@ -18,8 +18,8 @@ const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurr
   + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
   + sourceSlice(core, "ui/playback-core.ts", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
 const cacheListenerCode = sourceSlice(core, "ui/playback-core.ts", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
-  + sourceSlice(main, "ui/main.js", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
-const endedHandlerCode = sourceSlice(main, "ui/main.js", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
+  + sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
+const endedHandlerCode = sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");

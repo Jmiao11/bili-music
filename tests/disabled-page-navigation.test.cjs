@@ -5,7 +5,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.ts"), "utf8");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
@@ -110,7 +110,7 @@ function navigationContext(disabledCids, loopMode = "sequence") {
 
 test("manual next and previous skip consecutive disabled pages", () => {
   const { context, state, loads, handlers } = navigationContext([2, 3]);
-  vm.runInContext(sourceSlice(source, "ui/main.js", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), context);
+  vm.runInContext(sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), context);
   handlers.next();
   assert.equal(state.currentPageIndex, 3);
   handlers.previous();
@@ -120,7 +120,7 @@ test("manual next and previous skip consecutive disabled pages", () => {
 
 test("natural end skips disabled pages, while single loop repeats the current page", () => {
   const { context, state, loads, handlers } = navigationContext([1, 2, 3]);
-  vm.runInContext(sourceSlice(source, "ui/main.js", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
+  vm.runInContext(sourceSlice(source, "ui/main.ts", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
   handlers.ended({ timeStamp: 1 });
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 1);

@@ -5,7 +5,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const main = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "utf8");

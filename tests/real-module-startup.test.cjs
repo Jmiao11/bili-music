@@ -13,7 +13,7 @@ test("real module graph dispatches once during main before appearance starts onc
   const dispatches = changes.filter((event) => event.action === "dispatch");
   assert.equal(dispatches.length, 1);
   assert.match(dispatches[0].stack, /emitCurrentTrackChanged .*playback-core\.ts/);
-  assert.match(dispatches[0].stack, /at file:.*\/main\.js:\d+:\d+/);
+  assert.match(dispatches[0].stack, /at file:.*\/main\.ts:\d+:\d+/);
   const mainListener = changes.find((event) => event.action === "listen" && /\/playback-core\.ts:/.test(event.stack));
   const appearanceListener = changes.find((event) => event.action === "listen" && /startAppearance .*appearance\.ts/.test(event.stack));
   assert.ok(mainListener);

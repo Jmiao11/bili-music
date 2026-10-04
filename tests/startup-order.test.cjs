@@ -29,12 +29,12 @@ test("initial trackchange recipients retain their installation phases", () => {
 });
 
 test("main's last executable statement synchronously dispatches initial trackchange", () => {
-  const executable = topLevelStatements(read("main.js")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
+  const executable = topLevelStatements(read("main.ts")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
   assert.equal(executable.at(-1).text.trim(), "emitCurrentTrackChanged();");
 });
 
 test("document lifecycle dependencies retain their current file inventory", () => {
-  const files = readdirSync(ui).filter((file) => file.endsWith(".js")).sort();
+  const files = readdirSync(ui).filter((file) => /\.(?:js|ts)$/.test(file)).sort();
   const inventory = { readyState: [], currentScript: [], DOMContentLoaded: [], load: [] };
   for (const file of files) {
     const source = read(file);
@@ -49,7 +49,7 @@ test("document lifecycle dependencies retain their current file inventory", () =
     if (/\.onload\s*=/.test(code) && !inventory.load.includes(file)) inventory.load.push(file);
   }
   assert.deepEqual(inventory, {
-    readyState: [], currentScript: [], DOMContentLoaded: ["main.js", "sidebar.js"], load: ["dynamic-background.js"],
+    readyState: [], currentScript: [], DOMContentLoaded: ["main.ts", "sidebar.js"], load: ["dynamic-background.js"],
   });
 });
 

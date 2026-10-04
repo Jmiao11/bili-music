@@ -226,14 +226,14 @@ test("expired token network error after a long pause re-resolves the same page a
       return prepareResult.promise;
     },
   });
-  const mainSource = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+  const mainSource = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
   const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise =", "let pendingPastedBvPages =")
     + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
     + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
     + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
     + sourceSlice(source, "ui/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
     + "\ninitPlaybackAudioIdentity();\n"
-    + sourceSlice(mainSource, "ui/main.js", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
+    + sourceSlice(mainSource, "ui/main.ts", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
   vm.runInContext(chain, context);
   await audio.play();
   audio.dispatchEvent(new Event("playing"));
