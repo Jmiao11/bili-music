@@ -1,6 +1,7 @@
 const DYNAMIC_DEFAULT_PALETTE = ["rgb(28, 32, 40)", "rgb(38, 32, 42)", "rgb(28, 39, 39)"];
 
 // H 为角度，S / L 为 0–1；只在一次取色任务中转换，不参与逐帧动画。
+/** @param {number[]} rgb */
 function rgbToHsl(rgb) {
   const [r, g, b] = rgb.map((value) => value / 255);
   const max = Math.max(r, g, b);
@@ -12,6 +13,7 @@ function rgbToHsl(rgb) {
   return [(hue * 60 + 360) % 360, delta / (1 - Math.abs(2 * lightness - 1)), lightness];
 }
 
+/** @param {number[]} hsl */
 function hslToRgb([hue, saturation, lightness]) {
   const sector = ((hue % 360) + 360) % 360 / 60;
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
@@ -23,13 +25,16 @@ function hslToRgb([hue, saturation, lightness]) {
   return rgb.map((value) => Math.round((value + offset) * 255));
 }
 
+/** @param {number} a @param {number} b */
 function hueDistance(a, b) {
   const distance = Math.abs(a - b) % 360;
   return Math.min(distance, 360 - distance);
 }
 
+/** @param {Uint8ClampedArray | Uint8Array} pixels */
 function extractDynamicPalette(pixels) {
   // 32×32 样本，RGB 每通道量化为 8 档；最多 512 个桶，无需聚类库。
+  /** @type {Map<number, number[]>} */
   const buckets = new Map();
   for (let i = 0; i < pixels.length; i += 4) {
     const [r, g, b, alpha] = pixels.subarray(i, i + 4);
@@ -43,6 +48,7 @@ function extractDynamicPalette(pixels) {
     buckets.set(key, bucket);
   }
   if (!buckets.size) return DYNAMIC_DEFAULT_PALETTE;
+  /** @type {number[][]} */
   const selected = [];
   for (const bucket of [...buckets.values()].sort((a, b) => b[3] - a[3])) {
     const color = bucket.slice(0, 3).map((value) => value / bucket[3]);
@@ -66,20 +72,27 @@ function extractDynamicPalette(pixels) {
 function initializeDynamicBackground() {
   const root = document.documentElement;
   const backdrop = document.querySelector(".dynamic-background");
-  const layers = [...backdrop.children];
+  const layers = /** @type {HTMLElement[]} */ ([...backdrop.children]);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let source = "";
+  /** @type {string | null} */
   let cachedSource = null;
   let cachedPalette = DYNAMIC_DEFAULT_PALETTE;
   let active = false;
   let version = 0;
+  /** @type {HTMLImageElement | null} */
   let loadingImage = null;
+  /** @type {number | null} */
   let loadTimer = null;
+  /** @type {number | null} */
   let idleTask = null;
+  /** @type {number | null} */
   let fadeTimer = null;
+  /** @type {string[] | null} */
   let queuedPalette = null;
   let front = 0;
 
+  /** @param {HTMLElement} layer @param {string[]} palette */
   function paint(layer, palette) {
     palette.forEach((color, index) => layer.style.setProperty(`--dynamic-color-${index + 1}`, color));
   }
@@ -94,6 +107,7 @@ function initializeDynamicBackground() {
     }
   }
 
+  /** @param {string[]} palette */
   function show(palette) {
     if (reducedMotion.matches) {
       queuedPalette = null;
@@ -140,6 +154,7 @@ function initializeDynamicBackground() {
     }
     const ticket = version;
     const requestedSource = source;
+    /** @param {string[]} palette */
     function finish(palette) {
       if (ticket !== version || !active) return;
       version++;
