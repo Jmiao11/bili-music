@@ -7,12 +7,12 @@ const { moduleDeclarations } = require("./helpers/module-syntax.cjs");
 const { topLevelNames, references } = require("./helpers/module-bindings.cjs");
 const { maskCommentsAndStrings } = require("./helpers/js-source.cjs");
 
-const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js", "playback-core.js", "main.js", "appearance.js"];
+const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.js", "playback-diagnostics.js", "home.js", "library-ui.js", "video-pages.js", "search.js", "playback-core.js", "main.js", "appearance.js"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
   ["track-utils.ts:result", "unavailableTrackLocations local Map"],
-  ["playback-policy.js:result", "shuffled local array"],
+  ["playback-policy.ts:result", "shuffled local array"],
   ["home.js:title", "showHomeNotice parameter"],
   ["library-ui.js:result", "toggle, purge and favorite-import local results"],
   ["library-ui.js:title", "openLibraryModal parameter and purge row local element"],

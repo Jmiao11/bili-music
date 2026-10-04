@@ -9,7 +9,7 @@ const read = (file) => readFileSync(path.join(__dirname, "../ui", file), "utf8")
 const main = read("playback-core.js");
 const search = read("search.js");
 const state = read("player-state.ts");
-const policy = read("playback-policy.js");
+const policy = read("playback-policy.ts");
 const slice = (start, end) => sourceSlice(main, "ui/playback-core.js", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const searchState =").replace(/\n\n$/, "\n")
   + sourceSlice(state, "ui/player-state.ts", "const searchState =", "const LAST_SEARCH_KEY")
@@ -17,10 +17,10 @@ const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState ="
   + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const favoriteDragState =");
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
-  + sourceSlice(policy, "ui/playback-policy.js", "function shuffled(", "function readShuffleCollectionPrefs(")
+  + sourceSlice(policy, "ui/playback-policy.ts", "function shuffled(", "function readShuffleCollectionPrefs(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")
-  + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + slice("function waitForAudioMetadata()", "function recoveryAttemptsFor(")
   + slice("function waitForRecoveryMetadata(", "async function recoverCurrentAudio(")
   + slice("async function loadCurrentTrack(", "function playBvId(")

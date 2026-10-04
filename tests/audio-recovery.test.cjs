@@ -7,8 +7,8 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8");
-const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.js"), "utf8");
-const decision = sourceSlice(policy, "ui/playback-policy.js", "function shouldRecoverAudio(", "// 与 src-tauri/")
+const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
+const decision = sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
   + sourceSlice(source, "ui/playback-core.js", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
 const metadataWait = sourceSlice(source, "ui/playback-core.js", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
 const recoverCurrentAudio = sourceSlice(source, "ui/playback-core.js", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
@@ -229,7 +229,7 @@ test("expired token network error after a long pause re-resolves the same page a
   const mainSource = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
   const chain = sourceSlice(source, "ui/playback-core.js", "let recoveryPromise =", "let pendingPastedBvPages =")
     + sourceSlice(source, "ui/playback-core.js", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
-    + sourceSlice(policy, "ui/playback-policy.js", "function shouldRecoverAudio(", "// 与 src-tauri/")
+    + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
     + sourceSlice(source, "ui/playback-core.js", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
     + sourceSlice(source, "ui/playback-core.js", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
     + "\ninitPlaybackAudioIdentity();\n"

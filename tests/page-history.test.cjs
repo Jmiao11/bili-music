@@ -7,7 +7,7 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
-const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
+const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
 const slice = (start, end, options) => sourceSlice(start.startsWith("function") || start.startsWith("shuffleToggle") ? core : source, start.startsWith("function") || start.startsWith("shuffleToggle") ? "ui/playback-core.js" : "ui/main.js", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
 
@@ -52,7 +52,7 @@ test("only random page advancement adds a page-level history entry", () => {
     currentVideoPage: () => pages[state.currentPageIndex],
     updatePlayerPagesButton() {}, loadCurrentTrack() {},
   });
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
   vm.runInContext("Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
@@ -139,7 +139,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     playQueueIndex: (index, options) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "function initPlaybackSearch(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')

@@ -1,4 +1,4 @@
-import { readShuffleCollectionPrefs } from "./playback-policy.js";
+import { readShuffleCollectionPrefs } from "./playback-policy.ts";
 import { choosePlaylistAndAdd } from "./library-ui.js";
 import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.js";
 
