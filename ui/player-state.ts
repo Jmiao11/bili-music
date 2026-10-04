@@ -1,3 +1,6 @@
+type NormalizedTrack = ReturnType<typeof import("./track-utils.ts").normalizeTrack>;
+type ListDrag = { index: number; row: HTMLElement; target: HTMLElement | null };
+
 const LOOP_MODES: { id: string; label: string }[] = [
   { id: "sequence", label: "顺序播放" },
   { id: "list", label: "列表循环" },
@@ -19,7 +22,7 @@ const MUSIC_HOT_KEYWORD = "音乐";
 const PLAYBACK_STATE_SAVE_INTERVAL_MS: number = 15_000;
 
 const playerState = {
-  queue: [],
+  queue: [] as NormalizedTrack[],
   queueSource: "none",
   queueSearchVersion: null as number | null,
   queuePlaylistId: null as string | null,
@@ -27,24 +30,24 @@ const playerState = {
   loopMode: "sequence",
   shuffle: false,
   randomRemaining: [] as number[],
-  history: [],
+  history: [] as { index: number; cid: number | null; pageLevel?: boolean }[],
   requestVersion: 0,
   activeAudioVersion: -1,
   activeAudioUrl: "",
   audioActivatedAt: Number.POSITIVE_INFINITY,
   consecutiveResolveFailures: 0,
-  currentPages: [],
+  currentPages: [] as CommandContract.VideoPage[],
   currentPageIndex: 0,
-  currentDisplayTrack: null,
+  currentDisplayTrack: null as (CommandContract.TrackSnapshotInput & { hasCurrent: boolean }) | null,
   lastEmittedTrackIdentity: "",
 };
 
 const searchState = {
-  results: [],
+  results: [] as NormalizedTrack[],
   userKeyword: "",
   requestKeyword: "",
   tids: DEFAULT_MUSIC_TIDS,
-  order: null,
+  order: null as string | null,
   rerank: true,
   sortMode: "all",
   page: 0,
@@ -57,8 +60,8 @@ const LAST_SEARCH_KEY = "bilibili-music.last-search";
 
 const homeState = {
   mode: "recommendation",
-  ranking: [],
-  recommendations: [],
+  ranking: [] as NormalizedTrack[],
+  recommendations: [] as NormalizedTrack[],
   loaded: false,
   loading: false,
   error: "",
@@ -70,9 +73,9 @@ const homeState = {
 };
 
 const libraryState = {
-  favorites: [],
+  favorites: [] as CommandContract.TrackSnapshot[],
   favoriteBvids: new Set<string>(),
-  playlists: [],
+  playlists: [] as CommandContract.Playlist[],
   unavailableBvids: new Map<string, string>(),
   disabledPages: new Map<string, Set<number>>(),
   disabledPagePending: new Map<string, number>(),
@@ -81,19 +84,19 @@ const libraryState = {
 };
 
 const favoriteDragState = {
-  drag: null,
+  drag: null as ListDrag | null,
   saving: false,
   suppressClickUntil: 0,
 };
 
 const playlistDragState = {
-  drag: null,
+  drag: null as (ListDrag & { playlistId: string }) | null,
   saving: false,
   suppressClickUntil: 0,
 };
 
 const playlistListDragState = {
-  drag: null,
+  drag: null as ListDrag | null,
   saving: false,
   suppressClickUntil: 0,
 };

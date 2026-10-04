@@ -1,3 +1,5 @@
+type TrackInput = Partial<CommandContract.SearchVideo & CommandContract.TrackSnapshot>;
+
 function playbackFailureMessage(error: unknown, isPage: boolean = false): string {
   const subject = isPage ? "该分P" : "该视频";
   let message = "";
@@ -76,7 +78,7 @@ function isBvId(value: string): boolean {
   return /^BV[0-9A-Za-z]{10}$/i.test(value.trim());
 }
 
-function shouldOpenPastedBvPages(pending, eventBvid: unknown, currentBvid: unknown, requestVersion: number, pageCount: number): boolean {
+function shouldOpenPastedBvPages(pending: { bvid: string; requestVersion: number } | null, eventBvid: unknown, currentBvid: unknown, requestVersion: number, pageCount: number): boolean {
   const bvid = String(pending?.bvid ?? "").toLowerCase();
   return Boolean(
     bvid && bvid === String(eventBvid ?? "").toLowerCase() &&
@@ -94,7 +96,7 @@ function displayThumbnailUrl(url: string): string {
     .replace(/@[^/?#]*(?=([?#]|$))/, "");
 }
 
-function normalizeTrack(video): CommandContract.SearchVideo & CommandContract.TrackSnapshot {
+function normalizeTrack(video: TrackInput | null | undefined): CommandContract.SearchVideo & CommandContract.TrackSnapshot {
   const playCount = Number(video?.playCount);
   const pubdate = Number(video?.pubdate);
   return {
@@ -115,7 +117,7 @@ function normalizeTrack(video): CommandContract.SearchVideo & CommandContract.Tr
   };
 }
 
-function snapshotForLibrary(video): CommandContract.TrackSnapshotInput {
+function snapshotForLibrary(video: TrackInput | null | undefined): CommandContract.TrackSnapshotInput {
   const track = normalizeTrack(video);
   return {
     bvid: track.bvid,
@@ -126,7 +128,7 @@ function snapshotForLibrary(video): CommandContract.TrackSnapshotInput {
   };
 }
 
-function normalizeVideoPage(page, index: number): CommandContract.VideoPage {
+function normalizeVideoPage(page: Partial<CommandContract.VideoPage & CommandContract.PageMeta> | null | undefined, index: number): CommandContract.VideoPage {
   return {
     page: Math.max(1, Math.round(Number(page?.page) || index + 1)),
     cid: Number(page?.cid) || 0,
@@ -138,7 +140,7 @@ function normalizeVideoPage(page, index: number): CommandContract.VideoPage {
   };
 }
 
-function buildDisplayTrack(video, info, page) {
+function buildDisplayTrack(video: TrackInput | null | undefined, info: CommandContract.AudioResponse, page: CommandContract.VideoPage | null) {
   const base = normalizeTrack(video);
   if (!page) {
     return null;
@@ -153,7 +155,7 @@ function buildDisplayTrack(video, info, page) {
   };
 }
 
-function playbackTrackSnapshot(video): CommandContract.TrackSnapshot {
+function playbackTrackSnapshot(video: TrackInput | null | undefined): CommandContract.TrackSnapshot {
   return {
     ...snapshotForLibrary(video),
     addedAt: String(video?.addedAt ?? ""),

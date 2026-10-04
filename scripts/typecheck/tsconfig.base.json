@@ -14,7 +14,7 @@
     "strictFunctionTypes": true,
     "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
