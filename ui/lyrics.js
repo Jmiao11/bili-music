@@ -1,25 +1,43 @@
 (() => {
   "use strict";
 
+  /** @type {HTMLElement | null} */
   const container = document.querySelector(".immersive-lyrics");
+  /** @type {HTMLDivElement | null} */
   const linesElement = document.querySelector("#lyrics-lines");
+  /** @type {HTMLButtonElement | null} */
   const offsetMinusButton = document.querySelector("#lyrics-offset-minus");
+  /** @type {HTMLSpanElement | null} */
   const offsetValueElement = document.querySelector("#lyrics-offset-value");
+  /** @type {HTMLButtonElement | null} */
   const offsetPlusButton = document.querySelector("#lyrics-offset-plus");
+  /** @type {HTMLButtonElement | null} */
   const modeToggleButton = document.querySelector("#lyrics-mode-toggle");
+  /** @type {HTMLParagraphElement | null} */
   const placeholderElement = document.querySelector("#lyrics-placeholder");
+  /** @type {HTMLDivElement | null} */
   const matchElement = document.querySelector("#lyrics-match");
+  /** @type {HTMLParagraphElement | null} */
   const matchHintElement = document.querySelector("#lyrics-match-hint");
+  /** @type {HTMLDivElement | null} */
   const candidatesElement = document.querySelector("#lyrics-candidates");
+  /** @type {HTMLButtonElement | null} */
   const matchManualButton = document.querySelector("#lyrics-match-manual");
+  /** @type {HTMLButtonElement | null} */
   const matchRematchButton = document.querySelector("#lyrics-match-rematch");
+  /** @type {HTMLDivElement | null} */
   const manualRowElement = document.querySelector("#lyrics-manual-row");
+  /** @type {HTMLInputElement | null} */
   const manualInputElement = document.querySelector("#lyrics-manual-input");
+  /** @type {HTMLButtonElement | null} */
   const manualSearchButton = document.querySelector("#lyrics-manual-search");
+  /** @type {HTMLDivElement | null} */
   const manualResultsElement = document.querySelector(
     "#lyrics-manual-results",
   );
+  /** @type {HTMLElement | null} */
   const immersiveTitleElement = document.querySelector("#immersive-title");
+  /** @type {HTMLAudioElement | null} */
   const audio = document.querySelector("#audio");
   const invoke = window.__TAURI__?.core?.invoke;
   const timestampPattern = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
@@ -643,7 +661,7 @@
   });
   matchElement?.addEventListener("focusin", keepMatchVisible);
   matchElement?.addEventListener("focusout", (event) => {
-    if (matchElement.contains(event.relatedTarget)) return;
+    if (matchElement.contains(/** @type {Node | null} */ (event.relatedTarget))) return;
     scheduleMatchIdle(1500);
   });
 

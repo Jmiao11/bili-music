@@ -1,10 +1,15 @@
 const tauriWindowApi = window.__TAURI__?.window;
 const appWindow = tauriWindowApi?.getCurrentWindow?.();
 
+/** @type {HTMLElement | null} */
 const titlebar = document.querySelector(".window-titlebar");
+/** @type {HTMLButtonElement | null} */
 const minimizeButton = document.querySelector("#window-minimize-button");
+/** @type {HTMLButtonElement | null} */
 const maximizeButton = document.querySelector("#window-maximize-button");
+/** @type {HTMLButtonElement | null} */
 const closeButton = document.querySelector("#window-close-button");
+/** @type {NodeListOf<HTMLElement>} */
 const resizeHandles = document.querySelectorAll("[data-resize-direction]");
 
 const resizeDirectionMap = {

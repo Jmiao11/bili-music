@@ -1,21 +1,3 @@
 {
-  "ui/home.ts TS2345: Argument of type '[CommandMap[K][\"args\"]]' is not assignable to parameter of type 'CommandArguments<K>'.": 1,
-  "ui/lyrics.js TS2339: Property 'currentTime' does not exist on type 'Element'.": 2,
-  "ui/lyrics.js TS2339: Property 'disabled' does not exist on type 'Element'.": 4,
-  "ui/lyrics.js TS2339: Property 'focus' does not exist on type 'Element'.": 2,
-  "ui/lyrics.js TS2339: Property 'hidden' does not exist on type 'Element'.": 19,
-  "ui/lyrics.js TS2339: Property 'key' does not exist on type 'Event'.": 1,
-  "ui/lyrics.js TS2339: Property 'relatedTarget' does not exist on type 'Event'.": 1,
-  "ui/lyrics.js TS2339: Property 'select' does not exist on type 'Element'.": 1,
-  "ui/lyrics.js TS2339: Property 'value' does not exist on type 'Element'.": 3,
-  "ui/mascot.js TS2339: Property 'dataset' does not exist on type 'Element'.": 3,
-  "ui/mascot.js TS2339: Property 'ended' does not exist on type 'Element'.": 1,
-  "ui/mascot.js TS2339: Property 'hidden' does not exist on type 'Element'.": 4,
-  "ui/mascot.js TS2339: Property 'offsetWidth' does not exist on type 'Element'.": 2,
-  "ui/mascot.js TS2339: Property 'paused' does not exist on type 'Element'.": 1,
-  "ui/mascot.js TS2339: Property 'style' does not exist on type 'Element'.": 1,
-  "ui/sidebar.js TS2339: Property 'title' does not exist on type 'Element'.": 1,
-  "ui/window-controls.js TS2339: Property 'button' does not exist on type 'Event'.": 1,
-  "ui/window-controls.js TS2339: Property 'dataset' does not exist on type 'Element'.": 1,
-  "ui/window-controls.js TS2339: Property 'title' does not exist on type 'Element'.": 1
+  "ui/home.ts TS2345: Argument of type '[CommandMap[K][\"args\"]]' is not assignable to parameter of type 'CommandArguments<K>'.": 1
 }

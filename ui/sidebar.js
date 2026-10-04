@@ -96,7 +96,7 @@ function initializeSidebar() {
     const sidebar = document.querySelector("#sidebar");
     toggle = document.querySelector("#sidebar-toggle");
     handle = document.querySelector("#sidebar-resize");
-    for (const item of sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)")) {
+    for (const item of /** @type {NodeListOf<HTMLElement>} */ (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)"))) {
       const label = item.querySelector("span").textContent;
       item.setAttribute("aria-label", label);
       item.title = label;
