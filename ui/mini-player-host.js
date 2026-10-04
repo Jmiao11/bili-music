@@ -1,6 +1,8 @@
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
+/** @param {HTMLElement | null} root */
 function miniPlayerAccent(root) {
+  /** @param {string} name @param {number} fallback */
   const read = (name, fallback) => {
     const value = Number(root?.style?.getPropertyValue?.(name));
     return Number.isFinite(value) ? value : fallback;
@@ -12,14 +14,21 @@ function miniPlayerAccent(root) {
   };
 }
 
+/** @param {Document} document @returns {MiniPlayerStatePayload} */
 function miniPlayerState(document) {
+  /** @template {HTMLElement} T @param {string} selector @returns {T | null} */
   const query = (selector) => document.querySelector(selector);
+  /** @type {HTMLButtonElement | null} */
   const previousButton = query("#previous-button");
+  /** @type {HTMLButtonElement | null} */
   const nextButton = query("#next-button");
+  /** @type {HTMLButtonElement | null} */
   const playPauseButton = query("#play-pause-button");
+  /** @type {HTMLButtonElement | null} */
   const favoriteButton = query("#favorite-current-button");
   const title = query("#title");
   const uploader = query("#uploader");
+  /** @type {HTMLImageElement | null} */
   const thumbnail = query("#thumbnail");
   const status = query("#status");
   const root = document.documentElement;
@@ -45,6 +54,7 @@ function miniPlayerState(document) {
   };
 }
 
+/** @param {{ eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"] }} environment */
 function createMiniPlayerHost({
   eventApi,
   invoke,
@@ -55,15 +65,21 @@ function createMiniPlayerHost({
   console,
 }) {
   const openButton = document.querySelector("#mini-player-button");
+  /** @type {HTMLButtonElement | null} */
   const previousButton = document.querySelector("#previous-button");
+  /** @type {HTMLButtonElement | null} */
   const playPauseButton = document.querySelector("#play-pause-button");
+  /** @type {HTMLButtonElement | null} */
   const nextButton = document.querySelector("#next-button");
+  /** @type {HTMLButtonElement | null} */
   const favoriteButton = document.querySelector("#favorite-current-button");
   const status = document.querySelector("#status");
   const audio = document.querySelector("#audio");
+  /** @type {(() => void)[]} */
   const unlisteners = [];
   let disposed = false;
   let miniReady = false;
+  /** @type {number | null} */
   let readyTimer = null;
   let openVersion = 0;
 
@@ -74,6 +90,7 @@ function createMiniPlayerHost({
     }
   }
 
+  /** @param {string} message */
   function reportError(message) {
     if (status) {
       status.textContent = message;
@@ -89,6 +106,7 @@ function createMiniPlayerHost({
     ).catch((error) => console.warn("mini player state publish failed:", error));
   }
 
+  /** @param {TauriEvent<TauriAppEventMap["mini-player-command"]>} event */
   function handleCommand({ payload }) {
     const action = payload?.action;
     if (action === "previous") {
@@ -141,6 +159,7 @@ function createMiniPlayerHost({
     }, MINI_PLAYER_READY_TIMEOUT_MS);
   }
 
+  /** @template {keyof TauriAppEventMap} K @param {K} name @param {(event: TauriEvent<TauriAppEventMap[K]>) => void} handler */
   function listen(name, handler) {
     return eventApi.listen(name, handler).then((unlisten) => {
       if (disposed) {
