@@ -58,9 +58,9 @@ function bindFavoriteDrag(row: HTMLElement, index: number): void {
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
+  row.addEventListener("dragleave", (event: DragEvent) => {
     const drag = favoriteDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
       drag.target = null;
     }
@@ -174,9 +174,9 @@ function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: numbe
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
+  row.addEventListener("dragleave", (event: DragEvent) => {
     const drag = playlistDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
       drag.target = null;
     }
@@ -254,9 +254,9 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
     drag.target = index === drag.index ? null : row;
     drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
-  row.addEventListener("dragleave", (event: DragEvent & { relatedTarget: Node | null }) => {
+  row.addEventListener("dragleave", (event: DragEvent) => {
     const drag = playlistListDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget)) {
+    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
       drag.target = null;
     }

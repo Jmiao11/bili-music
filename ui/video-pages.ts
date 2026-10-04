@@ -214,9 +214,9 @@ function observePageCount(item: HTMLElement, bvid: string): void {
   }
   if (pageCountObserver === undefined) {
     pageCountObserver = typeof window.IntersectionObserver === "function"
-      ? new window.IntersectionObserver((entries: (IntersectionObserverEntry & { target: HTMLElement })[]) => {
+      ? new window.IntersectionObserver((entries: IntersectionObserverEntry[]) => {
           for (const entry of entries) {
-            const targetBvid = entry.target.dataset.pageCountBvid;
+            const targetBvid = (entry.target as HTMLElement).dataset.pageCountBvid;
             if (!targetBvid) {
               continue;
             }
@@ -233,15 +233,15 @@ function observePageCount(item: HTMLElement, bvid: string): void {
                 visibleTargets = new Set();
                 visiblePageCountTargets.set(targetBvid, visibleTargets);
               }
-              visibleTargets.add(entry.target);
+              visibleTargets.add(entry.target as HTMLElement);
               queuePageCountLookup(targetBvid);
             } else {
-              visibleTargets?.delete(entry.target);
+              visibleTargets?.delete(entry.target as HTMLElement);
               if (visibleTargets?.size === 0) {
                 visiblePageCountTargets.delete(targetBvid);
               }
               if (!entry.target.isConnected) {
-                observedPageCountTargets.get(targetBvid)?.delete(entry.target);
+                observedPageCountTargets.get(targetBvid)?.delete(entry.target as HTMLElement);
                 pageCountObserver.unobserve(entry.target);
               }
             }
@@ -326,8 +326,8 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
       onPlay();
     }, 250);
   });
-  item.addEventListener("dblclick", (event: MouseEvent & { target: Element }) => {
-    if (event.target.closest(".track-actions")) {
+  item.addEventListener("dblclick", (event: MouseEvent) => {
+    if ((event.target as Element).closest(".track-actions")) {
       return;
     }
     event.preventDefault();

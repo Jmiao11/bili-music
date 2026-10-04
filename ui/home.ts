@@ -296,7 +296,7 @@ async function loadRecommendations({ forceRefresh = false }: { forceRefresh?: bo
       ? `已生成 ${homeState.recommendations.length} 首推荐。`
       : "暂无推荐结果。";
   } catch (error) {
-    homeState.recommendationError = String(error?.message ?? error);
+    homeState.recommendationError = String((error as { message?: unknown } | null | undefined)?.message ?? error);
     homeRankingStatus.textContent = "为你推荐生成失败。";
     console.warn("recommendations load failed:", error);
   } finally {
