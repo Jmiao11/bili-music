@@ -226,8 +226,8 @@ function renderShortcutButton(action) {
   }
 }
 
-function handleShortcutRecordingPointerDown(event: PointerEvent & { target: Element }) {
-  if (!event.target.closest?.("[data-shortcut-action]")) {
+function handleShortcutRecordingPointerDown(event: PointerEvent) {
+  if (!(event.target as Element).closest?.("[data-shortcut-action]")) {
     cancelShortcutRecording();
   }
 }
@@ -1335,8 +1335,8 @@ immersivePlayer.addEventListener("transitionend", (event) => {
     immersivePlayer.hidden = true;
   }
 });
-immersivePlayer.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
-  if (event.target.dataset.closeImmersive === "true") {
+immersivePlayer.addEventListener("click", (event: MouseEvent) => {
+  if ((event.target as HTMLElement).dataset.closeImmersive === "true") {
     closeImmersive();
   }
 });

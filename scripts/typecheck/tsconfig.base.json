@@ -11,6 +11,7 @@
     "strictNullChecks": false,
     "strictPropertyInitialization": false,
     "strictBindCallApply": true,
+    "strictFunctionTypes": true,
     "noImplicitThis": true,
     "noImplicitAny": false,
     "target": "ES2022",
