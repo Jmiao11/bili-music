@@ -1,4 +1,4 @@
-import { audio } from "./player-dom.js";
+import { audio } from "./player-dom.ts";
 
 function initPlaybackDiagnostics() {
 window.__playbackDiagLog = [];

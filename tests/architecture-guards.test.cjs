@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.js", "track-utils.js", "runtime-api.js", "player-dom.js", "player-state.js", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.js", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -56,18 +56,18 @@ test("split scripts contain only top-level function declarations and comments", 
         position += noticeDuration[0].length;
         continue;
       }
-      const runtime = /^const \{ invoke \} = window\.__TAURI__\.core;/.exec(remaining);
-      const dom = /^const [\w$]+ = (?:document\.(?:querySelector|getElementById)\("[^"\r\n]+"\)|\[\.\.\.document\.querySelectorAll\("[^"\r\n]+"\)\]|homePanel\?\.querySelector\("[^"\r\n]+"\));/.exec(remaining);
-      if ((script === "runtime-api.js" && runtime) || (script === "player-dom.js" && dom)) {
-        position += (script === "runtime-api.js" ? runtime : dom)[0].length;
+      const runtime = /^const \{ invoke \}\s+= window\.__TAURI__\.core;/.exec(remaining);
+      const dom = /^const [\w$]+ = (?:document\.(?:querySelector|getElementById)\s*\("[^"\r\n]+"\)|\[\.\.\.document\.querySelectorAll\s*\("[^"\r\n]+"\)\]|homePanel\?\.querySelector\s*\("[^"\r\n]+"\));/.exec(remaining);
+      if ((script === "runtime-api.ts" && runtime) || (script === "player-dom.ts" && dom)) {
+        position += (script === "runtime-api.ts" ? runtime : dom)[0].length;
         continue;
       }
-      if (script === "player-state.js" && /^const\s+[\w$]+\s*=/.test(remaining)) {
+      if (script === "player-state.ts" && /^const\s+[\w$]+\s*=/.test(remaining)) {
         const end = remaining.indexOf(";");
         const text = remaining.slice(0, end + 1);
         new vm.Script(text);
         const initializer = maskCommentsAndStrings(text).slice(text.indexOf("=") + 1)
-          .replace(/new (?:Map|Set|WeakMap)\(\)/g, "")
+          .replace(/new (?:Map|Set|WeakMap)\s*\(\)/g, "")
           .replace(/Number\.(?:POSITIVE|NEGATIVE)_INFINITY/g, "")
           .replace(/\b[\w$]+\s*:/g, "")
           .replace(/\b(?:true|false|null|DEFAULT_MUSIC_TIDS)\b/g, "")

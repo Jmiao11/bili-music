@@ -74,10 +74,10 @@ test("command-name scanner rejects nonliteral calls and ignores comments and str
 });
 
 test("playbackTrackSnapshot rounds fractional durations before saving playback state", () => {
-  const source = readFileSync(path.join(root, "ui/track-utils.js"), "utf8");
+  const source = readFileSync(path.join(root, "ui/track-utils.ts"), "utf8");
   const context = vm.createContext({ displayThumbnailUrl: (value) => value });
-  vm.runInContext(sourceSlice(source, "ui/track-utils.js", "function normalizeTrack(", "function normalizeVideoPage("), context);
-  vm.runInContext(sourceSlice(source, "ui/track-utils.js", "function playbackTrackSnapshot(", "function formatDuration("), context);
+  vm.runInContext(sourceSlice(source, "ui/track-utils.ts", "function normalizeTrack(", "function normalizeVideoPage("), context);
+  vm.runInContext(sourceSlice(source, "ui/track-utils.ts", "function playbackTrackSnapshot(", "function formatDuration("), context);
   const snapshot = vm.runInContext("playbackTrackSnapshot", context);
   assert.equal(snapshot({ durationSeconds: 120.5 }).durationSeconds, 121);
 });

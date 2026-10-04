@@ -6,8 +6,8 @@ const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { sourceSlice } = require("./helpers/source-slice.cjs");
 
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8");
-const tracks = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
-const code = sourceSlice(tracks, "ui/track-utils.js", "function isBvId(", "function shouldOpenPastedBvPages(")
+const tracks = readFileSync(path.join(__dirname, "../ui/track-utils.ts"), "utf8");
+const code = sourceSlice(tracks, "ui/track-utils.ts", "function isBvId(", "function shouldOpenPastedBvPages(")
   + sourceSlice(core, "ui/playback-core.js", "function initPlaybackSearch(", "function initPastedBvPages(");
 
 function deferred() {

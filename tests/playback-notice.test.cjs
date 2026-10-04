@@ -7,7 +7,7 @@ const source = readFileSync(require('node:path').join(__dirname, '../ui/main.js'
 const core = readFileSync(require('node:path').join(__dirname, '../ui/playback-core.js'), 'utf8');
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
 const noticeSource = readFileSync(require('node:path').join(__dirname, '../ui/playback-notice.js'), 'utf8');
-const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.js'), "utf8");
+const pageSelection = readFileSync(require('node:path').join(__dirname, '../ui/page-selection.ts'), "utf8");
 
 function setup() {
   const classes = new Set();

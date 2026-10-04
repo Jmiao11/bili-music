@@ -7,9 +7,9 @@ const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
-const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8");
+const trackUtils = readFileSync(path.join(__dirname, "../ui/track-utils.ts"), "utf8");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
-const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
+const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
 const lookupSource = pageSelection + sourceSlice(policy, "ui/playback-policy.js", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
 const navigationSource = sourceSlice(core, "ui/playback-core.js", "function advancePageWithinCurrentBv(", "function playNext(");
 const trackSource = sourceSlice(core, "ui/playback-core.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
@@ -382,7 +382,7 @@ function trackContext(disabledCids, videoPages = pages) {
     playNext: (options) => { nextCalls.push(options); return true; },
     showPlaybackNotice: (message) => notices.push(message),
   });
-  vm.runInContext(sourceSlice(trackUtils, "ui/track-utils.js", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
+  vm.runInContext(sourceSlice(trackUtils, "ui/track-utils.ts", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
   return { context, state, prepares, notices, nextCalls };
 }
 
