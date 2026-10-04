@@ -1,4 +1,5 @@
 const MINI_POSITION_KEY = "bilibili-music.mini-player-position";
+/** @param {Pick<Storage, "getItem">} storage @returns {TauriPosition | null} */
 function readMiniPosition(storage) {
   try {
     const parsed = JSON.parse(storage.getItem(MINI_POSITION_KEY));
@@ -11,12 +12,15 @@ function readMiniPosition(storage) {
   }
 }
 
+/** @param {TauriPosition | null} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize */
 function clampMiniPosition(position, monitors, windowSize) {
   if (!position || !Array.isArray(monitors) || monitors.length === 0) {
     return position;
   }
 
+  /** @param {number} value @param {number} min @param {number} max */
   const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
+  /** @type {TauriPosition | null} */
   let best = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -42,6 +46,7 @@ function clampMiniPosition(position, monitors, windowSize) {
   return best ?? position;
 }
 
+/** @param {{ eventApi: TauriEventApi; invoke: CommandInvoke; windowApi: TauriWindowHandle; availableMonitors: () => Promise<TauriMonitor[]>; dpi: { PhysicalPosition: new (x: number, y: number) => TauriPosition }; document: Document; storage: Pick<Storage, "getItem" | "setItem">; window: Window; console: Console }} environment */
 function createMiniPlayerController({
   eventApi,
   invoke,
@@ -53,26 +58,38 @@ function createMiniPlayerController({
   window,
   console,
 }) {
+  /** @template {HTMLElement} T @param {string} selector @returns {T | null} */
   const query = (selector) => document.querySelector(selector);
   const title = query("#mini-title");
   const titleViewport = query("#mini-title-viewport");
   const cover = query("#mini-cover");
+  /** @type {HTMLButtonElement | null} */
   const previousButton = query("#mini-previous");
+  /** @type {HTMLButtonElement | null} */
   const playPauseButton = query("#mini-play-pause");
+  /** @type {HTMLButtonElement | null} */
   const nextButton = query("#mini-next");
+  /** @type {HTMLButtonElement | null} */
   const favoriteButton = query("#mini-favorite");
+  /** @type {HTMLButtonElement | null} */
   const restoreButton = query("#mini-restore");
   const dragRegion = query("#mini-drag-region");
   const notice = query("#mini-notice");
+  /** @type {HTMLButtonElement | null} */
   const noticeMoreButton = query("#mini-notice-more");
   const noticeFull = query("#mini-notice-full");
   const root = document.documentElement;
+  /** @type {(() => void)[]} */
   const unlisteners = [];
   let disposed = false;
+  /** @type {TauriPosition | null} */
   let lastPosition = null;
+  /** @type {string | null} */
   let lastTitle = null;
+  /** @type {number | null} */
   let titleScrollFrame = null;
   
+  /** @param {string} message @param {unknown} error */
   function warn(message, error) {
     console?.warn?.(message, error);
   }
@@ -118,6 +135,7 @@ function createMiniPlayerController({
     measureTitleOverflow();
   }
 
+  /** @param {Partial<MiniPlayerStatePayload>} state */
   function render(state = {}) {
     const noticeText = state.notice || "";
     if (!noticeText && (document.activeElement === noticeMoreButton ||
@@ -173,11 +191,13 @@ function createMiniPlayerController({
     }
   }
 
+  /** @param {TauriAppEventMap["mini-player-command"]["action"]} action */
   function emitCommand(action) {
     Promise.resolve(eventApi.emit("mini-player-command", { action }))
       .catch((error) => warn(`mini player command failed: ${action}`, error));
   }
 
+  /** @template {keyof TauriAppEventMap} K @param {K} name @param {(event: TauriEvent<TauriAppEventMap[K]>) => void} handler */
   function listen(name, handler) {
     return eventApi.listen(name, handler).then((unlisten) => {
       if (disposed) {
@@ -188,6 +208,7 @@ function createMiniPlayerController({
     }).catch((error) => warn(`mini player listener failed for ${name}:`, error));
   }
 
+  /** @param {TauriPosition | null | undefined} position */
   function persistPosition(position) {
     const x = Number(position?.x);
     const y = Number(position?.y);
@@ -211,6 +232,7 @@ function createMiniPlayerController({
     }
   }
 
+  /** @param {TauriEvent<TauriPosition>} event */
   function handleMoved(event) {
     if (persistPosition(event?.payload)) {
       return;
@@ -263,7 +285,7 @@ function createMiniPlayerController({
       noticeMoreButton?.focus?.();
     });
     dragRegion.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || event.target?.closest?.("button, #mini-notice-full")) {
+      if (event.button !== 0 || /** @type {Element | null} */ (event.target)?.closest?.("button, #mini-notice-full")) {
         return;
       }
       event.preventDefault?.();
