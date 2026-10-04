@@ -1,10 +1,10 @@
 import { playbackNotice, result, resumePlayPauseButton } from "./player-dom.ts";
 
-const SKIP_NOTICE_DURATION_MS = 3200;
+const SKIP_NOTICE_DURATION_MS: number = 3200;
 
-let playbackNoticeTimer = null;
+let playbackNoticeTimer: ReturnType<typeof window.setTimeout> | null = null;
 
-function clearPlaybackNotice() {
+function clearPlaybackNotice(): void {
   if (playbackNoticeTimer !== null) {
     clearTimeout(playbackNoticeTimer);
     playbackNoticeTimer = null;
@@ -14,17 +14,17 @@ function clearPlaybackNotice() {
   window.dispatchEvent(new Event("bilibili-music-notice-change"));
 }
 
-function positionPlaybackNotice() {
+function positionPlaybackNotice(): void {
   const pauseButton = resumePlayPauseButton.getBoundingClientRect();
   playbackNotice.style.setProperty("--playback-notice-x", `${pauseButton.left + pauseButton.width / 2}px`);
 }
 
-function initPlaybackNotice() {
+function initPlaybackNotice(): void {
 positionPlaybackNotice();
 new ResizeObserver(positionPlaybackNotice).observe(result);
 }
 
-function showPlaybackNotice(message, { persistent = false, kind = "error" } = {}) {
+function showPlaybackNotice(message: string, { persistent = false, kind = "error" }: { persistent?: boolean; kind?: "error" | "info" } = {}): void {
   positionPlaybackNotice();
   if (kind === "info" && playbackNotice.classList.contains("is-visible") &&
       playbackNotice.dataset.kind === "error") return;

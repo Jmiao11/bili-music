@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.js", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.js", "playback-core.js", "home.js", "library-ui.js", "video-pages.js", "search.js"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -51,8 +51,8 @@ test("split scripts contain only top-level function declarations and comments", 
       const trivia = /^(?:\s+|\/\/[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)/.exec(source.slice(position));
       if (trivia) { position += trivia[0].length; continue; }
       const remaining = source.slice(position);
-      const noticeDuration = /^const SKIP_NOTICE_DURATION_MS = 3200;/.exec(remaining);
-      if (script === "playback-notice.js" && noticeDuration) {
+      const noticeDuration = /^const SKIP_NOTICE_DURATION_MS\s+= 3200;/.exec(remaining);
+      if (script === "playback-notice.ts" && noticeDuration) {
         position += noticeDuration[0].length;
         continue;
       }
@@ -78,7 +78,7 @@ test("split scripts contain only top-level function declarations and comments", 
       }
       const allowedLets = {
         "playback-core.js": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
-        "playback-notice.js": new Set(["playbackNoticeTimer"]),
+        "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.js": new Set(["favoriteImportVersion"]),
         "video-pages.js": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
       };

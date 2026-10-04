@@ -14,7 +14,7 @@
     "../../ui/runtime-api.ts",
     "../../ui/player-dom.ts",
     "../../ui/player-state.ts",
-    "../../ui/playback-notice.js",
+    "../../ui/playback-notice.ts",
     "../../ui/playback-diagnostics.js",
     "../../ui/home.js",
     "../../ui/track-utils.ts",
