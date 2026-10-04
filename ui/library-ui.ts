@@ -2,7 +2,7 @@ import { displayThumbnailUrl, escapeText, normalizeTrack, snapshotForLibrary, un
 import { invoke } from "./runtime-api.ts";
 import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, status } from "./player-dom.ts";
 import { favoriteDragState, libraryState, playerState, playlistDragState, playlistListDragState } from "./player-state.ts";
-import { createTrackRow, currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.js";
+import { createTrackRow, currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
 
 let favoriteImportVersion = 0;
 

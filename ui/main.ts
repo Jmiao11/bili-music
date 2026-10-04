@@ -7,10 +7,10 @@ import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAi
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
 import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.ts";
-import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.js";
+import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { isLoudnessNormalizationEnabled } from "./appearance.ts";
 
-let pendingSearchRestore = null;
+let pendingSearchRestore: string | null = null;
 
 initPlaybackDiagnostics();
 initPlaybackNotice();
@@ -99,9 +99,9 @@ initPlaybackModes();
 
 favoriteCurrentButton?.addEventListener("click", () => toggleFavorite());
 immersiveFavoriteButton?.addEventListener("click", () => toggleFavorite());
-document.querySelector("#immersive-add-playlist-button")?.addEventListener("click", () => choosePlaylistAndAdd());
+document.querySelector<HTMLButtonElement>("#immersive-add-playlist-button")?.addEventListener("click", () => choosePlaylistAndAdd());
 createPlaylistButton?.addEventListener("click", createPlaylist);
-document.querySelector("#import-playlist-button")?.addEventListener("click", importFavoritePlaylist);
+document.querySelector<HTMLButtonElement>("#import-playlist-button")?.addEventListener("click", importFavoritePlaylist);
 renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
 deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);
 refreshRankingButton?.addEventListener("click", () => {
@@ -127,8 +127,8 @@ homeHintInput?.addEventListener("keydown", (event) => {
   homeHintApply?.click();
 });
 homeSetupSettings?.addEventListener("click", () => {
-  document.querySelector("#open-settings-button")?.click();
-  const ai = document.querySelector(".ai-settings");
+  document.querySelector<HTMLButtonElement>("#open-settings-button")?.click();
+  const ai = document.querySelector<HTMLDetailsElement>(".ai-settings");
   if (ai) {
     ai.setAttribute("open", "");
     ai.scrollIntoView({ block: "center" });

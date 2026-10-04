@@ -1,3 +1,3 @@
-import "./main.js";
+import "./main.ts";
 import { startAppearance } from "./appearance.ts";
 startAppearance();

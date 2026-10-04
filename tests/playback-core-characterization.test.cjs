@@ -6,11 +6,11 @@ const { readFileSync } = require("./helpers/module-syntax.cjs");
 const { sourceSlice } = require("./helpers/source-slice.cjs");
 
 const read = (file) => readFileSync(path.join(__dirname, "../ui", file), "utf8");
-const main = read("playback-core.js");
+const main = read("playback-core.ts");
 const search = read("search.ts");
 const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
-const slice = (start, end) => sourceSlice(main, "ui/playback-core.js", start, end);
+const slice = (start, end) => sourceSlice(main, "ui/playback-core.ts", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const searchState =").replace(/\n\n$/, "\n")
   + sourceSlice(state, "ui/player-state.ts", "const searchState =", "const LAST_SEARCH_KEY")
   + sourceSlice(state, "ui/player-state.ts", "const homeState =", "const libraryState =")

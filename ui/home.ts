@@ -2,7 +2,7 @@ import { normalizeTrack } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
 import { homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.ts";
 import { homeState } from "./player-state.ts";
-import { createTrackRow, playListItem, updateQueueUi } from "./playback-core.js";
+import { createTrackRow, playListItem, updateQueueUi } from "./playback-core.ts";
 
 function renderRankingSkeleton(): void {
   if (!homeRankingList) {

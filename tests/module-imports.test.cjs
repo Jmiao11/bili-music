@@ -7,7 +7,7 @@ const { moduleDeclarations } = require("./helpers/module-syntax.cjs");
 const { topLevelNames, references } = require("./helpers/module-bindings.cjs");
 const { maskCommentsAndStrings } = require("./helpers/js-source.cjs");
 
-const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts", "playback-core.js", "main.js", "appearance.ts"];
+const moduleOrder = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts", "playback-core.ts", "main.ts", "appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
@@ -54,7 +54,7 @@ test("modules import every cross-module binding and have no unused imports", () 
     const exports = declarations.filter((item) => item.kind === "export");
     const consumers = [...sources].flatMap(([, other]) => moduleDeclarations(other)
       .filter((item) => item.kind === "import" && item.specifier === `./${file}`).flatMap((item) => item.names));
-    if (file !== "app.js") {
+    if (file !== "app.ts") {
       assert.equal(exports.length, 1, `${file}: sole export list`);
       assert.deepEqual(exports[0].names, [...new Set(consumers)].sort(), `${file}: export only used names`);
     }

@@ -6,13 +6,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8");
 const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
 const decision = sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
-  + sourceSlice(source, "ui/playback-core.js", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
-const metadataWait = sourceSlice(source, "ui/playback-core.js", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
-const recoverCurrentAudio = sourceSlice(source, "ui/playback-core.js", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
-const loadCurrentTrack = sourceSlice(source, "ui/playback-core.js", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
+  + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
+const metadataWait = sourceSlice(source, "ui/playback-core.ts", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
+const recoverCurrentAudio = sourceSlice(source, "ui/playback-core.ts", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
+const loadCurrentTrack = sourceSlice(source, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 
 test("network recovery requires the current started audio and remaining attempts", () => {
   const context = vm.createContext({ recoveryVersion: 7, recoveryAttempts: 2 });
@@ -226,14 +226,14 @@ test("expired token network error after a long pause re-resolves the same page a
       return prepareResult.promise;
     },
   });
-  const mainSource = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-  const chain = sourceSlice(source, "ui/playback-core.js", "let recoveryPromise =", "let pendingPastedBvPages =")
-    + sourceSlice(source, "ui/playback-core.js", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
+  const mainSource = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
+  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise =", "let pendingPastedBvPages =")
+    + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
     + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
-    + sourceSlice(source, "ui/playback-core.js", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
-    + sourceSlice(source, "ui/playback-core.js", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
+    + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
+    + sourceSlice(source, "ui/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
     + "\ninitPlaybackAudioIdentity();\n"
-    + sourceSlice(mainSource, "ui/main.js", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
+    + sourceSlice(mainSource, "ui/main.ts", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
   vm.runInContext(chain, context);
   await audio.play();
   audio.dispatchEvent(new Event("playing"));

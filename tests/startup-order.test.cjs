@@ -18,9 +18,9 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.js", "appearance.ts", "mascot.js", "mini-player-host.js"]);
+  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.ts", "appearance.ts", "mascot.js", "mini-player-host.js"]);
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
-  const entry = tags.indexOf("app.js");
+  const entry = tags.indexOf("app.ts");
   assert.ok(tags.indexOf("dynamic-background.js") < entry);
   assert.match(read("dynamic-background.js"), /initializeDynamicBackground\(\);\s*$/);
   for (const file of ["mascot.js", "mini-player-host.js"]) assert.ok(tags.indexOf(file) > entry);
@@ -29,12 +29,12 @@ test("initial trackchange recipients retain their installation phases", () => {
 });
 
 test("main's last executable statement synchronously dispatches initial trackchange", () => {
-  const executable = topLevelStatements(read("main.js")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
+  const executable = topLevelStatements(read("main.ts")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
   assert.equal(executable.at(-1).text.trim(), "emitCurrentTrackChanged();");
 });
 
 test("document lifecycle dependencies retain their current file inventory", () => {
-  const files = readdirSync(ui).filter((file) => file.endsWith(".js")).sort();
+  const files = readdirSync(ui).filter((file) => /\.(?:js|ts)$/.test(file)).sort();
   const inventory = { readyState: [], currentScript: [], DOMContentLoaded: [], load: [] };
   for (const file of files) {
     const source = read(file);
@@ -49,7 +49,7 @@ test("document lifecycle dependencies retain their current file inventory", () =
     if (/\.onload\s*=/.test(code) && !inventory.load.includes(file)) inventory.load.push(file);
   }
   assert.deepEqual(inventory, {
-    readyState: [], currentScript: [], DOMContentLoaded: ["main.js", "sidebar.js"], load: ["dynamic-background.js"],
+    readyState: [], currentScript: [], DOMContentLoaded: ["main.ts", "sidebar.js"], load: ["dynamic-background.js"],
   });
 });
 
@@ -70,7 +70,7 @@ test("bottom classic scripts defer and the sole module entry keeps its position"
   assert.equal(bodyScripts.length, 6);
   for (const script of bodyScripts) {
     if (/\btype=["']module["']/.test(script[1])) {
-      assert.match(script[1], /\bsrc=["']app\.js["']/);
+      assert.match(script[1], /\bsrc=["']app\.ts["']/);
     } else {
       assert.match(script[1], /\bsrc=["']\.\/[^"']+\.js["']/);
       assert.match(script[1], /\bdefer\b/);

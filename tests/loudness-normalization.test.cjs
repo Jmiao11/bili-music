@@ -6,25 +6,25 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const appearance = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "utf8");
-const main = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
-const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
+const main = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
+const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
-const code = sourceSlice(core, "ui/playback-core.js", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
+const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
   + sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
   + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
-  + sourceSlice(core, "ui/playback-core.js", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
-  + sourceSlice(core, "ui/playback-core.js", "let loudnessQueryVersion", "function refreshTrackLoudness(")
+  + sourceSlice(core, "ui/playback-core.ts", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
+  + sourceSlice(core, "ui/playback-core.ts", "let loudnessQueryVersion", "function refreshTrackLoudness(")
   + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
-  + sourceSlice(core, "ui/playback-core.js", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
-const cacheListenerCode = sourceSlice(core, "ui/playback-core.js", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
-  + sourceSlice(main, "ui/main.js", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
-const endedHandlerCode = sourceSlice(main, "ui/main.js", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
+  + sourceSlice(core, "ui/playback-core.ts", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
+const cacheListenerCode = sourceSlice(core, "ui/playback-core.ts", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
+  + sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
+const endedHandlerCode = sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
 const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "loudnessNormalizationToggle.addEventListener(\"change\"", "progressSlider.addEventListener(\"pointerdown\"");
-const loudnessDialogCode = sourceSlice(core, "ui/playback-core.js", "function showLoudnessNormalizationDialog(", "function waitForAudioMetadata(");
+const loudnessDialogCode = sourceSlice(core, "ui/playback-core.ts", "function showLoudnessNormalizationDialog(", "function waitForAudioMetadata(");
 
 function setup(stored = new Map(), { controlledAnimation = false } = {}) {
   const queries = [];

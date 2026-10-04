@@ -5,13 +5,13 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const searchSource = readFileSync(path.join(__dirname, "../ui/search.ts"), "utf8");
 const stateSource = readFileSync(path.join(__dirname, "../ui/player-state.ts"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
 const helpers = sourceSlice(stateSource, "ui/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
-  + sourceSlice(source, "ui/main.js", "let pendingSearchRestore", "initPlaybackDiagnostics();")
+  + sourceSlice(source, "ui/main.ts", "let pendingSearchRestore", "initPlaybackDiagnostics();")
   + sourceSlice(searchSource, "ui/search.ts", "function readLastSearchKeyword(", "function setSearchResults(");
 const requestFns = sourceSlice(searchSource, "ui/search.ts", "function currentSearchRequest(", "async function runSearch(");
 const runSearchFn = sourceSlice(searchSource, "ui/search.ts", "async function runSearch(", "async function loadMoreSearchResults(");

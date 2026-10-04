@@ -57,8 +57,8 @@ test("UI command literals are registered in release and debug-only registrations
   assert.ok(debug.size > 0);
   assert.deepEqual([...debug].filter((name) => !release.has(name)), [...DEBUG_ONLY_COMMANDS]);
   const used = new Set();
-  for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => name.endsWith(".js"))) {
-    for (const command of invokedCommands(fs.readFileSync(path.join(root, "ui", name), "utf8"), `ui/${name}`)) {
+  for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => /\.(?:js|ts)$/.test(name))) {
+    for (const command of invokedCommands(readFileSync(path.join(root, "ui", name), "utf8"), `ui/${name}`)) {
       used.add(command);
       assert.ok(release.has(command), `${name}: unregistered release command ${command}`);
     }
