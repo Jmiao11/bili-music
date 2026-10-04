@@ -1,4 +1,5 @@
 (() => {
+  /** @type {Record<string, { id: string; name: string; personality: string; lines: Record<string, string[]>; svg: string }>} */
   const MASCOTS = {
     kuro: {
       id: "kuro",
@@ -158,6 +159,7 @@
     return;
   }
 
+  /** @type {(typeof MASCOTS)[string] | null} */
   let currentMascot = null;
   let hasCurrentTrack = false;
   let currentState = "";
@@ -174,6 +176,7 @@
 
   stage.style.pointerEvents = "auto";
 
+  /** @param {EventTarget | null} target @param {string} eventName @param {(event: Event & { detail?: CurrentTrackDetail }) => void} handler */
   function listen(target, eventName, handler) {
     try {
       target?.addEventListener(eventName, (event) => {
@@ -188,6 +191,7 @@
     }
   }
 
+  /** @param {(typeof MASCOTS)[string]} mascot */
   function renderMascot(mascot) {
     stage.classList.remove("is-hidden");
     currentMascot = mascot;
@@ -212,6 +216,7 @@
     }
   }
 
+  /** @param {string} category */
   function speak(category, { force = false } = {}) {
     if (!bubble) {
       return;
@@ -234,6 +239,7 @@
     }, BUBBLE_SHOW_MS);
   }
 
+  /** @param {string} state */
   function setState(state) {
     const changed = currentState !== state;
     currentState = state;
@@ -346,6 +352,7 @@
     }
   }
 
+  /** @param {string} id */
   function saveMascot(id) {
     try {
       localStorage.setItem(MASCOT_KEY, id);
