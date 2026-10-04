@@ -1,5 +1,5 @@
 import { normalizeTrack } from "./track-utils.ts";
-import { invoke } from "./runtime-api.js";
+import { invoke } from "./runtime-api.ts";
 import { homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.js";
 import { homeState } from "./player-state.js";
 import { createTrackRow, playListItem, updateQueueUi } from "./playback-core.js";

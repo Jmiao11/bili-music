@@ -1,5 +1,5 @@
 import { displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, normalizeTrack } from "./track-utils.ts";
-import { invoke } from "./runtime-api.js";
+import { invoke } from "./runtime-api.ts";
 import { musicTabs, result, searchButton, searchKeyword, searchResults, searchStatus, sortModeTabs } from "./player-dom.js";
 import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, searchState } from "./player-state.js";
 import { bindTrackActivation } from "./video-pages.js";

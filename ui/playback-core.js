@@ -1,6 +1,6 @@
 import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
-import { invoke } from "./runtime-api.js";
+import { invoke } from "./runtime-api.ts";
 import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.js";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.js";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.js";
