@@ -13,6 +13,7 @@
     "strictBindCallApply": true,
     "strictFunctionTypes": true,
     "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
     "noImplicitAny": false,
     "target": "ES2022",
     "module": "ESNext",
