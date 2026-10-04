@@ -9,7 +9,7 @@ const appearance = readFileSync(path.join(__dirname, "../ui/appearance.ts"), "ut
 const main = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(path.join(__dirname, "../ui/playback-policy.ts"), "utf8");
-const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurrentTrack = false;", "let pendingResume = null;")
+const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurrentTrack = false;", "let pendingResume")
   + sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
   + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})

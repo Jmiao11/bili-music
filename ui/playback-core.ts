@@ -10,20 +10,20 @@ import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 
-let randomPageRound = null;
+let randomPageRound: { bvid: string; playedCount: number; remaining: ReturnType<typeof buildRandomPageRound> } | null = null;
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
-let cacheRequestPromise = null;
-let pendingResume = null;
+let cacheRequestPromise: Promise<void> | null = null;
+let pendingResume: Pick<CommandContract.PlaybackState, "positionSeconds" | "page" | "cid"> | null = null;
 let resumeInProgress = false;
 let lastPlaybackStateSavedAt = Number.NEGATIVE_INFINITY;
-let recoveryPromise = null;
+let recoveryPromise: Promise<void> | null = null;
 let recoveryVersion = -1;
 let recoveryAttempts = 0;
 let playingAudioVersion = -1;
 let playbackIntended = false;
 
-let pendingPastedBvPages = null;
+let pendingPastedBvPages: { bvid: string; requestVersion: number } | null = null;
 
 function currentTrackSnapshot() {
   if (
@@ -798,7 +798,7 @@ async function loadCurrentTrack({
     }
 
     const selectDefaultPage = (random = false) => {
-      const isDisabled = (page) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
+      const isDisabled = (page: CommandContract.VideoPage) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
       const pageIndex = random
         ? pickRandomEnabledPageIndex(playerState.currentPages, isDisabled, Math.random)
         : findEnabledPageIndex(playerState.currentPages, 0, 1, isDisabled);
@@ -1157,7 +1157,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
   }
   const bvid = playerState.queue[playerState.currentIndex]?.bvid;
 
-  let nextPageIndex;
+  let nextPageIndex: number | null;
   if (playerState.shuffle) {
     if (randomPageRound?.bvid !== bvid) randomPageRound = null;
     if (!randomPageRound) {

@@ -227,7 +227,7 @@ test("expired token network error after a long pause re-resolves the same page a
     },
   });
   const mainSource = readFileSync(path.join(__dirname, "../ui/main.ts"), "utf8");
-  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise =", "let pendingPastedBvPages =")
+  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise", "let pendingPastedBvPages")
     + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
     + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
     + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
