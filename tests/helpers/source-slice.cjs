@@ -3,6 +3,9 @@ function sourceSlice(source, file, startMarker, endMarker, {
   startLastBefore = null,
   includeEnd = false,
 } = {}) {
+  if (String(file).endsWith(".ts")) {
+    source = require("./module-syntax.cjs").stripModuleSyntax(source, file);
+  }
   const find = (marker, from = 0) => {
     const index = source.indexOf(marker, from);
     if (index < 0) throw new Error(`${file}: marker not found: ${JSON.stringify(marker)}`);

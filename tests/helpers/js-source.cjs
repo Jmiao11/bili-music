@@ -11,7 +11,8 @@ const maskCommentsAndStrings = vm.runInNewContext(
 );
 
 // Ratchet for the current classic scripts, not a complete JavaScript AST parser.
-function topLevelStatements(source) {
+function topLevelStatements(source, file = "source.js") {
+  source = require("./typescript-source.cjs").stripTypes(source, file);
   const code = maskCommentsAndStrings(source);
   const statements = [];
   let start = 0;

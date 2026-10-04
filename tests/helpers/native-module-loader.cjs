@@ -5,6 +5,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const vm = require("node:vm");
 const { Session } = require("node:inspector");
+const { stripTypes } = require("./typescript-source.cjs");
 
 async function loadNativeModules(sourceRoot, files, entry, scripts = [{ file: entry, module: true }]) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "bili-native-esm-")));
@@ -72,6 +73,7 @@ async function loadNativeModules(sourceRoot, files, entry, scripts = [{ file: en
   }
   try {
     for (const name of files) {
+      if (name.endsWith(".ts")) stripTypes(fs.readFileSync(path.join(sourceRoot, name), "utf8"), name);
       const target = path.resolve(root, name);
       assert.ok(!path.relative(root, target).startsWith(".."));
       fs.mkdirSync(path.dirname(target), { recursive: true });

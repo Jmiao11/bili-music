@@ -1,9 +1,9 @@
 const { topLevelStatements, maskCommentsAndStrings } = require("./js-source.cjs");
 const { stripModuleSyntax } = require("./module-syntax.cjs");
 
-function topLevelNames(source) {
+function topLevelNames(source, file = "source.js") {
   const names = new Set();
-  for (const statement of topLevelStatements(stripModuleSyntax(source))) {
+  for (const statement of topLevelStatements(stripModuleSyntax(source, file))) {
     const name = /^(?:(?:async\s+)?function|class|const|let|var)\s+([\w$]+)/.exec(statement.code);
     if (name) names.add(name[1]);
     else if (/^(?:const|let)\s*\{/.test(statement.code)) {
@@ -15,8 +15,8 @@ function topLevelNames(source) {
 }
 
 // Ratchet for current sources; local collisions must be explicitly reviewed by tests.
-function references(source) {
-  const code = maskCommentsAndStrings(stripModuleSyntax(source));
+function references(source, file = "source.js") {
+  const code = maskCommentsAndStrings(stripModuleSyntax(source, file));
   const names = new Set();
   for (const match of code.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
     const before = code.slice(0, match.index).trimEnd();
