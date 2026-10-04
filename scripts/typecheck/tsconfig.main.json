@@ -21,7 +21,7 @@
     "../../ui/playback-core.js",
     "../../ui/page-selection.ts",
     "../../ui/playback-policy.ts",
-    "../../ui/library-ui.js",
+    "../../ui/library-ui.ts",
     "../../ui/video-pages.ts",
     "../../ui/search.ts",
     "../../ui/appearance.js",
