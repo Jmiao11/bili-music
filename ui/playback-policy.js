@@ -1,4 +1,4 @@
-import { normalizeShuffleCollectionPrefs } from "./page-selection.js";
+import { normalizeShuffleCollectionPrefs } from "./page-selection.ts";
 import { MAX_AUDIO_RECOVERIES } from "./player-state.js";
 
 function shuffled(values) {

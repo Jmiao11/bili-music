@@ -19,7 +19,7 @@
     "../../ui/home.js",
     "../../ui/track-utils.js",
     "../../ui/playback-core.js",
-    "../../ui/page-selection.js",
+    "../../ui/page-selection.ts",
     "../../ui/playback-policy.js",
     "../../ui/library-ui.js",
     "../../ui/video-pages.js",

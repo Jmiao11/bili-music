@@ -1,4 +1,4 @@
-import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.js";
+import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.js";
 import { invoke } from "./runtime-api.js";
 import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.js";

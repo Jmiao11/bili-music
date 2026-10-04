@@ -1,24 +1,24 @@
-function isPageDisabled(disabledPages, bvid, cid) {
+function isPageDisabled(disabledPages: ReadonlyMap<string, ReadonlySet<number>>, bvid: unknown, cid: number): boolean {
   return disabledPages.get(String(bvid).toLowerCase())?.has(cid) ?? false;
 }
 
-function findEnabledPageIndex(pages, startIndex, direction, isDisabled) {
+function findEnabledPageIndex(pages: readonly CommandContract.VideoPage[], startIndex: number, direction: number, isDisabled: (page: CommandContract.VideoPage) => boolean): number {
   for (let index = startIndex; index >= 0 && index < pages.length; index += direction) {
     if (!isDisabled(pages[index])) return index;
   }
   return -1;
 }
 
-function pickRandomEnabledPageIndex(pages, isDisabled, random) {
+function pickRandomEnabledPageIndex(pages: readonly CommandContract.VideoPage[], isDisabled: (page: CommandContract.VideoPage) => boolean, random: () => number): number {
   const enabledIndexes = pages.flatMap((page, index) => isDisabled(page) ? [] : [index]);
   return enabledIndexes[Math.floor(random() * enabledIndexes.length)] ?? -1;
 }
 
-function buildRandomPageRound(pages, currentIndex, isDisabled) {
+function buildRandomPageRound(pages: readonly CommandContract.VideoPage[], currentIndex: number, isDisabled: (page: CommandContract.VideoPage) => boolean): number[] {
   return pages.flatMap((page, index) => index === currentIndex || isDisabled(page) ? [] : [index]);
 }
 
-function takeRandomPageFromRound(remaining, isDisabledIndex, random) {
+function takeRandomPageFromRound(remaining: readonly number[], isDisabledIndex: (index: number) => boolean, random: () => number): { index: number; remaining: number[] } {
   const available = remaining.filter((index) => !isDisabledIndex(index));
   if (available.length === 0) return { index: -1, remaining: [] };
   const picked = Math.floor(random() * available.length);
@@ -28,7 +28,7 @@ function takeRandomPageFromRound(remaining, isDisabledIndex, random) {
   };
 }
 
-function normalizeShuffleCollectionPrefs(rawOrder, rawLimit) {
+function normalizeShuffleCollectionPrefs(rawOrder: unknown, rawLimit: string): { order: string; limit: number } {
   return {
     order: rawOrder === "sequential" ? "sequential" : "random",
     limit: ["1", "3", "5", "10"].includes(rawLimit) ? Number(rawLimit) : 0,

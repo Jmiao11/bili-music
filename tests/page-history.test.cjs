@@ -8,7 +8,7 @@ const vm = require("node:vm");
 const source = readFileSync(path.join(__dirname, "../ui/main.js"), "utf8");
 const core = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(require('node:path').join(__dirname, '../ui/playback-policy.js'), 'utf8');
-const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.js"), "utf8");
+const pageSelection = readFileSync(path.join(__dirname, "../ui/page-selection.ts"), "utf8");
 const slice = (start, end, options) => sourceSlice(start.startsWith("function") || start.startsWith("shuffleToggle") ? core : source, start.startsWith("function") || start.startsWith("shuffleToggle") ? "ui/playback-core.js" : "ui/main.js", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
 
 test("queue switches remember the departed cid and pass a history cid to track loading", () => {

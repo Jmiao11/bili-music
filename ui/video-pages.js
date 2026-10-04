@@ -1,4 +1,4 @@
-import { isPageDisabled } from "./page-selection.js";
+import { isPageDisabled } from "./page-selection.ts";
 import { formatDuration, normalizeVideoPage } from "./track-utils.js";
 import { invoke } from "./runtime-api.js";
 import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, status } from "./player-dom.js";
