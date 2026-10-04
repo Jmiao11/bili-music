@@ -1,4 +1,4 @@
-import { playbackNotice, result, resumePlayPauseButton } from "./player-dom.js";
+import { playbackNotice, result, resumePlayPauseButton } from "./player-dom.ts";
 
 const SKIP_NOTICE_DURATION_MS = 3200;
 
