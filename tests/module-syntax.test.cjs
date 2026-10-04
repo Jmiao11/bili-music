@@ -4,6 +4,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const { moduleDeclarations, stripModuleSyntax, readFileSync } = require("./helpers/module-syntax.cjs");
 const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
+const { stripTypes } = require("./helpers/typescript-source.cjs");
 
 test("module syntax stripping preserves ordinary source bytes", () => {
   const ui = path.join(__dirname, "../ui");
@@ -34,7 +35,7 @@ test("module stripping changes only declaration lines and preserves every other 
   assertModuleLines(source.replace(/\n/g, "\r\n"));
   const ui = path.join(__dirname, "../ui");
   for (const name of collectBusinessScripts(ui).modules) {
-    assertModuleLines(fs.readFileSync(path.join(ui, name), "utf8"));
+    assertModuleLines(stripTypes(fs.readFileSync(path.join(ui, name), "utf8"), name));
   }
 });
 

@@ -11,7 +11,7 @@
 
 ## 本地开发与构建
 
-前端使用精确锁定的 Vite 8.3.2；建议使用 Node.js 22.12 或更高版本（CI 使用 Node 22），并准备既有 Rust、Tauri CLI 和平台构建依赖。首次检出或 package-lock.json 变化后，在仓库根目录执行：
+前端使用精确锁定的 Vite 8.3.2；Node 22 的最低版本为 22.18.0（原生 .ts 类型擦除默认开启），CI 固定使用实测的 22.23.3；本机 Node 24.21.0 同样已验证。版本依据见 [Node 22 的 TypeScript 文档](https://nodejs.org/docs/latest-v22.x/api/typescript.html)。准备既有 Rust、Tauri CLI 和平台构建依赖。首次检出或 package-lock.json 变化后，在仓库根目录执行：
 
 ```bash
 npm ci

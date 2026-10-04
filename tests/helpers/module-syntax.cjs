@@ -1,8 +1,10 @@
-const fs = require("node:fs");
+const fs = require("./typescript-source.cjs");
+const { stripTypes } = fs;
 const { maskCommentsAndStrings } = require("./js-source.cjs");
 
 // This accepts only this batch's static import/export grammar, not arbitrary ESM.
-function moduleDeclarations(source) {
+function moduleDeclarations(source, file = "source.js") {
+  source = stripTypes(source, file);
   const code = maskCommentsAndStrings(source);
   const declarations = [];
   let depth = 0;
@@ -14,7 +16,7 @@ function moduleDeclarations(source) {
     if (depth !== 0) throw new Error("Module declaration must be top-level");
     const text = source.slice(index);
     const names = String.raw`[A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*\s*,?`;
-    const relative = String.raw`["'](\./[^"'\r\n]+\.js)["']`;
+    const relative = String.raw`["'](\./[^"'\r\n]+\.(?:js|ts))["']`;
     const pattern = keyword[0] === "import"
       ? new RegExp(String.raw`^import\s+(?:\{\s*(${names})\s*\}\s+from\s+)?${relative}\s*;`)
       : new RegExp(String.raw`^export\s*\{\s*(${names})?\s*\}\s*;`);
@@ -26,7 +28,8 @@ function moduleDeclarations(source) {
   return declarations;
 }
 
-function stripModuleSyntax(source) {
+function stripModuleSyntax(source, file = "source.js") {
+  source = stripTypes(source, file);
   let result = source;
   for (const declaration of moduleDeclarations(source).reverse()) {
     result = result.slice(0, declaration.start)
@@ -38,7 +41,7 @@ function stripModuleSyntax(source) {
 
 function readFileSync(file, options) {
   const source = fs.readFileSync(file, options);
-  return String(file).endsWith(".js") ? stripModuleSyntax(source) : source;
+  return /\.(?:js|ts)$/.test(String(file)) ? stripModuleSyntax(source) : source;
 }
 
 module.exports = { moduleDeclarations, stripModuleSyntax, readFileSync };

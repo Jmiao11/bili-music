@@ -1,4 +1,4 @@
-const { readFileSync } = require("node:fs");
+const { readFileSync } = require("./typescript-source.cjs");
 const path = require("node:path");
 const { moduleDeclarations } = require("./module-syntax.cjs");
 

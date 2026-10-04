@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
+const fs = require("./helpers/typescript-source.cjs");
 const path = require("node:path");
 const { test } = require("node:test");
 const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
