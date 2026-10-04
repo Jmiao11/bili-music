@@ -7,7 +7,7 @@ import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } 
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.js";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.js";
-import { renderSearchResults, runSearch, setSearchResults } from "./search.js";
+import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.js";
 
 let randomPageRound = null;

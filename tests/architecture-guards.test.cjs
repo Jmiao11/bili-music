@@ -18,7 +18,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.js", "home.ts", "library-ui.js", "video-pages.js", "search.js"];
+const splitScripts = ["page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.js", "home.ts", "library-ui.js", "video-pages.js", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -209,7 +209,7 @@ test("state fields are written only by approved scripts", () => {
   // A textual scan cannot detect writes through aliases, e.g. const q = playerState.queue; q.push(x).
   const allowedWriters = {
     playerState: new Set(["playback-core.js"]),
-    searchState: new Set(["main.js", "playback-core.js", "search.js"]),
+    searchState: new Set(["main.js", "playback-core.js", "search.ts"]),
     libraryState: new Set(["playback-core.js", "library-ui.js", "video-pages.js"]),
     homeState: new Set(["main.js", "home.ts"]),
   };

@@ -7,7 +7,7 @@ const { sourceSlice } = require("./helpers/source-slice.cjs");
 
 const read = (file) => readFileSync(path.join(__dirname, "../ui", file), "utf8");
 const main = read("playback-core.js");
-const search = read("search.js");
+const search = read("search.ts");
 const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const slice = (start, end) => sourceSlice(main, "ui/playback-core.js", start, end);
@@ -26,7 +26,7 @@ const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("async function loadCurrentTrack(", "function playBvId(")
   + slice("function playSearchResult(", "function advancePageWithinCurrentBv(")
   + slice("function playNext(", "function initPlaybackSearch(")
-  + sourceSlice(search, "ui/search.js", "function setSearchResults(", "function renderSearchResults(")
+  + sourceSlice(search, "ui/search.ts", "function setSearchResults(", "function renderSearchResults(")
   + search.slice(search.indexOf("function currentSearchRequest(")) + "\n";
 
 function deferred() {

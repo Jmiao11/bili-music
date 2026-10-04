@@ -23,7 +23,7 @@
     "../../ui/playback-policy.ts",
     "../../ui/library-ui.js",
     "../../ui/video-pages.js",
-    "../../ui/search.js",
+    "../../ui/search.ts",
     "../../ui/appearance.js",
     "../../ui/lyrics.js",
     "../../ui/mascot.js",

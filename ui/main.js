@@ -6,7 +6,7 @@ import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.js";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.js";
-import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.js";
+import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.js";
 import { isLoudnessNormalizationEnabled } from "./appearance.js";
 
