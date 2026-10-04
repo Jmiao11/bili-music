@@ -54,7 +54,7 @@ test("modules import every cross-module binding and have no unused imports", () 
     const exports = declarations.filter((item) => item.kind === "export");
     const consumers = [...sources].flatMap(([, other]) => moduleDeclarations(other)
       .filter((item) => item.kind === "import" && item.specifier === `./${file}`).flatMap((item) => item.names));
-    if (file !== "app.js") {
+    if (file !== "app.ts") {
       assert.equal(exports.length, 1, `${file}: sole export list`);
       assert.deepEqual(exports[0].names, [...new Set(consumers)].sort(), `${file}: export only used names`);
     }

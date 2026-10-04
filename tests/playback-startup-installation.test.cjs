@@ -13,7 +13,7 @@ test("startup installation sequence matches the playback G0 snapshot", async () 
     return src ? [{ file: src[1].replace(/^\.\//, ""), module: /\btype\s*=\s*["']module["']/i.test(tag[1]) }] : [];
   });
   const { files } = collectBusinessScripts(ui);
-  const loaded = await loadNativeModules(ui, files, "app.js", scripts);
+  const loaded = await loadNativeModules(ui, files, "app.ts", scripts);
   const sequence = loaded.events.map(({ stack, ...event }) => event);
   const firstTrackchange = sequence.findIndex((event) => event.action === "dispatch" && event.type === "bilibili-music-trackchange");
   const snapshot = { firstTrackchange, sequence };

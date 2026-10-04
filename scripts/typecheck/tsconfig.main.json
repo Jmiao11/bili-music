@@ -9,7 +9,7 @@
     "../../ui/sidebar.js",
     "../../ui/window-controls.js",
     "../../ui/dynamic-background.js",
-    "../../ui/app.js",
+    "../../ui/app.ts",
     "../../ui/main.ts",
     "../../ui/runtime-api.ts",
     "../../ui/player-dom.ts",

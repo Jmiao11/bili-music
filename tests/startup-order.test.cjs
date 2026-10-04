@@ -20,7 +20,7 @@ test("initial trackchange recipients retain their installation phases", () => {
   });
   assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.ts", "appearance.ts", "mascot.js", "mini-player-host.js"]);
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
-  const entry = tags.indexOf("app.js");
+  const entry = tags.indexOf("app.ts");
   assert.ok(tags.indexOf("dynamic-background.js") < entry);
   assert.match(read("dynamic-background.js"), /initializeDynamicBackground\(\);\s*$/);
   for (const file of ["mascot.js", "mini-player-host.js"]) assert.ok(tags.indexOf(file) > entry);
@@ -70,7 +70,7 @@ test("bottom classic scripts defer and the sole module entry keeps its position"
   assert.equal(bodyScripts.length, 6);
   for (const script of bodyScripts) {
     if (/\btype=["']module["']/.test(script[1])) {
-      assert.match(script[1], /\bsrc=["']app\.js["']/);
+      assert.match(script[1], /\bsrc=["']app\.ts["']/);
     } else {
       assert.match(script[1], /\bsrc=["']\.\/[^"']+\.js["']/);
       assert.match(script[1], /\bdefer\b/);

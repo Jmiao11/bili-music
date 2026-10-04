@@ -13,7 +13,7 @@ const expected = [
   "sidebar.js",
   "window-controls.js",
   "dynamic-background.js",
-  "app.js",
+  "app.ts",
   "lyrics.js",
   "mascot.js",
   "mini-player-host.js",

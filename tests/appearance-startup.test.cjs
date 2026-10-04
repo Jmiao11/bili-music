@@ -11,6 +11,6 @@ test("appearance only declares bindings and app starts it once after importing m
     assert.match(statement.code, /^(?:const|let|class|(?:async\s+)?function)\b/);
   }
   assert.equal(statements.filter((statement) => /^function startAppearance\(/.test(statement.code)).length, 1);
-  const app = require("node:fs").readFileSync(path.join(__dirname, "../ui/app.js"), "utf8").replace(/\r\n/g, "\n");
+  const app = require("node:fs").readFileSync(path.join(__dirname, "../ui/app.ts"), "utf8").replace(/\r\n/g, "\n");
   assert.equal(app, 'import "./main.ts";\nimport { startAppearance } from "./appearance.ts";\nstartAppearance();\n');
 });
