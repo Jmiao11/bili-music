@@ -1,6 +1,10 @@
 (() => {
   "use strict";
 
+  /** @typedef {{ time: number; text: string }} LyricsLine */
+  /** @typedef {Partial<CommandContract.Candidate> & { songId?: string }} LyricsCandidateInput */
+  /** @typedef {CommandContract.ResolveOutcome & { usedKeyword?: string; songName?: string; offsetMs?: number; lyrics: (CommandContract.Lyrics & { has_lyric?: boolean }) | null }} LyricsOutcome */
+
   /** @type {HTMLElement | null} */
   const container = document.querySelector(".immersive-lyrics");
   /** @type {HTMLDivElement | null} */
@@ -42,7 +46,9 @@
   const invoke = window.__TAURI__?.core?.invoke;
   const timestampPattern = /\[(\d{1,2}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g;
 
+  /** @type {LyricsLine[]} */
   let lines = [];
+  /** @type {HTMLParagraphElement[]} */
   let lineElements = [];
   let lastActiveIndex = -1;
   let currentOffsetMs = 0;
@@ -55,6 +61,7 @@
   let matchIdleTimer = 0;
   let matchCanIdle = false;
 
+  /** @param {unknown} text */
   function parseLrc(text) {
     if (typeof text !== "string") return [];
 
@@ -87,6 +94,7 @@
     container?.classList.remove("has-lyrics");
   }
 
+  /** @param {LyricsLine[]} nextLines */
   function render(nextLines) {
     if (!container || !linesElement || !nextLines.length) {
       showPlaceholder();
@@ -110,6 +118,7 @@
     updateActiveLine();
   }
 
+  /** @param {number} time */
   function activeIndexAt(time) {
     let low = 0;
     let high = lines.length - 1;
@@ -140,6 +149,7 @@
     }
   }
 
+  /** @param {number} offsetMs */
   function clampOffset(offsetMs) {
     return Math.max(-30000, Math.min(30000, offsetMs));
   }
@@ -159,6 +169,7 @@
     }, 400);
   }
 
+  /** @param {HTMLElement | null} scrollContainer @param {HTMLElement | null} lineElement */
   function scrollActiveIntoCenter(scrollContainer, lineElement) {
     if (!scrollContainer || !lineElement) return;
 
@@ -203,6 +214,7 @@
     scrollActiveIntoCenter(linesElement, activeLine);
   }
 
+  /** @param {number} deltaMs */
   function adjustOffset(deltaMs) {
     currentOffsetMs = clampOffset(currentOffsetMs + deltaMs);
     updateOffsetValue();
@@ -223,11 +235,13 @@
     updateActiveLine();
   }
 
+  /** @param {string} message */
   function setPlaceholder(message) {
     if (placeholderElement) placeholderElement.textContent = message;
     showPlaceholder();
   }
 
+  /** @param {string} message */
   function setMatchHint(message) {
     if (!matchHintElement) return;
     matchHintElement.textContent = message;
@@ -252,6 +266,7 @@
     );
   }
 
+  /** @param {number} delayMs */
   function scheduleMatchIdle(delayMs) {
     keepMatchVisible();
     if (
@@ -301,6 +316,7 @@
     resetManualSearchUi();
   }
 
+  /** @param {string} message */
   function showMatchActions(message) {
     if (matchElement) matchElement.hidden = false;
     setMatchHint(message);
@@ -311,13 +327,16 @@
     resetManualSearchUi();
   }
 
+  /** @param {string} message */
   function showNoLyrics(message) {
     disableMatchIdle();
     setPlaceholder(message);
     showMatchActions("");
   }
 
+  /** @param {LyricsCandidateInput & { candidate?: LyricsCandidateInput }} value */
   function candidateDetails(value) {
+    /** @type {LyricsCandidateInput} */
     const candidate = value?.candidate ?? value ?? {};
     return {
       songId: String(candidate.songId ?? candidate.song_id ?? "").trim(),
@@ -327,6 +346,7 @@
     };
   }
 
+  /** @param {LyricsOutcome | null | undefined} result */
   function showCandidates(result) {
     disableMatchIdle();
     setPlaceholder("未自动匹配到歌词");
@@ -379,6 +399,7 @@
     candidatesElement.replaceChildren(fragment);
   }
 
+  /** @param {LyricsOutcome | null | undefined} result */
   function showResolvedActions(result) {
     const songName = String(
       result?.songName ?? result?.song_name ?? "",
@@ -393,6 +414,7 @@
     scheduleMatchIdle(3000);
   }
 
+  /** @param {LyricsOutcome | null | undefined} result */
   function applyOutcome(result) {
     const status = String(result?.status ?? "");
     if (status === "bound" || status === "auto") {
@@ -429,6 +451,7 @@
     showNoLyrics("暂无歌词");
   }
 
+  /** @param {number} version @param {string} bvid @param {number} cid */
   function isCurrentRequest(version, bvid, cid) {
     return (
       version === lyricsRequestVersion &&
@@ -437,6 +460,7 @@
     );
   }
 
+  /** @param {number} version @param {string} bvid @param {number} cid */
   async function resolveAt(version, bvid, cid, force = false) {
     if (!invoke) throw new Error("Tauri invoke 不可用");
     const result = await invoke("resolve_lyrics", { bvid, cid, force });
@@ -444,6 +468,7 @@
     applyOutcome(result);
   }
 
+  /** @param {WindowEventMap["bili-track-changed"]} event */
   async function handleTrackChanged(event) {
     const bvid =
       typeof event?.detail?.bvid === "string"
@@ -472,6 +497,7 @@
     }
   }
 
+  /** @param {ReturnType<typeof candidateDetails>} candidate */
   async function bindSong(candidate) {
     const bvid = currentBvid;
     const cid = currentCid;
@@ -497,6 +523,7 @@
     }
   }
 
+  /** @param {string} message */
   function showManualMessage(message) {
     if (!manualResultsElement) return;
     const element = document.createElement("p");
@@ -506,12 +533,14 @@
     manualResultsElement.hidden = false;
   }
 
+  /** @param {number} duration */
   function formatDuration(duration) {
     const seconds = Math.max(0, Math.floor(Number(duration) || 0));
     if (!seconds) return "";
     return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }
 
+  /** @param {CommandMap["search_lyrics_songs"]["result"] | null | undefined} result */
   function renderManualResults(result) {
     if (!manualResultsElement) return;
     const candidates = (Array.isArray(result) ? result : [])
