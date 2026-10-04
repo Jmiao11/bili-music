@@ -1,4 +1,4 @@
-import { displayThumbnailUrl, escapeText, normalizeTrack, snapshotForLibrary, unavailableTrackLocations } from "./track-utils.js";
+import { displayThumbnailUrl, escapeText, normalizeTrack, snapshotForLibrary, unavailableTrackLocations } from "./track-utils.ts";
 import { invoke } from "./runtime-api.js";
 import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, status } from "./player-dom.js";
 import { favoriteDragState, libraryState, playerState, playlistDragState, playlistListDragState } from "./player-state.js";

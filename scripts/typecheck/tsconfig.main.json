@@ -17,7 +17,7 @@
     "../../ui/playback-notice.js",
     "../../ui/playback-diagnostics.js",
     "../../ui/home.js",
-    "../../ui/track-utils.js",
+    "../../ui/track-utils.ts",
     "../../ui/playback-core.js",
     "../../ui/page-selection.ts",
     "../../ui/playback-policy.js",

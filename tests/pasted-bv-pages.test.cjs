@@ -6,7 +6,7 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 
 const source = readFileSync(path.join(__dirname, "../ui/playback-core.js"), "utf8").replace(/\r\n/g, "\n");
-const helper = sourceSlice(readFileSync(path.join(__dirname, "../ui/track-utils.js"), "utf8"), "ui/track-utils.js", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
+const helper = sourceSlice(readFileSync(path.join(__dirname, "../ui/track-utils.ts"), "utf8"), "ui/track-utils.ts", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
 const context = vm.createContext({});
 vm.runInContext(helper, context);
 const shouldOpen = vm.runInContext("shouldOpenPastedBvPages", context);

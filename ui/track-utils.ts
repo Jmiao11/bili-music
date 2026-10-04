@@ -1,4 +1,4 @@
-function playbackFailureMessage(error, isPage = false) {
+function playbackFailureMessage(error: unknown, isPage: boolean = false): string {
   const subject = isPage ? "该分P" : "该视频";
   let message = "";
   try {
@@ -47,14 +47,14 @@ function playbackFailureMessage(error, isPage = false) {
   return `${subject}无法播放`;
 }
 
-function unavailableTrackReason(error) {
+function unavailableTrackReason(error: unknown): string {
   const message = playbackFailureMessage(error);
   return message.includes("已被删除") || message.includes("没有可播放的音频")
     ? message
     : "";
 }
 
-function unavailableTrackLocations(unavailable, favorites, playlists) {
+function unavailableTrackLocations(unavailable: readonly CommandContract.UnavailableTrack[], favorites: readonly CommandContract.TrackSnapshot[], playlists: readonly CommandContract.Playlist[]): Map<string, string> {
   const result = new Map();
   for (const item of unavailable) {
     const key = item.bvid.toLowerCase();
@@ -72,11 +72,11 @@ function unavailableTrackLocations(unavailable, favorites, playlists) {
   return result;
 }
 
-function isBvId(value) {
+function isBvId(value: string): boolean {
   return /^BV[0-9A-Za-z]{10}$/i.test(value.trim());
 }
 
-function shouldOpenPastedBvPages(pending, eventBvid, currentBvid, requestVersion, pageCount) {
+function shouldOpenPastedBvPages(pending, eventBvid: unknown, currentBvid: unknown, requestVersion: number, pageCount: number): boolean {
   const bvid = String(pending?.bvid ?? "").toLowerCase();
   return Boolean(
     bvid && bvid === String(eventBvid ?? "").toLowerCase() &&
@@ -85,7 +85,7 @@ function shouldOpenPastedBvPages(pending, eventBvid, currentBvid, requestVersion
   );
 }
 
-function displayThumbnailUrl(url) {
+function displayThumbnailUrl(url: string): string {
   if (!url) {
     return "";
   }
@@ -94,7 +94,7 @@ function displayThumbnailUrl(url) {
     .replace(/@[^/?#]*(?=([?#]|$))/, "");
 }
 
-function normalizeTrack(video) {
+function normalizeTrack(video): CommandContract.SearchVideo & CommandContract.TrackSnapshot {
   const playCount = Number(video?.playCount);
   const pubdate = Number(video?.pubdate);
   return {
@@ -115,7 +115,7 @@ function normalizeTrack(video) {
   };
 }
 
-function snapshotForLibrary(video) {
+function snapshotForLibrary(video): CommandContract.TrackSnapshotInput {
   const track = normalizeTrack(video);
   return {
     bvid: track.bvid,
@@ -126,7 +126,7 @@ function snapshotForLibrary(video) {
   };
 }
 
-function normalizeVideoPage(page, index) {
+function normalizeVideoPage(page, index: number): CommandContract.VideoPage {
   return {
     page: Math.max(1, Math.round(Number(page?.page) || index + 1)),
     cid: Number(page?.cid) || 0,
@@ -153,14 +153,14 @@ function buildDisplayTrack(video, info, page) {
   };
 }
 
-function playbackTrackSnapshot(video) {
+function playbackTrackSnapshot(video): CommandContract.TrackSnapshot {
   return {
     ...snapshotForLibrary(video),
     addedAt: String(video?.addedAt ?? ""),
   };
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const remaining = Math.floor(seconds % 60);
@@ -169,7 +169,7 @@ function formatDuration(seconds) {
     : `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
-function formatPlayCount(value) {
+function formatPlayCount(value: unknown): string {
   if (value === null || value === undefined) {
     return "—";
   }
@@ -186,7 +186,7 @@ function formatPlayCount(value) {
   return String(Math.round(number));
 }
 
-function formatPubdate(value) {
+function formatPubdate(value: unknown): string {
   if (value === null || value === undefined) {
     return "—";
   }
@@ -203,7 +203,7 @@ function formatPubdate(value) {
   ).padStart(2, "0")}`;
 }
 
-function escapeText(value) {
+function escapeText(value: unknown): string {
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
