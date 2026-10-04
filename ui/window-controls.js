@@ -12,6 +12,7 @@ const closeButton = document.querySelector("#window-close-button");
 /** @type {NodeListOf<HTMLElement>} */
 const resizeHandles = document.querySelectorAll("[data-resize-direction]");
 
+/** @type {Partial<Record<string, string>>} */
 const resizeDirectionMap = {
   east: "East",
   north: "North",
@@ -24,6 +25,7 @@ const resizeDirectionMap = {
 };
 const titlebarDoubleClickMs = 320;
 const titlebarDoubleClickDistance = 6;
+/** @type {{ time: number; x: number; y: number } | null} */
 let lastTitlebarMouseDown = null;
 let suppressNextDblClick = false;
 
@@ -44,14 +46,17 @@ async function updateMaximizedState() {
   }
 }
 
+/** @param {EventTarget} target */
 function isWindowControlTarget(target) {
-  return Boolean(target.closest(".window-controls, .window-control-button"));
+  return Boolean(/** @type {Element} */ (target).closest(".window-controls, .window-control-button"));
 }
 
+/** @param {MouseEvent} event */
 function isTitlebarDragTarget(event) {
   return event.button === 0 && !isWindowControlTarget(event.target);
 }
 
+/** @param {MouseEvent} event */
 async function startWindowDrag(event) {
   if (!appWindow?.startDragging || !isTitlebarDragTarget(event)) {
     return;
@@ -63,6 +68,7 @@ async function startWindowDrag(event) {
   }
 }
 
+/** @param {MouseEvent} event */
 function isTitlebarDoubleClick(event) {
   const now = Date.now();
   const previous = lastTitlebarMouseDown;

@@ -41,10 +41,5 @@
   "ui/mini.js TS7034: Variable 'lastPosition' implicitly has type 'any' in some locations where its type cannot be determined.": 1,
   "ui/mini.js TS7034: Variable 'lastTitle' implicitly has type 'any' in some locations where its type cannot be determined.": 1,
   "ui/mini.js TS7034: Variable 'titleScrollFrame' implicitly has type 'any' in some locations where its type cannot be determined.": 1,
-  "ui/mini.js TS7034: Variable 'unlisteners' implicitly has type 'any[]' in some locations where its type cannot be determined.": 1,
-  "ui/window-controls.js TS7005: Variable 'lastTitlebarMouseDown' implicitly has an 'any' type.": 1,
-  "ui/window-controls.js TS7006: Parameter 'event' implicitly has an 'any' type.": 3,
-  "ui/window-controls.js TS7006: Parameter 'target' implicitly has an 'any' type.": 1,
-  "ui/window-controls.js TS7034: Variable 'lastTitlebarMouseDown' implicitly has type 'any' in some locations where its type cannot be determined.": 1,
-  "ui/window-controls.js TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ east: string; north: string; northEast: string; northWest: string; south: string; southEast: string; southWest: string; west: string; }'. No index signature with a parameter of type 'string' was found on type '{ east: string; north: string; northEast: string; northWest: string; south: string; southEast: string; southWest: string; west: string; }'.": 1
+  "ui/mini.js TS7034: Variable 'unlisteners' implicitly has type 'any[]' in some locations where its type cannot be determined.": 1
 }
