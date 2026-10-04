@@ -181,7 +181,7 @@ function invokeWithTimeout<K extends keyof CommandMap>(command: K, args: Command
   const timeout: Promise<never> = new Promise((_, reject) => {
     timeoutId = window.setTimeout(() => reject(new Error("request timeout")), timeoutMs);
   });
-  return Promise.race([invoke(command, args), timeout]).finally(() => {
+  return Promise.race([invoke<keyof CommandMap>(command, args) as Promise<CommandMap[K]["result"]>, timeout]).finally(() => {
     window.clearTimeout(timeoutId);
   });
 }

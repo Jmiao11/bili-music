@@ -1,3 +1,1 @@
-{
-  "ui/home.ts TS2345: Argument of type '[CommandMap[K][\"args\"]]' is not assignable to parameter of type 'CommandArguments<K>'.": 1
-}
+{}
