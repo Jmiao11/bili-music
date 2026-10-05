@@ -72,6 +72,7 @@ function extractDynamicPalette(pixels) {
 function initializeDynamicBackground() {
   const root = document.documentElement;
   const backdrop = document.querySelector(".dynamic-background");
+  if (!backdrop) return;
   const layers = /** @type {HTMLElement[]} */ ([...backdrop.children]);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let source = "";
@@ -193,6 +194,7 @@ function initializeDynamicBackground() {
           const canvas = document.createElement("canvas");
           canvas.width = canvas.height = 32;
           const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (!context) return;
           context.drawImage(image, 0, 0, 32, 32);
           finish(extractDynamicPalette(context.getImageData(0, 0, 32, 32).data));
         } catch {
@@ -213,7 +215,7 @@ function initializeDynamicBackground() {
 
   function updateAvailability() {
     const next = root.dataset.theme === "dynamic" && !document.hidden;
-    backdrop.classList.toggle("is-paused", !next);
+    if (backdrop) backdrop.classList.toggle("is-paused", !next);
     if (next === active) return;
     active = next;
     refresh();
