@@ -3,6 +3,64 @@ const path = require("node:path");
 const { stripTypes } = require("../../tests/helpers/typescript-source.cjs");
 const { maskCommentsAndStrings, topLevelStatements } = require("../../tests/helpers/js-source.cjs");
 
+function* htmlTags(html) {
+  const start = /<\/?([a-z][\w:-]*)(?=[\s/>])/gi;
+  for (let match; (match = start.exec(html));) {
+    let quote = "";
+    let end = start.lastIndex;
+    for (; end < html.length; end++) {
+      const char = html[end];
+      if (quote) { if (char === quote) quote = ""; }
+      else if (char === '"' || char === "'") quote = char;
+      else if (char === ">") break;
+    }
+    if (end === html.length) break;
+    yield { name: match[1].toLowerCase(), closing: html[match.index + 1] === "/", start: match.index,
+      end: end + 1, attributes: html.slice(start.lastIndex, end) };
+    start.lastIndex = end + 1;
+  }
+}
+
+function htmlIds(html) {
+  html = html.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  for (const name of ["script", "style"]) {
+    const ranges = [];
+    let skippedUntil = 0;
+    for (const tag of htmlTags(html)) {
+      if (tag.start < skippedUntil || tag.closing || tag.name !== name) continue;
+      const close = new RegExp(`</${name}\\s*>`, "gi");
+      close.lastIndex = tag.end;
+      const match = close.exec(html);
+      const end = match ? match.index : html.length;
+      ranges.push([tag.end, end]);
+      skippedUntil = match ? close.lastIndex : html.length;
+    }
+    for (const [start, end] of ranges.reverse()) html = html.slice(0, start) + html.slice(end);
+  }
+  const ranges = [];
+  let depth = 0;
+  let contentStart = 0;
+  for (const tag of htmlTags(html)) {
+    if (tag.name !== "template") continue;
+    if (!tag.closing) { if (depth++ === 0) contentStart = tag.end; }
+    else if (depth && --depth === 0) ranges.push([contentStart, tag.start]);
+  }
+  if (depth) ranges.push([contentStart, html.length]);
+  for (const [start, end] of ranges.reverse()) html = html.slice(0, start) + html.slice(end);
+  const ids = new Set();
+  for (const tag of htmlTags(html)) {
+    if (tag.closing) continue;
+    const attribute = /\s*([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/y;
+    for (let match; (match = attribute.exec(tag.attributes));) {
+      if (match[1].toLowerCase() !== "id") continue;
+      const id = match[2] ?? match[3] ?? match[4] ?? "";
+      if (ids.has(id)) throw new Error(`Duplicate HTML id: ${id}`);
+      ids.add(id);
+    }
+  }
+  return ids;
+}
+
 function declarationPosition(source, start) {
   const code = maskCommentsAndStrings(source);
   const braces = [];
@@ -39,7 +97,9 @@ function checkDomAssertions(source, file, html) {
   const originalCode = maskCommentsAndStrings(source);
   const errors = [];
   const assertions = [];
-  const ids = new Set([...html.replace(/<!--[\s\S]*?-->/g, "").matchAll(/\bid\s*=\s*(["'])([^"']+)\1/g)].map((m) => m[2]));
+  let ids;
+  try { ids = htmlIds(html); }
+  catch (error) { return { assertions, errors: [`${file}: ${error.message}`] }; }
   const fail = (index, reason) => errors.push(`${file}:${source.slice(0, index).split("\n").length}: ${reason}`);
   const validate = (start, end, expression) => {
     const declaration = /\b(?:const|let)\s+[\w$]+\s*=\s*$/.exec(code.slice(0, start));
@@ -97,7 +157,7 @@ function checkRepository(root) {
   return all;
 }
 
-module.exports = { checkDomAssertions, checkRepository };
+module.exports = { htmlIds, checkDomAssertions, checkRepository };
 if (require.main === module) {
   try { checkRepository(path.resolve(__dirname, "../..")); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
