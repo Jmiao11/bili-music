@@ -103,7 +103,7 @@ function initializeSidebar() {
   // This script runs in <head> so saved geometry is applied before the shell paints.
   render();
   document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = document.querySelector("#sidebar");
+    const sidebar = /** @type {HTMLElement} */ (document.querySelector("#sidebar"));
     toggle = document.querySelector("#sidebar-toggle");
     handle = document.querySelector("#sidebar-resize");
     for (const item of /** @type {NodeListOf<HTMLElement>} */ (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)"))) {

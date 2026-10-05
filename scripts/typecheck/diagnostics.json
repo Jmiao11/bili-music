@@ -28,7 +28,6 @@
   "ui/playback-core.ts TS18048: 'loopMode' is possibly 'undefined'.": 1,
   "ui/playback-core.ts TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.": 1,
   "ui/sidebar.js TS18047: 'handle' is possibly 'null'.": 11,
-  "ui/sidebar.js TS18047: 'sidebar' is possibly 'null'.": 2,
   "ui/sidebar.js TS18047: 'toggle' is possibly 'null'.": 1,
   "ui/sidebar.js TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'. Type 'null' is not assignable to type 'string'.": 1,
   "ui/sidebar.js TS2531: Object is possibly 'null'.": 2,
