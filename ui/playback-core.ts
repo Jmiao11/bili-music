@@ -357,6 +357,7 @@ function updateQueueUi() {
     (candidate) => candidate.id === playerState.loopMode,
   );
   loopModeButton.dataset.loopMode = playerState.loopMode;
+  if (!loopMode) return;
   loopModeButton.title = playerState.loopMode === "sequence" ? "关闭循环" : loopMode.label;
   loopModeButton.setAttribute("aria-label", loopModeButton.title);
   loopModeButton.classList.toggle("is-active", playerState.loopMode !== "sequence");

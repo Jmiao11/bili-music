@@ -205,3 +205,20 @@ test("playlist name dialog preserves create and rename contracts and ignores a m
     }
   }
 });
+
+test("queue UI preserves all supported loop labels and ignores an unsupported missing mode", () => {
+  const modes = [{ id: "sequence", label: "顺序播放" }, { id: "list", label: "列表循环" }, { id: "single", label: "单曲循环" }];
+  for (const mode of ["sequence", "list", "single", "unsupported"]) {
+    const button = runtimeElement(); button.title = "unchanged";
+    const context = vm.createContext({ LOOP_MODES: modes, loopModeButton: button,
+      playerState: { queue: [], currentIndex: -1, loopMode: mode, shuffle: false },
+      searchState: { results: [] }, queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
+      searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
+      updateFavoriteButtons() {}, updateLibraryHighlights() {},
+    });
+    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function isFavorited("), context);
+    context.updateQueueUi();
+    const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
+    assert.equal(button.title, expected);
+  }
+});
