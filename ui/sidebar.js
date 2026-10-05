@@ -66,12 +66,13 @@ function initializeSidebar() {
     const width = sidebarVisibleWidth(state);
     root.style.setProperty("--sidebar-width", `${width}px`);
     root.dataset.sidebarCollapsed = String(state.collapsed);
-    if (!toggle) return;
+    if (!toggle || !handle) return;
     const label = state.collapsed ? "展开侧栏" : "收起侧栏";
     toggle.title = label;
     toggle.setAttribute("aria-label", label);
     toggle.setAttribute("aria-expanded", String(!state.collapsed));
-    toggle.querySelector("span").textContent = label;
+    const span = toggle.querySelector("span");
+    if (span) span.textContent = label;
     handle.setAttribute("aria-valuenow", String(width));
     handle.setAttribute("aria-valuetext", state.collapsed ? "已折叠，按右方向键展开" : `${width} 像素`);
   }
@@ -92,7 +93,7 @@ function initializeSidebar() {
 
   /** @param {Event & Partial<PointerEvent>} event */
   function finishDrag(event) {
-    if (!drag || (event?.pointerId !== undefined && event.pointerId !== drag.id)) return;
+    if (!drag || !handle || (event?.pointerId !== undefined && event.pointerId !== drag.id)) return;
     const id = drag.id;
     drag = null;
     delete root.dataset.sidebarDragging;
@@ -104,33 +105,37 @@ function initializeSidebar() {
   render();
   document.addEventListener("DOMContentLoaded", () => {
     const sidebar = /** @type {HTMLElement} */ (document.querySelector("#sidebar"));
-    toggle = document.querySelector("#sidebar-toggle");
-    handle = document.querySelector("#sidebar-resize");
+    const currentToggle = /** @type {HTMLButtonElement} */ (document.querySelector("#sidebar-toggle"));
+    const currentHandle = /** @type {HTMLDivElement} */ (document.querySelector("#sidebar-resize"));
+    toggle = currentToggle;
+    handle = currentHandle;
     for (const item of /** @type {NodeListOf<HTMLElement>} */ (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)"))) {
-      const label = item.querySelector("span").textContent;
+      const span = item.querySelector("span");
+      if (!span) continue;
+      const label = span.textContent;
       item.setAttribute("aria-label", label);
       item.title = label;
     }
     render();
-    toggle.addEventListener("click", toggleSidebar);
-    handle.addEventListener("pointerdown", (event) => {
+    currentToggle.addEventListener("click", toggleSidebar);
+    currentHandle.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || !event.isPrimary || drag) return;
       event.preventDefault();
       drag = { id: event.pointerId, x: event.clientX, width: sidebar.getBoundingClientRect().width };
       root.dataset.sidebarDragging = "true";
-      handle.setPointerCapture(event.pointerId);
+      currentHandle.setPointerCapture(event.pointerId);
     });
-    handle.addEventListener("pointermove", (event) => {
+    currentHandle.addEventListener("pointermove", (event) => {
       if (!drag || event.pointerId !== drag.id) return;
       // Keep the original anchor through the collapse snap; don't rebase onto 72px.
       state = resizeSidebarState(state, drag.width + event.clientX - drag.x);
       render();
     });
-    handle.addEventListener("pointerup", finishDrag);
-    handle.addEventListener("pointercancel", finishDrag);
-    handle.addEventListener("lostpointercapture", finishDrag);
+    currentHandle.addEventListener("pointerup", finishDrag);
+    currentHandle.addEventListener("pointercancel", finishDrag);
+    currentHandle.addEventListener("lostpointercapture", finishDrag);
     window.addEventListener("blur", finishDrag);
-    handle.addEventListener("keydown", (event) => {
+    currentHandle.addEventListener("keydown", (event) => {
       if (drag) return;
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
