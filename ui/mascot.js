@@ -146,10 +146,10 @@
   const BUBBLE_SHOW_MS = 4000;
   const BUBBLE_COOLDOWN_MS = 90000;
 
-  /** @type {HTMLDivElement | null} */
-  const stage = document.querySelector("#mascot-stage");
-  /** @type {HTMLDivElement | null} */
-  const slot = document.querySelector("#mascot-slot");
+  /** @type {HTMLDivElement} */
+  const stage = /** @type {HTMLDivElement} */ (document.querySelector("#mascot-stage"));
+  /** @type {HTMLDivElement} */
+  const slot = /** @type {HTMLDivElement} */ (document.querySelector("#mascot-slot"));
   /** @type {HTMLDivElement | null} */
   const bubble = document.querySelector("#mascot-bubble");
   /** @type {HTMLAudioElement | null} */
