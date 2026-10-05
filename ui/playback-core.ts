@@ -10,6 +10,8 @@ import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 
+type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid"> & Pick<CommandContract.PlaybackState, "page" | "cid">>;
+
 let randomPageRound: { bvid: string; playedCount: number; remaining: ReturnType<typeof buildRandomPageRound> } | null = null;
 let playRecordedForCurrentTrack = false;
 let cacheRequestedForCurrentTrack = false;
@@ -465,7 +467,7 @@ function createTrackActions(video: CommandContract.TrackSnapshotInput, { playlis
   return actions;
 }
 
-function createTrackRow(video: CommandContract.TrackSnapshotInput & { playCount?: number }, index: number, onPlay: (index: number, pageSelection?: Parameters<Parameters<typeof bindTrackActivation>[3]>[0]) => void, options: { showPlayCount?: boolean; playlistId?: string } = {}) {
+function createTrackRow(video: CommandContract.TrackSnapshotInput & { playCount?: number | null }, index: number, onPlay: (index: number, pageSelection?: Parameters<Parameters<typeof bindTrackActivation>[3]>[0]) => void, options: { showPlayCount?: boolean; playlistId?: string } = {}) {
   const item = document.createElement("li");
   item.className = "track-row";
   const playButton = document.createElement("button");
@@ -776,7 +778,7 @@ async function loadCurrentTrack({
   startPage = null,
   resumePosition = null,
   randomStartPage = false,
-}: { keepPage?: boolean; startPage?: Partial<CommandContract.VideoPage>; resumePosition?: number; randomStartPage?: boolean } = {}) {
+}: { keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
   const index = playerState.currentIndex;
   const video = playerState.queue[index];
   if (!video) {
@@ -1016,7 +1018,7 @@ function playBvId(bvId: string) {
   playQueueIndex(0);
 }
 
-function playSearchResult(index: number, pageSelection: Parameters<Parameters<typeof bindTrackActivation>[3]>[0] = null) {
+function playSearchResult(index: number, pageSelection: Parameters<Parameters<typeof bindTrackActivation>[3]>[0] | null = null) {
   if (index < 0 || index >= searchState.results.length) {
     return;
   }
@@ -1031,7 +1033,7 @@ function playListItem(
   source: string,
   videos: readonly CommandContract.TrackSnapshotInput[],
   index: number,
-  { searchVersion = null, playlistId = null, startPage = null, pages = [] }: { searchVersion?: number; playlistId?: string; startPage?: Partial<CommandContract.VideoPage>; pages?: CommandContract.VideoPage[] } = {},
+  { searchVersion = null, playlistId = null, startPage = null, pages = [] }: { searchVersion?: number | null; playlistId?: string | null; startPage?: PlaybackStartPage | null; pages?: CommandContract.VideoPage[] } = {},
 ) {
   if (index < 0 || index >= videos.length) {
     return;
@@ -1076,7 +1078,7 @@ function playQueueIndex(
     pages = [],
     randomStartPage = false,
     historyCid = null,
-  }: { recordCurrent?: boolean; preserveFailureStreak?: boolean; startPage?: Partial<CommandContract.VideoPage>; pages?: CommandContract.VideoPage[]; randomStartPage?: boolean; historyCid?: number } = {},
+  }: { recordCurrent?: boolean; preserveFailureStreak?: boolean; startPage?: PlaybackStartPage | null; pages?: CommandContract.VideoPage[]; randomStartPage?: boolean; historyCid?: number | null } = {},
 ) {
   if (index < 0 || index >= playerState.queue.length) {
     return;
