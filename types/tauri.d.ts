@@ -29,7 +29,7 @@ interface TauriMonitor {
 }
 
 interface Window {
-  __TAURI__?: {
+  __TAURI__: {
     // main.js:9, appearance.js:4, lyrics.js:24; command names select wire types.
     core: { invoke: CommandInvoke; };
     // appearance.js:533,580; mini-player-host.js:88,145; mini.js:177,182,299.
