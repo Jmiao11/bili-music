@@ -357,6 +357,7 @@ function updateQueueUi() {
     (candidate) => candidate.id === playerState.loopMode,
   );
   loopModeButton.dataset.loopMode = playerState.loopMode;
+  if (!loopMode) return;
   loopModeButton.title = playerState.loopMode === "sequence" ? "关闭循环" : loopMode.label;
   loopModeButton.setAttribute("aria-label", loopModeButton.title);
   loopModeButton.classList.toggle("is-active", playerState.loopMode !== "sequence");
@@ -1205,7 +1206,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     return false;
   }
 
-  if (playerState.shuffle) {
+  if (playerState.shuffle && randomPageRound) {
     playerState.history.push({ index: playerState.currentIndex, cid: currentVideoPage()?.cid ?? null, pageLevel: true });
     randomPageRound.playedCount += 1;
   }

@@ -161,3 +161,76 @@ test("current pages opener forwards the selected page from its modal callback", 
   callback({ startPage: page, pages: [page] });
   assert.deepEqual(played, [page]);
 });
+
+test("page advancement preserves shuffle rounds, sequential advancement and the round limit", () => {
+  for (const [shuffle, limit, expected] of [[true, 0, true], [false, 0, true], [true, 1, false]]) {
+    const loads = [], state = { shuffle, loopMode: "sequence", currentIndex: 0, queue: [{ bvid: "BV" }],
+      currentPages: [{ cid: 1 }, { cid: 2 }], currentPageIndex: 0, currentDisplayTrack: {}, history: [] };
+    const context = vm.createContext({ playerState: state, randomPageRound: null, libraryState: { disabledPages: new Map() },
+      hasMultipleCurrentPages: () => true, loadCurrentTrack: (options) => loads.push(options),
+      buildRandomPageRound: () => [1], isPageDisabled: () => false, readShuffleCollectionPrefs: () => ({ order: "random", limit }),
+      takeRandomPageFromRound: () => ({ index: 1, remaining: [] }), findEnabledPageIndex: () => 1,
+      currentVideoPage: () => state.currentPages[state.currentPageIndex], updatePlayerPagesButton() {},
+    });
+    vm.runInContext(slice("playback-core.ts", "function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
+    assert.equal(context.advancePageWithinCurrentBv(), expected);
+    assert.equal(state.currentPageIndex, expected ? 1 : 0);
+    assert.equal(state.history.length, shuffle && expected ? 1 : 0);
+    assert.equal(loads.length, expected ? 1 : 0);
+    if (expected) assert.equal(loads[0].keepPage, true);
+    if (shuffle) assert.equal(context.randomPageRound.playedCount, expected ? 2 : 1);
+  }
+});
+
+test("playlist name dialog preserves create and rename contracts and ignores a missing rename target", async () => {
+  for (const options of [{ mode: "create" }, { mode: "rename", playlist: { id: "p", name: "旧名" } }, { mode: "rename" }]) {
+    let callback;
+    const calls = [], input = runtimeElement(), primaryButton = runtimeElement(); input.value = "新名";
+    const context = vm.createContext({ openLibraryModal() {}, createNameField: () => ({ field: runtimeElement(), input }),
+      createLibraryActions: (label, fn) => { callback = fn; return { actions: runtimeElement(), primaryButton }; },
+      validatePlaylistName: () => ({ ok: true, name: "新名" }), libraryModalBody: runtimeElement(), libraryModalStatus: {},
+      libraryState: { playlists: [] }, invoke: async (name, args) => { calls.push([name, args]); return []; },
+      renderLibraryViews() {}, closeLibraryModal() {},
+    });
+    vm.runInContext(slice("library-ui.ts", "function showPlaylistNameDialog(", "function createPlaylist("), context);
+    context.showPlaylistNameDialog(options);
+    await callback();
+    assert.equal(primaryButton.disabled, false);
+    if (options.mode === "rename" && !options.playlist) assert.equal(calls.length, 0);
+    else {
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0][0], options.mode === "rename" ? "rename_playlist" : "create_playlist");
+      assert.equal(calls[0][1].name, "新名");
+      if (options.mode === "rename") assert.equal(calls[0][1].id, "p");
+    }
+  }
+});
+
+test("queue UI preserves all supported loop labels and ignores an unsupported missing mode", () => {
+  const modes = [{ id: "sequence", label: "顺序播放" }, { id: "list", label: "列表循环" }, { id: "single", label: "单曲循环" }];
+  for (const mode of ["sequence", "list", "single", "unsupported"]) {
+    const button = runtimeElement(); button.title = "unchanged";
+    const context = vm.createContext({ LOOP_MODES: modes, loopModeButton: button,
+      playerState: { queue: [], currentIndex: -1, loopMode: mode, shuffle: false },
+      searchState: { results: [] }, queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
+      searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
+      updateFavoriteButtons() {}, updateLibraryHighlights() {},
+    });
+    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function isFavorited("), context);
+    context.updateQueueUi();
+    const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
+    assert.equal(button.title, expected);
+  }
+});
+
+test("mascot storage selection preserves null property conversion, defaults and none", () => {
+  const kuro = {}, nullKey = {}, known = {};
+  for (const [id, expected] of [[null, nullKey], ["known", known], ["unknown", kuro], ["none", "hidden"]]) {
+    const rendered = [];
+    const context = vm.createContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
+      renderMascot: (mascot) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
+    });
+    vm.runInContext(slice("mascot.js", "  const savedMascotId =", '  setState("idle");'), context);
+    assert.deepEqual(rendered, [expected]);
+  }
+});
