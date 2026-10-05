@@ -161,3 +161,23 @@ test("current pages opener forwards the selected page from its modal callback", 
   callback({ startPage: page, pages: [page] });
   assert.deepEqual(played, [page]);
 });
+
+test("page advancement preserves shuffle rounds, sequential advancement and the round limit", () => {
+  for (const [shuffle, limit, expected] of [[true, 0, true], [false, 0, true], [true, 1, false]]) {
+    const loads = [], state = { shuffle, loopMode: "sequence", currentIndex: 0, queue: [{ bvid: "BV" }],
+      currentPages: [{ cid: 1 }, { cid: 2 }], currentPageIndex: 0, currentDisplayTrack: {}, history: [] };
+    const context = vm.createContext({ playerState: state, randomPageRound: null, libraryState: { disabledPages: new Map() },
+      hasMultipleCurrentPages: () => true, loadCurrentTrack: (options) => loads.push(options),
+      buildRandomPageRound: () => [1], isPageDisabled: () => false, readShuffleCollectionPrefs: () => ({ order: "random", limit }),
+      takeRandomPageFromRound: () => ({ index: 1, remaining: [] }), findEnabledPageIndex: () => 1,
+      currentVideoPage: () => state.currentPages[state.currentPageIndex], updatePlayerPagesButton() {},
+    });
+    vm.runInContext(slice("playback-core.ts", "function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
+    assert.equal(context.advancePageWithinCurrentBv(), expected);
+    assert.equal(state.currentPageIndex, expected ? 1 : 0);
+    assert.equal(state.history.length, shuffle && expected ? 1 : 0);
+    assert.equal(loads.length, expected ? 1 : 0);
+    if (expected) assert.equal(loads[0].keepPage, true);
+    if (shuffle) assert.equal(context.randomPageRound.playedCount, expected ? 2 : 1);
+  }
+});

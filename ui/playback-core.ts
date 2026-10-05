@@ -1205,7 +1205,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     return false;
   }
 
-  if (playerState.shuffle) {
+  if (playerState.shuffle && randomPageRound) {
     playerState.history.push({ index: playerState.currentIndex, cid: currentVideoPage()?.cid ?? null, pageLevel: true });
     randomPageRound.playedCount += 1;
   }
