@@ -72,6 +72,7 @@ function extractDynamicPalette(pixels) {
 function initializeDynamicBackground() {
   const root = document.documentElement;
   const backdrop = document.querySelector(".dynamic-background");
+  if (!backdrop) return;
   const layers = /** @type {HTMLElement[]} */ ([...backdrop.children]);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let source = "";
