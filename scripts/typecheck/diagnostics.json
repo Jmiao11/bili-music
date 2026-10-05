@@ -1,6 +1,5 @@
 {
   "ui/appearance.ts TS18048: 'window.BiliMascot' is possibly 'undefined'.": 2,
-  "ui/dynamic-background.js TS18047: 'backdrop' is possibly 'null'.": 1,
   "ui/library-ui.ts TS2322: Type 'null' is not assignable to type 'Playlist'.": 1,
   "ui/library-ui.ts TS2531: Object is possibly 'null'.": 1,
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,

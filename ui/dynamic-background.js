@@ -215,7 +215,7 @@ function initializeDynamicBackground() {
 
   function updateAvailability() {
     const next = root.dataset.theme === "dynamic" && !document.hidden;
-    backdrop.classList.toggle("is-paused", !next);
+    if (backdrop) backdrop.classList.toggle("is-paused", !next);
     if (next === active) return;
     active = next;
     refresh();
