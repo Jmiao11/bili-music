@@ -108,3 +108,21 @@ test("mascot picker callbacks use the initialized API for selection and hiding",
   context.renderMascotPicker();
   assert.equal(picker.children.length, 2);
 });
+
+test("page count observer disconnect handling preserves native unobserve and ignores a missing observer", () => {
+  let callback;
+  const removed = [];
+  class Observer { constructor(fn) { callback = fn; } observe() {} unobserve(target) { removed.push(target); } }
+  const context = vm.createContext({ window: { IntersectionObserver: Observer }, pageCountObserver: undefined,
+    videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
+    observedPageCountTargets: new Map(), stopObservingPageCountBvid() {}, queuePageCountLookup() {},
+  });
+  vm.runInContext(slice("video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);
+  const item = { dataset: {}, isConnected: false };
+  context.observePageCount(item, "bv");
+  callback([{ target: item, isIntersecting: false }]);
+  assert.deepEqual(removed, [item]);
+  context.pageCountObserver = null;
+  callback([{ target: item, isIntersecting: false }]);
+  assert.deepEqual(removed, [item]);
+});

@@ -242,7 +242,7 @@ function observePageCount(item: HTMLElement, bvid: string): void {
               }
               if (!entry.target.isConnected) {
                 observedPageCountTargets.get(targetBvid)?.delete(entry.target as HTMLElement);
-                pageCountObserver.unobserve(entry.target);
+                pageCountObserver?.unobserve(entry.target);
               }
             }
           }
