@@ -98,7 +98,7 @@ function initializeDynamicBackground() {
   }
 
   function finishFade() {
-    clearTimeout(fadeTimer);
+    if (fadeTimer !== null) clearTimeout(fadeTimer);
     fadeTimer = null;
     if (queuedPalette) {
       const palette = queuedPalette;
@@ -130,7 +130,7 @@ function initializeDynamicBackground() {
 
   function cancelSampling() {
     version++;
-    clearTimeout(loadTimer);
+    if (loadTimer !== null) clearTimeout(loadTimer);
     loadTimer = null;
     if (idleTask !== null) {
       if (window.cancelIdleCallback) window.cancelIdleCallback(idleTask);
@@ -158,7 +158,7 @@ function initializeDynamicBackground() {
     function finish(palette) {
       if (ticket !== version || !active) return;
       version++;
-      clearTimeout(loadTimer);
+      if (loadTimer !== null) clearTimeout(loadTimer);
       loadTimer = null;
       if (loadingImage) loadingImage.onload = loadingImage.onerror = null;
       loadingImage = null;
@@ -185,7 +185,7 @@ function initializeDynamicBackground() {
         return;
       }
       if (ticket !== version || !active) return;
-      clearTimeout(loadTimer);
+      if (loadTimer !== null) clearTimeout(loadTimer);
       const sample = () => {
         idleTask = null;
         if (ticket !== version || !active) return;
