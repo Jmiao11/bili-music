@@ -660,11 +660,12 @@ function syncMascotPickerSelection() {
 }
 
 function renderMascotPicker() {
-  if (!mascotPicker || !window.BiliMascot) {
+  const mascotApi = window.BiliMascot;
+  if (!mascotPicker || !mascotApi) {
     return;
   }
   mascotPicker.textContent = "";
-  for (const mascot of window.BiliMascot.list()) {
+  for (const mascot of mascotApi.list()) {
     const tile = document.createElement("button");
     tile.type = "button";
     tile.className = "mascot-tile";
@@ -681,7 +682,7 @@ function renderMascotPicker() {
 
     tile.append(preview, label);
     tile.addEventListener("click", () => {
-      window.BiliMascot.setActive(mascot.id);
+      mascotApi.setActive(mascot.id);
       syncMascotPickerSelection();
     });
     mascotPicker.append(tile);
@@ -703,7 +704,7 @@ function renderMascotPicker() {
 
   noneTile.append(nonePreview, noneLabel);
   noneTile.addEventListener("click", () => {
-    window.BiliMascot.setActive("none");
+    mascotApi.setActive("none");
     syncMascotPickerSelection();
   });
   mascotPicker.append(noneTile);

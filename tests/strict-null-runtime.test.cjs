@@ -82,3 +82,29 @@ test("window control target handling keeps native element matches and ignores nu
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
   assert.equal(context.isWindowControlTarget({ closest: () => null }), false);
 });
+
+function runtimeElement() {
+  const element = { children: [], dataset: {}, listeners: {},
+    classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {},
+    append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; },
+    addEventListener(name, fn) { this.listeners[name] = fn; }, contains: () => false, focus() {}, select() {},
+  };
+  return element;
+}
+
+test("mascot picker callbacks use the initialized API for selection and hiding", () => {
+  const selected = [], picker = runtimeElement();
+  const api = { list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id) => selected.push(id) };
+  const context = vm.createContext({ mascotPicker: picker, window: { BiliMascot: api },
+    document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
+  });
+  vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
+  context.renderMascotPicker();
+  assert.equal(picker.children.length, 2);
+  picker.children[0].listeners.click();
+  picker.children[1].listeners.click();
+  assert.deepEqual(selected, ["kuro", "none"]);
+  context.window.BiliMascot = undefined;
+  context.renderMascotPicker();
+  assert.equal(picker.children.length, 2);
+});
