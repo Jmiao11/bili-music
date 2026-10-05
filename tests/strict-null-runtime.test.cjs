@@ -148,3 +148,16 @@ test("pages modal rendering preserves page selection and ignores a missing priva
   assert.equal(selections[0].pages[0], page);
   assert.equal(context.pagesModalContext, null);
 });
+
+test("current pages opener forwards the selected page from its modal callback", () => {
+  const page = { cid: 10 }, played = [];
+  let callback;
+  const context = vm.createContext({ currentPlayableTrack: () => ({ bvid: "BV" }), hasMultipleCurrentPages: () => true,
+    playerState: { currentPages: [page] }, playerPagesButton: {}, playCurrentVideoPage: (value) => played.push(value),
+    openPagesModal: (video, count, pages, onPlay) => { assert.equal(count, 1); callback = onPlay; },
+  });
+  vm.runInContext(slice("video-pages.ts", "function openCurrentPagesModal(", "function closePagesModal("), context);
+  context.openCurrentPagesModal();
+  callback({ startPage: page, pages: [page] });
+  assert.deepEqual(played, [page]);
+});
