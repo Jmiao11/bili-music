@@ -619,7 +619,7 @@ async function openPurgeUnavailableTracksModal(): Promise<void> {
   primaryButton.focus();
 }
 
-function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?: string; playlist?: CommandContract.Playlist; track?: CommandContract.TrackSnapshotInput | null } = {}): void {
+function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?: string; playlist?: CommandContract.Playlist | null; track?: CommandContract.TrackSnapshotInput | null } = {}): void {
   const isRename = mode === "rename";
   openLibraryModal(
     isRename ? "重命名歌单" : "新建歌单",
@@ -642,6 +642,7 @@ function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?
       libraryModalStatus.textContent = isRename ? "正在保存…" : "正在创建…";
       try {
         if (isRename) {
+          if (!playlist) return;
           libraryState.playlists = await invoke("rename_playlist", {
             id: playlist.id,
             name: validation.name,

@@ -181,3 +181,27 @@ test("page advancement preserves shuffle rounds, sequential advancement and the 
     if (shuffle) assert.equal(context.randomPageRound.playedCount, expected ? 2 : 1);
   }
 });
+
+test("playlist name dialog preserves create and rename contracts and ignores a missing rename target", async () => {
+  for (const options of [{ mode: "create" }, { mode: "rename", playlist: { id: "p", name: "旧名" } }, { mode: "rename" }]) {
+    let callback;
+    const calls = [], input = runtimeElement(), primaryButton = runtimeElement(); input.value = "新名";
+    const context = vm.createContext({ openLibraryModal() {}, createNameField: () => ({ field: runtimeElement(), input }),
+      createLibraryActions: (label, fn) => { callback = fn; return { actions: runtimeElement(), primaryButton }; },
+      validatePlaylistName: () => ({ ok: true, name: "新名" }), libraryModalBody: runtimeElement(), libraryModalStatus: {},
+      libraryState: { playlists: [] }, invoke: async (name, args) => { calls.push([name, args]); return []; },
+      renderLibraryViews() {}, closeLibraryModal() {},
+    });
+    vm.runInContext(slice("library-ui.ts", "function showPlaylistNameDialog(", "function createPlaylist("), context);
+    context.showPlaylistNameDialog(options);
+    await callback();
+    assert.equal(primaryButton.disabled, false);
+    if (options.mode === "rename" && !options.playlist) assert.equal(calls.length, 0);
+    else {
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0][0], options.mode === "rename" ? "rename_playlist" : "create_playlist");
+      assert.equal(calls[0][1].name, "新名");
+      if (options.mode === "rename") assert.equal(calls[0][1].id, "p");
+    }
+  }
+});
