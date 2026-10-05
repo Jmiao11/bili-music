@@ -3,7 +3,6 @@
   "ui/library-ui.ts TS2322: Type 'null' is not assignable to type 'Playlist'.": 1,
   "ui/library-ui.ts TS2531: Object is possibly 'null'.": 1,
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,
-  "ui/playback-core.ts TS18047: 'playerPagesGroup' is possibly 'null'.": 1,
   "ui/playback-core.ts TS18047: 'randomPageRound' is possibly 'null'.": 1,
   "ui/playback-core.ts TS18048: 'loopMode' is possibly 'undefined'.": 1,
   "ui/video-pages.ts TS18049: 'pageCountObserver' is possibly 'null' or 'undefined'.": 1,
