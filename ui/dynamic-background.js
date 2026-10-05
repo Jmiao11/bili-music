@@ -193,6 +193,7 @@ function initializeDynamicBackground() {
           const canvas = document.createElement("canvas");
           canvas.width = canvas.height = 32;
           const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (!context) return;
           context.drawImage(image, 0, 0, 32, 32);
           finish(extractDynamicPalette(context.getImageData(0, 0, 32, 32).data));
         } catch {
