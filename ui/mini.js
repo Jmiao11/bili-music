@@ -60,26 +60,18 @@ function createMiniPlayerController({
   window,
   console,
 }) {
-  /** @template {HTMLElement} T @param {string} selector @returns {T | null} */
-  const query = (selector) => document.querySelector(selector);
-  const title = query("#mini-title");
-  const titleViewport = query("#mini-title-viewport");
-  const cover = query("#mini-cover");
-  /** @type {HTMLButtonElement | null} */
-  const previousButton = query("#mini-previous");
-  /** @type {HTMLButtonElement | null} */
-  const playPauseButton = query("#mini-play-pause");
-  /** @type {HTMLButtonElement | null} */
-  const nextButton = query("#mini-next");
-  /** @type {HTMLButtonElement | null} */
-  const favoriteButton = query("#mini-favorite");
-  /** @type {HTMLButtonElement | null} */
-  const restoreButton = query("#mini-restore");
-  const dragRegion = query("#mini-drag-region");
-  const notice = query("#mini-notice");
-  /** @type {HTMLButtonElement | null} */
-  const noticeMoreButton = query("#mini-notice-more");
-  const noticeFull = query("#mini-notice-full");
+  const title = /** @type {HTMLElement} */ (document.getElementById("mini-title"));
+  const titleViewport = /** @type {HTMLDivElement} */ (document.getElementById("mini-title-viewport"));
+  const cover = /** @type {HTMLImageElement} */ (document.getElementById("mini-cover"));
+  const previousButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-previous"));
+  const playPauseButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-play-pause"));
+  const nextButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-next"));
+  const favoriteButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-favorite"));
+  const restoreButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-restore"));
+  const dragRegion = /** @type {HTMLElement} */ (document.getElementById("mini-drag-region"));
+  const notice = /** @type {HTMLParagraphElement} */ (document.getElementById("mini-notice"));
+  const noticeMoreButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-notice-more"));
+  const noticeFull = /** @type {HTMLDivElement} */ (document.getElementById("mini-notice-full"));
   const root = document.documentElement;
   /** @type {(() => void)[]} */
   const unlisteners = [];

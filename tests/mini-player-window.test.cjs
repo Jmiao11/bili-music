@@ -50,6 +50,7 @@ function setup({ stored = null, failStorage = false, failSetPosition = false } =
   const document = Object.assign(new EventTarget(), {
     documentElement: root,
     querySelector: (selector) => controls[selector] ?? null,
+    getElementById: (id) => controls["#" + id] ?? null,
   });
   const listeners = new Map();
   const emitted = [];
