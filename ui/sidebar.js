@@ -13,7 +13,7 @@ function sidebarDefaultState() {
 /** @param {string | null} value @returns {SidebarState} */
 function parseSidebarState(value) {
   try {
-    const state = JSON.parse(value);
+    const state = JSON.parse(value ?? "null");
     if (!state || typeof state.width !== "number" || !Number.isFinite(state.width)
       || state.width < SIDEBAR_MIN || state.width > SIDEBAR_MAX
       || typeof state.collapsed !== "boolean") return sidebarDefaultState();

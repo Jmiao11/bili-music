@@ -83,7 +83,7 @@ function shouldOpenPastedBvPages(pending: { bvid: string; requestVersion: number
   return Boolean(
     bvid && bvid === String(eventBvid ?? "").toLowerCase() &&
     bvid === String(currentBvid ?? "").toLowerCase() &&
-    pending.requestVersion === requestVersion && pageCount > 1
+    pending?.requestVersion === requestVersion && pageCount > 1
   );
 }
 
