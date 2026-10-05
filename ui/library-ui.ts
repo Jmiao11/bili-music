@@ -576,7 +576,7 @@ async function openPurgeUnavailableTracksModal(): Promise<void> {
     reason.className = "unavailable-purge-reason";
     reason.textContent = item.reason;
     location.className = "unavailable-purge-location";
-    location.textContent = locations.get(key);
+    location.textContent = locations.get(key) ?? null;
 
     if (snapshot?.thumbnailUrl) {
       const cover = document.createElement("img");

@@ -5,7 +5,6 @@
   "ui/dynamic-background.js TS18047: 'context' is possibly 'null'.": 2,
   "ui/library-ui.ts TS18047: 'event.dataTransfer' is possibly 'null'.": 9,
   "ui/library-ui.ts TS2322: Type 'null' is not assignable to type 'Playlist'.": 1,
-  "ui/library-ui.ts TS2322: Type 'string | undefined' is not assignable to type 'string | null'. Type 'undefined' is not assignable to type 'string | null'.": 1,
   "ui/library-ui.ts TS2531: Object is possibly 'null'.": 1,
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,
   "ui/mini.js TS18047: 'cover' is possibly 'null'.": 4,
