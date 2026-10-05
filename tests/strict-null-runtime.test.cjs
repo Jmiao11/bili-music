@@ -42,3 +42,35 @@ test("restoring cache settings cancels the active timer and preserves the null t
     assert.equal(context.audioCacheCapacity.value, "1024");
   }
 });
+
+test("native list drag handlers preserve transfers and ignore unsupported null transfers", () => {
+  for (const [name, end, stateName, args] of [
+    ["bindFavoriteDrag", "function renderFavorites(", "favoriteDragState", [4]],
+    ["bindPlaylistItemDrag", "function isPlaylistListDragClickSuppressed(", "playlistDragState", ["p", 4]],
+    ["bindPlaylistDrag", "function renderPlaylists(", "playlistListDragState", [4]],
+  ]) {
+    const handlers = {};
+    const row = { querySelectorAll: () => [], addEventListener: (name, fn) => { handlers[name] = fn; },
+      classList: { add() {}, remove() {} } };
+    const state = { saving: false, drag: null };
+    const context = vm.createContext({ [stateName]: state,
+      finishFavoriteDrag() {}, finishPlaylistDrag() {}, finishPlaylistListDrag() {},
+    });
+    vm.runInContext(slice("library-ui.ts", `function ${name}(`, end), context);
+    context[name](row, ...args);
+    handlers.dragstart({ dataTransfer: null });
+    assert.equal(state.drag, null);
+    let prevented = 0;
+    handlers.dragover({ dataTransfer: null, preventDefault: () => { prevented++; } });
+    assert.equal(prevented, 0);
+    const written = [];
+    const dataTransfer = { setData: (...args) => written.push(args) };
+    handlers.dragstart({ dataTransfer });
+    assert.equal(dataTransfer.effectAllowed, "move");
+    assert.deepEqual(written, [["text/plain", "4"]]);
+    assert.equal(state.drag.index, 4);
+    handlers.dragover({ dataTransfer, preventDefault: () => { prevented++; } });
+    assert.equal(dataTransfer.dropEffect, "move");
+    assert.equal(prevented, 1);
+  }
+});
