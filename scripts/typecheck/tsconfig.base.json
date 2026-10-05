@@ -9,7 +9,7 @@
     "isolatedModules": true,
     "strict": false,
     "strictNullChecks": true,
-    "strictPropertyInitialization": false,
+    "strictPropertyInitialization": true,
     "strictBindCallApply": true,
     "strictFunctionTypes": true,
     "noImplicitThis": true,
