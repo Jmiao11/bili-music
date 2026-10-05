@@ -386,7 +386,7 @@
   if (savedMascotId === "none") {
     hideMascot();
   } else {
-    renderMascot(MASCOTS[savedMascotId] ?? MASCOTS.kuro);
+    renderMascot(MASCOTS[String(savedMascotId)] ?? MASCOTS.kuro);
   }
   setState("idle");
   scheduleBlink();

@@ -222,3 +222,15 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
     assert.equal(button.title, expected);
   }
 });
+
+test("mascot storage selection preserves null property conversion, defaults and none", () => {
+  const kuro = {}, nullKey = {}, known = {};
+  for (const [id, expected] of [[null, nullKey], ["known", known], ["unknown", kuro], ["none", "hidden"]]) {
+    const rendered = [];
+    const context = vm.createContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
+      renderMascot: (mascot) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
+    });
+    vm.runInContext(slice("mascot.js", "  const savedMascotId =", '  setState("idle");'), context);
+    assert.deepEqual(rendered, [expected]);
+  }
+});
