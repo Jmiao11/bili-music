@@ -101,7 +101,7 @@ function updatePlayerPagesButton() {
       `查看分P，当前第 ${currentPage} 个，共 ${pageCount} 个`,
     );
   }
-  playerPagesGroup.hidden = playerPagesButton.hidden;
+  if (playerPagesGroup) playerPagesGroup.hidden = playerPagesButton.hidden;
 }
 
 async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInput, requestVersion: number) {

@@ -82,3 +82,82 @@ test("window control target handling keeps native element matches and ignores nu
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
   assert.equal(context.isWindowControlTarget({ closest: () => null }), false);
 });
+
+function runtimeElement() {
+  const element = { children: [], dataset: {}, listeners: {},
+    classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {},
+    append(...items) { this.children.push(...items); }, replaceChildren(...items) { this.children = items; },
+    addEventListener(name, fn) { this.listeners[name] = fn; }, contains: () => false, focus() {}, select() {},
+  };
+  return element;
+}
+
+test("mascot picker callbacks use the initialized API for selection and hiding", () => {
+  const selected = [], picker = runtimeElement();
+  const api = { list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id) => selected.push(id) };
+  const context = vm.createContext({ mascotPicker: picker, window: { BiliMascot: api },
+    document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
+  });
+  vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
+  context.renderMascotPicker();
+  assert.equal(picker.children.length, 2);
+  picker.children[0].listeners.click();
+  picker.children[1].listeners.click();
+  assert.deepEqual(selected, ["kuro", "none"]);
+  context.window.BiliMascot = undefined;
+  context.renderMascotPicker();
+  assert.equal(picker.children.length, 2);
+});
+
+test("page count observer disconnect handling preserves native unobserve and ignores a missing observer", () => {
+  let callback;
+  const removed = [];
+  class Observer { constructor(fn) { callback = fn; } observe() {} unobserve(target) { removed.push(target); } }
+  const context = vm.createContext({ window: { IntersectionObserver: Observer }, pageCountObserver: undefined,
+    videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
+    observedPageCountTargets: new Map(), stopObservingPageCountBvid() {}, queuePageCountLookup() {},
+  });
+  vm.runInContext(slice("video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);
+  const item = { dataset: {}, isConnected: false };
+  context.observePageCount(item, "bv");
+  callback([{ target: item, isIntersecting: false }]);
+  assert.deepEqual(removed, [item]);
+  context.pageCountObserver = null;
+  callback([{ target: item, isIntersecting: false }]);
+  assert.deepEqual(removed, [item]);
+});
+
+test("pages modal rendering preserves page selection and ignores a missing private context", () => {
+  const list = runtimeElement(), page = { page: 1, cid: 10, part: "第一P", durationSeconds: 60 }, selections = [];
+  list.children.push("unchanged");
+  const context = vm.createContext({ pagesModalContext: null, pagesModalList: list,
+    libraryState: { disabledPagePending: new Map(), disabledPages: new Map() },
+    document: { activeElement: null, createElement: runtimeElement },
+    pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
+    currentPlayableTrack: () => null, currentVideoPage: () => null, isPageDisabled: () => false, formatDuration: () => "1:00",
+  });
+  context.closePagesModal = () => { context.pagesModalContext = null; };
+  vm.runInContext(slice("video-pages.ts", "function renderPagesModal(", "async function changeDisabledPages("), context);
+  context.renderPagesModal();
+  assert.deepEqual(list.children, ["unchanged"]);
+  context.pagesModalContext = { video: { bvid: "BV", title: "视频" }, videos: 1, pages: [page], onPlay: (selection) => selections.push(selection) };
+  context.renderPagesModal();
+  assert.equal(list.children.length, 1);
+  list.children[0].children[0].listeners.click();
+  assert.equal(selections[0].startPage, page);
+  assert.equal(selections[0].pages[0], page);
+  assert.equal(context.pagesModalContext, null);
+});
+
+test("current pages opener forwards the selected page from its modal callback", () => {
+  const page = { cid: 10 }, played = [];
+  let callback;
+  const context = vm.createContext({ currentPlayableTrack: () => ({ bvid: "BV" }), hasMultipleCurrentPages: () => true,
+    playerState: { currentPages: [page] }, playerPagesButton: {}, playCurrentVideoPage: (value) => played.push(value),
+    openPagesModal: (video, count, pages, onPlay) => { assert.equal(count, 1); callback = onPlay; },
+  });
+  vm.runInContext(slice("video-pages.ts", "function openCurrentPagesModal(", "function closePagesModal("), context);
+  context.openCurrentPagesModal();
+  callback({ startPage: page, pages: [page] });
+  assert.deepEqual(played, [page]);
+});

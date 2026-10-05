@@ -14,7 +14,7 @@ let pageCountLookupTimer: ReturnType<typeof window.setTimeout> | null = null;
 let pageCacheLookupScheduled = false;
 let pagesMetaRequestVersion = 0;
 let pagesMetaStatusBeforeLoad: string | null = null;
-let pagesModalContext: { video: CommandContract.TrackSnapshotInput; videos: number; pages: CommandContract.VideoPage[]; onPlay: (selection?: PageSelection) => void } | null = null;
+let pagesModalContext: { video: CommandContract.TrackSnapshotInput; videos: number; pages: CommandContract.VideoPage[]; onPlay: (selection: Required<PageSelection>) => void } | null = null;
 let pagesModalReturnFocus: Element | null = null;
 
 function updatePageCountBadge(playButton: HTMLButtonElement, bvid: string): void {
@@ -242,7 +242,7 @@ function observePageCount(item: HTMLElement, bvid: string): void {
               }
               if (!entry.target.isConnected) {
                 observedPageCountTargets.get(targetBvid)?.delete(entry.target as HTMLElement);
-                pageCountObserver.unobserve(entry.target);
+                pageCountObserver?.unobserve(entry.target);
               }
             }
           }
@@ -340,7 +340,7 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
   queueCachedVideoPagesLookup(item, video.bvid);
 }
 
-function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: number, pages: CommandContract.VideoPage[], onPlay: (selection?: PageSelection) => void, trigger: HTMLElement): void {
+function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: number, pages: CommandContract.VideoPage[], onPlay: (selection: Required<PageSelection>) => void, trigger: HTMLElement): void {
   pagesModalContext = { video, videos, pages, onPlay };
   pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
   pagesModalStatus.textContent = "";
@@ -359,6 +359,7 @@ function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: numbe
 }
 
 function renderPagesModal(): void {
+  if (!pagesModalContext) return;
   const { video, videos, pages } = pagesModalContext;
   const bvidKey = video.bvid.toLowerCase();
   const pending = libraryState.disabledPagePending.has(bvidKey);
