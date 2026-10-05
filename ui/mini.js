@@ -2,7 +2,7 @@ const MINI_POSITION_KEY = "bilibili-music.mini-player-position";
 /** @param {Pick<Storage, "getItem">} storage @returns {TauriPosition | null} */
 function readMiniPosition(storage) {
   try {
-    const parsed = JSON.parse(storage.getItem(MINI_POSITION_KEY));
+    const parsed = JSON.parse(storage.getItem(MINI_POSITION_KEY) ?? "null");
     if (!parsed || !Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) {
       return null;
     }
