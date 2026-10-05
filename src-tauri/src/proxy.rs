@@ -806,9 +806,8 @@ mod tests {
 
     #[test]
     fn proxy_http_connection_failure_maps_to_bad_gateway() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/audio.m4s", listener.local_addr().unwrap());
-        drop(listener);
+        // 保持上游端口归属，接收请求后断开连接，避免空闲端口被其他测试复用。
+        let (url, request, upstream) = test_upstream(Vec::new());
         tauri::async_runtime::block_on(async {
             let (status, _, body) = test_proxy_request(
                 test_proxy_state(&url, false),
@@ -820,6 +819,8 @@ mod tests {
             assert_eq!(status, StatusCode::BAD_GATEWAY);
             assert!(body.is_empty());
         });
+        request.recv_timeout(Duration::from_secs(5)).unwrap();
+        upstream.join().unwrap();
     }
 
     #[test]
@@ -860,6 +861,69 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 
+    #[test]
+    fn proxy_http_independent_registries_keep_interleaved_tokens_isolated() {
+        let first_path = std::env::temp_dir().join(format!("proxy-first-{}.m4a", Uuid::new_v4()));
+        let second_path = std::env::temp_dir().join(format!("proxy-second-{}.m4a", Uuid::new_v4()));
+        std::fs::write(&first_path, b"first").unwrap();
+        std::fs::write(&second_path, b"second").unwrap();
+        tauri::async_runtime::block_on(async {
+            let first = test_proxy_state("http://127.0.0.1:1/audio.m4s", false);
+            let second = test_proxy_state("http://127.0.0.1:1/audio.m4s", false);
+            assert!(!std::sync::Arc::ptr_eq(&first.streams, &second.streams));
+            first
+                .streams
+                .write()
+                .await
+                .get_mut("test-token")
+                .unwrap()
+                .source = StreamLocation::Local(first_path.clone());
+            second
+                .streams
+                .write()
+                .await
+                .get_mut("test-token")
+                .unwrap()
+                .source = StreamLocation::Local(second_path.clone());
+            let (first_response, second_response) = tokio::join!(
+                test_proxy_request(first.clone(), Method::GET, "test-token", Default::default()),
+                test_proxy_request(
+                    second.clone(),
+                    Method::GET,
+                    "test-token",
+                    Default::default()
+                ),
+            );
+            assert_eq!(first_response.0, StatusCode::OK);
+            assert_eq!(first_response.2, b"first");
+            assert_eq!(second_response.0, StatusCode::OK);
+            assert_eq!(second_response.2, b"second");
+            first
+                .streams
+                .write()
+                .await
+                .get_mut("test-token")
+                .unwrap()
+                .expires_at = Instant::now();
+            let (expired_response, live_response) = tokio::join!(
+                test_proxy_request(first.clone(), Method::GET, "test-token", Default::default()),
+                test_proxy_request(
+                    second.clone(),
+                    Method::GET,
+                    "test-token",
+                    Default::default()
+                ),
+            );
+            assert_eq!(expired_response.0, StatusCode::GONE);
+            assert!(expired_response.2.is_empty());
+            assert!(first.streams.read().await.is_empty());
+            assert_eq!(live_response.0, StatusCode::OK);
+            assert_eq!(live_response.2, b"second");
+            assert_eq!(second.streams.read().await.len(), 1);
+        });
+        std::fs::remove_file(first_path).unwrap();
+        std::fs::remove_file(second_path).unwrap();
+    }
     async fn test_proxy_request(
         state: super::ProxyState,
         method: Method,
