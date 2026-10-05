@@ -28,10 +28,10 @@ function takeRandomPageFromRound(remaining: readonly number[], isDisabledIndex: 
   };
 }
 
-function normalizeShuffleCollectionPrefs(rawOrder: unknown, rawLimit: string): { order: string; limit: number } {
+function normalizeShuffleCollectionPrefs(rawOrder: unknown, rawLimit: string | null): { order: string; limit: number } {
   return {
     order: rawOrder === "sequential" ? "sequential" : "random",
-    limit: ["1", "3", "5", "10"].includes(rawLimit) ? Number(rawLimit) : 0,
+    limit: (["1", "3", "5", "10"] as readonly (string | null)[]).includes(rawLimit) ? Number(rawLimit) : 0,
   };
 }
 

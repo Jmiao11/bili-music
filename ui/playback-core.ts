@@ -404,7 +404,7 @@ function setFavoriteButtonState(button: HTMLButtonElement, bvid: string) {
 }
 
 function updateFavoriteButtons() {
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-favorite-bvid]")) {
+  for (const button of document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { favoriteBvid: string } }>("[data-favorite-bvid]")) {
     setFavoriteButtonState(button, button.dataset.favoriteBvid);
   }
   const current = currentPlayableTrack();

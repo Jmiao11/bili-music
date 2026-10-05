@@ -78,7 +78,7 @@ const libraryState = {
   playlists: [] as CommandContract.Playlist[],
   unavailableBvids: new Map<string, string>(),
   disabledPages: new Map<string, Set<number>>(),
-  disabledPagePending: new Map<string, number>(),
+  disabledPagePending: new Map<string, number | null>(),
   selectedPlaylistId: "",
   loadError: "",
 };

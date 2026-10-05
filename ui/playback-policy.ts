@@ -21,7 +21,7 @@ function readShuffleCollectionPrefs(): ReturnType<typeof normalizeShuffleCollect
   }
 }
 
-function shouldRecoverAudio(errorCode: number, isCurrent: boolean, hasPlayed: boolean, attempts: number): boolean {
+function shouldRecoverAudio(errorCode: number | undefined, isCurrent: boolean, hasPlayed: boolean, attempts: number): boolean {
   return errorCode === 2 && isCurrent && hasPlayed && attempts < MAX_AUDIO_RECOVERIES;
 }
 
