@@ -57,7 +57,7 @@ test("split scripts contain only top-level function declarations and comments", 
         continue;
       }
       const runtime = /^const \{ invoke \}\s+= window\.__TAURI__\.core;/.exec(remaining);
-      const dom = /^const [\w$]+ = (?:document\.(?:querySelector|getElementById)\s*\("[^"\r\n]+"\)|\[\.\.\.document\.querySelectorAll\s*\("[^"\r\n]+"\)\]|homePanel\?\.querySelector\s*\("[^"\r\n]+"\));/.exec(remaining);
+      const dom = /^const [\w$]+ = (?:document\.(?:querySelector|getElementById)\s*\("[^"\r\n]+"\)|\[\.\.\.document\.querySelectorAll\s*\("[^"\r\n]+"\)\]|homePanel\?\.querySelector\s*\("[^"\r\n]+"\))\s*;/.exec(remaining);
       if ((script === "runtime-api.ts" && runtime) || (script === "player-dom.ts" && dom)) {
         position += (script === "runtime-api.ts" ? runtime : dom)[0].length;
         continue;
@@ -223,4 +223,18 @@ test("state fields are written only by approved scripts", () => {
     }
   }
   assert.equal(unexpected.length, 0, unexpected.join("\n"));
+});
+
+test("architecture DOM declaration whitespace preserves rejection of other top-level code", () => {
+  const source = require("node:fs").readFileSync(__filename, "utf8");
+  const checker = source.slice(source.indexOf('test("split scripts contain only top-level function declarations and comments"'), source.indexOf("\nfunction maskCommentsAndStrings("));
+  const verify = (fixture) => vm.runInNewContext(checker, {
+    test: (_name, check) => check(), splitScripts: ["player-dom.ts"],
+    // This test targets the architecture checker body; the fixture export prefix is module metadata.
+    readFileSync: () => fixture.replace(/^export /, ""), path, ui, assert, vm, maskCommentsAndStrings,
+  });
+  verify('export const x = document.getElementById("a") ;');
+  for (const fixture of ['document.getElementById("a") ;', 'export const x = foo() ;']) {
+    assert.throws(() => verify(fixture), /unexpected top-level code/, fixture);
+  }
 });
