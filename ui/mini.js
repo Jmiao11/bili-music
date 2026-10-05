@@ -12,6 +12,8 @@ function readMiniPosition(storage) {
   }
 }
 
+/** @overload @param {TauriPosition} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize @returns {TauriPosition} */
+/** @overload @param {TauriPosition | null} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize @returns {TauriPosition | null} */
 /** @param {TauriPosition | null} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize */
 function clampMiniPosition(position, monitors, windowSize) {
   if (!position || !Array.isArray(monitors) || monitors.length === 0) {

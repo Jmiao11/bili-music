@@ -16,7 +16,6 @@
   "ui/mini.js TS18047: 'favoriteButton' is possibly 'null'.": 4,
   "ui/mini.js TS18047: 'nextButton' is possibly 'null'.": 2,
   "ui/mini.js TS18047: 'playPauseButton' is possibly 'null'.": 4,
-  "ui/mini.js TS18047: 'position' is possibly 'null'.": 2,
   "ui/mini.js TS18047: 'previousButton' is possibly 'null'.": 2,
   "ui/mini.js TS18047: 'restoreButton' is possibly 'null'.": 2,
   "ui/mini.js TS18047: 'title' is possibly 'null'.": 9,
