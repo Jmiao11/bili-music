@@ -727,7 +727,7 @@ function openSettings() {
 }
 
 async function restoreAudioCacheSettings() {
-  clearTimeout(audioCacheStatusTimer);
+  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
   audioCacheStatusTimer = null;
   audioCacheEnabled.disabled = true;
   audioCacheCapacity.disabled = true;
@@ -759,7 +759,7 @@ async function refreshAudioCacheUsage() {
 
 async function saveAudioCacheSettings() {
   if (!audioCacheSettings) return;
-  clearTimeout(audioCacheStatusTimer);
+  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
   audioCacheStatusTimer = null;
   audioCacheEnabled.disabled = true;
   audioCacheCapacity.disabled = true;
@@ -861,8 +861,8 @@ function initializeAccentColor() {
     .observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
-function applyTheme(theme: string, persist = true) {
-  const safeTheme = ["dark", "light", "image", "dynamic"].includes(theme) ? theme : "dark";
+function applyTheme(theme: string | null, persist = true) {
+  const safeTheme = (["dark", "light", "image", "dynamic"] as readonly (string | null)[]).includes(theme) ? String(theme) : "dark";
   root.dataset.theme = safeTheme;
   for (const option of themeOptions) {
     const selected = option.dataset.themeOption === safeTheme;
@@ -1265,7 +1265,7 @@ for (const [select, key] of [
   });
 }
 clearAudioCacheButton?.addEventListener("click", async () => {
-  clearTimeout(audioCacheStatusTimer);
+  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
   audioCacheStatusTimer = null;
   clearAudioCacheButton.disabled = true;
   audioCacheStatus.textContent = "正在清空缓存…";
