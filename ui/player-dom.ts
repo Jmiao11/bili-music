@@ -6,7 +6,7 @@ const searchButton = document.querySelector<HTMLButtonElement>("#search-button")
 
 const musicTabs = [...document.querySelectorAll<HTMLButtonElement>(".music-tab[data-tids]")];
 
-const sortModeTabs = [...document.querySelectorAll<HTMLButtonElement>(".music-tab[data-sort-mode]")];
+const sortModeTabs = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { sortMode: string } }>(".music-tab[data-sort-mode]")];
 
 const searchStatus = document.querySelector<HTMLParagraphElement>("#search-status")!;
 
@@ -16,7 +16,7 @@ const searchResults = document.querySelector<HTMLUListElement>("#search-results"
 
 const homePanel = document.querySelector<HTMLElement>("#view-home")!;
 
-const homeModeTabs = [...document.querySelectorAll<HTMLElement>(".home-mode-tab[data-home-mode]")];
+const homeModeTabs = [...document.querySelectorAll<HTMLElement & { dataset: DOMStringMap & { homeMode: string } }>(".home-mode-tab[data-home-mode]")];
 
 const homeSourceLabel = document.querySelector<HTMLSpanElement>("#home-source-label")!;
 

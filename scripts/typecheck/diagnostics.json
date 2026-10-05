@@ -11,8 +11,6 @@
   "ui/library-ui.ts TS2322: Type 'null' is not assignable to type 'Playlist'.": 1,
   "ui/library-ui.ts TS2322: Type 'string | undefined' is not assignable to type 'string | null'. Type 'undefined' is not assignable to type 'string | null'.": 1,
   "ui/library-ui.ts TS2531: Object is possibly 'null'.": 1,
-  "ui/main.ts TS2322: Type 'string | undefined' is not assignable to type 'string'. Type 'undefined' is not assignable to type 'string'.": 1,
-  "ui/main.ts TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'. Type 'undefined' is not assignable to type 'string'.": 1,
   "ui/mascot.js TS18047: 'slot' is possibly 'null'.": 2,
   "ui/mascot.js TS18047: 'stage' is possibly 'null'.": 25,
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,
