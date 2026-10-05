@@ -3,8 +3,5 @@
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,
   "ui/playback-core.ts TS18047: 'randomPageRound' is possibly 'null'.": 1,
   "ui/playback-core.ts TS18048: 'loopMode' is possibly 'undefined'.": 1,
-  "ui/video-pages.ts TS2339: Property 'pages' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1,
-  "ui/video-pages.ts TS2339: Property 'startPage' does not exist on type 'PageSelection | undefined'.": 1,
-  "ui/video-pages.ts TS2339: Property 'video' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1,
-  "ui/video-pages.ts TS2339: Property 'videos' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1
+  "ui/video-pages.ts TS2339: Property 'startPage' does not exist on type 'PageSelection | undefined'.": 1
 }

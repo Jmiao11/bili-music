@@ -359,6 +359,7 @@ function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: numbe
 }
 
 function renderPagesModal(): void {
+  if (!pagesModalContext) return;
   const { video, videos, pages } = pagesModalContext;
   const bvidKey = video.bvid.toLowerCase();
   const pending = libraryState.disabledPagePending.has(bvidKey);

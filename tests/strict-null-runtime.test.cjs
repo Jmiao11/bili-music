@@ -126,3 +126,25 @@ test("page count observer disconnect handling preserves native unobserve and ign
   callback([{ target: item, isIntersecting: false }]);
   assert.deepEqual(removed, [item]);
 });
+
+test("pages modal rendering preserves page selection and ignores a missing private context", () => {
+  const list = runtimeElement(), page = { page: 1, cid: 10, part: "第一P", durationSeconds: 60 }, selections = [];
+  list.children.push("unchanged");
+  const context = vm.createContext({ pagesModalContext: null, pagesModalList: list,
+    libraryState: { disabledPagePending: new Map(), disabledPages: new Map() },
+    document: { activeElement: null, createElement: runtimeElement },
+    pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
+    currentPlayableTrack: () => null, currentVideoPage: () => null, isPageDisabled: () => false, formatDuration: () => "1:00",
+  });
+  context.closePagesModal = () => { context.pagesModalContext = null; };
+  vm.runInContext(slice("video-pages.ts", "function renderPagesModal(", "async function changeDisabledPages("), context);
+  context.renderPagesModal();
+  assert.deepEqual(list.children, ["unchanged"]);
+  context.pagesModalContext = { video: { bvid: "BV", title: "视频" }, videos: 1, pages: [page], onPlay: (selection) => selections.push(selection) };
+  context.renderPagesModal();
+  assert.equal(list.children.length, 1);
+  list.children[0].children[0].listeners.click();
+  assert.equal(selections[0].startPage, page);
+  assert.equal(selections[0].pages[0], page);
+  assert.equal(context.pagesModalContext, null);
+});
