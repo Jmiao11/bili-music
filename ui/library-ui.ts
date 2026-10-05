@@ -694,7 +694,8 @@ function importFavoritePlaylist(): void {
   const version = favoriteImportVersion;
   const active = () => version === favoriteImportVersion;
   const { field: linkField, input: linkInput } = createNameField();
-  linkField.querySelector("span").textContent = "收藏夹链接";
+  const linkLabel = linkField.querySelector("span");
+  if (linkLabel) linkLabel.textContent = "收藏夹链接";
   linkInput.maxLength = 4096;
   linkInput.placeholder = "https://space.bilibili.com/…/favlist?fid=…";
   const { field: nameField, input: nameInput } = createNameField();
