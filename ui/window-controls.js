@@ -9,7 +9,7 @@ const minimizeButton = document.querySelector("#window-minimize-button");
 const maximizeButton = document.querySelector("#window-maximize-button");
 /** @type {HTMLButtonElement | null} */
 const closeButton = document.querySelector("#window-close-button");
-/** @type {NodeListOf<HTMLElement>} */
+/** @type {NodeListOf<HTMLElement & { dataset: DOMStringMap & { resizeDirection: string } }>} */
 const resizeHandles = document.querySelectorAll("[data-resize-direction]");
 
 /** @type {Partial<Record<string, string>>} */
