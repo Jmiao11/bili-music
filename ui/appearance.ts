@@ -270,6 +270,7 @@ function startShortcutRecording(action: ShortcutAction) {
   cancelShortcutRecording();
   recordingShortcutAction = action;
   const button = shortcutButtonFor(action);
+  if (!button) return;
   button.textContent = "按下组合键…";
   button.classList.add("is-recording");
   appearanceStatus.textContent = "";

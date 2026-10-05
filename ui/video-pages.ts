@@ -22,7 +22,7 @@ function updatePageCountBadge(playButton: HTMLButtonElement, bvid: string): void
   const count = videoPageCounts.get(bvid);
   const actions = playButton.parentElement?.querySelector(".track-actions");
   let badge = actions?.querySelector<HTMLButtonElement>(".page-count-badge");
-  if (!(count > 1)) {
+  if (!((count ?? 0) > 1)) {
     badge?.remove();
     return;
   }
@@ -480,7 +480,7 @@ function keepFocusInPagesModal(event: KeyboardEvent): void {
     return;
   }
   const first = focusable[0];
-  const last = focusable.at(-1);
+  const last = focusable[focusable.length - 1];
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();

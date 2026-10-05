@@ -1,11 +1,8 @@
 {
-  "ui/appearance.ts TS18048: 'button' is possibly 'undefined'.": 2,
   "ui/appearance.ts TS18048: 'window.BiliMascot' is possibly 'undefined'.": 2,
   "ui/dynamic-background.js TS18047: 'backdrop' is possibly 'null'.": 2,
   "ui/dynamic-background.js TS18047: 'context' is possibly 'null'.": 2,
-  "ui/library-ui.ts TS18047: 'event.dataTransfer' is possibly 'null'.": 9,
   "ui/library-ui.ts TS2322: Type 'null' is not assignable to type 'Playlist'.": 1,
-  "ui/library-ui.ts TS2322: Type 'string | undefined' is not assignable to type 'string | null'. Type 'undefined' is not assignable to type 'string | null'.": 1,
   "ui/library-ui.ts TS2531: Object is possibly 'null'.": 1,
   "ui/mascot.js TS2538: Type 'null' cannot be used as an index type.": 1,
   "ui/mini.js TS18047: 'cover' is possibly 'null'.": 4,
@@ -23,12 +20,9 @@
   "ui/sidebar.js TS18047: 'handle' is possibly 'null'.": 11,
   "ui/sidebar.js TS18047: 'toggle' is possibly 'null'.": 1,
   "ui/sidebar.js TS2531: Object is possibly 'null'.": 2,
-  "ui/video-pages.ts TS18048: 'count' is possibly 'undefined'.": 1,
-  "ui/video-pages.ts TS18048: 'last' is possibly 'undefined'.": 1,
   "ui/video-pages.ts TS18049: 'pageCountObserver' is possibly 'null' or 'undefined'.": 1,
   "ui/video-pages.ts TS2339: Property 'pages' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1,
   "ui/video-pages.ts TS2339: Property 'startPage' does not exist on type 'PageSelection | undefined'.": 1,
   "ui/video-pages.ts TS2339: Property 'video' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1,
-  "ui/video-pages.ts TS2339: Property 'videos' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1,
-  "ui/window-controls.js TS2345: Argument of type 'EventTarget | null' is not assignable to parameter of type 'EventTarget'. Type 'null' is not assignable to type 'EventTarget'.": 2
+  "ui/video-pages.ts TS2339: Property 'videos' does not exist on type '{ video: TrackSnapshotInput; videos: number; pages: VideoPage[]; onPlay: (selection?: PageSelection | undefined) => void; } | null'.": 1
 }

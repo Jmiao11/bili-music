@@ -38,6 +38,7 @@ function bindFavoriteDrag(row: HTMLElement, index: number): void {
     }, true);
   }
   row.addEventListener("dragstart", (event) => {
+    if (!event.dataTransfer) return;
     if (favoriteDragState.saving) {
       event.preventDefault();
       return;
@@ -48,6 +49,7 @@ function bindFavoriteDrag(row: HTMLElement, index: number): void {
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer) return;
     const drag = favoriteDragState.drag;
     if (!drag || favoriteDragState.saving) {
       return;
@@ -154,6 +156,7 @@ function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: numbe
     }, true);
   }
   row.addEventListener("dragstart", (event) => {
+    if (!event.dataTransfer) return;
     if (playlistDragState.saving) {
       event.preventDefault();
       return;
@@ -164,6 +167,7 @@ function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: numbe
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer) return;
     const drag = playlistDragState.drag;
     if (!drag || drag.playlistId !== playlistId || playlistDragState.saving) {
       return;
@@ -234,6 +238,7 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
     }, true);
   }
   row.addEventListener("dragstart", (event) => {
+    if (!event.dataTransfer) return;
     if (playlistListDragState.saving) {
       event.preventDefault();
       return;
@@ -244,6 +249,7 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer) return;
     const drag = playlistListDragState.drag;
     if (!drag || playlistListDragState.saving) {
       return;
@@ -576,7 +582,7 @@ async function openPurgeUnavailableTracksModal(): Promise<void> {
     reason.className = "unavailable-purge-reason";
     reason.textContent = item.reason;
     location.className = "unavailable-purge-location";
-    location.textContent = locations.get(key);
+    location.textContent = locations.get(key) ?? null;
 
     if (snapshot?.thumbnailUrl) {
       const cover = document.createElement("img");

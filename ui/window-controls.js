@@ -46,8 +46,9 @@ async function updateMaximizedState() {
   }
 }
 
-/** @param {EventTarget} target */
+/** @param {EventTarget | null} target */
 function isWindowControlTarget(target) {
+  if (!target) return false;
   return Boolean(/** @type {Element} */ (target).closest(".window-controls, .window-control-button"));
 }
 
