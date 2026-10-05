@@ -473,7 +473,7 @@ function closeLibraryModal(): void {
   libraryModal.setAttribute("aria-hidden", "true");
 }
 
-function validatePlaylistName(name: string, { excludeId = "" }: { excludeId?: string } = {}) {
+function validatePlaylistName(name: string, { excludeId = "" }: { excludeId?: string } = {}): { ok: false; message: string } | { ok: true; name: string } {
   const normalized = name.trim();
   if (!normalized) {
     return { ok: false, message: "歌单名不能为空。" };
@@ -613,7 +613,7 @@ async function openPurgeUnavailableTracksModal(): Promise<void> {
   primaryButton.focus();
 }
 
-function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?: string; playlist?: CommandContract.Playlist; track?: CommandContract.TrackSnapshotInput } = {}): void {
+function showPlaylistNameDialog({ mode, playlist = null, track = null }: { mode?: string; playlist?: CommandContract.Playlist; track?: CommandContract.TrackSnapshotInput | null } = {}): void {
   const isRename = mode === "rename";
   openLibraryModal(
     isRename ? "重命名歌单" : "新建歌单",
