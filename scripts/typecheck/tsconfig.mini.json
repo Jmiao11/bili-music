@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.base.json",
-  "files": ["../../ui/mini.js"]
+  "files": ["../../ui/mini.ts"]
 }
