@@ -53,15 +53,7 @@ jobs:
 
       - name: 校验前端脚本语法
         shell: bash
-        run: |
-          for f in ui/*.js; do
-            [ -f "$f" ] || continue
-            node --check "$f"
-          done
-          for f in ui/*.ts; do
-            [ -f "$f" ] || continue
-            node -e 'const fs = require("node:fs"); const { stripTypes } = require("./tests/helpers/typescript-source.cjs"); stripTypes(fs.readFileSync(process.argv[1], "utf8"), process.argv[1]);' "$f"
-          done
+        run: npm run check:ui-syntax
 
       - name: 运行 Node 测试
         run: node --test
