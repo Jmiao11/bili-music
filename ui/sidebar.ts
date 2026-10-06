@@ -1,4 +1,4 @@
-/** @typedef {{ width: number; collapsed: boolean }} SidebarState */
+type SidebarState = { width: number; collapsed: boolean };
 const SIDEBAR_KEY = "bilibili-music.sidebar";
 const SIDEBAR_DEFAULT = 220;
 const SIDEBAR_MIN = 200;
@@ -10,8 +10,7 @@ function sidebarDefaultState() {
   return { width: SIDEBAR_DEFAULT, collapsed: false };
 }
 
-/** @param {string | null} value @returns {SidebarState} */
-function parseSidebarState(value) {
+function parseSidebarState(value: string | null): SidebarState {
   try {
     const state = JSON.parse(value ?? "null");
     if (!state || typeof state.width !== "number" || !Number.isFinite(state.width)
@@ -23,8 +22,7 @@ function parseSidebarState(value) {
   }
 }
 
-/** @param {Pick<Storage, "getItem">} storage */
-function readSidebarState(storage) {
+function readSidebarState(storage: Pick<Storage, "getItem">) {
   try {
     return parseSidebarState(storage.getItem(SIDEBAR_KEY));
   } catch (_) {
@@ -32,35 +30,29 @@ function readSidebarState(storage) {
   }
 }
 
-/** @param {SidebarState} state @param {number} candidate */
-function resizeSidebarState(state, candidate) {
+function resizeSidebarState(state: SidebarState, candidate: number) {
   if (!Number.isFinite(candidate)) return state;
   if (state.collapsed && candidate < SIDEBAR_EXPAND) return state;
   if (!state.collapsed && candidate < SIDEBAR_MIN) return { ...state, collapsed: true };
   return { width: Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, candidate)), collapsed: false };
 }
 
-/** @param {SidebarState} state */
-function sidebarVisibleWidth(state) {
+function sidebarVisibleWidth(state: SidebarState) {
   return state.collapsed ? SIDEBAR_COLLAPSED : state.width;
 }
 
 function initializeSidebar() {
   const root = document.documentElement;
-  /** @type {SidebarState} */
-  let state;
+  let state: SidebarState;
   try {
     state = readSidebarState(window.localStorage);
   } catch (_) {
     // Access to localStorage itself can throw in a restricted WebView.
     state = sidebarDefaultState();
   }
-  /** @type {HTMLButtonElement | null} */
-  let toggle;
-  /** @type {HTMLDivElement | null} */
-  let handle;
-  /** @type {{ id: number; x: number; width: number } | null} */
-  let drag = null;
+  let toggle: HTMLButtonElement | null;
+  let handle: HTMLDivElement | null;
+  let drag: { id: number; x: number; width: number } | null = null;
 
   function render() {
     const width = sidebarVisibleWidth(state);
@@ -91,8 +83,7 @@ function initializeSidebar() {
     save();
   }
 
-  /** @param {Event & Partial<PointerEvent>} event */
-  function finishDrag(event) {
+  function finishDrag(event: Event & Partial<PointerEvent>) {
     if (!drag || !handle || (event?.pointerId !== undefined && event.pointerId !== drag.id)) return;
     const id = drag.id;
     drag = null;
@@ -104,12 +95,12 @@ function initializeSidebar() {
   // This script runs in <head> so saved geometry is applied before the shell paints.
   render();
   document.addEventListener("DOMContentLoaded", () => {
-    const sidebar = /** @type {HTMLElement} */ (document.querySelector("#sidebar"));
-    const currentToggle = /** @type {HTMLButtonElement} */ (document.querySelector("#sidebar-toggle"));
-    const currentHandle = /** @type {HTMLDivElement} */ (document.querySelector("#sidebar-resize"));
+    const sidebar = (document.querySelector("#sidebar") as HTMLElement);
+    const currentToggle = (document.querySelector("#sidebar-toggle") as HTMLButtonElement);
+    const currentHandle = (document.querySelector("#sidebar-resize") as HTMLDivElement);
     toggle = currentToggle;
     handle = currentHandle;
-    for (const item of /** @type {NodeListOf<HTMLElement>} */ (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)"))) {
+    for (const item of (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)") as NodeListOf<HTMLElement>)) {
       const span = item.querySelector("span");
       if (!span) continue;
       const label = span.textContent;

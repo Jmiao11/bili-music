@@ -4,7 +4,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/mini-player-host.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/mini-player-host.ts"), "utf8");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 function element(extra = {}) {

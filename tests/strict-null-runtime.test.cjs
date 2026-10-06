@@ -230,7 +230,7 @@ test("mascot storage selection preserves null property conversion, defaults and 
     const context = vm.createContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
       renderMascot: (mascot) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
     });
-    vm.runInContext(slice("mascot.js", "  const savedMascotId =", '  setState("idle");'), context);
+    vm.runInContext(slice("mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);
     assert.deepEqual(rendered, [expected]);
   }
 });

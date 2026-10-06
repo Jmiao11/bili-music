@@ -1,9 +1,7 @@
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
-/** @param {HTMLElement | null} root */
-function miniPlayerAccent(root) {
-  /** @param {string} name @param {number} fallback */
-  const read = (name, fallback) => {
+function miniPlayerAccent(root: HTMLElement | null) {
+  const read = (name: string, fallback: number) => {
     const value = Number(root?.style?.getPropertyValue?.(name));
     return Number.isFinite(value) ? value : fallback;
   };
@@ -13,23 +11,15 @@ function miniPlayerAccent(root) {
     b: read("--accent-b", 153),
   };
 }
-
-/** @param {Document} document @returns {MiniPlayerStatePayload} */
-function miniPlayerState(document) {
-  /** @template {HTMLElement} T @param {string} selector @returns {T | null} */
-  const query = (selector) => document.querySelector(selector);
-  /** @type {HTMLButtonElement | null} */
-  const previousButton = query("#previous-button");
-  /** @type {HTMLButtonElement | null} */
-  const nextButton = query("#next-button");
-  /** @type {HTMLButtonElement | null} */
-  const playPauseButton = query("#play-pause-button");
-  /** @type {HTMLButtonElement | null} */
-  const favoriteButton = query("#favorite-current-button");
+function miniPlayerState(document: Document): MiniPlayerStatePayload {
+  const query = <T extends HTMLElement>(selector: string): T | null => document.querySelector<T>(selector);
+    const previousButton = query<HTMLButtonElement>("#previous-button");
+    const nextButton = query<HTMLButtonElement>("#next-button");
+    const playPauseButton = query<HTMLButtonElement>("#play-pause-button");
+    const favoriteButton = query<HTMLButtonElement>("#favorite-current-button");
   const title = query("#title");
   const uploader = query("#uploader");
-  /** @type {HTMLImageElement | null} */
-  const thumbnail = query("#thumbnail");
+    const thumbnail = query<HTMLImageElement>("#thumbnail");
   const status = query("#status");
   const root = document.documentElement;
   const hasCurrent = favoriteButton
@@ -53,8 +43,6 @@ function miniPlayerState(document) {
     notice: query("#playback-notice")?.textContent || "",
   };
 }
-
-/** @param {{ eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"] }} environment */
 function createMiniPlayerHost({
   eventApi,
   invoke,
@@ -63,24 +51,18 @@ function createMiniPlayerHost({
   setTimeoutFn = window.setTimeout.bind(window),
   clearTimeoutFn = window.clearTimeout.bind(window),
   console,
-}) {
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"] }) {
   const openButton = document.querySelector("#mini-player-button");
-  /** @type {HTMLButtonElement | null} */
-  const previousButton = document.querySelector("#previous-button");
-  /** @type {HTMLButtonElement | null} */
-  const playPauseButton = document.querySelector("#play-pause-button");
-  /** @type {HTMLButtonElement | null} */
-  const nextButton = document.querySelector("#next-button");
-  /** @type {HTMLButtonElement | null} */
-  const favoriteButton = document.querySelector("#favorite-current-button");
+    const previousButton = document.querySelector<HTMLButtonElement>("#previous-button");
+    const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button");
+    const nextButton = document.querySelector<HTMLButtonElement>("#next-button");
+    const favoriteButton = document.querySelector<HTMLButtonElement>("#favorite-current-button");
   const status = document.querySelector("#status");
   const audio = document.querySelector("#audio");
-  /** @type {(() => void)[]} */
-  const unlisteners = [];
+  const unlisteners: (() => void)[] = [];
   let disposed = false;
   let miniReady = false;
-  /** @type {number | null} */
-  let readyTimer = null;
+  let readyTimer: number | null = null;
   let openVersion = 0;
 
   function clearReadyTimer() {
@@ -89,9 +71,7 @@ function createMiniPlayerHost({
       readyTimer = null;
     }
   }
-
-  /** @param {string} message */
-  function reportError(message) {
+  function reportError(message: string) {
     if (status) {
       status.textContent = message;
     }
@@ -105,9 +85,7 @@ function createMiniPlayerHost({
       eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", miniPlayerState(document)),
     ).catch((error) => console.warn("mini player state publish failed:", error));
   }
-
-  /** @param {TauriEvent<TauriAppEventMap["mini-player-command"]>} event */
-  function handleCommand({ payload }) {
+  function handleCommand({ payload }: TauriEvent<TauriAppEventMap["mini-player-command"]>) {
     const action = payload?.action;
     if (action === "previous") {
       previousButton?.click();
@@ -158,9 +136,7 @@ function createMiniPlayerHost({
       }
     }, MINI_PLAYER_READY_TIMEOUT_MS);
   }
-
-  /** @template {keyof TauriAppEventMap} K @param {K} name @param {(event: TauriEvent<TauriAppEventMap[K]>) => void} handler */
-  function listen(name, handler) {
+  function listen<K extends keyof TauriAppEventMap>(name: K, handler: (event: TauriEvent<TauriAppEventMap[K]>) => void) {
     return eventApi.listen(name, handler).then((unlisten) => {
       if (disposed) {
         Promise.resolve(unlisten()).catch(() => {});

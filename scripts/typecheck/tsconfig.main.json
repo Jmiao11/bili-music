@@ -6,9 +6,9 @@
     "../../types/contract-fixtures.ts"
   ],
   "files": [
-    "../../ui/sidebar.js",
+    "../../ui/sidebar.ts",
     "../../ui/window-controls.ts",
-    "../../ui/dynamic-background.js",
+    "../../ui/dynamic-background.ts",
     "../../ui/app.ts",
     "../../ui/main.ts",
     "../../ui/runtime-api.ts",
@@ -25,8 +25,8 @@
     "../../ui/video-pages.ts",
     "../../ui/search.ts",
     "../../ui/appearance.ts",
-    "../../ui/lyrics.js",
-    "../../ui/mascot.js",
-    "../../ui/mini-player-host.js"
+    "../../ui/lyrics.ts",
+    "../../ui/mascot.ts",
+    "../../ui/mini-player-host.ts"
   ]
 }

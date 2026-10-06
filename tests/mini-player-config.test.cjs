@@ -18,7 +18,7 @@ test("main titlebar exposes the mini player without changing the minimize contro
   assert.ok(miniIndex < html.indexOf('id="window-minimize-button"'));
   assert.match(html, /src="\.\/mini-player-host\.js"/);
   assert.ok(existsSync(path.join(root, "ui/mini.html")));
-  assert.ok(existsSync(path.join(root, "ui/mini.js")));
+  assert.ok(existsSync(path.join(root, "ui/mini.ts")));
   assert.ok(existsSync(path.join(root, "ui/mini.css")));
 });
 
