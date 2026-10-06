@@ -55,6 +55,7 @@ jobs:
         shell: bash
         run: |
           for f in ui/*.js; do
+            [ -f "$f" ] || continue
             node --check "$f"
           done
           for f in ui/*.ts; do

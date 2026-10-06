@@ -4,7 +4,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/mini.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/mini.ts"), "utf8");
 const styles = readFileSync(path.join(__dirname, "../ui/mini.css"), "utf8");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 

@@ -77,7 +77,7 @@ test("native list drag handlers preserve transfers and ignore unsupported null t
 
 test("window control target handling keeps native element matches and ignores null targets", () => {
   const context = vm.createContext({});
-  vm.runInContext(slice("window-controls.js", "function isWindowControlTarget(", "/** @param {MouseEvent} event */"), context);
+  vm.runInContext(slice("window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);
   assert.equal(context.isWindowControlTarget(null), false);
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
   assert.equal(context.isWindowControlTarget({ closest: () => null }), false);
@@ -230,7 +230,7 @@ test("mascot storage selection preserves null property conversion, defaults and 
     const context = vm.createContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
       renderMascot: (mascot) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
     });
-    vm.runInContext(slice("mascot.js", "  const savedMascotId =", '  setState("idle");'), context);
+    vm.runInContext(slice("mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);
     assert.deepEqual(rendered, [expected]);
   }
 });

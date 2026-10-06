@@ -45,6 +45,6 @@ test("typecheck projects cover the HTML script graph and isolate mini", () => {
   const main = JSON.parse(fs.readFileSync(path.join(root, "scripts/typecheck/tsconfig.main.json"), "utf8"));
   const mini = JSON.parse(fs.readFileSync(path.join(root, "scripts/typecheck/tsconfig.mini.json"), "utf8"));
   assert.deepEqual(main.files, collectBusinessScripts(path.join(root, "ui")).files.map((file) => `../../ui/${file}`));
-  assert.deepEqual(mini.files, ["../../ui/mini.js"]);
+  assert.deepEqual(mini.files, ["../../ui/mini.ts"]);
   assert.equal(main.extends, mini.extends);
 });

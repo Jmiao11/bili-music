@@ -124,6 +124,21 @@ function checkDomAssertions(source, file, html) {
       else validate(match.index, i + 1, match[0]);
     }
   }
+  if (file.endsWith(".ts")) {
+    for (const match of originalCode.matchAll(/\bas\s+(?:HTMLElement|HTML\w+Element)\s*(?=\))/g)) {
+      if (erased[match.index] !== " ") continue;
+      const end = match.index + match[0].length;
+      let depth = 0;
+      let open = match.index - 1;
+      for (; open >= 0; open--) {
+        if (code[open] === ")") depth++;
+        if (code[open] === "(" && depth-- === 0) break;
+      }
+      const expression = erased.slice(open + 1, match.index).trim();
+      if (/\bdocument\s*\.\s*(?:getElementById|querySelector)\s*\(/.test(maskCommentsAndStrings(expression)))
+        validate(open, end + 1, expression);
+    }
+  }
   // JSDoc casts are erased comments in JS, so inspect the original cast and its enclosing declaration.
   const casts = /\/\*\*\s*@type\s*\{\s*(?:HTMLElement|HTML\w+Element)\s*\}\s*\*\/\s*\(/g;
   for (const match of source.matchAll(casts)) {
@@ -147,7 +162,7 @@ function checkRepository(root) {
   const errors = [];
   for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => /\.(?:js|ts)$/.test(name))) {
     const file = `ui/${name}`;
-    const html = name === "mini.js" ? "ui/mini.html" : "ui/index.html";
+    const html = /^mini\.(?:js|ts)$/.test(name) ? "ui/mini.html" : "ui/index.html";
     const result = checkDomAssertions(fs.readFileSync(path.join(root, file), "utf8"), file, fs.readFileSync(path.join(root, html), "utf8"));
     all.push(...result.assertions.map((assertion) => ({ ...assertion, html })));
     errors.push(...result.errors);

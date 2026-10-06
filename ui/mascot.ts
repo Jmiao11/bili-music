@@ -1,6 +1,5 @@
 (() => {
-  /** @type {Record<string, { id: string; name: string; personality: string; lines: Record<string, string[]>; svg: string }>} */
-  const MASCOTS = {
+  const MASCOTS: Record<string, { id: string; name: string; personality: string; lines: Record<string, string[]>; svg: string }> = {
     kuro: {
       id: "kuro",
       name: "小黑咪",
@@ -146,21 +145,16 @@
   const BUBBLE_SHOW_MS = 4000;
   const BUBBLE_COOLDOWN_MS = 90000;
 
-  /** @type {HTMLDivElement} */
-  const stage = /** @type {HTMLDivElement} */ (document.querySelector("#mascot-stage"));
-  /** @type {HTMLDivElement} */
-  const slot = /** @type {HTMLDivElement} */ (document.querySelector("#mascot-slot"));
-  /** @type {HTMLDivElement | null} */
-  const bubble = document.querySelector("#mascot-bubble");
-  /** @type {HTMLAudioElement | null} */
-  const audio = document.querySelector("#audio");
+  const stage = (document.querySelector("#mascot-stage") as HTMLDivElement);
+  const slot = (document.querySelector("#mascot-slot") as HTMLDivElement);
+  const bubble = document.querySelector<HTMLDivElement>("#mascot-bubble");
+  const audio = document.querySelector<HTMLAudioElement>("#audio");
 
   if (!stage || !slot) {
     return;
   }
 
-  /** @type {(typeof MASCOTS)[string] | null} */
-  let currentMascot = null;
+  let currentMascot: (typeof MASCOTS)[string] | null = null;
   let hasCurrentTrack = false;
   let currentState = "";
   let blinkTimer = 0;
@@ -176,8 +170,7 @@
 
   stage.style.pointerEvents = "auto";
 
-  /** @param {EventTarget | null} target @param {string} eventName @param {(event: Event & { detail?: CurrentTrackDetail }) => void} handler */
-  function listen(target, eventName, handler) {
+  function listen(target: EventTarget | null, eventName: string, handler: (event: Event & { detail?: CurrentTrackDetail }) => void) {
     try {
       target?.addEventListener(eventName, (event) => {
         try {
@@ -191,8 +184,7 @@
     }
   }
 
-  /** @param {(typeof MASCOTS)[string]} mascot */
-  function renderMascot(mascot) {
+  function renderMascot(mascot: (typeof MASCOTS)[string]) {
     stage.classList.remove("is-hidden");
     currentMascot = mascot;
     slot.innerHTML = mascot.svg;
@@ -216,8 +208,7 @@
     }
   }
 
-  /** @param {string} category */
-  function speak(category, { force = false } = {}) {
+  function speak(category: string, { force = false } = {}) {
     if (!bubble) {
       return;
     }
@@ -239,8 +230,7 @@
     }, BUBBLE_SHOW_MS);
   }
 
-  /** @param {string} state */
-  function setState(state) {
+  function setState(state: string) {
     const changed = currentState !== state;
     currentState = state;
     stage.dataset.state = state;
@@ -352,8 +342,7 @@
     }
   }
 
-  /** @param {string} id */
-  function saveMascot(id) {
+  function saveMascot(id: string) {
     try {
       localStorage.setItem(MASCOT_KEY, id);
     } catch (_) {

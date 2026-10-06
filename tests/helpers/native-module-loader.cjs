@@ -114,9 +114,10 @@ async function loadNativeModules(sourceRoot, files, entry, scripts = [{ file: en
     await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
     let namespace;
     for (const script of scripts) {
-      const file = fs.realpathSync(path.join(root, script.file));
+      const logical = path.join(root, script.file);
+      const file = fs.realpathSync(!script.module && !fs.existsSync(logical) ? logical.replace(/\.js$/, ".ts") : logical);
       if (script.module) namespace = await import(pathToFileURL(file).href);
-      else vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: file });
+      else vm.runInThisContext(stripTypes(fs.readFileSync(file, "utf8"), file), { filename: file });
     }
     const { result } = await post("Profiler.takePreciseCoverage");
     const coverage = result.filter((script) => script.url.startsWith(pathToFileURL(root).href));

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { stripTypeScriptTypes } from "node:module";
 
 export function attribute(attributes, name) {
   return new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(attributes)?.[2];
@@ -40,7 +41,7 @@ export function preserveHtmlScripts() {
         for (const script of sourceScripts.filter((item) => item.src && !item.module)) {
           const fileName = path.relative(root, path.resolve(path.dirname(context.filename), script.src)).split(path.sep).join("/");
           assert.ok(!fileName.startsWith("../") && !path.isAbsolute(fileName), `Script outside ui: ${script.src}`);
-          ordinary.set(fileName, readFileSync(path.join(root, fileName)));
+          ordinary.set(fileName, ordinarySource(path.join(root, fileName)));
         }
         const modules = sourceScripts.filter((item) => item.module);
         const builtModules = scripts(html).filter((item) => item.module);
@@ -64,6 +65,34 @@ export function preserveHtmlScripts() {
       handler() {
         for (const [fileName, source] of ordinary) this.emitFile({ type: "asset", fileName, source });
       },
+    },
+  };
+}
+
+export function ordinarySource(file) {
+  if (existsSync(file)) return readFileSync(file);
+  return Buffer.from(stripTypeScriptTypes(readFileSync(file.replace(/\.js$/, ".ts"), "utf8"), { mode: "strip" }));
+}
+
+export function ordinaryTypeScriptScripts() {
+  return {
+    name: "ordinary-typescript-scripts",
+    apply: "serve",
+    configureServer(server) {
+      const root = server.config.root;
+      const names = new Set(["index.html", "mini.html"].flatMap((page) =>
+        scripts(readFileSync(path.join(root, page), "utf8"))
+          .filter((script) => script.src && !script.module).map((script) => script.src.replace(/^\.\//, "/"))));
+      server.middlewares.use((request, response, next) => {
+        try {
+          const pathname = new URL(request.url, "http://localhost").pathname;
+          if (!names.has(pathname)) return next();
+          const file = path.join(root, pathname.slice(1));
+          if (existsSync(file)) return next();
+          response.setHeader("Content-Type", "application/javascript; charset=utf-8");
+          response.end(ordinarySource(file));
+        } catch (error) { next(error); }
+      });
     },
   };
 }

@@ -1,19 +1,13 @@
 const tauriWindowApi = window.__TAURI__?.window;
 const appWindow = tauriWindowApi?.getCurrentWindow?.();
 
-/** @type {HTMLElement | null} */
-const titlebar = document.querySelector(".window-titlebar");
-/** @type {HTMLButtonElement | null} */
-const minimizeButton = document.querySelector("#window-minimize-button");
-/** @type {HTMLButtonElement | null} */
-const maximizeButton = document.querySelector("#window-maximize-button");
-/** @type {HTMLButtonElement | null} */
-const closeButton = document.querySelector("#window-close-button");
-/** @type {NodeListOf<HTMLElement & { dataset: DOMStringMap & { resizeDirection: string } }>} */
-const resizeHandles = document.querySelectorAll("[data-resize-direction]");
+const titlebar = document.querySelector<HTMLElement>(".window-titlebar");
+const minimizeButton = document.querySelector<HTMLButtonElement>("#window-minimize-button");
+const maximizeButton = document.querySelector<HTMLButtonElement>("#window-maximize-button");
+const closeButton = document.querySelector<HTMLButtonElement>("#window-close-button");
+const resizeHandles = document.querySelectorAll<HTMLElement & { dataset: DOMStringMap & { resizeDirection: string } }>("[data-resize-direction]");
 
-/** @type {Partial<Record<string, string>>} */
-const resizeDirectionMap = {
+const resizeDirectionMap: Partial<Record<string, string>> = {
   east: "East",
   north: "North",
   northEast: "NorthEast",
@@ -25,8 +19,7 @@ const resizeDirectionMap = {
 };
 const titlebarDoubleClickMs = 320;
 const titlebarDoubleClickDistance = 6;
-/** @type {{ time: number; x: number; y: number } | null} */
-let lastTitlebarMouseDown = null;
+let lastTitlebarMouseDown: { time: number; x: number; y: number } | null = null;
 let suppressNextDblClick = false;
 
 async function updateMaximizedState() {
@@ -46,19 +39,16 @@ async function updateMaximizedState() {
   }
 }
 
-/** @param {EventTarget | null} target */
-function isWindowControlTarget(target) {
+function isWindowControlTarget(target: EventTarget | null) {
   if (!target) return false;
-  return Boolean(/** @type {Element} */ (target).closest(".window-controls, .window-control-button"));
+  return Boolean((target as Element).closest(".window-controls, .window-control-button"));
 }
 
-/** @param {MouseEvent} event */
-function isTitlebarDragTarget(event) {
+function isTitlebarDragTarget(event: MouseEvent) {
   return event.button === 0 && !isWindowControlTarget(event.target);
 }
 
-/** @param {MouseEvent} event */
-async function startWindowDrag(event) {
+async function startWindowDrag(event: MouseEvent) {
   if (!appWindow?.startDragging || !isTitlebarDragTarget(event)) {
     return;
   }
@@ -69,8 +59,7 @@ async function startWindowDrag(event) {
   }
 }
 
-/** @param {MouseEvent} event */
-function isTitlebarDoubleClick(event) {
+function isTitlebarDoubleClick(event: MouseEvent) {
   const now = Date.now();
   const previous = lastTitlebarMouseDown;
   lastTitlebarMouseDown = {

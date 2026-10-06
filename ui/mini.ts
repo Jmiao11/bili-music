@@ -1,6 +1,5 @@
 const MINI_POSITION_KEY = "bilibili-music.mini-player-position";
-/** @param {Pick<Storage, "getItem">} storage @returns {TauriPosition | null} */
-function readMiniPosition(storage) {
+function readMiniPosition(storage: Pick<Storage, "getItem">): TauriPosition | null {
   try {
     const parsed = JSON.parse(storage.getItem(MINI_POSITION_KEY) ?? "null");
     if (!parsed || !Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) {
@@ -12,18 +11,15 @@ function readMiniPosition(storage) {
   }
 }
 
-/** @overload @param {TauriPosition} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize @returns {TauriPosition} */
-/** @overload @param {TauriPosition | null} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize @returns {TauriPosition | null} */
-/** @param {TauriPosition | null} position @param {TauriMonitor[]} monitors @param {TauriSize} windowSize */
-function clampMiniPosition(position, monitors, windowSize) {
+function clampMiniPosition(position: TauriPosition, monitors: TauriMonitor[], windowSize: TauriSize): TauriPosition;
+function clampMiniPosition(position: TauriPosition | null, monitors: TauriMonitor[], windowSize: TauriSize): TauriPosition | null;
+function clampMiniPosition(position: TauriPosition | null, monitors: TauriMonitor[], windowSize: TauriSize) {
   if (!position || !Array.isArray(monitors) || monitors.length === 0) {
     return position;
   }
 
-  /** @param {number} value @param {number} min @param {number} max */
-  const clamp = (value, min, max) => Math.min(Math.max(value, min), Math.max(min, max));
-  /** @type {TauriPosition | null} */
-  let best = null;
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), Math.max(min, max));
+  let best: TauriPosition | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const monitor of monitors) {
@@ -48,7 +44,6 @@ function clampMiniPosition(position, monitors, windowSize) {
   return best ?? position;
 }
 
-/** @param {{ eventApi: TauriEventApi; invoke: CommandInvoke; windowApi: TauriWindowHandle; availableMonitors: () => Promise<TauriMonitor[]>; dpi: { PhysicalPosition: new (x: number, y: number) => TauriPosition }; document: Document; storage: Pick<Storage, "getItem" | "setItem">; window: Window; console: Console }} environment */
 function createMiniPlayerController({
   eventApi,
   invoke,
@@ -59,32 +54,27 @@ function createMiniPlayerController({
   storage,
   window,
   console,
-}) {
-  const title = /** @type {HTMLElement} */ (document.getElementById("mini-title"));
-  const titleViewport = /** @type {HTMLDivElement} */ (document.getElementById("mini-title-viewport"));
-  const cover = /** @type {HTMLImageElement} */ (document.getElementById("mini-cover"));
-  const previousButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-previous"));
-  const playPauseButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-play-pause"));
-  const nextButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-next"));
-  const favoriteButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-favorite"));
-  const restoreButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-restore"));
-  const dragRegion = /** @type {HTMLElement} */ (document.getElementById("mini-drag-region"));
-  const notice = /** @type {HTMLParagraphElement} */ (document.getElementById("mini-notice"));
-  const noticeMoreButton = /** @type {HTMLButtonElement} */ (document.getElementById("mini-notice-more"));
-  const noticeFull = /** @type {HTMLDivElement} */ (document.getElementById("mini-notice-full"));
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; windowApi: TauriWindowHandle; availableMonitors: () => Promise<TauriMonitor[]>; dpi: { PhysicalPosition: new (x: number, y: number) => TauriPosition }; document: Document; storage: Pick<Storage, "getItem" | "setItem">; window: Window; console: Console }) {
+  const title = (document.getElementById("mini-title") as HTMLElement);
+  const titleViewport = (document.getElementById("mini-title-viewport") as HTMLDivElement);
+  const cover = (document.getElementById("mini-cover") as HTMLImageElement);
+  const previousButton = (document.getElementById("mini-previous") as HTMLButtonElement);
+  const playPauseButton = (document.getElementById("mini-play-pause") as HTMLButtonElement);
+  const nextButton = (document.getElementById("mini-next") as HTMLButtonElement);
+  const favoriteButton = (document.getElementById("mini-favorite") as HTMLButtonElement);
+  const restoreButton = (document.getElementById("mini-restore") as HTMLButtonElement);
+  const dragRegion = (document.getElementById("mini-drag-region") as HTMLElement);
+  const notice = (document.getElementById("mini-notice") as HTMLParagraphElement);
+  const noticeMoreButton = (document.getElementById("mini-notice-more") as HTMLButtonElement);
+  const noticeFull = (document.getElementById("mini-notice-full") as HTMLDivElement);
   const root = document.documentElement;
-  /** @type {(() => void)[]} */
-  const unlisteners = [];
+  const unlisteners: (() => void)[] = [];
   let disposed = false;
-  /** @type {TauriPosition | null} */
-  let lastPosition = null;
-  /** @type {string | null} */
-  let lastTitle = null;
-  /** @type {number | null} */
-  let titleScrollFrame = null;
+  let lastPosition: TauriPosition | null = null;
+  let lastTitle: string | null = null;
+  let titleScrollFrame: number | null = null;
   
-  /** @param {string} message @param {unknown} error */
-  function warn(message, error) {
+  function warn(message: string, error: unknown) {
     console?.warn?.(message, error);
   }
 
@@ -129,8 +119,7 @@ function createMiniPlayerController({
     measureTitleOverflow();
   }
 
-  /** @param {Partial<MiniPlayerStatePayload>} state */
-  function render(state = {}) {
+  function render(state: Partial<MiniPlayerStatePayload> = {}) {
     const noticeText = state.notice || "";
     if (!noticeText && (document.activeElement === noticeMoreButton ||
         document.activeElement === noticeFull)) {
@@ -185,14 +174,12 @@ function createMiniPlayerController({
     }
   }
 
-  /** @param {TauriAppEventMap["mini-player-command"]["action"]} action */
-  function emitCommand(action) {
+  function emitCommand(action: TauriAppEventMap["mini-player-command"]["action"]) {
     Promise.resolve(eventApi.emit("mini-player-command", { action }))
       .catch((error) => warn(`mini player command failed: ${action}`, error));
   }
 
-  /** @template {keyof TauriAppEventMap} K @param {K} name @param {(event: TauriEvent<TauriAppEventMap[K]>) => void} handler */
-  function listen(name, handler) {
+  function listen<K extends keyof TauriAppEventMap>(name: K, handler: (event: TauriEvent<TauriAppEventMap[K]>) => void) {
     return eventApi.listen(name, handler).then((unlisten) => {
       if (disposed) {
         Promise.resolve(unlisten()).catch(() => {});
@@ -202,8 +189,7 @@ function createMiniPlayerController({
     }).catch((error) => warn(`mini player listener failed for ${name}:`, error));
   }
 
-  /** @param {TauriPosition | null | undefined} position */
-  function persistPosition(position) {
+  function persistPosition(position: TauriPosition | null | undefined) {
     const x = Number(position?.x);
     const y = Number(position?.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -226,8 +212,7 @@ function createMiniPlayerController({
     }
   }
 
-  /** @param {TauriEvent<TauriPosition>} event */
-  function handleMoved(event) {
+  function handleMoved(event: TauriEvent<TauriPosition>) {
     if (persistPosition(event?.payload)) {
       return;
     }
@@ -279,7 +264,7 @@ function createMiniPlayerController({
       noticeMoreButton?.focus?.();
     });
     dragRegion.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0 || /** @type {Element | null} */ (event.target)?.closest?.("button, #mini-notice-full")) {
+      if (event.button !== 0 || (event.target as Element | null)?.closest?.("button, #mini-notice-full")) {
         return;
       }
       event.preventDefault?.();

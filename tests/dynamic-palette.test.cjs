@@ -5,9 +5,9 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/dynamic-background.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/dynamic-background.ts"), "utf8");
 const colors = vm.createContext({});
-vm.runInContext(sourceSlice(source, "ui/dynamic-background.js", null, "function initializeDynamicBackground"), colors);
+vm.runInContext(sourceSlice(source, "ui/dynamic-background.ts", null, "function initializeDynamicBackground"), colors);
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const artwork = (...areas) => new Uint8ClampedArray(areas.flatMap(([rgb, count]) =>
   Array.from({ length: count }, () => [...rgb, 255]).flat()));
