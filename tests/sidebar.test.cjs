@@ -189,7 +189,7 @@ test("unchanged mascot API and bubble cleanup work while the sidebar is collapse
     setTimeout(fn, ms) { timers.set(++timerId, { fn, ms }); return timerId; },
     clearTimeout(id) { timers.delete(id); },
   });
-  vm.runInNewContext(readFileSync(path.join(__dirname, "../ui/mascot.js"), "utf8"), {
+  vm.runInNewContext(readFileSync(path.join(__dirname, "../ui/mascot.ts"), "utf8"), {
     document, window, localStorage: { getItem: () => null, setItem() {} },
   });
   const api = window.BiliMascot;
