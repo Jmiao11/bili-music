@@ -14,6 +14,11 @@
     "skipLibCheck": true
   },
   "files": [
-    "../../node_modules/@types/node/index.d.ts"
+    "../../scripts/check-tauri-window-config.cts",
+    "../../scripts/typecheck/check.cts",
+    "../../scripts/typecheck/dom-assertions.cts",
+    "../../scripts/vite/preserve-html.mts",
+    "../../scripts/vite/verify-dist.mts",
+    "../../vite.config.mts"
   ]
 }

@@ -71,4 +71,4 @@ jobs:
 
       - name: 检查 Tauri 平台配置一致性
         if: matrix.os == 'windows-latest'
-        run: node scripts/check-tauri-window-config.cjs
+        run: node scripts/check-tauri-window-config.cts

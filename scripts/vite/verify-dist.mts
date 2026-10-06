@@ -5,18 +5,18 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build, createServer } from "vite";
-import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.mjs";
+import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.mts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
-const configFile = path.join(root, "vite.config.mjs");
+const configFile = path.join(root, "vite.config.mts");
 const pages = ["index.html", "mini.html"];
-const { loadNativeModules } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cjs");
+const { loadNativeModules }: { loadNativeModules(root: string, files: string[], entry: string, order: { file: string; module: boolean }[]): Promise<{ events: { stack?: string; action: string; type?: string }[] }> } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cjs");
 const tempParent = path.join(os.tmpdir(), "bili-music-verify");
 fs.mkdirSync(tempParent, { recursive: true });
 const temp = fs.mkdtempSync(path.join(tempParent, "vite-dist-"));
 const output = path.join(temp, "windows");
-const sourceHtml = (page) => fs.readFileSync(path.join(ui, page), "utf8");
+const sourceHtml = (page: string) => fs.readFileSync(path.join(ui, page), "utf8");
 
 async function checkPlatformBuilds() {
   const originalPlatform = process.env.TAURI_ENV_PLATFORM;
@@ -30,7 +30,7 @@ async function checkPlatformBuilds() {
     if (originalPlatform === undefined) delete process.env.TAURI_ENV_PLATFORM;
     else process.env.TAURI_ENV_PLATFORM = originalPlatform;
   }
-  const files = (directory) => fs.readdirSync(directory, { recursive: true }).filter((file) => /\.(?:js|html|css)$/.test(file)).sort();
+  const files = (directory: string) => (fs.readdirSync(directory, { recursive: true }) as string[]).filter((file) => /\.(?:js|html|css)$/.test(file)).sort();
   const windowsFiles = files(output);
   assert.deepEqual(files(darwin), windowsFiles, "Windows/darwin JS/HTML/CSS file inventories differ");
   for (const file of windowsFiles) {
@@ -40,14 +40,14 @@ async function checkPlatformBuilds() {
   console.log(`PASS PLATFORM: windows/darwin ${windowsFiles.length} JS/HTML/CSS files byte-identical`);
 }
 
-function localFile(directory, reference) {
+function localFile(directory: string, reference: string) {
   const file = path.resolve(directory, decodeURIComponent(reference.split(/[?#]/)[0]));
   const relative = path.relative(directory, file);
   assert.ok(!relative.startsWith("..") && !path.isAbsolute(relative), `Reference outside output: ${reference}`);
   return file;
 }
 
-function checkPage(page) {
+function checkPage(page: string) {
   const source = sourceHtml(page);
   const html = fs.readFileSync(path.join(output, page), "utf8");
   assert.ok(!html.includes("/@vite/client"), `${page}: dev client in production`);
@@ -78,9 +78,12 @@ function checkPage(page) {
   const builtCss = stylesheets(html);
   assert.equal(builtCss.length, sourceCss.length, `${page}: CSS link count changed`);
   sourceCss.forEach((link, index) => {
-    expected = expected.replace(link.tag, replaceAttribute(link.tag, "href", builtCss[index].href));
-    const normalize = (text) => text.replace(/\r\n/g, "\n").trim();
-    assert.equal(normalize(fs.readFileSync(localFile(output, builtCss[index].href), "utf8")),
+    const builtHref = builtCss[index].href;
+    if (builtHref === undefined) throw new Error(`${page}: built stylesheet href is missing`);
+    if (link.href === undefined) throw new Error(`${page}: source stylesheet href is missing`);
+    expected = expected.replace(link.tag, replaceAttribute(link.tag, "href", builtHref));
+    const normalize = (text: string) => text.replace(/\r\n/g, "\n").trim();
+    assert.equal(normalize(fs.readFileSync(localFile(output, builtHref), "utf8")),
       normalize(fs.readFileSync(localFile(ui, link.href), "utf8")), `${page}: CSS differs from source`);
   });
   // Exact whole-document comparison also protects head/body location, all attributes and inline whitespace.
@@ -89,11 +92,13 @@ function checkPage(page) {
 
 async function checkStartup() {
   const html = fs.readFileSync(path.join(output, "index.html"), "utf8");
-  const order = scripts(html).filter((script) => script.src).map((script) => ({
+  const order = scripts(html).filter((script): script is typeof script & { src: string } => Boolean(script.src)).map((script) => ({
     file: path.relative(output, localFile(output, script.src)).split(path.sep).join("/"), module: script.module,
   }));
-  const files = fs.readdirSync(output, { recursive: true }).filter((file) => file.endsWith(".js"));
-  const loaded = await loadNativeModules(output, files, order.find((script) => script.module).file, order);
+  const files = (fs.readdirSync(output, { recursive: true }) as string[]).filter((file) => file.endsWith(".js"));
+  const entry = order.find((script) => script.module);
+  if (entry === undefined) throw new Error("Production module entry is missing");
+  const loaded = await loadNativeModules(output, files, entry.file, order);
   const sequence = loaded.events.map(({ stack, ...event }) => event);
   const firstTrackchange = sequence.findIndex((event) => event.action === "dispatch" && event.type === "bilibili-music-trackchange");
   const snapshot = JSON.parse(fs.readFileSync(path.join(root, "tests/fixtures/playback-startup-installation.json"), "utf8"));
@@ -103,11 +108,12 @@ async function checkStartup() {
 
 function checkCounterexamples() {
   const ordinary = scripts(sourceHtml("index.html")).find((script) => script.src && !script.module);
+  if (ordinary === undefined || ordinary.src === undefined) throw new Error("Counterexample ordinary script entry is missing");
   const file = localFile(output, ordinary.src);
   const bytes = fs.readFileSync(file);
   fs.unlinkSync(file);
   try {
-    assert.throws(() => checkPage("index.html"), (error) => {
+    assert.throws(() => checkPage("index.html"), (error: Error) => {
       assert.match(error.message, /Missing HTML reference/);
       console.log(`PASS counterexample missing ordinary script: ${error.message}`);
       return true;
@@ -123,7 +129,7 @@ function checkCounterexamples() {
   const incorrect = html.replace(entry, "").replace(previous, `${entry}\n    ${previous}`);
   fs.writeFileSync(htmlFile, incorrect);
   try {
-    assert.throws(() => checkPage("index.html"), (error) => {
+    assert.throws(() => checkPage("index.html"), (error: Error) => {
       assert.match(error.message, /ordinary\/inline script changed|module tag position/);
       console.log(`PASS counterexample misplaced module tag: ${error.message.split("\n")[0]}`);
       return true;
@@ -135,20 +141,25 @@ async function checkDevelopment() {
   const server = await createServer({ configFile, server: { port: 0, host: "127.0.0.1", hmr: undefined } });
   try {
     await server.listen();
-    const port = server.httpServer.address().port;
+    if (server.httpServer === null) throw new Error("Development HTTP server is missing");
+    const address = server.httpServer.address();
+    if (address === null || typeof address === "string") throw new Error("Development HTTP server has no TCP listening address");
+    const port = address.port;
     for (const page of pages) {
       const response = await fetch(`http://127.0.0.1:${port}/${page}`);
       assert.equal(response.status, 200, `${page}: dev HTTP status`);
       const html = await response.text();
       const client = '<script type="module" src="/@vite/client"></script>';
       assert.equal(scripts(html).filter((script) => script.src === "/@vite/client").length, 1, `${page}: dev client count`);
-      for (const script of scripts(sourceHtml(page)).filter((item) => item.src && !item.module)) {
+      for (const script of scripts(sourceHtml(page)).filter((item): item is typeof item & { src: string } => Boolean(item.src) && !item.module)) {
         const file = localFile(ui, script.src);
         if (fs.existsSync(file)) continue;
         const url = script.src.replace(/^\.\//, "");
         const ordinary = await fetch(`http://127.0.0.1:${port}/${url}`);
         assert.equal(ordinary.status, 200);
-        assert.match(ordinary.headers.get("content-type"), /(?:application|text)\/javascript/);
+        const contentType = ordinary.headers.get("content-type");
+        if (contentType === null) throw new Error(`${page}: ordinary script Content-Type is missing`);
+        assert.match(contentType, /(?:application|text)\/javascript/);
         assert.deepEqual(Buffer.from(await ordinary.arrayBuffer()), ordinarySource(file), `${page}: dev erasure bytes changed: ${script.src}`);
         console.log(`PASS DEV ordinary ${url}: JavaScript MIME and exact erased bytes`);
       }

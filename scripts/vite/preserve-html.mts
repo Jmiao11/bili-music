@@ -1,13 +1,15 @@
+import type { Plugin } from "vite";
+
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { stripTypeScriptTypes } from "node:module";
 
-export function attribute(attributes, name) {
+export function attribute(attributes: string, name: string) {
   return new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(attributes)?.[2];
 }
 
-export function scripts(html) {
+export function scripts(html: string) {
   return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map((match) => ({
     tag: match[0], attributes: match[1], body: match[2],
     src: attribute(match[1], "src"),
@@ -15,20 +17,20 @@ export function scripts(html) {
   }));
 }
 
-export function stylesheets(html) {
+export function stylesheets(html: string) {
   return [...html.matchAll(/<link\b([^>]*)>/gi)]
     .filter((match) => attribute(match[1], "rel") === "stylesheet")
     .map((match) => ({ tag: match[0], href: attribute(match[1], "href") }));
 }
 
-export function replaceAttribute(tag, name, value) {
+export function replaceAttribute(tag: string, name: string, value: string | undefined) {
   return tag.replace(new RegExp(`(\\b${name}\\s*=\\s*)(["'])(.*?)\\2`, "i"),
-    (_, prefix, quote) => `${prefix}${quote}${value}${quote}`);
+    (_: string, prefix: string, quote: string) => `${prefix}${quote}${value}${quote}`);
 }
 
-export function preserveHtmlScripts() {
-  let root;
-  const ordinary = new Map();
+export function preserveHtmlScripts(): Plugin {
+  let root: string;
+  const ordinary = new Map<string, Buffer>();
   return {
     name: "preserve-html-scripts",
     apply: "build",
@@ -38,7 +40,7 @@ export function preserveHtmlScripts() {
       handler(html, context) {
         const source = readFileSync(context.filename, "utf8");
         const sourceScripts = scripts(source);
-        for (const script of sourceScripts.filter((item) => item.src && !item.module)) {
+        for (const script of sourceScripts.filter((item): item is typeof item & { src: string } => Boolean(item.src) && !item.module)) {
           const fileName = path.relative(root, path.resolve(path.dirname(context.filename), script.src)).split(path.sep).join("/");
           assert.ok(!fileName.startsWith("../") && !path.isAbsolute(fileName), `Script outside ui: ${script.src}`);
           ordinary.set(fileName, ordinarySource(path.join(root, fileName)));
@@ -69,12 +71,12 @@ export function preserveHtmlScripts() {
   };
 }
 
-export function ordinarySource(file) {
+export function ordinarySource(file: string) {
   if (existsSync(file)) return readFileSync(file);
   return Buffer.from(stripTypeScriptTypes(readFileSync(file.replace(/\.js$/, ".ts"), "utf8"), { mode: "strip" }));
 }
 
-export function ordinaryTypeScriptScripts() {
+export function ordinaryTypeScriptScripts(): Plugin {
   return {
     name: "ordinary-typescript-scripts",
     apply: "serve",
@@ -82,10 +84,10 @@ export function ordinaryTypeScriptScripts() {
       const root = server.config.root;
       const names = new Set(["index.html", "mini.html"].flatMap((page) =>
         scripts(readFileSync(path.join(root, page), "utf8"))
-          .filter((script) => script.src && !script.module).map((script) => script.src.replace(/^\.\//, "/"))));
+          .filter((script): script is typeof script & { src: string } => Boolean(script.src) && !script.module).map((script) => script.src.replace(/^\.\//, "/"))));
       server.middlewares.use((request, response, next) => {
         try {
-          const pathname = new URL(request.url, "http://localhost").pathname;
+          const pathname = new URL(String(request.url), "http://localhost").pathname;
           if (!names.has(pathname)) return next();
           const file = path.join(root, pathname.slice(1));
           if (existsSync(file)) return next();

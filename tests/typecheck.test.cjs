@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { parseDiagnostics, diagnosticCounts, compareCounts } = require("../scripts/typecheck/check.cjs");
+const { parseDiagnostics, diagnosticCounts, compareCounts } = require("../scripts/typecheck/check.cts");
 const { collectBusinessScripts } = require("./helpers/module-graph.cjs");
 
 test("typecheck parses POSIX paths and multiline messages without line-number keys", () => {
