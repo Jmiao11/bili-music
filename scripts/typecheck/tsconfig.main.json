@@ -8,7 +8,7 @@
   "files": [
     "../../ui/sidebar.js",
     "../../ui/window-controls.ts",
-    "../../ui/dynamic-background.js",
+    "../../ui/dynamic-background.ts",
     "../../ui/app.ts",
     "../../ui/main.ts",
     "../../ui/runtime-api.ts",

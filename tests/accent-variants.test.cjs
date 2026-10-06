@@ -93,8 +93,8 @@ test("twelve actual variants meet contrast targets and pairs preserve hue within
   const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
   const mix = (a, b, alpha) => a.map((v, i) => v * alpha + b[i] * (1 - alpha));
   // Reuse the existing RGB/HSL implementation without initializing the background.
-  const dynamic = readFileSync(path.join(__dirname, "../ui/dynamic-background.js"), "utf8");
-  vm.runInContext(sourceSlice(dynamic, "ui/dynamic-background.js", null, "function initializeDynamicBackground"), app);
+  const dynamic = readFileSync(path.join(__dirname, "../ui/dynamic-background.ts"), "utf8");
+  vm.runInContext(sourceSlice(dynamic, "ui/dynamic-background.ts", null, "function initializeDynamicBackground"), app);
   for (const name of Object.keys(expected)) {
     const dark = Array.from(app.accentChannels(name, "dark"));
     const light = Array.from(app.accentChannels(name, "light"));
