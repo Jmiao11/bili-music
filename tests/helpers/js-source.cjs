@@ -6,7 +6,7 @@ const { sourceSlice } = require("./source-slice.cjs");
 // Reuse the existing scanner verbatim; do not execute the architecture tests.
 const scannerSource = readFileSync(path.join(__dirname, "../architecture-guards.test.cjs"), "utf8");
 const maskCommentsAndStrings = vm.runInNewContext(
-  sourceSlice(scannerSource, "architecture-guards.test.cjs", "function maskCommentsAndStrings(", "function findStateWrites(")
+  sourceSlice(scannerSource, "architecture-guards.test.cjs", "function maskCommentsAndStrings(", "function findStateWrites(", { stripModules: false })
     + "\nmaskCommentsAndStrings",
 );
 
