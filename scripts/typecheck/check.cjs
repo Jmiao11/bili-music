@@ -54,12 +54,13 @@ function run() {
   if (!baseline || Array.isArray(baseline) || typeof baseline !== "object" || Object.entries(baseline).some(([key, count]) => !key || !Number.isSafeInteger(count) || count < 1)) throw new Error("Invalid diagnostic baseline");
   const all = [];
   const executable = path.join(root, "node_modules/typescript/bin/tsc");
-  for (const project of ["main", "mini"]) {
+  for (const project of ["main", "mini", "node"]) {
     const config = path.join(__dirname, `tsconfig.${project}.json`);
     fs.accessSync(config);
     const result = spawnSync(process.execPath, [executable, "-p", config, "--pretty", "false"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
     if (result.error || result.signal || ![0, 1].includes(result.status) || result.stderr.trim()) throw new Error(`tsc ${project} failed: ${result.error || result.signal || result.stderr || result.stdout || result.status}`);
     const diagnostics = parseDiagnostics(result.stdout, root);
+    if (project === "node" && diagnostics.length) throw new Error(`Node tool diagnostics must be fixed, not baselined: ${JSON.stringify(diagnostics)}`);
     if (diagnostics.some(({ file }) => !file.startsWith("ui/"))) throw new Error(`Contract/declaration diagnostics must be fixed, not baselined: ${JSON.stringify(diagnostics.filter(({ file }) => !file.startsWith("ui/")))}`);
     if ((result.status === 0) !== (diagnostics.length === 0)) throw new Error(`tsc ${project} exit status does not match diagnostics`);
     all.push(...diagnostics);
