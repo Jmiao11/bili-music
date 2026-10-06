@@ -1,7 +1,7 @@
 const fs: typeof import("node:fs") = require("node:fs");
 const path: typeof import("node:path") = require("node:path");
-const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cjs");
-const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = require("../../tests/helpers/js-source.cjs");
+const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cts");
+const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = require("../../tests/helpers/js-source.cts");
 
 function* htmlTags(html: string) {
   const start = /<\/?([a-z][\w:-]*)(?=[\s/>])/gi;
@@ -178,3 +178,5 @@ if (require.main === module) {
   try { checkRepository(path.resolve(__dirname, "../..")); }
   catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
+
+export type Contract = { htmlIds: typeof htmlIds; checkDomAssertions: typeof checkDomAssertions; checkRepository: typeof checkRepository };

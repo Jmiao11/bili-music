@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
 const configFile = path.join(root, "vite.config.mts");
 const pages = ["index.html", "mini.html"];
-const { loadNativeModules }: { loadNativeModules(root: string, files: string[], entry: string, order: { file: string; module: boolean }[]): Promise<{ events: { stack?: string; action: string; type?: string }[] }> } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cjs");
+const { loadNativeModules }: { loadNativeModules(root: string, files: string[], entry: string, order: { file: string; module: boolean }[]): Promise<{ events: { stack?: string; action: string; type?: string }[] }> } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cts");
 const tempParent = path.join(os.tmpdir(), "bili-music-verify");
 fs.mkdirSync(tempParent, { recursive: true });
 const temp = fs.mkdtempSync(path.join(tempParent, "vite-dist-"));
