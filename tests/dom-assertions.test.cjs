@@ -87,3 +87,37 @@ test("DOM assertion guard rejects every forbidden assertion counterexample", () 
     assert.ok(checkDomAssertions(source, source.includes("@type") ? "sample.js" : "sample.ts", html).errors.length > 0, source);
   }
 });
+
+test("DOM assertion guard checks parenthesized TS DOM casts", () => {
+  for (const source of [
+    'const input = (document.getElementById("field") as HTMLInputElement);',
+    'function init() { const input = (document.querySelector("#field") as HTMLInputElement); }',
+    'const input = (document.getElementById("field") as HTMLInputElement);\r\n',
+  ]) {
+    const result = checkDomAssertions(source, "sample.ts", html);
+    assert.deepEqual(result.errors, [], source);
+    assert.equal(result.assertions.length, 1);
+  }
+  for (const source of [
+    'const input = (document.getElementById("missing") as HTMLInputElement);',
+    'use((document.getElementById("field") as HTMLInputElement));',
+    'const input = (document.getElementById(id) as HTMLInputElement);',
+    'function init() { start(); const input = (document.getElementById("field") as HTMLInputElement); }',
+    ...["#field .b", "#field, #panel", "div#field", "#field:hover", ".field"].map((selector) => `const input = (document.querySelector("${selector}") as HTMLInputElement);`),
+  ]) assert.ok(checkDomAssertions(source, "sample.ts", html).errors.length, source);
+});
+
+test("TS DOM casts retain the main and mini window mapping", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dom-ts-cast-"));
+  try {
+    fs.mkdirSync(path.join(root, "ui"));
+    fs.writeFileSync(path.join(root, "ui/index.html"), '<div id="main"></div>');
+    fs.writeFileSync(path.join(root, "ui/mini.html"), '<div id="mini"></div>');
+    fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = (document.getElementById("main") as HTMLDivElement);');
+    assert.throws(() => checkRepository(root), /id does not exist.*main/);
+    fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = (document.getElementById("mini") as HTMLDivElement);');
+    assert.equal(checkRepository(root).length, 1);
+    fs.writeFileSync(path.join(root, "ui/main.ts"), 'const element = (document.getElementById("mini") as HTMLDivElement);');
+    assert.throws(() => checkRepository(root), /id does not exist.*mini/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

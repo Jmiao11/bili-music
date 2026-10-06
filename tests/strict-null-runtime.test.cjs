@@ -77,7 +77,7 @@ test("native list drag handlers preserve transfers and ignore unsupported null t
 
 test("window control target handling keeps native element matches and ignores null targets", () => {
   const context = vm.createContext({});
-  vm.runInContext(slice("window-controls.js", "function isWindowControlTarget(", "/** @param {MouseEvent} event */"), context);
+  vm.runInContext(slice("window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);
   assert.equal(context.isWindowControlTarget(null), false);
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
   assert.equal(context.isWindowControlTarget({ closest: () => null }), false);
