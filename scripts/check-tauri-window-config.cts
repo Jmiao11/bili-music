@@ -1,19 +1,22 @@
-const { readFileSync } = require("node:fs");
-const path = require("node:path");
+const { readFileSync }: typeof import("node:fs") = require("node:fs");
+const path: typeof import("node:path") = require("node:path");
 
 const root = path.join(__dirname, "..");
 const mainPath = path.join(root, "src-tauri", "tauri.conf.json");
 const macosPath = path.join(root, "src-tauri", "tauri.macos.conf.json");
 
-function readConfig(file) {
+type Config = { app?: { windows?: unknown[] } };
+function readConfig(file: string): Config {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
   } catch (error) {
-    throw new Error(`无法读取或解析 ${path.relative(root, file)}: ${error.message}`);
+    throw new Error(`无法读取或解析 ${path.relative(root, file)}: ${(error as { message?: unknown }).message}`);
   }
 }
 
-function firstWindow(config, file, allowMissing) {
+function firstWindow(config: Config, file: string, allowMissing: false): object;
+function firstWindow(config: Config, file: string, allowMissing: true): object | null;
+function firstWindow(config: Config, file: string, allowMissing: boolean): object | null {
   if (allowMissing && config?.app?.windows === undefined) return null;
   if (!Array.isArray(config?.app?.windows) || config.app.windows.length === 0) {
     throw new Error(`${file} 的 app.windows 缺失、不是数组或为空`);
@@ -51,6 +54,6 @@ try {
     console.log("Tauri 平台配置检查通过：macOS app.windows[0] 包含主配置的全部字段。");
   }
 } catch (error) {
-  console.error(`Tauri 平台配置检查失败：\n${error.message}`);
+  console.error(`Tauri 平台配置检查失败：\n${(error as { message?: unknown }).message}`);
   process.exitCode = 1;
 }

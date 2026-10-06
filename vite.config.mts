@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { preserveHtmlScripts, ordinaryTypeScriptScripts } from "./scripts/vite/preserve-html.mjs";
+import { preserveHtmlScripts, ordinaryTypeScriptScripts } from "./scripts/vite/preserve-html.mts";
 
 const ui = fileURLToPath(new URL("./ui/", import.meta.url));
 const host = process.env.TAURI_DEV_HOST;

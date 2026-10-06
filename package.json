@@ -3,8 +3,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "verify:dist": "node scripts/vite/verify-dist.mjs",
-    "typecheck": "node scripts/typecheck/dom-assertions.cjs && node scripts/typecheck/check.cjs"
+    "verify:dist": "node scripts/vite/verify-dist.mts",
+    "typecheck": "node scripts/typecheck/dom-assertions.cts && node scripts/typecheck/check.cts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

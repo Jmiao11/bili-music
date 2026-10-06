@@ -1,9 +1,9 @@
-const fs = require("node:fs");
-const path = require("node:path");
-const { stripTypes } = require("../../tests/helpers/typescript-source.cjs");
-const { maskCommentsAndStrings, topLevelStatements } = require("../../tests/helpers/js-source.cjs");
+const fs: typeof import("node:fs") = require("node:fs");
+const path: typeof import("node:path") = require("node:path");
+const { stripTypes }: { stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cjs");
+const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = require("../../tests/helpers/js-source.cjs");
 
-function* htmlTags(html) {
+function* htmlTags(html: string) {
   const start = /<\/?([a-z][\w:-]*)(?=[\s/>])/gi;
   for (let match; (match = start.exec(html));) {
     let quote = "";
@@ -21,10 +21,10 @@ function* htmlTags(html) {
   }
 }
 
-function htmlIds(html) {
+function htmlIds(html: string) {
   html = html.replace(/<!--[\s\S]*?(?:-->|$)/g, "");
   for (const name of ["script", "style"]) {
-    const ranges = [];
+    const ranges: number[][] = [];
     let skippedUntil = 0;
     for (const tag of htmlTags(html)) {
       if (tag.start < skippedUntil || tag.closing || tag.name !== name) continue;
@@ -37,7 +37,7 @@ function htmlIds(html) {
     }
     for (const [start, end] of ranges.reverse()) html = html.slice(0, start) + html.slice(end);
   }
-  const ranges = [];
+  const ranges: number[][] = [];
   let depth = 0;
   let contentStart = 0;
   for (const tag of htmlTags(html)) {
@@ -61,10 +61,10 @@ function htmlIds(html) {
   return ids;
 }
 
-function declarationPosition(source, start) {
+function declarationPosition(source: string, start: number) {
   const code = maskCommentsAndStrings(source);
-  const braces = [];
-  const parentheses = [];
+  const braces: { start: number; functionBody: boolean }[] = [];
+  const parentheses: number[] & { lastClosed?: number } = [];
   for (let i = 0; i < start; i++) {
     if (code[i] === "(") parentheses.push(i);
     if (code[i] === ")") {
@@ -80,7 +80,7 @@ function declarationPosition(source, start) {
     if (code[i] === "}") braces.pop();
   }
   if (!braces.length) return !parentheses.length;
-  const scope = braces.at(-1);
+  const scope = braces[braces.length - 1];
   if (!scope.functionBody) return false;
   try {
     return topLevelStatements(source.slice(scope.start, start)).every(({ text }) =>
@@ -91,17 +91,18 @@ function declarationPosition(source, start) {
   }
 }
 
-function checkDomAssertions(source, file, html) {
+type Assertion = { file: string; line: number; id: string };
+function checkDomAssertions(source: string, file: string, html: string) {
   const erased = stripTypes(source, file);
   const code = maskCommentsAndStrings(erased);
   const originalCode = maskCommentsAndStrings(source);
-  const errors = [];
-  const assertions = [];
+  const errors: string[] = [];
+  const assertions: Assertion[] = [];
   let ids;
   try { ids = htmlIds(html); }
-  catch (error) { return { assertions, errors: [`${file}: ${error.message}`] }; }
-  const fail = (index, reason) => errors.push(`${file}:${source.slice(0, index).split("\n").length}: ${reason}`);
-  const validate = (start, end, expression) => {
+  catch (error) { return { assertions, errors: [`${file}: ${(error as { message?: unknown }).message}`] }; }
+  const fail = (index: number, reason: string) => errors.push(`${file}:${source.slice(0, index).split("\n").length}: ${reason}`);
+  const validate = (start: number, end: number, expression: string) => {
     const declaration = /\b(?:const|let)\s+[\w$]+\s*=\s*$/.exec(code.slice(0, start));
     const dom = /^document\s*\.\s*(getElementById|querySelector)\s*\(\s*(["'])([^"'\\\r\n]+)\2\s*\)$/.exec(expression.trim());
     if (!declaration || !declarationPosition(erased, declaration.index)
@@ -157,9 +158,9 @@ function checkDomAssertions(source, file, html) {
   return { assertions, errors };
 }
 
-function checkRepository(root) {
-  const all = [];
-  const errors = [];
+function checkRepository(root: string) {
+  const all: (Assertion & { html: string })[] = [];
+  const errors: string[] = [];
   for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => /\.(?:js|ts)$/.test(name))) {
     const file = `ui/${name}`;
     const html = /^mini\.(?:js|ts)$/.test(name) ? "ui/mini.html" : "ui/index.html";
@@ -175,5 +176,5 @@ function checkRepository(root) {
 module.exports = { htmlIds, checkDomAssertions, checkRepository };
 if (require.main === module) {
   try { checkRepository(path.resolve(__dirname, "../..")); }
-  catch (error) { console.error(error.message); process.exitCode = 1; }
+  catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
