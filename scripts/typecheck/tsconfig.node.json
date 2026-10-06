@@ -14,6 +14,8 @@
     "skipLibCheck": true
   },
   "files": [
+    "../../scripts/check-ui-syntax.cts",
+    "../../tests/ci-paths.test.cts",
     "../../scripts/check-tauri-window-config.cts",
     "../../scripts/typecheck/check.cts",
     "../../scripts/typecheck/dom-assertions.cts",

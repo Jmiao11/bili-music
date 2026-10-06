@@ -3,6 +3,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check:ui-syntax": "node scripts/check-ui-syntax.cts",
     "verify:dist": "node scripts/vite/verify-dist.mts",
     "typecheck": "node scripts/typecheck/dom-assertions.cts && node scripts/typecheck/check.cts"
   },
