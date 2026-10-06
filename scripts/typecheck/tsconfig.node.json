@@ -74,6 +74,7 @@
     "../../tests/typescript-loading.test.cts",
     "../../tests/typescript-source-extensions.test.cts",
     "../../tests/unavailable-track-locations.test.cts",
+    "../../tests/repository-source-language.test.cts",
     "../../types/command-contract.d.ts",
     "../../types/event-contract.d.ts",
     "../../types/main-window.d.ts",
