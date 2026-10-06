@@ -6,7 +6,7 @@
     "../../types/contract-fixtures.ts"
   ],
   "files": [
-    "../../ui/sidebar.js",
+    "../../ui/sidebar.ts",
     "../../ui/window-controls.ts",
     "../../ui/dynamic-background.ts",
     "../../ui/app.ts",

@@ -49,7 +49,7 @@ test("document lifecycle dependencies retain their current file inventory", () =
     if (/\.onload\s*=/.test(code) && !inventory.load.includes(file)) inventory.load.push(file);
   }
   assert.deepEqual(inventory, {
-    readyState: [], currentScript: [], DOMContentLoaded: ["main.ts", "sidebar.js"], load: ["dynamic-background.ts"],
+    readyState: [], currentScript: [], DOMContentLoaded: ["main.ts", "sidebar.ts"], load: ["dynamic-background.ts"],
   });
 });
 

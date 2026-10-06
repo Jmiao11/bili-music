@@ -4,7 +4,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 const vm = require("node:vm");
 
-const source = readFileSync(path.join(__dirname, "../ui/sidebar.js"), "utf8");
+const source = readFileSync(path.join(__dirname, "../ui/sidebar.ts"), "utf8");
 const logic = vm.createContext({});
 vm.runInContext(source, logic);
 const plain = (value) => JSON.parse(JSON.stringify(value));
