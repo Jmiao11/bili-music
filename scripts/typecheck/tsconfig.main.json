@@ -27,6 +27,6 @@
     "../../ui/appearance.ts",
     "../../ui/lyrics.js",
     "../../ui/mascot.ts",
-    "../../ui/mini-player-host.js"
+    "../../ui/mini-player-host.ts"
   ]
 }

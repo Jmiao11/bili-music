@@ -18,7 +18,7 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.ts", "appearance.ts", "mascot.ts", "mini-player-host.js"]);
+  assert.deepEqual(listeners, ["dynamic-background.js", "playback-core.ts", "appearance.ts", "mascot.ts", "mini-player-host.ts"]);
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
   const entry = tags.indexOf("app.ts");
   assert.ok(tags.indexOf("dynamic-background.js") < entry);
