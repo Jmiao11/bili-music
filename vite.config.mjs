@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { preserveHtmlScripts } from "./scripts/vite/preserve-html.mjs";
+import { preserveHtmlScripts, ordinaryTypeScriptScripts } from "./scripts/vite/preserve-html.mjs";
 
 const ui = fileURLToPath(new URL("./ui/", import.meta.url));
 const host = process.env.TAURI_DEV_HOST;
@@ -10,7 +10,7 @@ export default defineConfig({
   base: "./",
   publicDir: false,
   clearScreen: false,
-  plugins: [preserveHtmlScripts()],
+  plugins: [preserveHtmlScripts(), ordinaryTypeScriptScripts()],
   server: {
     port: 1420,
     strictPort: true,

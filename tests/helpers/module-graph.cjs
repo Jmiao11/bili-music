@@ -1,5 +1,6 @@
 const { readFileSync } = require("./typescript-source.cjs");
 const path = require("node:path");
+const { existsSync } = require("node:fs");
 const { moduleDeclarations } = require("./module-syntax.cjs");
 
 function collectModuleGraph(root, entries) {
@@ -25,7 +26,10 @@ function collectBusinessScripts(root) {
   for (const tag of tags) {
     const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag[1]);
     if (!src) continue;
-    scripts.push({ file: src[1].replace(/^\.\//, ""), module: /\btype\s*=\s*["']module["']/i.test(tag[1]) });
+    const name = src[1].replace(/^\.\//, "");
+    const module = /\btype\s*=\s*["']module["']/i.test(tag[1]);
+    const file = !module && !existsSync(path.join(root, name)) ? name.replace(/\.js$/, ".ts") : name;
+    scripts.push({ file, module });
   }
   const ordinary = scripts.filter((script) => !script.module).map((script) => script.file);
   const entries = scripts.filter((script) => script.module).map((script) => script.file);

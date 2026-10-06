@@ -5,7 +5,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build, createServer } from "vite";
-import { scripts, stylesheets, replaceAttribute } from "./preserve-html.mjs";
+import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
@@ -69,7 +69,7 @@ function checkPage(page) {
     } else {
       assert.equal(built.tag, script.tag, `${page}: ordinary/inline script changed at index ${index}`);
       if (script.src) {
-        assert.deepEqual(fs.readFileSync(localFile(output, script.src)), fs.readFileSync(localFile(ui, script.src)),
+        assert.deepEqual(fs.readFileSync(localFile(output, script.src)), ordinarySource(localFile(ui, script.src)),
           `${page}: ordinary script bytes changed: ${script.src}`);
       }
     }
@@ -142,6 +142,16 @@ async function checkDevelopment() {
       const html = await response.text();
       const client = '<script type="module" src="/@vite/client"></script>';
       assert.equal(scripts(html).filter((script) => script.src === "/@vite/client").length, 1, `${page}: dev client count`);
+      for (const script of scripts(sourceHtml(page)).filter((item) => item.src && !item.module)) {
+        const file = localFile(ui, script.src);
+        if (fs.existsSync(file)) continue;
+        const url = script.src.replace(/^\.\//, "");
+        const ordinary = await fetch(`http://127.0.0.1:${port}/${url}`);
+        assert.equal(ordinary.status, 200);
+        assert.match(ordinary.headers.get("content-type"), /(?:application|text)\/javascript/);
+        assert.deepEqual(Buffer.from(await ordinary.arrayBuffer()), ordinarySource(file), `${page}: dev erasure bytes changed: ${script.src}`);
+        console.log(`PASS DEV ordinary ${url}: JavaScript MIME and exact erased bytes`);
+      }
       let expected = sourceHtml(page);
       // Vite 8.3.2 normalizes these index URLs on an actual /index.html request; mini URLs stay relative.
       // Keep the list explicit and log every rewrite: any other HTML change must fail.
