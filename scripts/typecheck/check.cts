@@ -85,3 +85,5 @@ module.exports = { parseDiagnostics, diagnosticCounts, compareCounts };
 if (require.main === module) {
   try { run(); } catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
+
+export type Contract = { parseDiagnostics: typeof parseDiagnostics; diagnosticCounts: typeof diagnosticCounts; compareCounts: typeof compareCounts };
