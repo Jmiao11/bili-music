@@ -1,10 +1,16 @@
+const { isTypeScript, eraseTypes } = require("./typescript-source.cjs");
+
 function sourceSlice(source, file, startMarker, endMarker, {
   endAfterStart = false,
   startLastBefore = null,
   includeEnd = false,
+  stripModules = true,
 } = {}) {
-  if (String(file).endsWith(".ts")) {
+  const erased = eraseTypes(source, file);
+  if (isTypeScript(file) && stripModules) {
     source = require("./module-syntax.cjs").stripModuleSyntax(source, file);
+  } else {
+    source = erased;
   }
   const find = (marker, from = 0) => {
     const index = source.indexOf(marker, from);

@@ -1,6 +1,6 @@
 const fs: typeof import("node:fs") = require("node:fs");
 const path: typeof import("node:path") = require("node:path");
-const { stripTypes }: { stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cjs");
+const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cjs");
 const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = require("../../tests/helpers/js-source.cjs");
 
 function* htmlTags(html: string) {
@@ -115,7 +115,7 @@ function checkDomAssertions(source: string, file: string, html: string) {
     if (!ids.has(id)) { fail(start, `DOM assertion id does not exist in HTML: ${id}`); return; }
     assertions.push({ file, line: source.slice(0, start).split("\n").length, id });
   };
-  if (file.endsWith(".ts")) {
+  if (isTypeScript(file)) {
     for (let i = 0; i < source.length; i++) {
       // Erasure distinguishes postfix/definite-assignment assertions from logical !, strings and comments.
       if (originalCode[i] !== "!" || erased[i] !== " ") continue;
@@ -125,7 +125,7 @@ function checkDomAssertions(source: string, file: string, html: string) {
       else validate(match.index, i + 1, match[0]);
     }
   }
-  if (file.endsWith(".ts")) {
+  if (isTypeScript(file)) {
     for (const match of originalCode.matchAll(/\bas\s+(?:HTMLElement|HTML\w+Element)\s*(?=\))/g)) {
       if (erased[match.index] !== " ") continue;
       const end = match.index + match[0].length;
