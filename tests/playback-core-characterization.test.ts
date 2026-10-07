@@ -14,7 +14,6 @@ const policy = read("playback-policy.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const searchState =").replace(/\n\n$/, "\n")
   + sourceSlice(state, "ui/player-state.ts", "const searchState =", "const LAST_SEARCH_KEY")
-  + sourceSlice(state, "ui/player-state.ts", "const homeState =", "const libraryState =")
   + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const favoriteDragState =");
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
@@ -95,7 +94,7 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
     },
   });
   for (const name of ["searchButton", "result", "status", "thumbnail", "title", "uploader", "duration", "playerPagesButton", "playerPagesGroup", "searchKeyword", "searchStatus", "resumeProgressSlider", "immersiveResumeProgressSlider", "resumeCurrentTimeLabel", "immersiveResumeCurrentTimeLabel", "immersiveResumeDurationLabel"]) context[name] = node();
-  vm.runInContext(stateCode + functions + "\nglobalThis.states = { playerState, searchState, homeState, libraryState }; Math.random = () => 0;", context);
+  vm.runInContext(stateCode + functions + "\nglobalThis.states = { playerState, searchState, libraryState }; Math.random = () => 0;", context);
   const request = (command: string, index = 0) => {
     const call = calls.filter((item) => item.command === command)[index];
     if (call) return Promise.resolve(call);

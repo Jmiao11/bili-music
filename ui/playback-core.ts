@@ -2,9 +2,10 @@ import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomE
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
 import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
-import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, homeState, libraryState, playerState, searchState } from "./player-state.ts";
+import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, libraryState, playerState, searchState } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
+import { getHomeSnapshot } from "./home.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
@@ -380,7 +381,7 @@ function updateQueueUi() {
     for (const rankingButton of homeRankingList.querySelectorAll<HTMLButtonElement>("button.track")) {
       const index = Number(rankingButton.dataset.libraryIndex);
       const activeHomeSource =
-        homeState.mode === "recommendation" ? "recommendation" : "ranking";
+        getHomeSnapshot().mode === "recommendation" ? "recommendation" : "ranking";
       if (playerState.queueSource === activeHomeSource && index === playerState.currentIndex) {
         rankingButton.setAttribute("aria-current", "true");
       } else {

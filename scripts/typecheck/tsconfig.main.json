@@ -1,7 +1,6 @@
 {
   "extends": "./tsconfig.base.json",
   "include": [
-    "../../ui/state-store.ts",
     "../../types/tauri.d.ts",
     "../../types/main-window.d.ts",
     "../../types/contract-fixtures.ts"
@@ -18,7 +17,10 @@
     "../../ui/playback-notice.ts",
     "../../ui/playback-diagnostics.ts",
     "../../ui/home.ts",
+    "../../ui/app-state.ts",
+    "../../ui/state-store.ts",
     "../../ui/track-utils.ts",
+    "../../ui/home-view.ts",
     "../../ui/playback-core.ts",
     "../../ui/page-selection.ts",
     "../../ui/playback-policy.ts",
