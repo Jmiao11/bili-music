@@ -9,7 +9,8 @@ use axum::http::{HeaderMap, Method, Request, Response, StatusCode};
 use bilibili_music_core::{BILIBILI_REFERER, DESKTOP_USER_AGENT};
 use reqwest::redirect::Policy;
 use std::collections::HashMap;
-use std::io::SeekFrom;
+use std::io::{self, SeekFrom};
+use std::net::{Ipv4Addr, TcpListener};
 use std::path::{Path as FilePath, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -20,6 +21,45 @@ use tokio::sync::RwLock;
 use tokio_util::io::ReaderStream;
 
 pub(crate) const STREAM_SESSION_TTL: Duration = Duration::from_secs(60 * 60);
+
+// Browser-blocked port union, checked 2026-10-07:
+// https://fetch.spec.whatwg.org/#port-blocking
+// https://chromium.googlesource.com/chromium/src/+/main/net/base/port_util.cc
+// https://github.com/WebKit/WebKit/blob/main/Source/WTF/wtf/URL.cpp
+const BROWSER_BLOCKED_PORTS: &[u16] = &[
+    0, 1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101,
+    102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427,
+    465, 512, 513, 514, 515, 526, 530, 531, 532, 540, 548, 554, 556, 563, 587, 601, 636, 989, 990,
+    993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667,
+    6668, 6669, 6679, 6697, 10080,
+];
+const SAFE_PORT_BIND_ATTEMPTS: usize = 32;
+
+pub(crate) fn bind_browser_safe_loopback() -> io::Result<TcpListener> {
+    bind_browser_safe_loopback_with(|| {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        let port = listener.local_addr()?.port();
+        Ok((listener, port))
+    })
+}
+
+fn bind_browser_safe_loopback_with<T>(
+    mut bind: impl FnMut() -> io::Result<(T, u16)>,
+) -> io::Result<T> {
+    let mut rejected = Vec::new();
+    for _ in 0..SAFE_PORT_BIND_ATTEMPTS {
+        let (listener, port) = bind()?;
+        if !BROWSER_BLOCKED_PORTS.contains(&port) {
+            return Ok(listener);
+        }
+        // Keep the port occupied so the OS cannot assign it to the next bind.
+        rejected.push(listener);
+    }
+    Err(io::Error::new(
+        io::ErrorKind::AddrNotAvailable,
+        format!("no browser-safe local audio proxy port after {SAFE_PORT_BIND_ATTEMPTS} attempts"),
+    ))
+}
 
 #[derive(Clone)]
 pub(crate) struct ProxyState {
@@ -433,6 +473,122 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{Duration, Instant};
     use uuid::Uuid;
+
+    #[derive(Debug)]
+    struct ObservedListener {
+        port: u16,
+        dropped: std::rc::Rc<std::cell::RefCell<Vec<u16>>>,
+    }
+
+    impl Drop for ObservedListener {
+        fn drop(&mut self) {
+            self.dropped.borrow_mut().push(self.port);
+        }
+    }
+
+    #[test]
+    fn safe_port_bind_retains_rejected_listeners_until_selection() {
+        let dropped = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut calls = 0;
+        let listener = super::bind_browser_safe_loopback_with(|| {
+            assert!(
+                dropped.borrow().is_empty(),
+                "rejected port released too early"
+            );
+            let port = [10080, 6000, 1420][calls];
+            calls += 1;
+            Ok((
+                ObservedListener {
+                    port,
+                    dropped: dropped.clone(),
+                },
+                port,
+            ))
+        })
+        .unwrap();
+        assert_eq!(calls, 3);
+        assert_eq!(listener.port, 1420);
+        assert_eq!(*dropped.borrow(), [10080, 6000]);
+        drop(listener);
+        assert_eq!(*dropped.borrow(), [10080, 6000, 1420]);
+    }
+
+    #[test]
+    fn safe_port_bind_stops_at_limit_and_releases_rejected_listeners() {
+        let dropped = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut calls = 0;
+        let error = super::bind_browser_safe_loopback_with(|| {
+            assert!(dropped.borrow().is_empty());
+            calls += 1;
+            Ok((
+                ObservedListener {
+                    port: 10080,
+                    dropped: dropped.clone(),
+                },
+                10080,
+            ))
+        })
+        .unwrap_err();
+        assert_eq!(calls, 32);
+        assert_eq!(error.kind(), std::io::ErrorKind::AddrNotAvailable);
+        assert_eq!(
+            error.to_string(),
+            "no browser-safe local audio proxy port after 32 attempts"
+        );
+        assert_eq!(*dropped.borrow(), vec![10080; 32]);
+    }
+
+    #[test]
+    fn safe_port_bind_propagates_bind_errors_and_releases_rejected_listeners() {
+        let dropped = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let mut calls = 0;
+        let error = super::bind_browser_safe_loopback_with(|| {
+            assert!(dropped.borrow().is_empty());
+            calls += 1;
+            if calls == 2 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AddrInUse,
+                    "bind failed",
+                ));
+            }
+            Ok((
+                ObservedListener {
+                    port: 6000,
+                    dropped: dropped.clone(),
+                },
+                6000,
+            ))
+        })
+        .unwrap_err();
+        assert_eq!(calls, 2);
+        assert_eq!(error.kind(), std::io::ErrorKind::AddrInUse);
+        assert_eq!(error.to_string(), "bind failed");
+        assert_eq!(*dropped.borrow(), [6000]);
+    }
+
+    #[test]
+    fn safe_port_bind_real_listener_is_loopback_and_browser_safe() {
+        let listener = super::bind_browser_safe_loopback().unwrap();
+        let address = listener.local_addr().unwrap();
+        assert_eq!(address.ip(), std::net::Ipv4Addr::LOCALHOST);
+        assert_ne!(address.port(), 0);
+        assert!(!super::BROWSER_BLOCKED_PORTS.contains(&address.port()));
+    }
+
+    #[test]
+    fn safe_port_blocklist_contains_browser_restrictions_but_not_dev_port() {
+        assert_eq!(super::BROWSER_BLOCKED_PORTS.len(), 83);
+        assert!(super::BROWSER_BLOCKED_PORTS
+            .windows(2)
+            .all(|ports| ports[0] < ports[1]));
+        for port in [0, 10080, 6000, 4190, 6679, 6665, 6666, 6667, 6668, 6669] {
+            assert!(
+                super::BROWSER_BLOCKED_PORTS.contains(&port),
+                "missing port {port}"
+            );
+        }
+        assert!(!super::BROWSER_BLOCKED_PORTS.contains(&1420));
+    }
 
     #[test]
     fn registration_diagnostic_handles_unrepresentable_start() {

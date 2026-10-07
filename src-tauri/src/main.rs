@@ -25,7 +25,6 @@ use axum::routing::get;
 use axum::Router;
 use bilibili_music_core::{bilibili_cookie_path, yt_dlp_path};
 use std::collections::HashMap;
-use std::net::{Ipv4Addr, SocketAddrV4, TcpListener};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tauri::Manager;
@@ -34,15 +33,14 @@ use tokio::sync::RwLock;
 use appearance::{choose_background_image, load_background_image};
 use guest_playurl::GuestPlayurlClient;
 use loudness::analyze_track_loudness;
-use proxy::{build_proxy_client, proxy_audio, ProxyState};
+use proxy::{bind_browser_safe_loopback, build_proxy_client, proxy_audio, ProxyState};
 use ranking::{RankingClient, RankingTrack};
 use resolve::ResolveCoordinator;
 use search::SearchClient;
 use state::{AppState, StreamSource};
 
 fn main() {
-    let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))
-        .expect("failed to bind the local audio proxy");
+    let listener = bind_browser_safe_loopback().expect("failed to bind the local audio proxy");
     listener
         .set_nonblocking(true)
         .expect("failed to configure the local audio proxy");
