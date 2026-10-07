@@ -11,13 +11,7 @@ const MAX_CONSECUTIVE_RESOLVE_FAILURES: number = 5;
 
 const MAX_AUDIO_RECOVERIES: number = 2;
 
-const SEARCH_PAGE_SIZE: number = 20;
-
 const LOAD_MORE_THRESHOLD_PX: number = 96;
-
-const DEFAULT_MUSIC_TIDS: number = 3;
-
-const MUSIC_HOT_KEYWORD = "音乐";
 
 const PLAYBACK_STATE_SAVE_INTERVAL_MS: number = 15_000;
 
@@ -40,20 +34,6 @@ const playerState = {
   currentPageIndex: 0,
   currentDisplayTrack: null as (CommandContract.TrackSnapshotInput & { hasCurrent: boolean }) | null,
   lastEmittedTrackIdentity: "",
-};
-
-const searchState = {
-  results: [] as NormalizedTrack[],
-  userKeyword: "",
-  requestKeyword: "",
-  tids: DEFAULT_MUSIC_TIDS,
-  order: null as string | null,
-  rerank: true,
-  sortMode: "all",
-  page: 0,
-  isLoadingMore: false,
-  hasMore: false,
-  requestVersion: 0,
 };
 
 const LAST_SEARCH_KEY = "bilibili-music.last-search";
@@ -111,4 +91,4 @@ const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 
-export { DEFAULT_MUSIC_TIDS, LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, MUSIC_HOT_KEYWORD, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, SEARCH_PAGE_SIZE, activePageCountBvids, failedPageCountBvids, favoriteDragState, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, playlistDragState, playlistListDragState, queuedPageCountBvids, searchState, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };
+export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, favoriteDragState, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, playlistDragState, playlistListDragState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };

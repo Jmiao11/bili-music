@@ -19,7 +19,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["state-store.ts", "app-state.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
+const splitScripts = ["state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -52,6 +52,8 @@ test("split scripts contain only top-level function declarations and comments", 
       const trivia = /^(?:\s+|\/\/[^\r\n]*(?:\r?\n|$)|\/\*[\s\S]*?\*\/)/.exec(source.slice(position));
       if (trivia) { position += trivia[0].length; continue; }
       const remaining = source.slice(position);
+      const searchConstant = /^const (?:DEFAULT_MUSIC_TIDS = 3|SEARCH_PAGE_SIZE = 20|MUSIC_HOT_KEYWORD = "音乐");/.exec(remaining);
+      if (script === "search-state.ts" && searchConstant) { position += searchConstant[0].length; continue; }
       const noticeDuration = /^const SKIP_NOTICE_DURATION_MS\s+= 3200;/.exec(remaining);
       if (script === "playback-notice.ts" && noticeDuration) {
         position += noticeDuration[0].length;
@@ -81,6 +83,7 @@ test("split scripts contain only top-level function declarations and comments", 
       }
       const allowedLets: Record<string, Set<string>> = {
         "playback-core.ts": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
+        "search.ts": new Set(["searchMounted"]),
         "home.ts": new Set(["applicationStore"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.ts": new Set(["favoriteImportVersion"]),
@@ -215,7 +218,7 @@ test("state fields are written only by approved scripts", () => {
   // A textual scan cannot detect writes through aliases, e.g. const q = playerState.queue; q.push(x).
   const allowedWriters: Record<string, Set<string>> = {
     playerState: new Set(["playback-core.ts"]),
-    searchState: new Set(["main.ts", "playback-core.ts", "search.ts"]),
+    searchState: new Set(["search-state.ts"]),
     libraryState: new Set(["playback-core.ts", "library-ui.ts", "video-pages.ts"]),
     homeState: new Set(["app-state.ts"]),
   };

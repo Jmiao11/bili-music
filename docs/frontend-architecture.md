@@ -54,18 +54,20 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | 使用方 | 提供方 |
 | --- | --- |
 | app | main、appearance |
-| main | runtime-api、player-dom、player-state、playback-notice、playback-diagnostics、home、library-ui、video-pages、search、playback-core、appearance |
+| main | search-state、runtime-api、player-dom、player-state、playback-notice、playback-diagnostics、home、library-ui、video-pages、search、playback-core、appearance |
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils（含类型导入） |
+| app-state | state-store、track-utils、search-state（含类型导入） |
+| search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
+| search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
 | home | app-state、runtime-api、player-dom、home-view、playback-core |
-| playback-core | page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、home、library-ui、video-pages、search、appearance |
+| playback-core | page-selection、track-utils、search-state（类型）、runtime-api、player-dom、player-state、playback-policy、playback-notice、home、library-ui、video-pages、search、appearance |
 | playback-policy | page-selection、player-state |
 | library-ui | track-utils、runtime-api、player-dom、player-state、playback-core |
 | video-pages | page-selection、track-utils、runtime-api、player-dom、player-state、playback-core |
-| search | track-utils、runtime-api、player-dom、player-state、video-pages、playback-core |
+| search | search-state（类型）、player-dom、player-state、home、video-pages、search-view、playback-core |
 | appearance | playback-policy、library-ui、playback-core |
 
 core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home 与 core 通过运行时入口互相依赖，顶层不读取循环绑定。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
@@ -95,7 +97,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 ## 导入与导出规则
 
 - 文件头只使用命名导入与带 .ts 后缀的相对路径：`import { a, b } from "./x.ts";`。
-- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-ui、video-pages、search、playback-core、main、appearance；花括号内名字按字母序。
+- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、search-state、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-ui、video-pages、search-view、search、playback-core、main、appearance；花括号内名字按字母序。
 - 文件尾只有一条 `export { a, b };`，按字母序，只导出被其它模块实际导入的名字。main 无业务导出，使用唯一的空列表 `export {};`；这不允许空 import 或其它模块语法。
 - 不使用 default export、内联 export function/const、namespace import、动态 import 或别名 as。
 - app 是固定入口例外：先副作用导入 main，再命名导入 startAppearance，然后调用；不增加其它入口逻辑。
@@ -106,7 +108,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 1. 确认职责和绑定归属；播放核心、状态写入白名单、命令接口遵守既有约束，不顺手改动。
 2. 使用方添加显式静态导入，提供方尾部列表只导出实际使用项；app 启动顺序保持固定。
 3. 检查普通脚本边界、循环依赖和声明初始化：不依赖隐式全局，不在求值阶段读取未初始化绑定，不移动会改变取值的初始化。
-4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入只允许 core；searchState 允许 main/core/search，libraryState 允许 core/library-ui/video-pages，homeState 允许 main/home。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
+4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入只允许 core；搜索分片只允许 search-state 动作提交，首页分片只允许 app-state 动作提交；libraryState 允许 core/library-ui/video-pages。search-view 独占搜索提交按钮；main/core/search 通过搜索动作写入，禁止快照直接或别名写入。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
 5. 调整测试加载方式而非业务断言；运行下述九项验证、CRLF 四项、CI 步骤、两个 Node 22 版本清单比对及 canary，再做真实 WebView 手测。
 
 ## 测试与守卫
@@ -123,7 +125,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 | native-module-loader.test.ts | 原生链接错误、TDZ、事件记录、调用次数及临时环境清理。 |
 | playback-notice-init.test.ts | main 恰好一次调用通知与诊断 init；通知在诊断之后、搜索监听安装之前。 |
 | playback-startup-installation.test.ts、fixtures/playback-startup-installation.json | G0 启动安装序列快照：监听目标/事件/选项、window 属性赋值、Observer 构造与 observe、首个 trackchange 位置；逐项有序相等。 |
-| real-module-startup.test.ts | 真实 16 个模块（含 app）的链接和求值；首个 trackchange 一次、由 main 调用 core 函数派发；appearance 随后安装监听且只启动一次。 |
+| real-module-startup.test.ts | 真实 21 个模块（含 app）的链接和求值；首个 trackchange 一次、由 main 调用 core 函数派发；appearance 随后安装监听且只启动一次。 |
 
 守卫是针对当前源码的棘轮，不是完整 AST 分析。局部同名清单须人工核对；scalar 守卫不检测解构赋值或 for…of/in 写入，只读 import 另由引擎约束。
 
@@ -216,3 +218,11 @@ app-state.ts 是应用 store 工厂，本批只有 home 分片。原 homeState �
 home.ts 在原 updateHomeModeUi 调用位置挂载一次 store，注入 invoke、计时器与日志适配器；先 subscribe，再显式读取 getState() 完成首屏。既有首页函数作为动作桥接保留，main 的推荐要求写入改走 setHomeHint。home-view.ts 只读取快照并写首页 DOM，不调用 actions/invoke；曲目行由控制器注入现有 createTrackRow，点击通过既有 playListItem 进入队列，队列高亮仍由 core 的 updateQueueUi 写入。renderer 只读与旧状态写入归属均有守卫。
 
 初始化事件、迷你窗同步时机、播放/搜索/资料库的状态结构保持原样。home-characterization.test.ts 先在旧首页上提交并通过，迁移期间保持逐字节相同；home-actions.test.ts 直接导入纯模块，不安装 window/document，不使用 DOM 模拟。详见 state-1-2-report.md。
+
+## 搜索状态边界（state-3）
+
+应用 store 由 home 的 getApplicationStore 按原位初始化首次创建，搜索控制器复用同一实例。search-state 定义搜索领域动作与只读快照；没有 DOM 或 Tauri 依赖。search 控制器注入输入草稿读取、上次关键词保存、分页队列协调和曲目交互。search-view 订阅投影只读状态，调用注入交互回调；播放来源高亮和队列计数仍在 core。
+
+首页与搜索分别复制改变的分片。搜索开始、成功、失败和分页开始、完成各提交一次；BV 重置、元数据回填、分区或排序操作分别为同步动作。view 中的修订号保持原有列表重绘时机；状态提交不代表每次都重建列表。搜索与解析忙态分别记录，buttonDisabled/buttonSource 保存原有最后写入者的结果，不采用忙态逻辑或，否则会改变现有按钮行为。
+
+state-architecture 守卫覆盖平台引用、renderer 依赖、搜索提交按钮归属及简单快照别名写入，配直接写入、集合写入和 Object.assign 反例；它是词法守卫，深度只读类型与冻结动作测试补充保护。旧 VM 测试仅更新接线与切片，业务断言和名称保留；state-3 搜索特征测试保持提交时的全部字节。

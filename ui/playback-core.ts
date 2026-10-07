@@ -1,14 +1,15 @@
 import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex, takeRandomPageFromRound } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
+import type { SearchPageCommit } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
-import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, libraryState, playerState, searchState } from "./player-state.ts";
+import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
+import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, libraryState, playerState } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { getHomeSnapshot } from "./home.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
-import { renderSearchResults, runSearch, setSearchResults } from "./search.ts";
+import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 
 type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid"> & Pick<CommandContract.PlaybackState, "page" | "cid">>;
@@ -181,7 +182,7 @@ function stopAudioElement() {
 async function cancelCurrentPlayback() {
   playerState.requestVersion += 1;
   stopAudioElement();
-  searchButton.disabled = false;
+  setSearchPlaybackBusy(false);
   try {
     await invoke("cancel_prepare_audio");
   } catch {
@@ -313,31 +314,19 @@ function setQueue(videos: readonly CommandContract.TrackSnapshotInput[], { save 
   }
 }
 
-function appendSearchResults(videos: readonly CommandContract.SearchVideo[]) {
-  const knownBvids = new Set(searchState.results.map((video) => video.bvid));
-  const uniqueVideos = videos
-    .filter((video) => {
-      if (!video?.bvid || knownBvids.has(video.bvid)) {
-        return false;
-      }
-      knownBvids.add(video.bvid);
-      return true;
-    })
-    .map(normalizeTrack);
-
+function appendSearchResults(videos: readonly CommandContract.SearchVideo[], page?: SearchPageCommit) {
+  const uniqueVideos = appendSearchDisplay(videos, (unique) => {
+    if (playerState.queueSearchVersion === getSearchSnapshot().requestVersion) {
+      const startIndex = playerState.queue.length;
+      playerState.queue.push(...unique.map(normalizeTrack));
+      addNewIndexesToRandomRemaining(startIndex, unique.length);
+      savePlaybackState();
+    }
+  }, page);
   if (uniqueVideos.length === 0) {
     updateQueueUi();
     return 0;
   }
-
-  searchState.results.push(...uniqueVideos);
-  if (playerState.queueSearchVersion === searchState.requestVersion) {
-    const startIndex = playerState.queue.length;
-    playerState.queue.push(...uniqueVideos.map(normalizeTrack));
-    addNewIndexesToRandomRemaining(startIndex, uniqueVideos.length);
-    savePlaybackState();
-  }
-  renderSearchResults();
   updateQueueUi();
   emitCurrentTrackChanged();
   return uniqueVideos.length;
@@ -347,7 +336,7 @@ function updateQueueUi() {
   const hasCurrent =
     playerState.currentIndex >= 0 &&
     playerState.currentIndex < playerState.queue.length;
-  queueCount.textContent = `${searchState.results.length} 首`;
+  queueCount.textContent = `${getSearchSnapshot().results.length} 首`;
   queuePosition.textContent = hasCurrent
     ? `♪${playerState.currentIndex + 1}/${playerState.queue.length}`
     : `♪0/${playerState.queue.length}`;
@@ -369,7 +358,7 @@ function updateQueueUi() {
   ]) {
     const index = Number(queueButton.dataset.resultIndex);
     if (
-      playerState.queueSearchVersion === searchState.requestVersion &&
+      playerState.queueSearchVersion === getSearchSnapshot().requestVersion &&
       index === playerState.currentIndex
     ) {
       queueButton.setAttribute("aria-current", "true");
@@ -789,7 +778,7 @@ async function loadCurrentTrack({
 
   const requestVersion = ++playerState.requestVersion;
   stopAudioElement();
-  searchButton.disabled = true;
+  setSearchPlaybackBusy(true);
   result.hidden = false;
   status.textContent = "正在解析音频…";
 
@@ -863,10 +852,10 @@ async function loadCurrentTrack({
         durationSeconds: info.durationSeconds,
       });
       if (
-        playerState.queueSearchVersion === searchState.requestVersion &&
-        searchState.results[index]
+        playerState.queueSearchVersion === getSearchSnapshot().requestVersion &&
+        getSearchSnapshot().results[index]
       ) {
-        Object.assign(searchState.results[index], {
+        fillSearchMetadata(index, getSearchSnapshot().requestVersion, {
           title: info.title,
           uploader: info.uploader,
           thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
@@ -975,7 +964,7 @@ async function loadCurrentTrack({
     }
   } finally {
     if (requestVersion === playerState.requestVersion) {
-      searchButton.disabled = false;
+      setSearchPlaybackBusy(false);
     }
   }
 }
@@ -1021,12 +1010,12 @@ function playBvId(bvId: string) {
 }
 
 function playSearchResult(index: number, pageSelection: Parameters<Parameters<typeof bindTrackActivation>[3]>[0] | null = null) {
-  if (index < 0 || index >= searchState.results.length) {
+  if (index < 0 || index >= getSearchSnapshot().results.length) {
     return;
   }
 
-  playListItem("search", searchState.results, index, {
-    searchVersion: searchState.requestVersion,
+  playListItem("search", getSearchSnapshot().results, index, {
+    searchVersion: getSearchSnapshot().requestVersion,
     ...(pageSelection ?? {}),
   });
 }
@@ -1315,23 +1304,14 @@ searchForm.addEventListener("submit", async (event) => {
 
   if (isBvId(query)) {
     pendingPastedBvPages = null;
-    searchState.userKeyword = "";
-    searchState.requestKeyword = "";
-    searchState.order = null;
-    searchState.rerank = true;
-    searchState.page = 0;
-    searchState.hasMore = false;
-    searchState.isLoadingMore = false;
-    searchState.requestVersion += 1;
-    const pasteVersion = searchState.requestVersion;
-    setSearchResults([]);
+    const pasteVersion = resetSearchForBv();
     await cancelCurrentPlayback();
-    if (pasteVersion !== searchState.requestVersion) return;
-    if (pasteVersion === searchState.requestVersion) {
+    if (pasteVersion !== getSearchSnapshot().requestVersion) return;
+    if (pasteVersion === getSearchSnapshot().requestVersion) {
       pendingPastedBvPages = { bvid: query, requestVersion: playerState.requestVersion + 1 };
     }
     playBvId(query);
-    searchStatus.textContent = `已识别 BV 号：${query}`;
+    recognizeSearchBv(query);
     return;
   }
 

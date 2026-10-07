@@ -1,9 +1,12 @@
-import { displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, normalizeTrack } from "./track-utils.ts";
-import { invoke } from "./runtime-api.ts";
-import { musicTabs, result, searchButton, searchKeyword, searchResults, searchStatus, sortModeTabs } from "./player-dom.ts";
-import { LAST_SEARCH_KEY, MUSIC_HOT_KEYWORD, SEARCH_PAGE_SIZE, searchState } from "./player-state.ts";
+import type { SearchPageCommit } from "./search-state.ts";
+import { searchKeyword } from "./player-dom.ts";
+import { LAST_SEARCH_KEY } from "./player-state.ts";
+import { getApplicationStore } from "./home.ts";
 import { bindTrackActivation } from "./video-pages.ts";
+import { renderSearchSnapshot } from "./search-view.ts";
 import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./playback-core.ts";
+
+let searchMounted = false;
 
 function readLastSearchKeyword(): string {
   try {
@@ -22,250 +25,40 @@ function saveLastSearchKeyword(keyword: string): void {
   }
 }
 
-function setSearchResults(videos: readonly CommandContract.SearchVideo[]): void {
-  searchState.results = videos.map(normalizeTrack);
-  renderSearchResults();
-  updateQueueUi();
-}
-
-function renderSearchResults(): void {
-  searchResults.replaceChildren();
-
-  searchState.results.forEach((video, index) => {
-    const item = document.createElement("li");
-    item.className = "track-row";
-    const playButton = document.createElement("button");
-    const eq = document.createElement("span");
-    const coverWrap = document.createElement("span");
-    const meta = document.createElement("span");
-    const trackTitle = document.createElement("span");
-    const trackUp = document.createElement("span");
-    const trackPlay = document.createElement("span");
-    const trackPubdate = document.createElement("span");
-    const trackDuration = document.createElement("span");
-
-    playButton.type = "button";
-    playButton.className = "track";
-    playButton.dataset.resultIndex = String(index);
-
-    eq.className = "eq";
-    eq.setAttribute("aria-hidden", "true");
-    eq.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
-    playButton.append(eq);
-
-    coverWrap.className = "track-cover";
-    if (video.thumbnailUrl) {
-      const cover = document.createElement("img");
-      cover.src = displayThumbnailUrl(video.thumbnailUrl);
-      cover.alt = "";
-      cover.loading = "lazy";
-      cover.referrerPolicy = "no-referrer";
-      coverWrap.append(cover);
-    } else {
-      const coverPlaceholder = document.createElement("span");
-      coverPlaceholder.className = "cover-placeholder";
-      coverWrap.append(coverPlaceholder);
-    }
-    playButton.append(coverWrap);
-
-    meta.className = "track-meta";
-    trackTitle.className = "track-title";
-    trackTitle.textContent = video.title || video.bvid;
-    trackUp.className = "track-up";
-    trackUp.textContent = video.uploader || video.bvid;
-    meta.append(trackTitle, trackUp);
-    playButton.append(meta);
-
-    trackPlay.className = "track-play";
-    trackPlay.textContent = formatPlayCount(video.playCount);
-    playButton.append(trackPlay);
-
-    trackPubdate.className = "track-pubdate";
-    trackPubdate.textContent = formatPubdate(video.pubdate);
-    playButton.append(trackPubdate);
-
-    trackDuration.className = "track-duration";
-    trackDuration.textContent = video.durationSeconds
-      ? formatDuration(video.durationSeconds)
-      : "0:00";
-    playButton.append(trackDuration);
-
-    item.append(playButton, createTrackActions(video));
-    bindTrackActivation(item, playButton, video, (pageSelection) =>
-      playSearchResult(index, pageSelection));
-    searchResults.append(item);
-  });
-  updateQueueUi();
-}
-
-function recordSearchHistoryFireAndForget(keyword: string): void {
-  invoke("record_search_history", { keyword }).catch((error) => {
-    console.warn("record_search_history failed:", error);
-  });
-}
-
-function updateMusicTabs(): void {
-  for (const tab of musicTabs) {
-    const selected = Number(tab.dataset.tids) === searchState.tids;
-    tab.classList.toggle("is-active", selected);
-    tab.setAttribute("aria-selected", String(selected));
-  }
-}
-
-function updateSortModeTabs(): void {
-  for (const tab of sortModeTabs) {
-    const selected = tab.dataset.sortMode === searchState.sortMode;
-    tab.classList.toggle("is-active", selected);
-    tab.setAttribute("aria-selected", String(selected));
-  }
-}
-
-function currentSearchRequest(userKeyword: string) {
-  const trimmed = userKeyword.trim();
-  if (trimmed) {
-    return {
-      userKeyword: trimmed,
-      requestKeyword: trimmed,
-      order: null,
-      rerank: true,
+function getSearchActions() {
+  const store = getApplicationStore();
+  if (!searchMounted) {
+    searchMounted = true;
+    let previous: ReturnType<typeof getSearchSnapshot> | null = null;
+    const render = (state: ReturnType<typeof store.getState>) => {
+      const rendered = renderSearchSnapshot(state.search, previous, { createActions: createTrackActions, bindActivation: bindTrackActivation, play: playSearchResult });
+      previous = state.search;
+      if (rendered) updateQueueUi();
     };
+    store.subscribe(render);
+    render(store.getState());
   }
-  return {
-    userKeyword: "",
-    requestKeyword: MUSIC_HOT_KEYWORD,
-    order: "click",
-    rerank: false,
-  };
+  return store.actions.search;
+}
+function getSearchSnapshot() { return getApplicationStore().getState().search; }
+function renderSearchResults(): void { getSearchActions().refreshResults(); }
+function updateMusicTabs(): void { getSearchActions().refreshDivision(); }
+function setSearchDivision(tids: number): void { getSearchActions().chooseDivision(tids); }
+function setSearchSort(sortMode: string): void { getSearchActions().chooseSort(sortMode); }
+function resetSearchForBv(): number { return getSearchActions().resetForBv(); }
+function setSearchPlaybackBusy(busy: boolean): void { getSearchActions().setPlaybackBusy(busy); }
+function recognizeSearchBv(bvid: string): void { getSearchActions().recognizeBv(bvid); }
+function fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void {
+  getSearchActions().updateMetadata(index, version, metadata);
+}
+function appendSearchDisplay(videos: readonly CommandContract.SearchVideo[], beforeCommit: (unique: ReturnType<typeof getSearchSnapshot>["results"]) => void, page?: SearchPageCommit) {
+  return getSearchActions().appendResults(videos, beforeCommit, page);
+}
+function runSearch({ userKeyword = searchKeyword.value.trim(), recordHistory = false, restored = false }: { userKeyword?: string; recordHistory?: boolean; restored?: boolean } = {}): Promise<void> {
+  return getSearchActions().runSearch({ userKeyword, recordHistory, restored, saveKeyword: saveLastSearchKeyword });
+}
+function loadMoreSearchResults(): Promise<void> {
+  return getSearchActions().loadMoreSearchResults(() => searchKeyword.value, (videos, page) => appendSearchResults(videos, page));
 }
 
-async function runSearch({
-  userKeyword = searchKeyword.value.trim(),
-  recordHistory = false,
-  restored = false,
-}: { userKeyword?: string; recordHistory?: boolean; restored?: boolean } = {}): Promise<void> {
-  const query = currentSearchRequest(userKeyword);
-  searchButton.disabled = true;
-  if (query.userKeyword) {
-    searchStatus.textContent = restored
-      ? `已复用上次搜索关键词「${query.userKeyword}」，正在搜索…`
-      : "正在搜索…";
-  } else {
-    searchStatus.textContent = "正在加载该分区热门…";
-  }
-  const requestVersion = ++searchState.requestVersion;
-  searchState.userKeyword = query.userKeyword;
-  searchState.requestKeyword = query.requestKeyword;
-  searchState.order = query.order;
-  searchState.rerank = query.rerank;
-  searchState.page = 1;
-  searchState.hasMore = false;
-  searchState.isLoadingMore = false;
-
-  try {
-    const payload: CommandMap["search_videos"]["args"] = {
-      keyword: searchState.requestKeyword,
-      page: 1,
-      tids: searchState.tids,
-      rerank: searchState.rerank,
-    };
-    if (searchState.order) {
-      payload.order = searchState.order;
-    }
-    if (searchState.rerank) {
-      payload.sortMode = searchState.sortMode;
-    }
-    const searchRequest = invoke("search_videos", payload);
-    if (recordHistory && searchState.userKeyword) {
-      recordSearchHistoryFireAndForget(searchState.userKeyword);
-    }
-    const videos = await searchRequest;
-    if (requestVersion !== searchState.requestVersion) {
-      return;
-    }
-    setSearchResults(videos);
-    result.hidden = false;
-    searchState.hasMore = videos.length >= SEARCH_PAGE_SIZE;
-    if (searchState.userKeyword) {
-      // 仅在真实成功后记录，失败的搜索不沉淀为“上次搜索”。
-      saveLastSearchKeyword(searchState.userKeyword);
-    }
-    const modeLabel = searchState.userKeyword ? "" : "（分区热门）";
-    const foundLabel = videos.length
-      ? searchState.hasMore
-        ? `找到 ${videos.length} 个普通视频${modeLabel}。`
-        : `找到 ${videos.length} 个普通视频${modeLabel}。没有更多了`
-      : "没有找到普通视频。";
-    searchStatus.textContent = restored
-      ? `已复用上次搜索关键词「${searchState.userKeyword}」刷新完成，${foundLabel}`
-      : foundLabel;
-  } catch (error) {
-    if (requestVersion !== searchState.requestVersion) {
-      return;
-    }
-    searchStatus.textContent = restored
-      ? `复用上次搜索关键词「${searchState.userKeyword}」搜索失败：${error}`
-      : `搜索失败：${error}`;
-  } finally {
-    if (requestVersion === searchState.requestVersion) {
-      searchButton.disabled = false;
-    }
-  }
-}
-
-async function loadMoreSearchResults(): Promise<void> {
-  if (
-    !searchState.requestKeyword ||
-    !searchState.hasMore ||
-    searchState.isLoadingMore
-  ) {
-    return;
-  }
-
-  const nextPage = searchState.page + 1;
-  const requestVersion = searchState.requestVersion;
-  searchState.isLoadingMore = true;
-  searchStatus.textContent = `正在加载第 ${nextPage} 页…`;
-
-  try {
-    const payload: CommandMap["search_videos"]["args"] = {
-      keyword: searchState.requestKeyword,
-      page: nextPage,
-      tids: searchState.tids,
-      order: searchState.order,
-      rerank: searchState.rerank,
-    };
-    if (searchState.rerank) {
-      payload.sortMode = searchState.sortMode;
-    }
-    const videos = await invoke("search_videos", payload);
-    if (
-      requestVersion !== searchState.requestVersion ||
-      searchKeyword.value.trim() !== searchState.userKeyword
-    ) {
-      return;
-    }
-
-    searchState.page = nextPage;
-    const appendedCount = appendSearchResults(videos);
-    searchState.hasMore = videos.length >= SEARCH_PAGE_SIZE && appendedCount > 0;
-    if (appendedCount > 0) {
-      searchStatus.textContent = `已加载第 ${nextPage} 页，追加 ${appendedCount} 个普通视频。`;
-    } else {
-      searchState.hasMore = false;
-      searchStatus.textContent = "没有更多了";
-    }
-  } catch (error) {
-    if (requestVersion === searchState.requestVersion) {
-      searchStatus.textContent = `加载更多失败：${error}`;
-    }
-  } finally {
-    if (requestVersion === searchState.requestVersion) {
-      searchState.isLoadingMore = false;
-      if (!searchState.hasMore && searchState.results.length > 0) {
-        searchStatus.textContent = "没有更多了";
-      }
-    }
-  }
-}
-
-export { loadMoreSearchResults, readLastSearchKeyword, renderSearchResults, runSearch, setSearchResults, updateMusicTabs, updateSortModeTabs };
+export { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchDivision, setSearchPlaybackBusy, setSearchSort, updateMusicTabs };

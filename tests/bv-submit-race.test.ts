@@ -25,7 +25,10 @@ test("reverse cancellation completion plays only the latest submitted BV", async
   const context = vm.createContext({
     searchForm: { addEventListener(type: string, handler: (event: { preventDefault(): void }) => Promise<void>) { assert.equal(type, "submit"); submit = handler; } },
     searchKeyword, searchStatus, searchState: { requestVersion: 0 }, playerState: { requestVersion: 10 },
-    pendingPastedBvPages: null, setSearchResults() {}, runSearch() { assert.fail("BV submit must not search"); },
+    pendingPastedBvPages: null,
+    resetSearchForBv(): number { return ++context.searchState.requestVersion; },
+    getSearchSnapshot() { return context.searchState; },
+    recognizeSearchBv(bvid: string): void { searchStatus.textContent = `已识别 BV 号：${bvid}`; }, runSearch() { assert.fail("BV submit must not search"); },
     cancelCurrentPlayback() { const gate = deferred(); cancellations.push(gate); return gate.promise; },
     playBvId: (bvid: string) => played.push(bvid),
   });

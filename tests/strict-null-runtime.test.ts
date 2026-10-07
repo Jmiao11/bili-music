@@ -224,7 +224,7 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
     const button = runtimeElement(); button.title = "unchanged";
     const context = vm.createContext({ LOOP_MODES: modes, loopModeButton: button,
       playerState: { queue: [], currentIndex: -1, loopMode: mode, shuffle: false },
-      searchState: { results: [] }, queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
+      getSearchSnapshot: () => ({ results: [] }), queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
       searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
       updateFavoriteButtons() {}, updateLibraryHighlights() {},
     });

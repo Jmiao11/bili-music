@@ -12,8 +12,7 @@ const search = read("search.ts");
 const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
-const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const searchState =").replace(/\n\n$/, "\n")
-  + sourceSlice(state, "ui/player-state.ts", "const searchState =", "const LAST_SEARCH_KEY")
+const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const LAST_SEARCH_KEY").replace(/\n\n$/, "\n")
   + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const favoriteDragState =");
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
@@ -26,8 +25,8 @@ const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("async function loadCurrentTrack(", "function playBvId(")
   + slice("function playSearchResult(", "function advancePageWithinCurrentBv(")
   + slice("function playNext(", "function initPlaybackSearch(")
-  + sourceSlice(search, "ui/search.ts", "function setSearchResults(", "function renderSearchResults(")
-  + search.slice(search.indexOf("function currentSearchRequest(")) + "\n";
+  + search.slice(search.indexOf("function runSearch(")) + "\n";
+const searchFactory = read("search-state.ts");
 
 function deferred() {
   let resolve: ((value?: unknown) => void) | undefined, reject: ((reason?: unknown) => void) | undefined;
@@ -94,13 +93,27 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
     },
   });
   for (const name of ["searchButton", "result", "status", "thumbnail", "title", "uploader", "duration", "playerPagesButton", "playerPagesGroup", "searchKeyword", "searchStatus", "resumeProgressSlider", "immersiveResumeProgressSlider", "resumeCurrentTimeLabel", "immersiveResumeCurrentTimeLabel", "immersiveResumeDurationLabel"]) context[name] = node();
-  vm.runInContext(stateCode + functions + "\nglobalThis.states = { playerState, searchState, libraryState }; Math.random = () => 0;", context);
+  vm.runInContext(stateCode + searchFactory + functions + `
+    let searchState = initialSearchState();
+    const searchActions = createSearchActions(() => searchState, next => {
+      searchState = next;
+      if (next.view.status !== null) searchStatus.textContent = next.view.status;
+      if (next.view.buttonDisabled !== null) searchButton.disabled = next.view.buttonDisabled;
+      if (next.view.resultVisible !== null) result.hidden = !next.view.resultVisible;
+    }, { invoke: (...args) => invoke(...args), report: (level, message, error) => console[level](message, error) });
+    function getSearchActions() { return searchActions; }
+    function getSearchSnapshot() { return searchState; }
+    function setSearchPlaybackBusy(busy) { searchActions.setPlaybackBusy(busy); }
+    function appendSearchDisplay(videos, beforeCommit, page) { return searchActions.appendResults(videos, beforeCommit, page); }
+    function fillSearchMetadata(index, version, metadata) { searchActions.updateMetadata(index, version, metadata); }
+    globalThis.states = { playerState, libraryState }; Math.random = () => 0;
+  `, context);
   const request = (command: string, index = 0) => {
     const call = calls.filter((item) => item.command === command)[index];
     if (call) return Promise.resolve(call);
     const gate = deferred(); waiters.push({ command, index, resolve: gate.resolve }); return gate.promise;
   };
-  return { context, ...context.states, audio, calls, request, notices, events, warnings, metadataRequested };
+  return { context, ...context.states, get searchState() { return context.getSearchSnapshot(); }, audio, calls, request, notices, events, warnings, metadataRequested };
 }
 
 for (const outcome of ["resolve", "reject"]) {

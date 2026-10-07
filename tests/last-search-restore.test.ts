@@ -1,3 +1,5 @@
+import { createApplicationStore } from "../ui/app-state.ts";
+import { normalizeTrack } from "../ui/track-utils.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -9,14 +11,11 @@ const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "ut
 const searchSource = readFileSync(path.join(import.meta.dirname, "../ui/search.ts"), "utf8");
 const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/player-state.ts"), "utf8");
 
-// 切片：关键词持久化助手 + 恢复搜索状态与提示（runSearch + currentSearchRequest）。
+// 切片：关键词持久化助手 + 恢复搜索状态与提示（注入应用 store 动作）。
 const helpers = sourceSlice(stateSource, "ui/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
   + sourceSlice(source, "ui/main.ts", "let pendingSearchRestore", "initPlaybackDiagnostics();")
-  + sourceSlice(searchSource, "ui/search.ts", "function readLastSearchKeyword(", "function setSearchResults(");
-const requestFns = sourceSlice(searchSource, "ui/search.ts", "function currentSearchRequest(", "async function runSearch(");
-const runSearchFn = sourceSlice(searchSource, "ui/search.ts", "async function runSearch(", "async function loadMoreSearchResults(");
+  + sourceSlice(searchSource, "ui/search.ts", "function readLastSearchKeyword(", "function getSearchActions(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
-assert.ok(runSearchFn.includes("restored"));
 
 function setup({ keyword = "", results = [] }: { keyword?: string; results?: { bvid: string }[] } = {}) {
   const storage = new Map();
@@ -28,8 +27,6 @@ function setup({ keyword = "", results = [] }: { keyword?: string; results?: { b
       getItem: (key: string) => (storage.has(key) ? storage.get(key) : null),
       setItem: (key: string, value: unknown) => storage.set(key, String(value)),
     },
-    SEARCH_PAGE_SIZE: 20,
-    MUSIC_HOT_KEYWORD: "音乐",
     searchKeyword: { value: keyword },
     searchButton: { disabled: false },
     searchStatus: { textContent: "" },
@@ -47,20 +44,26 @@ function setup({ keyword = "", results = [] }: { keyword?: string; results?: { b
       hasMore: false,
       requestVersion: 0,
     },
-    recordSearchHistoryFireAndForget() {},
-    setSearchResults(videos: { bvid: string }[]) {
-      context.searchState.results = videos;
-    },
-    updateQueueUi() {},
     invoke: async () => {
       throw new Error("unexpected invoke");
     },
     console: { warn() {} },
   });
-  vm.runInContext(
-    helpers + "\n" + requestFns + "\n" + runSearchFn + "\nglobalThis.__api = { runSearch, readLastSearchKeyword, saveLastSearchKeyword };",
-    context,
-  );
+  vm.runInContext(helpers + "\nglobalThis.__api = { readLastSearchKeyword, saveLastSearchKeyword };", context);
+  const store = createApplicationStore({
+    invoke: ((command: string, payload: unknown) => context.invoke(command, payload)) as Parameters<typeof createApplicationStore>[0]["invoke"],
+    setTimeout: () => 0, clearTimeout() {}, report() {},
+  });
+  store.subscribe(state => {
+    context.searchState = state.search;
+    context.searchButton.disabled = state.search.view.buttonDisabled ?? false;
+    context.searchStatus.textContent = state.search.view.status ?? "";
+    if (state.search.view.resultVisible !== null) context.result.hidden = !state.search.view.resultVisible;
+  });
+  if (results.length) store.actions.search.appendResults(results.map(normalizeTrack));
+  context.__api.runSearch = (options: { userKeyword?: string; restored?: boolean } = {}) => store.actions.search.runSearch({
+    ...options, userKeyword: options.userKeyword ?? context.searchKeyword.value, saveKeyword: context.__api.saveLastSearchKeyword,
+  });
   return { context, storage };
 }
 
