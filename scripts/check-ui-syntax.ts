@@ -1,7 +1,6 @@
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-const { stripTypes }: import("../tests/helpers/typescript-source.cts").Contract = createRequire(import.meta.url)("../tests/helpers/typescript-source.cts");
+import { stripTypes } from "../tests/helpers/typescript-source.ts";
 
 const ui = path.join(import.meta.dirname, "../ui");
 for (const entry of fs.readdirSync(ui, { withFileTypes: true })) {
