@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import path from "node:path";
+import { test } from "node:test";
+import { collectBusinessScripts } from "./helpers/module-graph.ts";
+import { loadNativeModules } from "./helpers/native-module-loader.ts";
+
+test("real module graph dispatches once during main before appearance starts once", async () => {
+  const ui = path.join(import.meta.dirname, "../ui");
+  const { modules } = collectBusinessScripts(ui);
+  assert.equal(modules.length, 16);
+  const loaded = await loadNativeModules(ui, modules, "app.ts");
+  const changes = loaded.events.filter((event) => event.type === "bilibili-music-trackchange");
+  const dispatches = changes.filter((event) => event.action === "dispatch");
+  assert.equal(dispatches.length, 1);
+  const dispatchStack = dispatches[0].stack;
+  if (dispatchStack === undefined) throw new Error("Initial dispatch stack is missing");
+  assert.match(dispatchStack, /emitCurrentTrackChanged .*playback-core\.ts/);
+  assert.match(dispatchStack, /at file:.*\/main\.ts:\d+:\d+/);
+  const mainListener = changes.find((event) => event.action === "listen" && /\/playback-core\.ts:/.test(String(event.stack)));
+  const appearanceListener = changes.find((event) => event.action === "listen" && /startAppearance .*appearance\.ts/.test(String(event.stack)));
+  assert.ok(mainListener);
+  assert.ok(appearanceListener);
+  assert.ok(loaded.events.indexOf(mainListener) < loaded.events.indexOf(dispatches[0]));
+  assert.ok(loaded.events.indexOf(appearanceListener) > loaded.events.indexOf(dispatches[0]));
+  const appearanceEvents = loaded.events.filter((event) => /startAppearance .*appearance\.ts/.test(String(event.stack)));
+  assert.ok(appearanceEvents.length > 0);
+  assert.ok(appearanceEvents.every((event) => loaded.events.indexOf(event) > loaded.events.indexOf(dispatches[0])));
+  const functions = loaded.coverage.filter((script) => /\/appearance\.ts$/.test(script.url)).flatMap((script) => script.functions);
+  const appearance = functions.find((fn) => fn.functionName === "startAppearance");
+  if (appearance === undefined) throw new Error("Appearance coverage is missing");
+  assert.equal(appearance.ranges[0].count, 1);
+});

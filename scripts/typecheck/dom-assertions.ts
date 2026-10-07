@@ -1,8 +1,7 @@
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = createRequire(import.meta.url)("../../tests/helpers/typescript-source.cts");
-const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = createRequire(import.meta.url)("../../tests/helpers/js-source.cts");
+import { isTypeScript, stripTypes } from "../../tests/helpers/typescript-source.ts";
+import { maskCommentsAndStrings, topLevelStatements } from "../../tests/helpers/js-source.ts";
 
 function* htmlTags(html: string) {
   const start = /<\/?([a-z][\w:-]*)(?=[\s/>])/gi;
