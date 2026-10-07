@@ -82,7 +82,7 @@ function diagnosticCountsByCode(diagnostics: Diagnostic[]) {
 }
 
 export { parseDiagnostics, diagnosticCounts, compareCounts };
-if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
+if (import.meta.main) {
   try { run(); } catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
 

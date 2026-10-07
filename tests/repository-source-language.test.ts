@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { checkEsmSources } from "../scripts/typecheck/dom-assertions.ts";
 
 // Filesystem traversal also works in source archives and before npm ci.
 const excludedDirectories = new Set(["node_modules", "dist", "target", ".git"]);
@@ -24,6 +25,7 @@ test("repository sources use TypeScript outside generated directories", () => {
   const root = path.join(import.meta.dirname, "..");
   assert.match(fs.readFileSync(path.join(root, ".gitignore"), "utf8"), /^\/target\/$/m);
   assertTypeScriptSources(root);
+  checkEsmSources(root);
 });
 
 test("source language guard rejects js/cjs/mjs and excludes only generated directories", () => {

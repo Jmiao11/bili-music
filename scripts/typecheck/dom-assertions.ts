@@ -173,9 +173,44 @@ function checkRepository(root: string) {
   return all;
 }
 
-export { htmlIds, checkDomAssertions, checkRepository };
-if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
-  try { checkRepository(path.resolve(import.meta.dirname, "../..")); }
+// These two synchronous bridges avoid the scanner bootstrap cycle; no other bridge is permitted.
+const createRequirePositions = new Set([
+  "tests/helpers/source-slice.ts:1", "tests/helpers/source-slice.ts:12",
+  "tests/helpers/typescript-source.ts:1", "tests/helpers/typescript-source.ts:20",
+]);
+function checkEsmSources(root: string) {
+  let files = 0;
+  function visit(directory: string): void {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      const file = path.relative(root, absolute).replace(/\\/g, "/");
+      if (entry.isDirectory()) {
+        if (!["node_modules", "dist", "target", ".git"].includes(entry.name)) visit(absolute);
+      } else {
+        if (/\.(?:js|cjs|mjs|cts|mts)$/i.test(entry.name)) throw new Error(`Unsupported source extension: ${file}`);
+        if (!entry.name.endsWith(".ts")) continue;
+        files++;
+        const source = fs.readFileSync(absolute, "utf8");
+        const code = maskCommentsAndStrings(source);
+        if (/\brequire\s*\(|\bmodule\s*\.\s*exports\b/.test(code)) throw new Error(`CommonJS syntax is forbidden: ${file}`);
+        for (const match of code.matchAll(/\bcreateRequire\b/g)) {
+          const position = `${file}:${source.slice(0, match.index).split("\n").length}`;
+          if (!createRequirePositions.has(position)) throw new Error(`Unregistered createRequire: ${position}`);
+        }
+      }
+    }
+  }
+  visit(root);
+  console.log(`ESM source guard: ${files} TypeScript files verified.`);
+}
+
+export { htmlIds, checkDomAssertions, checkRepository, checkEsmSources };
+if (import.meta.main) {
+  try {
+    const root = path.resolve(import.meta.dirname, "../..");
+    checkRepository(root);
+    checkEsmSources(root);
+  }
   catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
 
