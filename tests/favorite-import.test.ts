@@ -6,7 +6,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/library-ui.ts"), "utf8");
-const code = sourceSlice(source, "ui/library-ui.ts", "function importFavoritePlaylist()       {", "function renameSelectedPlaylist()       {")
+const code = sourceSlice(source, "ui/library-ui.ts", "function importFavoritePlaylist()       {", "function openPurgeUnavailableTracksModal()")
   .replace("function importFavoritePlaylist()       {", "function importFavoritePlaylist() {");
 assert.ok(code.startsWith("function importFavoritePlaylist() {"));
 
@@ -14,23 +14,36 @@ function setup(invoke: (command: string, args: Record<string, unknown>) => Promi
   const fields: { input: { value: string; focus(): void; select(): void; addEventListener(): void }; field: { hidden: boolean; querySelector(): object } }[] = [];
   let submit: (() => Promise<void>) | undefined;
   const button = { disabled: false };
+  const node = () => ({ textContent: "", hidden: true, disabled: false, classList: { add() {}, remove() {} }, setAttribute() {}, replaceChildren() {} });
   const context = vm.createContext({
-    favoriteImportVersion: 0,
-    openLibraryModal() { context.favoriteImportVersion++; },
-    closeLibraryModal() { context.favoriteImportVersion++; },
-    createNameField() {
-      const input = { value: "", focus() {}, select() {}, addEventListener() {} };
-      const field = { hidden: false, querySelector: () => ({}) };
-      fields.push({ input, field });
-      return { input, field };
+    libraryModal: node(), libraryModalTitle: node(), libraryModalSubtitle: node(),
+    libraryModalStatus: node(), libraryModalBody: node(), playlistsStatus: node(), status: node(),
+    purgeAppearanceStatus: node(), purgeUnavailableTracksButton: node(),
+    requestAnimationFrame: (callback: () => void) => callback(),
+    renderFavorites() {}, renderPlaylists() {},
+    renderModalContent() {
+      const make = () => ({ input: { value: "", focus() {}, select() {}, addEventListener() {} }, field: { hidden: true, querySelector: () => ({}) } });
+      const link = make(), name = make(); fields.push(link, name);
+      submit = () => context.getLibraryActions().submitImport(link.input.value, name.input.value);
+      return { primary: button, input: name.input, linkInput: link.input, nameField: name.field };
     },
-    createLibraryActions(_label: string, action: () => Promise<void>) { submit = action; return { actions: {}, primaryButton: button }; },
-    validatePlaylistName(name: string) { return name.trim() ? { ok: true, name: name.trim() } : { ok: false, message: "名称不能为空" }; },
-    libraryModalStatus: { textContent: "" }, libraryModalBody: { append() {} },
-    playlistsStatus: { textContent: "" }, libraryState: { playlists: [], selectedPlaylistId: "" },
-    renderLibraryViews() {}, invoke,
+    invoke,
   });
-  vm.runInContext(code + "\nimportFavoritePlaylist();", context);
+  const read = (name: string) => readFileSync(path.join(import.meta.dirname, "../ui", name), "utf8");
+  vm.runInContext(read("track-utils.ts") + read("library-state.ts")
+    + sourceSlice(read("library-view.ts"), "ui/library-view.ts", "let libraryModalControls", "function renderFavorites(")
+    + sourceSlice(read("library-view.ts"), "ui/library-view.ts", "function renderLibrarySnapshot(", "function finishLibraryModalTransition(")
+    + code + `
+      let library = initialLibraryState();
+      const actions = createLibraryActions(() => library, next => {
+        const before = library; library = next;
+        renderLibrarySnapshot(next, before, {});
+        globalThis.libraryState = library;
+      }, { invoke, report() {} });
+      function getLibraryActions() { return actions; }
+      function closeLibraryModal() { actions.closeModal(); }
+      importFavoritePlaylist();
+    `, context);
   fields[0].input.value = "https://www.bilibili.com/list/ml123";
   return { context, fields, button, submit: () => { if (submit === undefined) throw new Error("Favorite import submit handler is missing"); return submit(); } };
 }

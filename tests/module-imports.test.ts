@@ -7,15 +7,19 @@ import { moduleDeclarations } from "./helpers/module-syntax.ts";
 import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const moduleOrder = ["state-store.ts", "app-state.ts", "page-selection.ts", "track-utils.ts", "search-state.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home-view.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search-view.ts", "search.ts", "playback-core.ts", "main.ts", "appearance.ts"];
+const moduleOrder = ["state-store.ts", "app-state.ts", "page-selection.ts", "track-utils.ts", "search-state.ts", "library-state.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home-view.ts", "home.ts", "library-view.ts", "library-ui.ts", "video-pages.ts", "search-view.ts", "search.ts", "playback-core.ts", "main.ts", "appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
+  ["library-state.ts:title", "open modal title parameter"],
+  ["library-state.ts:result", "local command/validation results"],
+  ["library-view.ts:playerState", "local readonly player projection from bindings"],
+  ["library-view.ts:libraryState", "readonly render function snapshot parameter"],
+  ["library-view.ts:title", "purge row title element"],
   ["track-utils.ts:result", "unavailableTrackLocations local Map"],
   ["playback-policy.ts:result", "shuffled local array"],
   ["home-view.ts:title", "showHomeNotice parameter"],
   ["library-ui.ts:result", "toggle, purge and favorite-import local results"],
-  ["library-ui.ts:title", "openLibraryModal parameter and purge row local element"],
   ["video-pages.ts:currentTrack", "openPagesModal local currentPlayableTrack result"],
   ["appearance.ts:status", "refreshYtDlpAvailability local response"],
   ["appearance.ts:result", "testAiConnection and import button local responses"],

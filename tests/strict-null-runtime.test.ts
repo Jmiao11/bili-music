@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
+import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
 function slice(file: string, start: string | null, end: string) {
@@ -45,9 +46,9 @@ test("restoring cache settings cancels the active timer and preserves the null t
 
 test("native list drag handlers preserve transfers and ignore unsupported null transfers", () => {
   for (const [name, end, stateName, args] of [
-    ["bindFavoriteDrag", "function renderFavorites(", "favoriteDragState", [4]],
+    ["bindFavoriteDrag", "function isPlaylistDragClickSuppressed(", "favoriteDragState", [4]],
     ["bindPlaylistItemDrag", "function isPlaylistListDragClickSuppressed(", "playlistDragState", ["p", 4]],
-    ["bindPlaylistDrag", "function renderPlaylists(", "playlistListDragState", [4]],
+    ["bindPlaylistDrag", "function libraryBindings(", "playlistListDragState", [4]],
   ] as [string, string, string, (string | number)[]][]) {
     const handlers: Record<string, (event: object) => void> = {};
     const row = { querySelectorAll: () => [], addEventListener: (name: string, fn: (event: object) => void) => { handlers[name] = fn; },
@@ -203,7 +204,11 @@ test("playlist name dialog preserves create and rename contracts and ignores a m
       libraryState: { playlists: [] }, invoke: async (name: string, args: Record<string, unknown>) => { calls.push([name, args]); return []; },
       renderLibraryViews() {}, closeLibraryModal() {},
     });
-    vm.runInContext(slice("library-ui.ts", "function showPlaylistNameDialog(", "function createPlaylist("), context);
+    vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/library-state.ts"), "utf8"), context);
+    vm.runInContext(`let snapshot = initialLibraryState();
+      const actions = createLibraryActions(() => snapshot, next => { snapshot = next; primaryButton.disabled = next.session.busy; }, { invoke, report() {} });
+      function showPlaylistNameDialog(options) { actions.showName(options.mode, options.playlist ?? null); setCallback(() => actions.submitName(input.value)); }
+    `, Object.assign(context, { input, primaryButton, setCallback: (fn: typeof callback) => { callback = fn; } }));
     context.showPlaylistNameDialog(options);
     if (!callback) throw new Error("Playlist action callback is missing");
     await callback();

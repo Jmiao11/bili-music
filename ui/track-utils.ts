@@ -56,7 +56,7 @@ function unavailableTrackReason(error: unknown): string {
     : "";
 }
 
-function unavailableTrackLocations(unavailable: readonly CommandContract.UnavailableTrack[], favorites: readonly CommandContract.TrackSnapshot[], playlists: readonly CommandContract.Playlist[]): Map<string, string> {
+function unavailableTrackLocations(unavailable: readonly CommandContract.UnavailableTrack[], favorites: readonly CommandContract.TrackSnapshot[], playlists: readonly { id: string; name: string; items: readonly CommandContract.TrackSnapshot[] }[]): Map<string, string> {
   const result = new Map();
   for (const item of unavailable) {
     const key = item.bvid.toLowerCase();

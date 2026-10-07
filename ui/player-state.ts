@@ -39,14 +39,8 @@ const playerState = {
 const LAST_SEARCH_KEY = "bilibili-music.last-search";
 
 const libraryState = {
-  favorites: [] as CommandContract.TrackSnapshot[],
-  favoriteBvids: new Set<string>(),
-  playlists: [] as CommandContract.Playlist[],
-  unavailableBvids: new Map<string, string>(),
   disabledPages: new Map<string, Set<number>>(),
   disabledPagePending: new Map<string, number | null>(),
-  selectedPlaylistId: "",
-  loadError: "",
 };
 
 const favoriteDragState = {

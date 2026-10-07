@@ -87,6 +87,8 @@
     "../../types/command-contract.d.ts",
     "../../types/event-contract.d.ts",
     "../../types/main-window.d.ts",
-    "../../types/tauri.d.ts"
+    "../../types/tauri.d.ts",
+    "../../tests/library-actions.test.ts",
+    "../../tests/library-architecture.test.ts"
   ]
 }
