@@ -58,20 +58,6 @@ const searchState = {
 
 const LAST_SEARCH_KEY = "bilibili-music.last-search";
 
-const homeState = {
-  mode: "recommendation",
-  ranking: [] as NormalizedTrack[],
-  recommendations: [] as NormalizedTrack[],
-  loaded: false,
-  loading: false,
-  error: "",
-  recommendationLoaded: false,
-  recommendationLoading: false,
-  recommendationError: "",
-  userHint: "",
-  aiHasKey: null as boolean | null,
-};
-
 const libraryState = {
   favorites: [] as CommandContract.TrackSnapshot[],
   favoriteBvids: new Set<string>(),
@@ -125,4 +111,4 @@ const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 
-export { DEFAULT_MUSIC_TIDS, LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, MUSIC_HOT_KEYWORD, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, SEARCH_PAGE_SIZE, activePageCountBvids, failedPageCountBvids, favoriteDragState, homeState, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, playlistDragState, playlistListDragState, queuedPageCountBvids, searchState, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };
+export { DEFAULT_MUSIC_TIDS, LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, MUSIC_HOT_KEYWORD, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, SEARCH_PAGE_SIZE, activePageCountBvids, failedPageCountBvids, favoriteDragState, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, playlistDragState, playlistListDragState, queuedPageCountBvids, searchState, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };

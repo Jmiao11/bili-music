@@ -1,331 +1,42 @@
-import { normalizeTrack } from "./track-utils.ts";
+import { createApplicationStore } from "./app-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.ts";
-import { homeState } from "./player-state.ts";
+import { homeHintInput } from "./player-dom.ts";
+import { renderHomeSnapshot } from "./home-view.ts";
 import { createTrackRow, playListItem, updateQueueUi } from "./playback-core.ts";
 
-function renderRankingSkeleton(): void {
-  if (!homeRankingList) {
-    return;
+let applicationStore: ReturnType<typeof createApplicationStore> | null = null;
+
+function getApplicationStore(): ReturnType<typeof createApplicationStore> {
+  if (!applicationStore) {
+    applicationStore = createApplicationStore({
+      invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      clearTimeout: id => window.clearTimeout(id), report: (level, message, error) => console[level](message, error),
+    });
+    let previous: ReturnType<typeof getHomeSnapshot> | null = null;
+    const render = (state: ReturnType<ReturnType<typeof createApplicationStore>["getState"]>) => {
+      const refreshQueue = renderHomeSnapshot(state.home, previous, (video, index, source, options) =>
+        createTrackRow(video, index, (targetIndex, pageSelection) => {
+          const current = getHomeSnapshot();
+          playListItem(source, source === "ranking" ? current.ranking : current.recommendations, targetIndex, pageSelection);
+        }, options));
+      previous = state.home;
+      if (refreshQueue) updateQueueUi();
+    };
+    applicationStore.subscribe(render);
+    render(applicationStore.getState());
   }
-  homeRankingList.replaceChildren();
-  for (let index = 0; index < 8; index += 1) {
-    const item = document.createElement("li");
-    item.className = "track-row skeleton-row";
-    item.innerHTML = `
-      <span class="track skeleton-track">
-        <span class="skeleton-cover"></span>
-        <span class="skeleton-meta">
-          <span></span>
-          <small></small>
-        </span>
-      </span>
-    `;
-    homeRankingList.append(item);
-  }
+  return applicationStore;
 }
 
-function isPopularFallback(): boolean {
-  return homeState.mode === "recommendation" && homeState.aiHasKey === false;
+function getHomeSnapshot() { return getApplicationStore().getState().home; }
+function updateHomeModeUi(): void { getApplicationStore(); }
+function loadHomeRanking(options: { forceRefresh?: boolean } = {}): Promise<void> { return getApplicationStore().actions.loadHomeRanking(options); }
+function loadRecommendationHome(): Promise<void> { return getApplicationStore().actions.loadRecommendationHome(); }
+function loadRecommendations(options: { forceRefresh?: boolean } = {}): Promise<void> {
+  return getApplicationStore().actions.loadRecommendations({ ...options, userHint: homeHintInput ? homeHintInput.value : getHomeSnapshot().userHint });
 }
+function refreshAiKeyState(): Promise<void> { return getApplicationStore().actions.refreshAiKeyState(); }
+function setHomeMode(mode: string): void { getApplicationStore().actions.setHomeMode(mode); }
+function setHomeHint(hint: string): void { getApplicationStore().actions.setHomeHint(hint); }
 
-function updateHomeModeUi(): void {
-  const isRecommendation = homeState.mode === "recommendation";
-  const showPopular = isPopularFallback();
-  homePanel?.setAttribute("data-home-mode", showPopular ? "popular" : homeState.mode);
-  for (const tab of homeModeTabs) {
-    const active = tab.dataset.homeMode === homeState.mode;
-    tab.classList.toggle("is-active", active);
-    tab.setAttribute("aria-selected", String(active));
-  }
-  if (homeSourceLabel) {
-    homeSourceLabel.textContent = isRecommendation && !showPopular ? "AI 推荐" : "B站音乐区";
-  }
-  if (homeTitle) {
-    homeTitle.textContent = showPopular ? "热门音乐" : isRecommendation ? "为你推荐" : "音乐飙升榜";
-  }
-  if (homeSubtitle) {
-    homeSubtitle.textContent = showPopular
-      ? "未配置 AI 推荐 · 展示 B站 音乐热门榜"
-      : isRecommendation
-        ? "根据收藏、搜索、歌单和听歌记录生成"
-        : "B站音乐区热门视频";
-  }
-  if (homeCacheNote) {
-    homeCacheNote.textContent = "";
-  }
-  if (homeHintRow) {
-    homeHintRow.hidden = !isRecommendation || showPopular;
-  }
-  refreshRankingButton.title = isRecommendation && !showPopular
-    ? "本次会话缓存，手动刷新会重新生成推荐"
-    : "游客榜单，本次运行缓存";
-  if (homeListLabel) {
-    homeListLabel.textContent = showPopular
-      ? "热门音乐榜"
-      : isRecommendation
-        ? "推荐列表"
-        : "上升中的音乐视频";
-  }
-}
-
-function renderHomeRanking(): void {
-  if (!homeRankingList) {
-    return;
-  }
-  updateHomeModeUi();
-  homeRankingList.replaceChildren();
-  if (homeSetupHint) {
-    homeSetupHint.hidden = true;
-    homeSetupHint.classList.remove("is-inline");
-  }
-  homePanel?.classList.remove("needs-setup");
-  if (homeState.loading) {
-    renderRankingSkeleton();
-    return;
-  }
-  if (homeState.error) {
-    homeRankingError.textContent = "拉取失败，点击重试";
-    return;
-  }
-  homeRankingError.textContent = "";
-  for (const [index, video] of homeState.ranking.entries()) {
-    homeRankingList.append(
-      createTrackRow(
-        video,
-        index,
-        (targetIndex, pageSelection) =>
-          playListItem("ranking", homeState.ranking, targetIndex, pageSelection),
-        { showPlayCount: true },
-      ),
-    );
-  }
-  if (isPopularFallback()) {
-    showHomeNotice("配置 API Key 后可生成专属推荐", "", true);
-  }
-  updateQueueUi();
-}
-
-function showHomeNotice(title: string, sub: string, inline: boolean = false): void {
-  homeSetupTitle.textContent = title;
-  homeSetupSub.textContent = sub;
-  homeSetupHint.hidden = false;
-  homeSetupHint.classList.toggle("is-inline", inline);
-  homePanel?.classList.toggle("needs-setup", !inline);
-}
-
-function renderRecommendations(): void {
-  if (!homeRankingList) {
-    return;
-  }
-  updateHomeModeUi();
-  homeRankingList.replaceChildren();
-  if (homeSetupHint) {
-    homeSetupHint.hidden = true;
-    homeSetupHint.classList.remove("is-inline");
-  }
-  homePanel?.classList.remove("needs-setup");
-  if (homeState.recommendationLoading) {
-    renderRankingSkeleton();
-    return;
-  }
-  if (homeState.recommendationError) {
-    showHomeNotice(
-      "推荐生成失败",
-      `${homeState.recommendationError}｜请在「设置 → AI 推荐」检查 API Key 与模型配置`,
-    );
-    homeRankingError.textContent = "";
-    return;
-  }
-  if (homeState.recommendations.length === 0) {
-    homeRankingError.textContent = "";
-    return;
-  }
-  homeRankingError.textContent = "";
-  for (const [index, video] of homeState.recommendations.entries()) {
-    homeRankingList.append(
-      createTrackRow(
-        video,
-        index,
-        (targetIndex, pageSelection) =>
-          playListItem("recommendation", homeState.recommendations, targetIndex, pageSelection),
-        { showPlayCount: true },
-      ),
-    );
-  }
-  updateQueueUi();
-}
-
-function renderHomeContent(): void {
-  if (homeState.mode === "recommendation" && !isPopularFallback()) {
-    renderRecommendations();
-  } else {
-    renderHomeRanking();
-  }
-}
-
-async function refreshAiKeyState(): Promise<void> {
-  try {
-    const config = await invoke("get_ai_config");
-    homeState.aiHasKey = !!config.hasKey;
-  } catch (error) {
-    homeState.aiHasKey = null;
-  }
-  if (homeState.mode === "recommendation") {
-    await loadRecommendationHome();
-  }
-}
-
-function invokeWithTimeout<K extends keyof CommandMap>(command: K, args: CommandMap[K]["args"], timeoutMs: number): Promise<CommandMap[K]["result"]> {
-  let timeoutId = 0;
-  const timeout: Promise<never> = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(new Error("request timeout")), timeoutMs);
-  });
-  return Promise.race([invoke<keyof CommandMap>(command, args) as Promise<CommandMap[K]["result"]>, timeout]).finally(() => {
-    window.clearTimeout(timeoutId);
-  });
-}
-
-async function loadHomeRanking({ forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<void> {
-  if (!forceRefresh && homeState.loaded && homeState.ranking.length > 0) {
-    renderHomeRanking();
-    return;
-  }
-  homeState.loading = true;
-  homeState.error = "";
-  homeRankingStatus.textContent = forceRefresh
-    ? "正在刷新音乐飙升榜…"
-    : "正在拉取 B站音乐区热门内容…";
-  refreshRankingButton.disabled = true;
-  if (homeState.mode === "ranking" || isPopularFallback()) {
-    renderHomeRanking();
-  }
-  try {
-    const tracks = await invoke("get_music_ranking", { forceRefresh });
-    homeState.ranking = tracks.map(normalizeTrack);
-    homeState.loaded = true;
-    homeState.error = "";
-    homeRankingStatus.textContent = `已加载 ${homeState.ranking.length} 首音乐区热门视频。`;
-  } catch (error) {
-    if (isPopularFallback()) {
-      homeState.error = "";
-      homeRankingStatus.textContent = "";
-    } else {
-      homeState.error = String(error);
-      homeRankingStatus.textContent = "音乐飙升榜拉取失败。";
-      homeRankingError.textContent = "拉取失败，点击重试";
-      console.error("music ranking load failed:", error);
-    }
-  } finally {
-    homeState.loading = false;
-    refreshRankingButton.disabled = false;
-    if (homeState.mode === "ranking" || isPopularFallback()) {
-      renderHomeRanking();
-    }
-  }
-}
-
-async function loadSavedRecommendations(): Promise<void> {
-  if (homeState.recommendationLoaded || homeState.recommendationLoading) {
-    renderRecommendations();
-    return;
-  }
-  homeState.recommendationLoading = true;
-  homeState.recommendationError = "";
-  homeHintApply.disabled = true;
-  refreshRankingButton.disabled = true;
-  homeRankingStatus.textContent = "正在读取上次推荐…";
-  renderRecommendations();
-  try {
-    const tracks = await invoke("get_saved_recommendations");
-    homeState.recommendations = tracks.map(normalizeTrack);
-    homeState.recommendationLoaded = true;
-    homeRankingStatus.textContent = homeState.recommendations.length > 0
-      ? `已加载 ${homeState.recommendations.length} 首上次推荐。`
-      : "点击「生成推荐」获取你的专属推荐";
-  } catch (_error) {
-    homeState.recommendationLoaded = true;
-    homeState.recommendationError = "";
-    homeRankingStatus.textContent = "";
-  } finally {
-    homeState.recommendationLoading = false;
-    homeHintApply.disabled = false;
-    refreshRankingButton.disabled = false;
-    if (homeState.mode === "recommendation" && !isPopularFallback()) {
-      renderRecommendations();
-    }
-  }
-}
-
-function loadRecommendationHome(): Promise<void> {
-  return homeState.aiHasKey === false ? loadHomeRanking() : loadSavedRecommendations();
-}
-
-async function loadRecommendations({ forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<void> {
-  if (homeHintInput) {
-    homeState.userHint = homeHintInput.value;
-  }
-  if (!forceRefresh && homeState.recommendationLoaded) {
-    renderRecommendations();
-    return;
-  }
-  homeState.recommendationLoading = true;
-  if (homeHintApply) {
-    homeHintApply.disabled = true;
-    homeHintApply.textContent = "生成中…";
-  }
-  homeState.recommendationError = "";
-  homeRankingStatus.textContent = forceRefresh
-    ? "正在重新生成推荐…"
-    : "正在根据搜索与收藏生成推荐…";
-  refreshRankingButton.disabled = true;
-  if (homeState.mode === "recommendation") {
-    renderRecommendations();
-  }
-  try {
-    const hint = homeState.userHint.trim();
-    const tracks = await invokeWithTimeout(
-      "get_recommendations",
-      hint ? { userHint: hint } : {},
-      95000,
-    );
-    homeState.recommendations = tracks.map(normalizeTrack);
-    homeState.recommendationLoaded = true;
-    homeState.recommendationError = "";
-    homeRankingStatus.textContent = homeState.recommendations.length > 0
-      ? `已生成 ${homeState.recommendations.length} 首推荐。`
-      : "暂无推荐结果。";
-  } catch (error) {
-    homeState.recommendationError = String((error as { message?: unknown } | null | undefined)?.message ?? error);
-    homeRankingStatus.textContent = "为你推荐生成失败。";
-    console.warn("recommendations load failed:", error);
-  } finally {
-    homeState.recommendationLoading = false;
-    refreshRankingButton.disabled = false;
-    if (homeHintApply) {
-      homeHintApply.disabled = false;
-      homeHintApply.textContent = "生成推荐";
-    }
-    if (homeState.mode === "recommendation") {
-      renderRecommendations();
-    }
-  }
-}
-
-function setHomeMode(mode: string): void {
-  const nextMode = mode === "recommendation" ? "recommendation" : "ranking";
-  if (homeState.mode === nextMode) {
-    renderHomeContent();
-  } else {
-    homeState.mode = nextMode;
-    homeRankingError.textContent = "";
-    updateHomeModeUi();
-  }
-  if (homeState.mode === "recommendation") {
-    loadRecommendationHome();
-  } else {
-    loadHomeRanking();
-  }
-}
-
-export { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi };
+export { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi };

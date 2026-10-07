@@ -57,15 +57,18 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | main | runtime-api、player-dom、player-state、playback-notice、playback-diagnostics、home、library-ui、video-pages、search、playback-core、appearance |
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
-| home | track-utils、runtime-api、player-dom、player-state、playback-core |
-| playback-core | page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、library-ui、video-pages、search、appearance |
+| state-store | 无平台依赖 |
+| app-state | state-store、track-utils（含类型导入） |
+| home-view | app-state、player-dom（含类型导入） |
+| home | app-state、runtime-api、player-dom、home-view、playback-core |
+| playback-core | page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、home、library-ui、video-pages、search、appearance |
 | playback-policy | page-selection、player-state |
 | library-ui | track-utils、runtime-api、player-dom、player-state、playback-core |
 | video-pages | page-selection、track-utils、runtime-api、player-dom、player-state、playback-core |
 | search | track-utils、runtime-api、player-dom、player-state、video-pages、playback-core |
 | appearance | playback-policy、library-ui、playback-core |
 
-core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home → core 是单向依赖。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
+core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home 与 core 通过运行时入口互相依赖，顶层不读取循环绑定。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
 
 循环中的领域函数只在运行时读取绑定，声明求值阶段不能读取尚未初始化的循环绑定。新模块顶层只放声明、import/export；DOM 引用沿用 player-dom 的顶层查询，invoke 引用沿用 runtime-api。监听安装、Observer 和 window 赋值通过 init 执行。
 
@@ -92,7 +95,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 ## 导入与导出规则
 
 - 文件头只使用命名导入与带 .ts 后缀的相对路径：`import { a, b } from "./x.ts";`。
-- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home、library-ui、video-pages、search、playback-core、main、appearance；花括号内名字按字母序。
+- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-ui、video-pages、search、playback-core、main、appearance；花括号内名字按字母序。
 - 文件尾只有一条 `export { a, b };`，按字母序，只导出被其它模块实际导入的名字。main 无业务导出，使用唯一的空列表 `export {};`；这不允许空 import 或其它模块语法。
 - 不使用 default export、内联 export function/const、namespace import、动态 import 或别名 as。
 - app 是固定入口例外：先副作用导入 main，再命名导入 startAppearance，然后调用；不增加其它入口逻辑。
@@ -151,7 +154,7 @@ npm run typecheck -- --update
 
 --update 只能删除键或降低次数，发现增长不会写文件。审查 diagnostics.json 的 diff 后再提交。--rebaseline 是人工重建模式，可增加诊断，仅在维护者明确授权时使用；仅在明确授权的文件归属迁移等场景使用，不能未经授权新增诊断。默认 npm run typecheck 和 CI 都不调用它，不能用它绕过新增错误。
 
-声明只描述 UI 实际使用的接口；禁止 any、宽泛的 Window/Element 扩展或任意 __TAURI__。无法确定的值用 unknown。invoke 未显式指定类型参数时返回 Promise<unknown>；不能为减少诊断而编造个别命令的返回类型。声明新增或修改时必须核对 UI 使用点和事件派发点，不能为压掉错误虚构类型。
+声明只描述 UI 实际使用的接口；禁止 any、宽泛的 Window/Element 扩展或任意 __TAURI__。无法确定的值用 unknown。invoke 使用共享 CommandMap 推导参数与返回类型，状态工厂仅接收注入适配器；不能为减少诊断而编造个别命令的返回类型。声明新增或修改时必须核对 UI 使用点和事件派发点，不能为压掉错误虚构类型。
 
 现有 Node 守卫继续保留：
 
@@ -203,3 +206,13 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 8 | 状态模块引用 document（状态守卫上线后启用） | 对应状态架构守卫测试 |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
+
+## 应用状态与首页试点
+
+state-store.ts 提供 getState()、subscribe(listener) 与领域 actions；subscribe 不立即回调，返回取消订阅函数。没有通用公开写入口。同步阶段提交后按订阅顺序同步通知，订阅者或异常报告器失败均不能中断其他订阅者和动作。快照类型深度只读；动作复制变化路径，Map/Set 更新必须创建新集合。freeze 选项仅供测试启用，递归冻结对象与数组，并阻断 Map/Set 的变更及原型/回调绕过；正式运行不冻结。
+
+app-state.ts 是应用 store 工厂，本批只有 home 分片。原 homeState 的全部字段迁入 getState().home，另把原 DOM 上的状态文案和按钮状态收进 home.view。content 描述本次阶段需要刷新的内容区域，使用引用变化触发渲染，保留隐藏请求完成时只更新状态条的现有行为。isHomePopular 是纯选择器。状态模块与纯依赖不得出现平台全局、DOM 类型或 Tauri 导入，state-architecture.test.ts 使用正例与反例保护。
+
+home.ts 在原 updateHomeModeUi 调用位置挂载一次 store，注入 invoke、计时器与日志适配器；先 subscribe，再显式读取 getState() 完成首屏。既有首页函数作为动作桥接保留，main 的推荐要求写入改走 setHomeHint。home-view.ts 只读取快照并写首页 DOM，不调用 actions/invoke；曲目行由控制器注入现有 createTrackRow，点击通过既有 playListItem 进入队列，队列高亮仍由 core 的 updateQueueUi 写入。renderer 只读与旧状态写入归属均有守卫。
+
+初始化事件、迷你窗同步时机、播放/搜索/资料库的状态结构保持原样。home-characterization.test.ts 先在旧首页上提交并通过，迁移期间保持逐字节相同；home-actions.test.ts 直接导入纯模块，不安装 window/document，不使用 DOM 模拟。详见 state-1-2-report.md。

@@ -100,3 +100,14 @@ test("CommandMap covers debug and release registrations without exposing debug c
   assert.deepEqual([...keys].sort(), [...debug].sort());
   assert.deepEqual([...keys].filter((name) => !DEBUG_ONLY_COMMANDS.has(name)).sort(), [...release].sort());
 });
+function assertAudioResponseUrl(source: string): void {
+  const response = /interface AudioResponse\s*\{([^}]*)\}/.exec(source);
+  assert.ok(response, "AudioResponse contract must exist");
+  assert.match(response[1], /\baudioUrl:\s*string\s*;/, "AudioResponse.audioUrl must remain a string");
+}
+
+test("audio response stream URL contract remains a string without compiler dependencies", () => {
+  const source = fs.readFileSync(path.join(root, "types/command-contract.d.ts"), "utf8");
+  assertAudioResponseUrl(source);
+  assert.throws(() => assertAudioResponseUrl(source.replace(/(interface AudioResponse\s*\{\s*audioUrl:\s*)string/, "$1number")));
+});

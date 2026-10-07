@@ -14,6 +14,7 @@
     "skipLibCheck": true
   },
   "files": [
+    "../../tests/home-actions.test.ts",
     "../../tests/home-characterization.test.ts",
     "../../tests/state-store.test.ts",
     "../../tests/state-architecture.test.ts",

@@ -1,9 +1,9 @@
 import { invoke } from "./runtime-api.ts";
 import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, immersiveFavoriteButton, libraryModal, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, previousButton, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, skipVideoButton, sortModeTabs } from "./player-dom.ts";
-import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, homeState, playerState, searchState } from "./player-state.ts";
+import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, playerState, searchState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
-import { loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeMode, updateHomeModeUi } from "./home.ts";
+import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
 import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.ts";
@@ -105,8 +105,8 @@ document.querySelector<HTMLButtonElement>("#import-playlist-button")?.addEventLi
 renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
 deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);
 refreshRankingButton?.addEventListener("click", () => {
-  if (homeState.mode === "recommendation") {
-    if (homeState.aiHasKey === false) {
+  if (getHomeSnapshot().mode === "recommendation") {
+    if (getHomeSnapshot().aiHasKey === false) {
       loadHomeRanking({ forceRefresh: true });
     } else {
       loadRecommendations({ forceRefresh: true });
@@ -116,7 +116,7 @@ refreshRankingButton?.addEventListener("click", () => {
   }
 });
 homeHintApply?.addEventListener("click", () => {
-  homeState.userHint = homeHintInput.value;
+  setHomeHint(homeHintInput.value);
   loadRecommendations({ forceRefresh: true });
 });
 homeHintInput?.addEventListener("keydown", (event) => {
@@ -157,7 +157,7 @@ for (const tab of sortModeTabs) {
   });
 }
 homeRankingError?.addEventListener("click", () => {
-  if (homeState.error) {
+  if (getHomeSnapshot().error) {
     loadHomeRanking({ forceRefresh: true });
   }
 });
@@ -201,7 +201,7 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
-    if (homeState.mode === "recommendation") {
+    if (getHomeSnapshot().mode === "recommendation") {
       loadRecommendationHome();
     } else {
       loadHomeRanking();
