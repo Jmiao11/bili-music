@@ -39,4 +39,4 @@ function refreshAiKeyState(): Promise<void> { return getApplicationStore().actio
 function setHomeMode(mode: string): void { getApplicationStore().actions.setHomeMode(mode); }
 function setHomeHint(hint: string): void { getApplicationStore().actions.setHomeHint(hint); }
 
-export { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi };
+export { getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi };

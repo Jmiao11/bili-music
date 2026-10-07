@@ -373,7 +373,7 @@ function trackContext(disabledCids: Iterable<number>, videoPages = pages) {
     playerState: state,
     libraryState: { disabledPages: new Map([[bvid.toLowerCase(), new Set(disabledCids)]]), unavailableBvids: new Map() },
     MAX_CONSECUTIVE_RESOLVE_FAILURES: 5,
-    stopAudioElement() {}, searchButton: { disabled: false }, result: { hidden: true },
+    stopAudioElement() {}, searchButton: { disabled: false }, setSearchPlaybackBusy() {}, result: { hidden: true },
     status: { textContent: "" }, console: ({ error() {} } as { error(...args: unknown[]): void }), recoveryPromise: null,
     loadPagesForCurrentVideo: async () => {
       state.currentPages = videoPages;

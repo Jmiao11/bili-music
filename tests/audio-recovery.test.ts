@@ -140,6 +140,7 @@ function trackContext(recoveryPromise: Promise<unknown> | null) {
     playerState: { currentIndex: 0, queue: [{ bvid: "BV1xx411c7mD" }], requestVersion: 0 },
     stopAudioElement() {},
     searchButton: { disabled: false },
+    setSearchPlaybackBusy(busy: boolean): void { context.searchButton.disabled = busy; },
     result: { hidden: true },
     status: { textContent: "" },
     currentVideoPage: () => null,

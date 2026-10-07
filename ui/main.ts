@@ -1,12 +1,13 @@
+import { DEFAULT_MUSIC_TIDS } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
 import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, immersiveFavoriteButton, libraryModal, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, previousButton, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, skipVideoButton, sortModeTabs } from "./player-dom.ts";
-import { DEFAULT_MUSIC_TIDS, LOAD_MORE_THRESHOLD_PX, playerState, searchState } from "./player-state.ts";
+import { LOAD_MORE_THRESHOLD_PX, playerState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
-import { loadMoreSearchResults, readLastSearchKeyword, runSearch, updateMusicTabs, updateSortModeTabs } from "./search.ts";
+import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { isLoudnessNormalizationEnabled } from "./appearance.ts";
 
@@ -140,19 +141,17 @@ for (const tab of homeModeTabs) {
 for (const tab of musicTabs) {
   tab.addEventListener("click", () => {
     const tids = Number(tab.dataset.tids) || DEFAULT_MUSIC_TIDS;
-    if (searchState.tids === tids && searchState.results.length > 0) {
+    if (getSearchSnapshot().tids === tids && getSearchSnapshot().results.length > 0) {
       return;
     }
-    searchState.tids = tids;
-    updateMusicTabs();
+    setSearchDivision(tids);
     runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
   });
 }
 for (const tab of sortModeTabs) {
   tab.addEventListener("click", () => {
     const sortMode = tab.dataset.sortMode;
-    searchState.sortMode = searchState.sortMode === sortMode ? "all" : sortMode;
-    updateSortModeTabs();
+    setSearchSort(sortMode);
     runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
   });
 }
@@ -213,7 +212,7 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "search" && pendingSearchRestore) {
     const keyword = pendingSearchRestore;
     pendingSearchRestore = null;
-    if (!searchState.results.length && searchKeyword.value.trim() === keyword) {
+    if (!getSearchSnapshot().results.length && searchKeyword.value.trim() === keyword) {
       // 自动恢复不算用户搜索，不计入搜索历史。
       runSearch({ userKeyword: keyword, recordHistory: false, restored: true });
     }
