@@ -3,7 +3,7 @@ const assert: typeof import("node:assert/strict") = require("node:assert/strict"
 const fs: typeof import("node:fs") = require("node:fs");
 const os: typeof import("node:os") = require("node:os");
 const path: typeof import("node:path") = require("node:path");
-const { htmlIds, checkDomAssertions, checkRepository } = require("../scripts/typecheck/dom-assertions.cts");
+const { htmlIds, checkDomAssertions, checkRepository } = require("../scripts/typecheck/dom-assertions.ts");
 const html = '<input id="field"><div id="panel"></div>';
 
 test("DOM assertion guard accepts literal declarations and CRLF without dependencies", () => {

@@ -27,12 +27,12 @@ test("workflow and package script repository paths exist", () => {
 
 test("CI path guard finds inline and block paths and rejects missing cjs references", () => {
   const root = path.join(__dirname, "..");
-  const workflow = `run: node scripts/check-ui-syntax.cts
+  const workflow = `run: node scripts/check-ui-syntax.ts
 run: |
   node -e 'require("./tests/helpers/typescript-source.cts")'
   node tests/ci-paths.test.cts
   node --check ui/app.ts\r\n`;
-  assert.deepEqual(repositoryPaths(workflow), ["scripts/check-ui-syntax.cts", "./tests/helpers/typescript-source.cts", "tests/ci-paths.test.cts", "ui/app.ts"]);
+  assert.deepEqual(repositoryPaths(workflow), ["scripts/check-ui-syntax.ts", "./tests/helpers/typescript-source.cts", "tests/ci-paths.test.cts", "ui/app.ts"]);
   assert.doesNotThrow(() => assertRepositoryPaths(root, "workflow", workflow));
   for (const command of [
     `run: |\n  node -e 'require("./tests/helpers/typescript-source.cjs")'`,

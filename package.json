@@ -3,13 +3,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "check:ui-syntax": "node scripts/check-ui-syntax.cts",
-    "verify:dist": "node scripts/vite/verify-dist.mts",
-    "typecheck": "node scripts/typecheck/dom-assertions.cts && node scripts/typecheck/check.cts"
+    "check:ui-syntax": "node scripts/check-ui-syntax.ts",
+    "verify:dist": "node scripts/vite/verify-dist.ts",
+    "typecheck": "node scripts/typecheck/dom-assertions.ts && node scripts/typecheck/check.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
     "typescript": "7.0.2",
     "vite": "8.3.2"
-  }
+  },
+  "type": "module"
 }
