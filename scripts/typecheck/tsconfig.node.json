@@ -14,6 +14,7 @@
     "skipLibCheck": true
   },
   "files": [
+    "../../tests/library-characterization.test.ts",
     "../../tests/search-actions.test.ts",
     "../../tests/search-characterization.test.ts",
     "../../tests/home-actions.test.ts",
