@@ -1,6 +1,6 @@
-const fs: typeof import("node:fs") = require("node:fs");
-const path: typeof import("node:path") = require("node:path");
-const { spawnSync }: typeof import("node:child_process") = require("node:child_process");
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 type Diagnostic = { file: string; code: number; message: string };
 function parseDiagnostics(output: string, root: string) {
@@ -49,14 +49,14 @@ function run() {
   const update = args[0] === "--update";
   // Manual, explicitly authorized baseline replacement; never used by CI.
   const rebaseline = args[0] === "--rebaseline";
-  const root = path.resolve(__dirname, "../..");
-  const baselineFile = path.join(__dirname, "diagnostics.json");
+  const root = path.resolve(import.meta.dirname, "../..");
+  const baselineFile = path.join(import.meta.dirname, "diagnostics.json");
   const baseline: Record<string, number> = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
   if (!baseline || Array.isArray(baseline) || typeof baseline !== "object" || Object.entries(baseline).some(([key, count]) => !key || !Number.isSafeInteger(count) || count < 1)) throw new Error("Invalid diagnostic baseline");
   const all: Diagnostic[] = [];
   const executable = path.join(root, "node_modules/typescript/bin/tsc");
   for (const project of ["main", "mini", "node"]) {
-    const config = path.join(__dirname, `tsconfig.${project}.json`);
+    const config = path.join(import.meta.dirname, `tsconfig.${project}.json`);
     fs.accessSync(config);
     const result = spawnSync(process.execPath, [executable, "-p", config, "--pretty", "false"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
     if (result.error || result.signal || !([0, 1] as (number | null)[]).includes(result.status) || result.stderr.trim()) throw new Error(`tsc ${project} failed: ${result.error || result.signal || result.stderr || result.stdout || result.status}`);
@@ -81,8 +81,8 @@ function diagnosticCountsByCode(diagnostics: Diagnostic[]) {
   return result;
 }
 
-module.exports = { parseDiagnostics, diagnosticCounts, compareCounts };
-if (require.main === module) {
+export { parseDiagnostics, diagnosticCounts, compareCounts };
+if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
   try { run(); } catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
 

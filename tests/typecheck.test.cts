@@ -2,7 +2,7 @@ const { test }: typeof import("node:test") = require("node:test");
 const assert: typeof import("node:assert/strict") = require("node:assert/strict");
 const fs: typeof import("node:fs") = require("node:fs");
 const path: typeof import("node:path") = require("node:path");
-const { parseDiagnostics, diagnosticCounts, compareCounts } = require("../scripts/typecheck/check.cts");
+const { parseDiagnostics, diagnosticCounts, compareCounts } = require("../scripts/typecheck/check.ts");
 const { collectBusinessScripts }: import("./helpers/module-graph.cts").Contract = require("./helpers/module-graph.cts");
 
 test("typecheck parses POSIX paths and multiline messages without line-number keys", () => {

@@ -1,7 +1,8 @@
-const fs: typeof import("node:fs") = require("node:fs");
-const path: typeof import("node:path") = require("node:path");
-const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = require("../../tests/helpers/typescript-source.cts");
-const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = require("../../tests/helpers/js-source.cts");
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+const { isTypeScript, stripTypes }: { isTypeScript(file: string): boolean; stripTypes(source: string, file: string): string } = createRequire(import.meta.url)("../../tests/helpers/typescript-source.cts");
+const { maskCommentsAndStrings, topLevelStatements }: { maskCommentsAndStrings(source: string): string; topLevelStatements(source: string): { text: string; start: number; end: number; code: string }[] } = createRequire(import.meta.url)("../../tests/helpers/js-source.cts");
 
 function* htmlTags(html: string) {
   const start = /<\/?([a-z][\w:-]*)(?=[\s/>])/gi;
@@ -173,9 +174,9 @@ function checkRepository(root: string) {
   return all;
 }
 
-module.exports = { htmlIds, checkDomAssertions, checkRepository };
-if (require.main === module) {
-  try { checkRepository(path.resolve(__dirname, "../..")); }
+export { htmlIds, checkDomAssertions, checkRepository };
+if (process.argv[1] && path.resolve(process.argv[1]) === import.meta.filename) {
+  try { checkRepository(path.resolve(import.meta.dirname, "../..")); }
   catch (error) { console.error((error as { message?: unknown }).message); process.exitCode = 1; }
 }
 

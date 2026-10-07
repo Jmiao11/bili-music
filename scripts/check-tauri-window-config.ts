@@ -1,7 +1,7 @@
-const { readFileSync }: typeof import("node:fs") = require("node:fs");
-const path: typeof import("node:path") = require("node:path");
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-const root = path.join(__dirname, "..");
+const root = path.join(import.meta.dirname, "..");
 const mainPath = path.join(root, "src-tauri", "tauri.conf.json");
 const macosPath = path.join(root, "src-tauri", "tauri.macos.conf.json");
 

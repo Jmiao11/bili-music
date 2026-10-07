@@ -5,11 +5,11 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build, createServer } from "vite";
-import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.mts";
+import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
-const configFile = path.join(root, "vite.config.mts");
+const configFile = path.join(root, "vite.config.ts");
 const pages = ["index.html", "mini.html"];
 const { loadNativeModules }: { loadNativeModules(root: string, files: string[], entry: string, order: { file: string; module: boolean }[]): Promise<{ events: { stack?: string; action: string; type?: string }[] }> } = createRequire(import.meta.url)("../../tests/helpers/native-module-loader.cts");
 const tempParent = path.join(os.tmpdir(), "bili-music-verify");
