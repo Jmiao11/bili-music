@@ -108,7 +108,7 @@ function maskCommentsAndStrings(source: string) {
   const hide = (index: number) => { if (source[index] !== "\n" && source[index] !== "\r") masked[index] = " "; };
   const startsRegex = (index: number) => {
     const before = source.slice(0, index).trimEnd();
-    return !before || /[=([{,:;!?&|]$/.test(before) || /\b(?:return|throw|case|yield|await)\s*$/.test(before);
+    return !before || /[=([{,:;!?&|]$/.test(before) || /\b(?:return|throw|case|yield|await)\s*$/.test(before) || /=>\s*$/.test(before);
   };
   const stack: { mode: string; interpolationDepth: number | null }[] = [];
   let mode = "code";
