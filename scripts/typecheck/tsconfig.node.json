@@ -14,6 +14,8 @@
     "skipLibCheck": true
   },
   "files": [
+    "../../tests/state-store.test.ts",
+    "../../tests/state-architecture.test.ts",
     "../../scripts/check-ui-syntax.ts",
     "../../tests/ci-paths.test.ts",
     "../../scripts/check-tauri-window-config.ts",
