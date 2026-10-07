@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { get, type IncomingMessage } from "node:http";
 import { build, createServer } from "vite";
 import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.ts";
 
@@ -136,6 +137,16 @@ function checkCounterexamples() {
   } finally { fs.writeFileSync(htmlFile, html); }
 }
 
+async function requestDevelopment(url: string) {
+  // OS-assigned TCP ports may be blocked by fetch; this checks a local HTTP server.
+  const response = await new Promise<IncomingMessage>((resolve, reject) => {
+    get(url, resolve).on("error", reject);
+  });
+  const chunks: Buffer[] = [];
+  for await (const chunk of response) chunks.push(chunk);
+  return { status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks) };
+}
+
 async function checkDevelopment() {
   const server = await createServer({ configFile, server: { port: 0, host: "127.0.0.1", hmr: undefined } });
   try {
@@ -145,21 +156,21 @@ async function checkDevelopment() {
     if (address === null || typeof address === "string") throw new Error("Development HTTP server has no TCP listening address");
     const port = address.port;
     for (const page of pages) {
-      const response = await fetch(`http://127.0.0.1:${port}/${page}`);
+      const response = await requestDevelopment(`http://127.0.0.1:${port}/${page}`);
       assert.equal(response.status, 200, `${page}: dev HTTP status`);
-      const html = await response.text();
+      const html = response.body.toString("utf8");
       const client = '<script type="module" src="/@vite/client"></script>';
       assert.equal(scripts(html).filter((script) => script.src === "/@vite/client").length, 1, `${page}: dev client count`);
       for (const script of scripts(sourceHtml(page)).filter((item): item is typeof item & { src: string } => Boolean(item.src) && !item.module)) {
         const file = localFile(ui, script.src);
         if (fs.existsSync(file)) continue;
         const url = script.src.replace(/^\.\//, "");
-        const ordinary = await fetch(`http://127.0.0.1:${port}/${url}`);
+        const ordinary = await requestDevelopment(`http://127.0.0.1:${port}/${url}`);
         assert.equal(ordinary.status, 200);
-        const contentType = ordinary.headers.get("content-type");
-        if (contentType === null) throw new Error(`${page}: ordinary script Content-Type is missing`);
+        const contentType = ordinary.headers["content-type"];
+        if (contentType === undefined) throw new Error(`${page}: ordinary script Content-Type is missing`);
         assert.match(contentType, /(?:application|text)\/javascript/);
-        assert.deepEqual(Buffer.from(await ordinary.arrayBuffer()), ordinarySource(file), `${page}: dev erasure bytes changed: ${script.src}`);
+        assert.deepEqual(ordinary.body, ordinarySource(file), `${page}: dev erasure bytes changed: ${script.src}`);
         console.log(`PASS DEV ordinary ${url}: JavaScript MIME and exact erased bytes`);
       }
       let expected = sourceHtml(page);
