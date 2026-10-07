@@ -449,7 +449,8 @@ test("loudness explanation acknowledge button closes the shared dialog", () => {
     openLibraryModal: (title: string, subtitle: string) => opens.push({ title, subtitle }),
     closeLibraryModal: () => { closes += 1; },
   });
-  vm.runInContext(loudnessDialogCode, context);
+  vm.runInContext(sourceSlice(readFileSync(path.join(import.meta.dirname, "../ui/library-view.ts"), "utf8"), "ui/library-view.ts", "function renderLoudness(", "function renderPurge(") + loudnessDialogCode, context);
+  context.openLoudnessModal = () => { context.openLibraryModal("响度归一化", ""); context.renderLoudness({ closeModal: context.closeLibraryModal }); };
   context.showLoudnessNormalizationDialog();
 
   assert.equal(opens[0].title, "响度归一化");

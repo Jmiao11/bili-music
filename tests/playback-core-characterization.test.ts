@@ -13,7 +13,7 @@ const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const LAST_SEARCH_KEY").replace(/\n\n$/, "\n")
-  + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const favoriteDragState =");
+  + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const videoPageCounts =");
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
   + sourceSlice(policy, "ui/playback-policy.ts", "function shuffled(", "function readShuffleCollectionPrefs(")
@@ -27,6 +27,7 @@ const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function playNext(", "function initPlaybackSearch(")
   + search.slice(search.indexOf("function runSearch(")) + "\n";
 const searchFactory = read("search-state.ts");
+const libraryFactory = read("library-state.ts");
 
 function deferred() {
   let resolve: ((value?: unknown) => void) | undefined, reject: ((reason?: unknown) => void) | undefined;
@@ -93,7 +94,7 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
     },
   });
   for (const name of ["searchButton", "result", "status", "thumbnail", "title", "uploader", "duration", "playerPagesButton", "playerPagesGroup", "searchKeyword", "searchStatus", "resumeProgressSlider", "immersiveResumeProgressSlider", "resumeCurrentTimeLabel", "immersiveResumeCurrentTimeLabel", "immersiveResumeDurationLabel"]) context[name] = node();
-  vm.runInContext(stateCode + searchFactory + functions + `
+  vm.runInContext(stateCode + searchFactory + libraryFactory + functions + `
     let searchState = initialSearchState();
     const searchActions = createSearchActions(() => searchState, next => {
       searchState = next;
@@ -106,6 +107,11 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
     function setSearchPlaybackBusy(busy) { searchActions.setPlaybackBusy(busy); }
     function appendSearchDisplay(videos, beforeCommit, page) { return searchActions.appendResults(videos, beforeCommit, page); }
     function fillSearchMetadata(index, version, metadata) { searchActions.updateMetadata(index, version, metadata); }
+    Object.assign(libraryState, initialLibraryState());
+    const libraryActions = createLibraryActions(() => libraryState, next => Object.assign(libraryState, next), { invoke: (...args) => invoke(...args), report: (level, message, error) => console[level](message, error) });
+    function getLibrarySnapshot() { return libraryState; }
+    function markLibraryUnavailable(bvid, reason) { libraryActions.markUnavailable(bvid, reason); }
+    function clearLibraryUnavailable(bvid) { return libraryActions.clearUnavailable(bvid); }
     globalThis.states = { playerState, libraryState }; Math.random = () => 0;
   `, context);
   const request = (command: string, index = 0) => {

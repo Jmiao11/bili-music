@@ -74,7 +74,7 @@ async function fixture(saved = "") {
     fs.writeFileSync(path.join(root, "player-dom.ts"), 'const { '+names.filter(x => !["musicTabs", "sortModeTabs"].includes(x)).join(", ")+' } = globalThis.__searchFixture.nodes; const { musicTabs, sortModeTabs } = globalThis.__searchFixture; export { '+names.join(", ")+' };');
     for (const name of ["library-ui.ts", "video-pages.ts", "appearance.ts", "playback-notice.ts", "playback-diagnostics.ts"]) {
       const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(exports);
-      const declarations = exports.map(x => x === "bindTrackActivation" ? 'const bindTrackActivation = globalThis.__searchFixture.bindTrackActivation;' : x === "isLoudnessNormalizationEnabled" ? 'function isLoudnessNormalizationEnabled() { return false; }' : x === "pagesModalContext" ? 'const pagesModalContext = null;' : 'function '+x+'() {}');
+      const declarations = exports.map(x => x === "getLibrarySnapshot" ? 'function getLibrarySnapshot() { return { favoriteBvids: new Set(), unavailableBvids: new Map() }; }' : x === "bindTrackActivation" ? 'const bindTrackActivation = globalThis.__searchFixture.bindTrackActivation;' : x === "isLoudnessNormalizationEnabled" ? 'function isLoudnessNormalizationEnabled() { return false; }' : x === "pagesModalContext" ? 'const pagesModalContext = null;' : 'function '+x+'() {}');
       fs.writeFileSync(path.join(root, name), declarations.join("\n")+'\nexport { '+exports.join(", ")+' };');
     }
     await import(pathToFileURL(path.join(root, "main.ts")).href);

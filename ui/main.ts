@@ -5,6 +5,7 @@ import { LOAD_MORE_THRESHOLD_PX, playerState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
+import { finishLibraryModalTransition } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
@@ -168,9 +169,7 @@ libraryModal?.addEventListener("click", (event) => {
   }
 });
 libraryModal?.addEventListener("transitionend", (event) => {
-  if (event.target === libraryModal && !libraryModal.classList.contains("is-open")) {
-    libraryModal.hidden = true;
-  }
+  finishLibraryModalTransition(event);
 });
 pagesModalClose?.addEventListener("click", closePagesModal);
 pagesModalRestoreAll?.addEventListener("click", (event) => {

@@ -2,12 +2,12 @@ import { buildRandomPageRound, findEnabledPageIndex, isPageDisabled, pickRandomE
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
 import type { SearchPageCommit } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModalBody, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
+import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, libraryState, playerState } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { getHomeSnapshot } from "./home.ts";
-import { choosePlaylistAndAdd, closeLibraryModal, openLibraryModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
+import { choosePlaylistAndAdd, clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
 import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
@@ -383,7 +383,7 @@ function updateQueueUi() {
 }
 
 function isFavorited(bvid: string) {
-  return libraryState.favoriteBvids.has(String(bvid ?? "").toLowerCase());
+  return getLibrarySnapshot().favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
 
 function setFavoriteButtonState(button: HTMLButtonElement, bvid: string) {
@@ -514,7 +514,7 @@ function createTrackRow(video: CommandContract.TrackSnapshotInput & { playCount?
     : "0:00";
   playButton.append(trackDuration);
   const actions = createTrackActions(video, options);
-  const unavailableReason = libraryState.unavailableBvids.get(video.bvid.toLowerCase());
+  const unavailableReason = getLibrarySnapshot().unavailableBvids.get(video.bvid.toLowerCase());
   if (unavailableReason) {
     item.classList.add("is-unavailable");
     const unavailable = document.createElement("span");
@@ -547,46 +547,7 @@ function playCurrentVideoPage(page: CommandContract.VideoPage) {
 
 
 function showLoudnessNormalizationDialog() {
-  openLibraryModal("响度归一化", "");
-
-  const intro = document.createElement("p");
-  intro.className = "library-confirm-copy";
-  intro.textContent =
-    "不同 UP 主上传的音源响度差别很大，切歌时忽大忽小。开启后，播放器会把音量补偿到接近的水平。";
-
-  const measurement = document.createElement("p");
-  measurement.className = "library-confirm-copy";
-  const measurementLead = document.createElement("strong");
-  measurementLead.textContent = "需要先测量。";
-  measurement.append(
-    measurementLead,
-    "每首歌播放约 30 秒后会自动在后台测量一次，测完才会生效，下次再听就是直接生效的。所以刚开启时你会觉得没什么变化，听一段时间后效果才明显。",
-  );
-
-  const attenuation = document.createElement("p");
-  attenuation.className = "library-confirm-copy";
-  const attenuationLead = document.createElement("strong");
-  attenuationLead.textContent = "只会调小，不会调大。";
-  attenuation.append(
-    attenuationLead,
-    "受浏览器限制只能衰减，整体音量会略低于原先，把系统音量推高一档即可。",
-  );
-
-  const traffic = document.createElement("p");
-  traffic.className = "library-confirm-copy";
-  traffic.textContent = "测量需要重新下载一遍音频，会消耗一些流量。";
-
-  const actions = document.createElement("div");
-  actions.className = "library-modal-actions";
-  const acknowledgeButton = document.createElement("button");
-  acknowledgeButton.type = "button";
-  acknowledgeButton.className = "secondary-button";
-  acknowledgeButton.textContent = "知道了";
-  acknowledgeButton.addEventListener("click", closeLibraryModal);
-  actions.append(acknowledgeButton);
-
-  libraryModalBody.append(intro, measurement, attenuation, traffic, actions);
-  acknowledgeButton.focus();
+  openLoudnessModal();
 }
 
 function waitForAudioMetadata() {
@@ -836,7 +797,7 @@ async function loadCurrentTrack({
     }
     playerState.consecutiveResolveFailures = 0;
     const unavailableKey = video.bvid.toLowerCase();
-    if (libraryState.unavailableBvids.delete(unavailableKey)) {
+    if (clearLibraryUnavailable(unavailableKey)) {
       invoke("clear_track_unavailable", { bvid: video.bvid })
         .catch((error) => console.warn("unavailable track clear failed:", error));
       renderLibraryViews();
@@ -932,7 +893,7 @@ async function loadCurrentTrack({
 
     const unavailableReason = unavailableTrackReason(error);
     if (unavailableReason) {
-      libraryState.unavailableBvids.set(video.bvid.toLowerCase(), unavailableReason);
+      markLibraryUnavailable(video.bvid.toLowerCase(), unavailableReason);
       invoke("mark_track_unavailable", { bvid: video.bvid, reason: unavailableReason })
         .catch((markError) => console.warn("unavailable track mark failed:", markError));
       renderLibraryViews();
