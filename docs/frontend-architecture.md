@@ -263,3 +263,7 @@ settings.session 保存导航页面、占位文案和设置面板开关。render
 appearance 保留事件安装位置、MutationObserver、键盘事件解析、背景与设置输入读取、导航事件派发；settings-view 保留 DOM/CSS、焦点和动画。缓存提示计时器留在 settings-adapter，state 仅接收清除回调。playback-policy 每次仍读取存储中的合集偏好，经 settings-adapter 规范化后使用，不改为复用旧快照。迷你窗继续观察原根节点属性，未改变同步时机；音量、响度和沉浸页仍留在原控制器中。
 
 settings-characterization 在旧实现上独立提交，迁移后保持字节不变；settings-actions 直接导入纯模块并冻结快照，逐次序列化 AI 保存与测试的每个应用快照；settings-architecture 保护只读 renderer、DOM 归属及快照别名写入。现有测试的全部断言原文、逐测试与嵌套子测试执行次数保存到仓库外。
+
+## 媒体适配器（state-7a）
+
+media-adapter.ts 封装 src、load、play、pause、currentTime、volume 和媒体事件订阅；工厂只接收媒体对象，不查找 DOM，不在构造时安装监听或操作媒体。取消订阅只移除本次订阅者，保留 play Promise 和媒体异常。契约测试使用普通对象，无真实 DOM。独立适配器提交阶段尚无业务使用，类型通过 Node 契约项目登记；接入时再进入主窗口模块图。
