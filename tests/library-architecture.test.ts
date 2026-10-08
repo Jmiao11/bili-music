@@ -29,9 +29,8 @@ test("library renderer reads snapshots without actions platform imports or snaps
 test("library snapshot guard rejects collection and nested alias mutations", () => {
   for (const source of ['getLibrarySnapshot().selectedPlaylistId = "a";', 'const library = getLibrarySnapshot(); library.favorites.push(track);', 'const rows = getLibrarySnapshot().playlists; const playlist = rows[0]; Object.assign(playlist, changed);', 'getLibrarySnapshot().unavailableBvids.set(bvid, reason);', 'state.session.busy = true;']) assert.throws(() => readonlyLibrary(source, ["state"]), source);
   assert.doesNotThrow(() => readonlyLibrary('const values = new Map(getLibrarySnapshot().unavailableBvids); values.set(bvid, reason);'));
-  for (const file of ["library-ui.ts", "playback-core.ts", "main.ts"]) {
+  for (const file of ["library-ui.ts", "playback-core.ts", "main.ts", "video-pages.ts"]) {
     const source = fs.readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8");
-    // Disabled pages remain in the legacy controller until state-5.
-    readonlyLibrary(source.replace(/libraryState\.disabledPages\s*=[^;]+;/g, ""));
+    readonlyLibrary(source);
   }
 });

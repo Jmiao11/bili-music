@@ -27,7 +27,7 @@ test("queue switches remember the departed cid and pass a history cid to track l
     updatePlayerPagesButton() {}, markRandomIndexPlayed() {}, updateQueueUi() {},
     emitCurrentTrackChanged() {}, loadCurrentTrack: (options: { startPage: { cid: number }; randomStartPage?: boolean }) => loads.push(options),
   });
-  vm.runInContext(slice("function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice("function playQueueIndex(", "function takeRandomNext()"), context);
   context.playQueueIndex(1);
   assert.equal(state.history[0].index, 0);
   assert.equal(state.history[0].cid, 12);
@@ -53,9 +53,9 @@ test("only random page advancement adds a page-level history entry", () => {
     currentVideoPage: () => pages[state.currentPageIndex],
     updatePlayerPagesButton() {}, loadCurrentTrack() {},
   });
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.history[0].index, 0);
   assert.equal(state.history[0].cid, 11);
@@ -77,7 +77,7 @@ test("previous accepts numeric history, restores a page in place, and forwards m
     playQueueIndex: (index: number, options: { historyCid: number | null }) => calls.push({ index, options }),
     updatePlayerPagesButton() {}, loadCurrentTrack: (options: { keepPage: boolean }) => calls.push({ load: options }),
   });
-  vm.runInContext(slice("function playPrevious()", "function initPlaybackSearch("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice("function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal((calls[0] as { index: number; options: { historyCid: number | null } }).index, 2);
   assert.equal((calls[0] as { index: number; options: { historyCid: number | null } }).options.historyCid, null);
@@ -111,7 +111,7 @@ test("random previous skips page retreat while sequential previous keeps it", ()
     playPrevious: () => calls.push("history"),
     clearPendingResume() {}, clearPlaybackNotice() {},
   });
-  vm.runInContext(slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"'), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"'), context);
   handlers.previous();
   assert.deepEqual(calls, ["history"]);
   state.shuffle = false;
@@ -140,7 +140,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     playQueueIndex: (index: number, options: { historyCid: number }) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "function initPlaybackSearch(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')

@@ -5,9 +5,10 @@ import { LOAD_MORE_THRESHOLD_PX, playerState } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
+import { keepFocusInPagesModal } from "./pages-view.ts";
 import { finishLibraryModalTransition } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
-import { changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext } from "./video-pages.ts";
+import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "./video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { isLoudnessNormalizationEnabled } from "./appearance.ts";
@@ -174,7 +175,8 @@ libraryModal?.addEventListener("transitionend", (event) => {
 pagesModalClose?.addEventListener("click", closePagesModal);
 pagesModalRestoreAll?.addEventListener("click", (event) => {
   event.stopPropagation();
-  if (pagesModalContext) void changeDisabledPages(pagesModalContext.video.bvid, null);
+  const context = getPagesSnapshot().modal;
+  if (context) void changeDisabledPages(context.video.bvid, null);
 });
 pagesModal?.addEventListener("click", (event) => {
   if (event.target === pagesModal) {

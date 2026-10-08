@@ -37,22 +37,7 @@ const playerState = {
 
 const LAST_SEARCH_KEY = "bilibili-music.last-search";
 
-const libraryState = {
-  disabledPages: new Map<string, Set<number>>(),
-  disabledPagePending: new Map<string, number | null>(),
-};
-
-const videoPageCounts = new Map<string, number>();
-
-const videoPagesByBvid = new Map();
-
 const pageModalOpeners = new WeakMap();
-
-const failedPageCountBvids = new Set<string>();
-
-const queuedPageCountBvids = new Set<string>();
-
-const activePageCountBvids = new Set<string>();
 
 const observedPageCountTargets = new Map();
 
@@ -66,4 +51,4 @@ const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 
-export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };
+export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, visiblePageCountTargets };

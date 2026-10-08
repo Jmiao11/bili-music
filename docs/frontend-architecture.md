@@ -237,6 +237,14 @@ library-state 负责收藏、BV 索引、歌单、选中项、失效标记、读
 
 三套拖拽位于 library.drags.favorites / playlistItems / playlists：只存 index、playlistId、saving、suppressClickUntil；library-ui 的三个私有 DOM 容器只存 row / target。拖拽结束传入控制器读取的单调时钟值，纯状态层计算 400ms 截止时间；选择器 isLibraryDragClickSuppressed 只读快照。保存成功才替换排序结果；失败保留列表，解除忙态并重新渲染。
 
-library-view 不导入动作、store 工厂、invoke 或 Tauri API，交互只调用控制器注入的回调。节点、弹窗内容引用、动画和既有焦点行为由 renderer 保留；未新增关闭后主动恢复焦点的行为。library-ui 只挂载一次订阅，首屏显式 getState；收藏变更的两种窗口事件仍在持久化结果和渲染之后发出，名称与 payload 不变。禁用分 P / 分 P 保存中继续留在旧 libraryState，video-pages 未改。
+library-view 不导入动作、store 工厂、invoke 或 Tauri API，交互只调用控制器注入的回调。节点、弹窗内容引用、动画和既有焦点行为由 renderer 保留；未新增关闭后主动恢复焦点的行为。library-ui 只挂载一次订阅，首屏显式 getState；收藏变更的两种窗口事件仍在持久化结果和渲染之后发出，名称与 payload 不变。禁用分 P / 分 P 保存中已在 state-5 迁入 library 分片，由 changeDisabledPages 动作处理乐观更新与回滚。
 
 library-characterization.test.ts 在旧实现上先提交，通过后保持逐字节不变；library-actions.test.ts 直接导入纯模块并开启冻结；library-architecture.test.ts 保护只读 renderer 与快照别名，state-architecture 同时覆盖新状态模块的平台依赖。修改现有测试需附全部断言原文和逐测试计数：登记类更新单列，源码写法断言替换需行为测试映射，业务断言不可改变或删除；保留断言由正次数变成 0 时立即停止。
+
+## 分P状态边界（state-5）
+
+pages-state 保存分P数量与元信息缓存、每个 BV 的查询阶段和传入的时间、弹窗目标/列表/错误，以及查询版本和开始时保存的状态条文字。缓存数据与输入目标复制后提交，快照深度只读。缓存查询结束后仍恢复第一次查询保存的状态条文字，即使其间被其他模块改写；迟到的旧查询只解除自己的触发按钮忙态，不更新缓存或弹窗。
+
+video-pages 保留 IntersectionObserver、观察/可见节点、缓存查询节点集合、并发计数、队列、300ms 调度时钟、定时器、Promise 和打开按钮回调注册表。查询规则仍为并发 2、可见性优先、缓存优先、失败去重；250ms 单击延迟与双击打开规则不变。pages-view 只读取快照与注入回调，负责角标、弹窗列表、状态条、焦点节点、焦点循环和动画；main 的关闭、Escape 和 transitionend 监听位置不变。
+
+禁用分P属于资料库偏好，存放在 library.disabledPages / disabledPagePending。资料库读取仍只读，不写回空降级；保存开始与完成各发布一次根快照，分P弹窗错误通过根提交同步协调。资料库重新加载不额外刷新已打开的分P弹窗。播放核心只改为读取资料库快照，播放领域结构与导航算法保持原样。pages-characterization.test.ts 在旧实现提交后保持全部字节；pages-actions.test.ts 不安装 DOM，测试中开启冻结。

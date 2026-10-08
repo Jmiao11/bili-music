@@ -1,6 +1,6 @@
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { libraryState, playerState } from "./player-state.ts";
+import { playerState } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderLibraryHighlights, renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
@@ -248,7 +248,7 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
 function libraryBindings(): LibraryBindings {
   const actions = getApplicationStore().actions.library;
   return { createTrackRow, playListItem, readPlayer: () => playerState, bindFavoriteDrag, bindPlaylistItemDrag, bindPlaylistDrag, isFavoriteDragClickSuppressed, isPlaylistDragClickSuppressed,
-    choosePlaylist: actions.choosePlaylist, closeModal: actions.closeModal, submitName: actions.submitName, submitDelete: actions.submitDelete, submitChoose: actions.submitChoose, createAndAdd: actions.createAndAdd, submitImport: actions.submitImport, submitPurge: () => actions.submitPurge(acceptDisabledPages), setModalName: actions.setModalName, setModalLink: actions.setModalLink };
+    choosePlaylist: actions.choosePlaylist, closeModal: actions.closeModal, submitName: actions.submitName, submitDelete: actions.submitDelete, submitChoose: actions.submitChoose, createAndAdd: actions.createAndAdd, submitImport: actions.submitImport, submitPurge: () => actions.submitPurge(), setModalName: actions.setModalName, setModalLink: actions.setModalLink };
 }
 function getLibraryActions() {
   const store = getApplicationStore();
@@ -271,10 +271,7 @@ function getLibraryActions() {
 function getLibrarySnapshot() { return getApplicationStore().getState().library; }
 function renderLibraryViews(): void { getLibraryActions().refreshViews(); }
 function updateLibraryHighlights(): void { renderLibraryHighlights(getLibrarySnapshot(), libraryBindings()); }
-function acceptDisabledPages(pages: CommandMap["list_disabled_pages"]["result"]): void {
-  libraryState.disabledPages = new Map(Object.entries(pages).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)]));
-}
-function loadLibrary(): Promise<void> { return getLibraryActions().loadLibrary(acceptDisabledPages); }
+function loadLibrary(): Promise<void> { return getLibraryActions().loadLibrary(); }
 async function toggleFavorite(video = currentPlayableTrack()) {
   const result = await getLibraryActions().toggleFavorite(video ?? null); if (!result) return;
   if ("failed" in result) {
@@ -296,4 +293,4 @@ function markLibraryUnavailable(bvid: string, reason: string): void { getLibrary
 function clearLibraryUnavailable(bvid: string): boolean { return getLibraryActions().clearUnavailable(bvid); }
 function openLoudnessModal(): void { getLibraryActions().openModal("loudness", "响度归一化", ""); }
 
-export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable,  openLoudnessModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights };
+export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights };

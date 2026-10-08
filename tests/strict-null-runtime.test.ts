@@ -135,6 +135,7 @@ test("page count observer disconnect handling preserves native unobserve and ign
   });
   vm.runInContext(slice("video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);
   const item = { dataset: {}, isConnected: false };
+  context.getPagesSnapshot = () => ({ videoPageCounts: context.videoPageCounts, queries: new Map() });
   context.observePageCount(item, "bv");
   if (!callback) throw new Error("Expected callback is missing");
   callback([{ target: item, isIntersecting: false }]);
@@ -151,15 +152,15 @@ test("pages modal rendering preserves page selection and ignores a missing priva
   const context = vm.createContext({ pagesModalContext: null, pagesModalList: list,
     libraryState: { disabledPagePending: new Map(), disabledPages: new Map() },
     document: { activeElement: null, createElement: runtimeElement },
-    pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
+    pagesModalStatus: runtimeElement(), pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
     currentPlayableTrack: () => null, currentVideoPage: () => null, isPageDisabled: () => false, formatDuration: () => "1:00",
   });
   context.closePagesModal = () => { context.pagesModalContext = null; };
-  vm.runInContext(slice("video-pages.ts", "function renderPagesModal(", "async function changeDisabledPages("), context);
-  context.renderPagesModal();
+  vm.runInContext(slice("pages-view.ts", "function renderPagesModal(", "function renderPagesSnapshot("), context);
+  context.renderPagesModal({ modal: context.pagesModalContext }, context.libraryState, { currentTrack: context.currentPlayableTrack, currentPage: context.currentVideoPage, playPage: (selected: unknown) => { const modal = context.pagesModalContext; context.closePagesModal(); modal?.onPlay({ startPage: selected, pages: modal.pages }); } });
   assert.deepEqual(list.children, ["unchanged"]);
   context.pagesModalContext = { video: { bvid: "BV", title: "视频" }, videos: 1, pages: [page], onPlay: (selection: { startPage: unknown; pages: unknown[] }) => selections.push(selection) };
-  context.renderPagesModal();
+  context.renderPagesModal({ modal: context.pagesModalContext }, context.libraryState, { currentTrack: context.currentPlayableTrack, currentPage: context.currentVideoPage, playPage: (selected: unknown) => { const modal = context.pagesModalContext; context.closePagesModal(); modal?.onPlay({ startPage: selected, pages: modal.pages }); } });
   assert.equal(list.children.length, 1);
   ((list.children[0] as unknown as RuntimeElement).children[0] as RuntimeElement).listeners.click();
   assert.equal(selections[0].startPage, page);

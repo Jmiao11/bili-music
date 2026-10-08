@@ -22,8 +22,8 @@ const pages = [1, 2, 3, 4].map((cid) => ({ cid, page: cid, part: `P${cid}`, dura
 
 test("page lookup includes its start index and scans in either direction", () => {
   const context = vm.createContext({});
-  vm.runInContext(lookupSource, context);
-  const find = vm.runInContext("findEnabledPageIndex", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
+  const find = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "findEnabledPageIndex", context);
   assert.equal(find(pages, 0, 1, (page: Page) => page.cid === 1), 1);
   assert.equal(find(pages, 3, -1, (page: Page) => page.cid === 3), 3);
   assert.equal(find(pages, 1, 1, (page: Page) => page.cid === 2 || page.cid === 3), 3);
@@ -32,8 +32,8 @@ test("page lookup includes its start index and scans in either direction", () =>
 
 test("page lookup returns -1 at either edge and when every page is disabled", () => {
   const context = vm.createContext({});
-  vm.runInContext(lookupSource, context);
-  const find = vm.runInContext("findEnabledPageIndex", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
+  const find = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "findEnabledPageIndex", context);
   assert.equal(find(pages, pages.length, 1, () => false), -1);
   assert.equal(find(pages, -1, -1, () => false), -1);
   assert.equal(find(pages, 0, 1, () => true), -1);
@@ -41,8 +41,8 @@ test("page lookup returns -1 at either edge and when every page is disabled", ()
 
 test("random page lookup selects uniformly among enabled pages", () => {
   const context = vm.createContext({});
-  vm.runInContext(lookupSource, context);
-  const pick = vm.runInContext("pickRandomEnabledPageIndex", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
+  const pick = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "pickRandomEnabledPageIndex", context);
   assert.equal(pick(pages, (page: Page) => page.cid === 2, () => 0), 0);
   assert.equal(pick(pages, (page: Page) => page.cid === 2, () => 0.9999), 3);
   assert.equal(pick(pages, (page: Page) => page.cid !== 2, () => 0.9999), 1);
@@ -53,9 +53,9 @@ test("random page lookup selects uniformly among enabled pages", () => {
 
 test("random page round excludes current and disabled pages, including pages disabled later", () => {
   const context = vm.createContext({});
-  vm.runInContext(lookupSource, context);
-  const build = vm.runInContext("buildRandomPageRound", context);
-  const take = vm.runInContext("takeRandomPageFromRound", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
+  const build = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "buildRandomPageRound", context);
+  const take = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "takeRandomPageFromRound", context);
   const remaining = Array.from(build(pages, 0, (page: Page) => page.cid === 4));
   assert.deepEqual(remaining, [1, 2]);
   const first = take(remaining, () => false, () => 0);
@@ -70,7 +70,7 @@ test("random page round excludes current and disabled pages, including pages dis
 
 test("shuffle collection preferences accept only exact stored values", () => {
   const context = vm.createContext({});
-  vm.runInContext(lookupSource, context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const normalize = context.normalizeShuffleCollectionPrefs;
   assert.deepEqual({ ...normalize("random", "all") }, { order: "random", limit: 0 });
   for (const [stored, limit] of [["1", 1], ["3", 3], ["5", 5], ["10", 10]]) {
@@ -108,13 +108,13 @@ function navigationContext(disabledCids: Iterable<number>, loopMode = "sequence"
     currentVideoPage: () => state.currentPages[state.currentPageIndex],
     isLoudnessNormalizationEnabled: () => false,
   });
-  vm.runInContext(lookupSource + navigationSource, context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + navigationSource, context);
   return { context, state, loads, handlers };
 }
 
 test("manual next and previous skip consecutive disabled pages", () => {
   const { context, state, loads, handlers } = navigationContext([2, 3]);
-  vm.runInContext(sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), context);
   handlers.next();
   assert.equal(state.currentPageIndex, 3);
   handlers.previous();
@@ -124,7 +124,7 @@ test("manual next and previous skip consecutive disabled pages", () => {
 
 test("natural end skips disabled pages, while single loop repeats the current page", () => {
   const { context, state, loads, handlers } = navigationContext([1, 2, 3]);
-  vm.runInContext(sourceSlice(source, "ui/main.ts", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
   handlers.ended({ timeStamp: 1 });
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 1);
@@ -145,7 +145,7 @@ test("random mode with multiple queue items plays every other page once before l
   const { context, state, loads } = navigationContext([]);
   state.shuffle = true;
   state.queue.push({ bvid: "BV1rW4y1Q7o7" });
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.currentPageIndex, 1);
   assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
@@ -162,7 +162,7 @@ test("a randomly selected start page stays out of its first page round", () => {
   state.queue.push({ bvid: "BV1rW4y1Q7o7" });
   state.currentPageIndex = context.pickRandomEnabledPageIndex(pages, () => false, () => 0.6);
   assert.equal(state.currentPageIndex, 2);
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   const visited: number[] = [];
   for (let step = 0; step < 3; step += 1) {
     assert.equal(context.advancePageWithinCurrentBv(), true);
@@ -189,7 +189,7 @@ test("random mode still repeats the current page in automatic single loop", () =
 test("single-item random queue advances each enabled page once, then exits the round", () => {
   const { context, state, loads } = navigationContext([]);
   state.shuffle = true;
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.currentPageIndex, 1);
   state.currentDisplayTrack = {};
@@ -206,7 +206,7 @@ test("single-item random queue discards a round belonging to another BV", () => 
   const { context, state } = navigationContext([]);
   state.shuffle = true;
   context.randomPageRound = { bvid: "BV1rW4y1Q7o7", remaining: [] };
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(context.randomPageRound.bvid, bvid);
   assert.equal(state.currentPageIndex, 1);
@@ -217,7 +217,7 @@ test("random collection limit counts the opening page and stops after the chosen
     const { context, state } = navigationContext([]);
     state.shuffle = true;
     context.localStorage = { getItem: (key: string) => key.endsWith("limit") ? limit : "random" };
-    vm.runInContext("Math.random = () => 0", context);
+    vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
     for (let step = 0; step < successfulMoves; step += 1) {
       assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
     }
@@ -248,8 +248,8 @@ test("a new BV resets the collection visit count", () => {
   context.markRandomIndexPlayed = () => {};
   context.updateQueueUi = () => {};
   context.emitCurrentTrackChanged = () => {};
-  vm.runInContext("Math.random = () => 0", context);
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   const pageRound = (context as { randomPageRound: { playedCount: number } | null }).randomPageRound;
   if (!pageRound) throw new Error("Random page round is missing");
@@ -266,10 +266,10 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
   const { context, state } = navigationContext([]);
   state.shuffle = true;
   context.localStorage = { getItem: (key: string) => key.endsWith("limit") ? "3" : "random" };
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   state.history.push({ index: 0, cid: 1, pageLevel: true });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   if (!context.randomPageRound) throw new Error("Random page round is missing");
@@ -282,7 +282,7 @@ test("storage read errors use the default random unlimited preference", () => {
   const { context, state } = navigationContext([]);
   state.shuffle = true;
   context.localStorage = { getItem() { throw Error("storage denied"); } };
-  vm.runInContext("Math.random = () => 0", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   for (let step = 0; step < 3; step += 1) {
     assert.equal(context.advancePageWithinCurrentBv(), true);
   }
@@ -299,7 +299,7 @@ test("only a random next index requests a random start page", () => {
     takeSequentialNext: () => 1,
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext({ skipFailed: true }), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, true);
@@ -323,7 +323,7 @@ test("random queue navigation starts at the first enabled page for sequential co
     takeRandomNext: () => 1,
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
-  vm.runInContext(lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext(), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
@@ -342,7 +342,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
     emitCurrentTrackChanged() {}, currentVideoPage: () => null,
     loadCurrentTrack() {},
   });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   context.playQueueIndex(1);
   assert.equal(context.randomPageRound, null);
 
@@ -350,7 +350,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   context.randomPageRound = { bvid, remaining: [1] };
   context.shuffleToggle = { checked: true, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { change = handler; } };
   context.resetRandomRemaining = () => {};
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "shuffleToggle.addEventListener(\"change\"", "\n}\n", { endAfterStart: true }) + "\n\n", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "shuffleToggle.addEventListener(\"change\"", "\n}\n", { endAfterStart: true }) + "\n\n", context);
   if (!change) throw new Error("Shuffle change handler is missing");
   change();
   assert.equal(context.randomPageRound, null);
@@ -393,7 +393,7 @@ function trackContext(disabledCids: Iterable<number>, videoPages = pages) {
     playNext: (options: LoadOptions) => { nextCalls.push(options); return true; },
     showPlaybackNotice: (message: string) => notices.push(message),
   });
-  vm.runInContext(sourceSlice(trackUtils, "ui/track-utils.ts", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(trackUtils, "ui/track-utils.ts", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
   return { context, state, prepares, notices, nextCalls };
 }
 
@@ -437,7 +437,7 @@ test("matched startPage still plays a disabled page", async () => {
 
 test("random start picks an enabled page while default start keeps the first enabled page", async () => {
   const { context, state, prepares } = trackContext([1, 3]);
-  vm.runInContext("Math.random = () => 0.9999", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0.9999", context);
   void context.loadCurrentTrack({ randomStartPage: true });
   await new Promise(setImmediate);
   assert.equal(state.currentPageIndex, 3);
