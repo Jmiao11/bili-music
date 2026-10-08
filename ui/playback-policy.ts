@@ -1,4 +1,4 @@
-import { normalizeShuffleCollectionPrefs } from "./page-selection.ts";
+import { readSettingsCollectionPrefs } from "./settings-adapter.ts";
 import { MAX_AUDIO_RECOVERIES } from "./player-state.ts";
 
 function shuffled(values: readonly number[]): number[] {
@@ -10,16 +10,7 @@ function shuffled(values: readonly number[]): number[] {
   return result;
 }
 
-function readShuffleCollectionPrefs(): ReturnType<typeof normalizeShuffleCollectionPrefs> {
-  try {
-    return normalizeShuffleCollectionPrefs(
-      localStorage.getItem("bilibili-music.shuffle-collection-order"),
-      localStorage.getItem("bilibili-music.shuffle-collection-limit"),
-    );
-  } catch {
-    return normalizeShuffleCollectionPrefs(null, null);
-  }
-}
+function readShuffleCollectionPrefs(): ReturnType<typeof readSettingsCollectionPrefs> { return readSettingsCollectionPrefs(); }
 
 function shouldRecoverAudio(errorCode: number | undefined, isCurrent: boolean, hasPlayed: boolean, attempts: number): boolean {
   return errorCode === 2 && isCurrent && hasPlayed && attempts < MAX_AUDIO_RECOVERIES;

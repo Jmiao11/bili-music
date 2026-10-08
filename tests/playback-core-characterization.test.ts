@@ -11,6 +11,7 @@ const main = read("playback-core.ts");
 const search = read("search.ts");
 const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
+const settingsAdapterSource = read("settings-adapter.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const LAST_SEARCH_KEY").replace(/\n\n$/, "\n")
   + "const libraryState = initialLibraryState();\n";
@@ -19,7 +20,7 @@ const functions = read("page-selection.ts") + read("track-utils.ts")
   + sourceSlice(policy, "ui/playback-policy.ts", "function shuffled(", "function readShuffleCollectionPrefs(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")
-  + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + slice("function waitForAudioMetadata()", "function recoveryAttemptsFor(")
   + slice("function waitForRecoveryMetadata(", "async function recoverCurrentAudio(")
   + slice("async function loadCurrentTrack(", "function playBvId(")

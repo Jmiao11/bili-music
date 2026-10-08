@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,6 +18,7 @@ test("theme defaults preserve null, invalid values and all supported themes", ()
     localStorage: { getItem: () => null, setItem: (key: string, value: unknown) => writes.push([key, value]) },
     setGlassBlur() {}, setPanelAlpha() {}, setBackgroundDim() {},
   });
+  attachSettingsVm(context);
   vm.runInContext(slice("appearance.ts", "function applyTheme(", "function setGlassBlur("), context);
   for (const value of [null, undefined, "", "invalid", 0, false, {}, "dark", "light", "image", "dynamic"]) {
     context.applyTheme(value);
@@ -35,6 +37,7 @@ test("restoring cache settings cancels the active timer and preserves the null t
       clearTimeout: (id: number | null) => { if (id !== null) cancelled.push(id); },
       invokeAppearance: async () => settings,
     });
+    attachSettingsVm(context);
     vm.runInContext(slice("appearance.ts", "async function restoreAudioCacheSettings(", "async function refreshAudioCacheUsage("), context);
     await context.restoreAudioCacheSettings();
     assert.deepEqual(cancelled, timer === null ? [] : [timer]);

@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -6,9 +7,8 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const code = sourceSlice(source, "ui/appearance.ts", "const BACKGROUND_PATH_KEY", "const root =")
-  + sourceSlice(source, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
-  + sourceSlice(source, "ui/appearance.ts", "function normalizeAccentColor(", "function applyBackground(");
+const code = sourceSlice(source, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+  + sourceSlice(source, "ui/appearance.ts", "function readAccentColor(", "function resetBackground(");
 const expected: Record<string, Record<string, number[]>> = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },
   blue: { dark: [122, 166, 231], light: [40, 88, 161] },
@@ -57,6 +57,7 @@ function setup(color = "pink", failWrites = false) {
       },
     },
   });
+  attachSettingsVm(app);
   vm.runInContext(code, app);
   app.initializeAccentColor();
   return { app, root, stored, writes, options };

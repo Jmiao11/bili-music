@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -11,7 +12,7 @@ const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-p
 const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
 const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
 const html = readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
-const source = pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+const source = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + sourceSlice(appearance, "ui/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
   + sourceSlice(appearance, "ui/appearance.ts", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
 
@@ -39,6 +40,7 @@ function setup(stored = new Map()) {
     refreshAudioCacheUsage() {}, restoreAiConfig() {}, renderMascotPicker() {},
     requestAnimationFrame() {},
   });
+  attachSettingsVm(context);
   vm.runInContext(source, context);
   return { context, order, limit, status, handlers, stored };
 }

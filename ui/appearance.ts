@@ -1,27 +1,20 @@
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
 
+import { normalizeSettingsAccent } from "./settings-state.ts";
+import { readSettingsPreference } from "./settings-adapter.ts";
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
+import { getApplicationStore } from "./home.ts";
+import type { SettingsSnapshot } from "./settings-state.ts";
+
 import { choosePlaylistAndAdd } from "./library-ui.ts";
 import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.ts";
+import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
 
-const BACKGROUND_PATH_KEY = "bilibili-music.background-path";
 const THEME_KEY = "bilibili-music.theme";
 const ACCENT_COLOR_KEY = "bilibili-music.accent-color";
-const ACCENT_COLORS = {
-  pink: { dark: [251, 114, 153], light: [164, 41, 76] },
-  blue: { dark: [122, 166, 231], light: [40, 88, 161] },
-  purple: { dark: [189, 145, 236], light: [120, 48, 194] },
-  green: { dark: [87, 185, 65], light: [40, 102, 25] },
-  orange: { dark: [224, 146, 77], light: [128, 77, 32] },
-  cyan: { dark: [73, 178, 191], light: [27, 98, 106] },
-};
-let currentAccentColor = "pink";
-const GLASS_BLUR_KEY = "bilibili-music.glass-blur";
-const PANEL_ALPHA_KEY = "bilibili-music.panel-alpha";
-const BACKGROUND_DIM_KEY = "bilibili-music.background-dim";
 const VOLUME_KEY = "bilibili-music.volume";
 // 全局快捷键步长独立于滑块，方便 live 调整每次按键的幅度。
 const GLOBAL_SHORTCUT_VOLUME_STEP = 0.05;
@@ -67,8 +60,6 @@ const shuffleCollectionLimit = document.querySelector<HTMLSelectElement>("#shuff
 const audioCacheUsage = document.querySelector<HTMLElement>("#audio-cache-usage")!;
 const audioCacheStatus = document.querySelector<HTMLElement>("#audio-cache-status")!;
 const clearAudioCacheButton = document.querySelector<HTMLButtonElement>("#clear-audio-cache-button")!;
-let audioCacheSettings: CommandContract.AudioCacheSettings | null = null;
-let audioCacheStatusTimer: ReturnType<typeof window.setTimeout> | null = null;
 const clearSearchHistoryButton = document.querySelector<HTMLButtonElement>("#clear-search-history-button")!;
 const exportDataButton = document.querySelector<HTMLButtonElement>("#export-data-button")!;
 const importDataButton = document.querySelector<HTMLButtonElement>("#import-data-button")!;
@@ -81,14 +72,6 @@ const testAiConnectionButton = document.querySelector<HTMLButtonElement>("#test-
 const aiConfigStatus = document.querySelector<HTMLElement>("#ai-config-status")!;
 const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutAction: ShortcutAction } }>("[data-shortcut-action]")];
 const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutClear: ShortcutAction } }>("[data-shortcut-clear]")];
-let shortcutBindings: CommandContract.ShortcutBindings = {
-  previous: null,
-  playPause: null,
-  next: null,
-  volumeUp: null,
-  volumeDown: null,
-};
-let recordingShortcutAction: ShortcutAction | null = null;
 
 const playerAudio = document.querySelector<HTMLAudioElement>("#audio")!;
 const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button")!;
@@ -118,7 +101,6 @@ const volumeSlider = document.querySelector<HTMLInputElement>("#volume-slider")!
 const loudnessNormalizationToggle = document.querySelector<HTMLInputElement>("#loudness-normalization-toggle")!;
 
 let isSeeking = false;
-let ytDlpAvailable = false;
 let currentTrack: CurrentTrackDetail = {
   bvid: "",
   title: "尚未播放",
@@ -128,11 +110,25 @@ let currentTrack: CurrentTrackDetail = {
   hasCurrent: false,
 };
 
+
 const viewLabels: Partial<Record<string, string>> = {
-  favorites: "我的收藏",
-  playlists: "我的歌单",
-  local: "本地音乐",
+  favorites: "我的收藏", playlists: "我的歌单", local: "本地音乐",
 };
+function settingsDom() { return { root, navItems, homeView, searchView, favoritesView, playlistsView, placeholderView, placeholderTitle, settingsModal, openSettingsButton, themeOptions, accentColorOptions, chooseBackgroundButton, backgroundName, appearanceStatus, imageOnlyGroups, glassBlurSlider, glassBlurValue, panelAlphaSlider, panelAlphaValue, backgroundDimSlider, backgroundDimValue, streamSourceSelect, streamSourceStatus, audioCacheEnabled, audioCacheCapacity, shuffleCollectionOrder, shuffleCollectionLimit, audioCacheUsage, audioCacheStatus, clearAudioCacheButton, aiApiFormatSelect, aiBaseUrlInput, aiModelInput, aiApiKeyInput, saveAiConfigButton, testAiConnectionButton, aiConfigStatus, shortcutRecordButtons }; }
+type SettingsDom = ReturnType<typeof settingsDom>;
+let settingsMounted = false;
+function getSettingsSnapshot() { return getApplicationStore().getState().settings; }
+function getSettingsActions() {
+  const store = getApplicationStore();
+  if (!settingsMounted) {
+    settingsMounted = true;
+    let previous: SettingsSnapshot | null = null;
+    const render = () => { const current = store.getState().settings; if (current === previous) return; renderSettingsSnapshot(current, previous, settingsDom()); previous = current; };
+    store.subscribe(render);
+    render();
+  }
+  return store.actions.settings;
+}
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number) {
   if (value === null || value === undefined || value === "") {
@@ -188,46 +184,13 @@ function shortcutFromKeyboardEvent(event: KeyboardEvent) {
   return [...modifiers, key].join("+");
 }
 
-function shortcutDisplayLabel(binding: string | null | undefined) {
-  if (!binding) {
-    return "未设置";
-  }
-  if (document.documentElement.dataset.platform !== "macos") {
-    return binding;
-  }
-  return binding
-    .split("+")
-    .map((token) => {
-      const normalized = token.trim().toUpperCase();
-      if (
-        [
-          "SUPER",
-          "COMMAND",
-          "CMD",
-          "COMMANDORCONTROL",
-          "COMMANDORCTRL",
-          "CMDORCONTROL",
-          "CMDORCTRL",
-        ].includes(normalized)
-      ) {
-        return "Command";
-      }
-      return token;
-    })
-    .join("+");
-}
+
 
 function shortcutButtonFor(action: ShortcutAction) {
   return shortcutRecordButtons.find((button) => button.dataset.shortcutAction === action);
 }
 
-function renderShortcutButton(action: ShortcutAction) {
-  const button = shortcutButtonFor(action);
-  if (button) {
-    button.textContent = shortcutDisplayLabel(shortcutBindings[action]);
-    button.classList.remove("is-recording");
-  }
-}
+function renderShortcutButton(action: ShortcutAction) { renderSettingsShortcut(getSettingsSnapshot(), action, settingsDom()); }
 
 function handleShortcutRecordingPointerDown(event: PointerEvent) {
   if (!(event.target as Element).closest?.("[data-shortcut-action]")) {
@@ -236,6 +199,7 @@ function handleShortcutRecordingPointerDown(event: PointerEvent) {
 }
 
 function handleShortcutRecordingKeydown(event: KeyboardEvent) {
+  const recordingShortcutAction = getSettingsSnapshot().recordingShortcutAction;
   if (!recordingShortcutAction) return;
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -248,7 +212,7 @@ function handleShortcutRecordingKeydown(event: KeyboardEvent) {
   }
   const shortcut = shortcutFromKeyboardEvent(event);
   if (!shortcut) {
-    appearanceStatus.textContent = "请使用组合键";
+    getSettingsActions().setNotice("请使用组合键");
     return;
   }
   const action = recordingShortcutAction;
@@ -257,10 +221,8 @@ function handleShortcutRecordingKeydown(event: KeyboardEvent) {
 }
 
 function cancelShortcutRecording() {
-  if (!recordingShortcutAction) return;
-  const action = recordingShortcutAction;
-  recordingShortcutAction = null;
-  renderShortcutButton(action);
+  if (!getSettingsSnapshot().recordingShortcutAction) return;
+  getSettingsActions().cancelRecording();
   window.removeEventListener("keydown", handleShortcutRecordingKeydown, true);
   window.removeEventListener("pointerdown", handleShortcutRecordingPointerDown, true);
   window.removeEventListener("blur", cancelShortcutRecording);
@@ -268,36 +230,18 @@ function cancelShortcutRecording() {
 
 function startShortcutRecording(action: ShortcutAction) {
   cancelShortcutRecording();
-  recordingShortcutAction = action;
+  getSettingsActions().beginRecording(action);
   const button = shortcutButtonFor(action);
   if (!button) return;
-  button.textContent = "按下组合键…";
-  button.classList.add("is-recording");
-  appearanceStatus.textContent = "";
   window.addEventListener("keydown", handleShortcutRecordingKeydown, true);
   window.addEventListener("pointerdown", handleShortcutRecordingPointerDown, true);
   window.addEventListener("blur", cancelShortcutRecording);
 }
 
-async function saveShortcutBinding(action: ShortcutAction, value: string | null) {
-  const nextBindings = { ...shortcutBindings, [action]: value };
-  try {
-    await invokeAppearance("set_shortcuts", { bindings: nextBindings });
-    shortcutBindings = nextBindings;
-    renderShortcutButton(action);
-    appearanceStatus.textContent = "快捷键已保存。";
-  } catch (error) {
-    appearanceStatus.textContent = String(error);
-  }
-}
+async function saveShortcutBinding(action: ShortcutAction, value: string | null) { await getSettingsActions().saveShortcut(action, value); }
 
 async function initializeShortcutSettings() {
-  try {
-    const shortcuts = await invokeAppearance("get_shortcuts");
-    shortcutBindings = { ...shortcutBindings, ...shortcuts.bindings };
-  } catch (error) {
-    console.warn("[shortcut] cannot load settings:", error);
-  }
+  await getSettingsActions().loadShortcuts();
   for (const button of shortcutRecordButtons) {
     renderShortcutButton(button.dataset.shortcutAction);
     button.addEventListener("click", () => startShortcutRecording(button.dataset.shortcutAction));
@@ -310,42 +254,13 @@ async function initializeShortcutSettings() {
   }
 }
 
-function streamSourceLabel(source: string) {
-  if (source === "guest") {
-    return "当前：游客直连";
-  }
-  return "当前：自动（游客优先，yt-dlp 兜底）";
-}
 
-function streamSourceDisabledHint() {
-  return "自动模式需在程序目录放置 yt-dlp.exe 后启用";
-}
 
-function updateStreamSourceAvailability() {
-  if (!streamSourceSelect) {
-    return;
-  }
-  const autoOption = streamSourceSelect.querySelector<HTMLOptionElement>('option[value="auto"]');
-  if (autoOption) {
-    autoOption.disabled = !ytDlpAvailable;
-    autoOption.title = ytDlpAvailable ? "" : streamSourceDisabledHint();
-  }
-}
 
-async function refreshYtDlpAvailability() {
-  if (!streamSourceSelect) {
-    return false;
-  }
-  try {
-    const status = await invokeAppearance("get_yt_dlp_availability");
-    ytDlpAvailable = Boolean(status?.available);
-  } catch (error) {
-    ytDlpAvailable = false;
-    console.warn("get_yt_dlp_availability failed:", error);
-  }
-  updateStreamSourceAvailability();
-  return ytDlpAvailable;
-}
+
+
+
+
 
 function formatPlaybackTime(value: number) {
   if (!Number.isFinite(value) || value < 0) {
@@ -713,13 +628,12 @@ function renderMascotPicker() {
 }
 
 function openSettings() {
-  settingsModal.hidden = false;
+  prepareSettingsPanel(settingsDom());
   restoreStreamSource();
   restoreAudioCacheSettings();
   refreshAudioCacheUsage();
   const { order, limit } = readShuffleCollectionPrefs();
-  shuffleCollectionOrder.value = order;
-  shuffleCollectionLimit.value = limit === 0 ? "all" : String(limit);
+  getSettingsActions().restoreCollection(order, limit === 0 ? "all" : String(limit));
   restoreAiConfig();
   renderMascotPicker();
   requestAnimationFrame(() => {
@@ -728,61 +642,11 @@ function openSettings() {
   });
 }
 
-async function restoreAudioCacheSettings() {
-  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
-  audioCacheStatusTimer = null;
-  audioCacheEnabled.disabled = true;
-  audioCacheCapacity.disabled = true;
-  audioCacheSettings = null;
-  try {
-    audioCacheSettings = await invokeAppearance("get_audio_cache_settings");
-    audioCacheEnabled.checked = audioCacheSettings.enabled;
-    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
-    audioCacheStatus.textContent = "";
-  } catch (error) {
-    audioCacheStatus.textContent = `缓存设置读取失败：${error}`;
-  } finally {
-    audioCacheEnabled.disabled = !audioCacheSettings;
-    audioCacheCapacity.disabled = !audioCacheSettings;
-  }
-}
+async function restoreAudioCacheSettings() { await getSettingsActions().restoreCache(); }
 
-async function refreshAudioCacheUsage() {
-  audioCacheUsage.textContent = "读取中…";
-  try {
-    const { bytes, items } = await invokeAppearance("get_audio_cache_usage");
-    const size = bytes === 0 ? "0 MB" : bytes < 1048576
-      ? "不足 1 MB" : `${(bytes / 1048576).toFixed(1)} MB`;
-    audioCacheUsage.textContent = `${size} · ${items} 首`;
-  } catch (error) {
-    audioCacheUsage.textContent = `读取失败：${error}`;
-  }
-}
+async function refreshAudioCacheUsage() { await getSettingsActions().refreshCacheUsage(); }
 
-async function saveAudioCacheSettings() {
-  if (!audioCacheSettings) return;
-  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
-  audioCacheStatusTimer = null;
-  audioCacheEnabled.disabled = true;
-  audioCacheCapacity.disabled = true;
-  try {
-    audioCacheSettings = await invokeAppearance("set_audio_cache_settings", {
-      enabled: audioCacheEnabled.checked,
-      maxBytes: Number(audioCacheCapacity.value),
-    });
-    audioCacheEnabled.checked = audioCacheSettings.enabled;
-    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
-    audioCacheStatus.textContent = "";
-    await refreshAudioCacheUsage();
-  } catch (error) {
-    audioCacheEnabled.checked = audioCacheSettings.enabled;
-    audioCacheCapacity.value = String(audioCacheSettings.maxBytes);
-    audioCacheStatus.textContent = `缓存设置保存失败：${error}`;
-  } finally {
-    audioCacheEnabled.disabled = false;
-    audioCacheCapacity.disabled = false;
-  }
-}
+async function saveAudioCacheSettings() { await getSettingsActions().saveCache(audioCacheEnabled.checked, Number(audioCacheCapacity.value)); }
 
 function closeSettings() {
   if (settingsModal.contains(document.activeElement)) {
@@ -818,40 +682,15 @@ function setActiveView(view: string) {
   );
 }
 
-function normalizeAccentColor(value: unknown): keyof typeof ACCENT_COLORS {
-  return typeof value === "string" && Object.hasOwn(ACCENT_COLORS, value) ? value as keyof typeof ACCENT_COLORS : "pink";
-}
-
 function readAccentColor() {
   try {
-    return normalizeAccentColor(localStorage.getItem(ACCENT_COLOR_KEY));
+    return normalizeSettingsAccent(readSettingsPreference(ACCENT_COLOR_KEY));
   } catch {
     return "pink";
   }
 }
 
-function accentChannels(color: unknown, theme: string | null | undefined) {
-  return ACCENT_COLORS[normalizeAccentColor(color)][theme === "light" ? "light" : "dark"];
-}
-
-function applyAccentColor(value: unknown, persist = true) {
-  const color = normalizeAccentColor(value);
-  currentAccentColor = color;
-  accentChannels(color, root.dataset.theme).forEach((channel, index) => {
-    root.style.setProperty(`--accent-${["r", "g", "b"][index]}`, String(channel));
-  });
-  for (const option of accentColorOptions) {
-    option.checked = option.value === color;
-    option.nextElementSibling.style.backgroundColor = `rgb(${accentChannels(option.value, root.dataset.theme).join(", ")})`;
-  }
-  if (persist) {
-    try {
-      localStorage.setItem(ACCENT_COLOR_KEY, color);
-    } catch {
-      // 存储不可用时仍保留本次运行的选择。
-    }
-  }
-}
+function applyAccentColor(value: unknown, persist = true) { getSettingsActions().setAccent(value, root.dataset.theme, persist); }
 
 function initializeAccentColor() {
   for (const option of accentColorOptions) {
@@ -859,227 +698,47 @@ function initializeAccentColor() {
   }
   applyAccentColor(readAccentColor(), false);
   // data-theme 的变更在下一次绘制前同步变体，不改主题切换与动态背景逻辑。
-  new MutationObserver(() => applyAccentColor(currentAccentColor, false))
+  new MutationObserver(() => applyAccentColor(getSettingsSnapshot().accentColor, false))
     .observe(root, { attributes: true, attributeFilter: ["data-theme"] });
 }
 
-function applyTheme(theme: string | null, persist = true) {
-  const safeTheme = (["dark", "light", "image", "dynamic"] as readonly (string | null)[]).includes(theme) ? String(theme) : "dark";
-  root.dataset.theme = safeTheme;
-  for (const option of themeOptions) {
-    const selected = option.dataset.themeOption === safeTheme;
-    option.classList.toggle("is-selected", selected);
-    option.setAttribute("aria-checked", String(selected));
-  }
-  for (const group of imageOnlyGroups) {
-    const visible = safeTheme === "image";
-    group.classList.toggle("is-disabled", !visible);
-  }
-  if (safeTheme === "dynamic") {
-    // 清除其它主题的内联值，让动态主题完全使用 CSS 固定参数。
-    for (const property of ["--glass-blur", "--panel-alpha", "--background-dim"]) {
-      root.style.removeProperty(property);
-    }
-  } else {
-    setGlassBlur(localStorage.getItem(GLASS_BLUR_KEY), false);
-    setPanelAlpha(localStorage.getItem(PANEL_ALPHA_KEY), false);
-    setBackgroundDim(localStorage.getItem(BACKGROUND_DIM_KEY), false);
-  }
-  if (persist) {
-    localStorage.setItem(THEME_KEY, safeTheme);
-  }
-}
+function applyTheme(theme: string | null, persist = true) { getSettingsActions().setTheme(theme, persist); }
 
-function setGlassBlur(value: unknown, persist = true) {
-  const safeValue = clampNumber(value, 0, 80, 40);
-  root.style.setProperty("--glass-blur", `${safeValue}px`);
-  glassBlurSlider.value = String(safeValue);
-  glassBlurValue.textContent = `${safeValue}px`;
-  if (persist) {
-    localStorage.setItem(GLASS_BLUR_KEY, String(safeValue));
-  }
-}
+function setGlassBlur(value: unknown, persist = true) { getSettingsActions().setSlider("blur", value, persist); }
 
-function setPanelAlpha(value: unknown, persist = true) {
-  panelAlphaSlider.min = "20";
-  const safeValue = clampNumber(value, 20, 100, 72);
-  root.style.setProperty("--panel-alpha", String(safeValue / 100));
-  panelAlphaSlider.value = String(safeValue);
-  panelAlphaValue.textContent = `${safeValue}%`;
-  if (persist) {
-    localStorage.setItem(PANEL_ALPHA_KEY, String(safeValue));
-  }
-}
+function setPanelAlpha(value: unknown, persist = true) { getSettingsActions().setSlider("alpha", value, persist); }
 
-function setBackgroundDim(value: unknown, persist = true) {
-  backgroundDimSlider.min = "40";
-  const safeValue = clampNumber(value, 40, 95, 90);
-  root.style.setProperty("--background-dim", String(safeValue / 100));
-  backgroundDimSlider.value = String(safeValue);
-  backgroundDimValue.textContent = `${safeValue}%`;
-  if (persist) {
-    localStorage.setItem(BACKGROUND_DIM_KEY, String(safeValue));
-  }
-}
+function setBackgroundDim(value: unknown, persist = true) { getSettingsActions().setSlider("dim", value, persist); }
 
-function applyBackground(image: CommandContract.BackgroundImage) {
-  root.style.setProperty("--app-background", `url("${image.dataUrl}")`);
-  backgroundName.textContent = `${image.displayName} · ${image.width}×${image.height}`;
-  backgroundName.title = image.path;
-}
+function resetBackground({ clearStorage = true } = {}) { getSettingsActions().resetBackground({ clearStorage }); }
 
-function resetBackground({ clearStorage = true } = {}) {
-  root.style.removeProperty("--app-background");
-  backgroundName.textContent = "使用默认背景";
-  backgroundName.removeAttribute("title");
-  appearanceStatus.textContent = "";
-  if (clearStorage) {
-    localStorage.removeItem(BACKGROUND_PATH_KEY);
-  }
-}
+async function restoreBackground() { await getSettingsActions().restoreBackground(); }
 
-async function restoreBackground() {
-  const path = localStorage.getItem(BACKGROUND_PATH_KEY);
-  if (!path) {
-    return;
-  }
+async function restoreStreamSource() { if (streamSourceSelect) await getSettingsActions().restoreSource(); }
 
-  appearanceStatus.textContent = "正在恢复背景…";
-  try {
-    const image = await invokeAppearance("load_background_image", { path });
-    applyBackground(image);
-    appearanceStatus.textContent = "";
-  } catch (error) {
-    resetBackground();
-    appearanceStatus.textContent = `背景已回退为默认：${error}`;
-  }
-}
 
-async function restoreStreamSource() {
-  if (!streamSourceSelect) {
-    return;
-  }
 
-  try {
-    await refreshYtDlpAvailability();
-    let source = await invokeAppearance("get_stream_source");
-    if (source === "yt-dlp" || (source === "auto" && !ytDlpAvailable)) {
-      source = await invokeAppearance("set_stream_source", { source: "guest" });
-    }
-    streamSourceSelect.value = source === "auto" && ytDlpAvailable ? "auto" : "guest";
-    streamSourceStatus.textContent =
-      source === "auto" && ytDlpAvailable
-        ? streamSourceLabel("auto")
-        : ytDlpAvailable
-          ? streamSourceLabel("guest")
-          : `${streamSourceLabel("guest")}；${streamSourceDisabledHint()}`;
-  } catch (error) {
-    streamSourceStatus.textContent = `取流方案读取失败：${error}`;
-  }
-}
 
-function updateAiConfigStatus(config: CommandContract.AiConfigView) {
-  if (!aiConfigStatus) {
-    return;
-  }
-  const keyText = config?.hasKey
-    ? `API Key 已配置${config.keyHint ? `（${config.keyHint}）` : ""}`
-    : "API Key 未配置";
-  aiConfigStatus.textContent = keyText;
-}
-
-const AI_BASE_URL_PLACEHOLDERS: Partial<Record<string, string>> & { "openai-chat-completions": string } = {
-  "openai-chat-completions": "https://api.openai.com/v1",
-  "openai-responses": "https://api.openai.com/v1",
-  "anthropic-messages": "https://api.anthropic.com/v1",
-};
-
-function updateAiBaseUrlPlaceholder() {
-  if (!aiBaseUrlInput || !aiApiFormatSelect) {
-    return;
-  }
-  aiBaseUrlInput.placeholder =
-    AI_BASE_URL_PLACEHOLDERS[aiApiFormatSelect.value] ?? AI_BASE_URL_PLACEHOLDERS["openai-chat-completions"];
-}
+function updateAiBaseUrlPlaceholder() { if (aiBaseUrlInput && aiApiFormatSelect) getSettingsActions().setAiFormat(aiApiFormatSelect.value); }
 
 function selectedAiApiFormat() {
   return aiApiFormatSelect?.value ?? "openai-chat-completions";
 }
 
 async function restoreAiConfig() {
-  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !aiConfigStatus) {
-    return;
-  }
-
-  aiConfigStatus.textContent = "正在读取 AI 配置…";
-  try {
-    const config = await invokeAppearance("get_ai_config");
-    aiApiFormatSelect.value = config.apiFormat ?? "openai-chat-completions";
-    updateAiBaseUrlPlaceholder();
-    aiBaseUrlInput.value = config.baseUrl ?? "";
-    aiModelInput.value = config.model ?? "";
-    aiApiKeyInput.value = "";
-    updateAiConfigStatus(config);
-  } catch (error) {
-    aiConfigStatus.textContent = `AI 配置读取失败：${error}`;
-  }
+  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !aiConfigStatus) return;
+  await getSettingsActions().restoreAi();
 }
 
 async function saveAiConfig() {
-  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) {
-    return;
-  }
-
-  saveAiConfigButton.disabled = true;
-  aiConfigStatus.textContent = "正在验证并保存 AI 配置…";
-  try {
-    const test = await invokeAppearance("test_ai_connection", {
-      apiFormat: selectedAiApiFormat(),
-      baseUrl: aiBaseUrlInput.value,
-      model: aiModelInput.value,
-      apiKey: aiApiKeyInput.value,
-    });
-    if (!test.ok) {
-      aiConfigStatus.textContent = `连接测试未通过，未保存：${test.message}`;
-      return;
-    }
-    const config = await invokeAppearance("set_ai_config", {
-      apiFormat: selectedAiApiFormat(),
-      baseUrl: aiBaseUrlInput.value,
-      model: aiModelInput.value,
-      apiKey: aiApiKeyInput.value,
-    });
-    aiApiKeyInput.value = "";
-    updateAiConfigStatus(config);
-    aiConfigStatus.textContent = "连接正常，配置已保存。";
-    window.dispatchEvent(new Event("ai-config-updated"));
-  } catch (error) {
-    aiConfigStatus.textContent = `AI 配置保存失败：${error}`;
-  } finally {
-    saveAiConfigButton.disabled = false;
-  }
+  if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) return;
+  const input = () => ({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: aiApiKeyInput.value });
+  await getSettingsActions().saveAi(input(), input, () => window.dispatchEvent(new Event("ai-config-updated")));
 }
 
 async function testAiConnection() {
-  if (!testAiConnectionButton || !aiConfigStatus || !aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) {
-    return;
-  }
-
-  testAiConnectionButton.disabled = true;
-  aiConfigStatus.textContent = "正在测试 AI 连接…";
-  try {
-    const result = await invokeAppearance("test_ai_connection", {
-      apiFormat: selectedAiApiFormat(),
-      baseUrl: aiBaseUrlInput.value,
-      model: aiModelInput.value,
-      apiKey: aiApiKeyInput.value,
-    });
-    aiConfigStatus.textContent = result.ok ? "AI 连接正常。" : `AI 连接失败：${result.message}`;
-  } catch (error) {
-    aiConfigStatus.textContent = `AI 连接测试失败：${error}`;
-  } finally {
-    testAiConnectionButton.disabled = false;
-  }
+  if (!testAiConnectionButton || !aiConfigStatus || !aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) return;
+  await getSettingsActions().testAi({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: aiApiKeyInput.value });
 }
 
 async function openCurrentBilibiliVideo() {
@@ -1185,11 +844,7 @@ for (const item of navItems) {
 
 openSettingsButton.addEventListener("click", openSettings);
 closeSettingsButton.addEventListener("click", closeSettings);
-settingsModal.addEventListener("transitionend", (event) => {
-  if (event.target === settingsModal && !settingsModal.classList.contains("is-open")) {
-    settingsModal.hidden = true;
-  }
-});
+settingsModal.addEventListener("transitionend", (event) => finishSettingsPanelTransition(event, settingsDom()));
 settingsModal.addEventListener("click", (event) => {
   if (event.target === settingsModal) {
     closeSettings();
@@ -1204,53 +859,14 @@ glassBlurSlider.addEventListener("input", () => setGlassBlur(glassBlurSlider.val
 panelAlphaSlider.addEventListener("input", () => setPanelAlpha(panelAlphaSlider.value));
 backgroundDimSlider.addEventListener("input", () => setBackgroundDim(backgroundDimSlider.value));
 
-chooseBackgroundButton.addEventListener("click", async () => {
-  chooseBackgroundButton.disabled = true;
-  appearanceStatus.textContent = "正在处理图片…";
-  try {
-    const image = await invokeAppearance("choose_background_image");
-    if (!image) {
-      appearanceStatus.textContent = "";
-      return;
-    }
-    applyBackground(image);
-    localStorage.setItem(BACKGROUND_PATH_KEY, image.path);
-    applyTheme("image");
-    appearanceStatus.textContent = "背景已保存。";
-  } catch (error) {
-    appearanceStatus.textContent = `背景设置失败：${error}`;
-  } finally {
-    chooseBackgroundButton.disabled = false;
-  }
-});
+chooseBackgroundButton.addEventListener("click", async () => { await getSettingsActions().chooseBackground(); });
 
 resetBackgroundButton.addEventListener("click", () => resetBackground());
 saveAiConfigButton?.addEventListener("click", saveAiConfig);
 testAiConnectionButton?.addEventListener("click", testAiConnection);
 aiApiFormatSelect?.addEventListener("change", updateAiBaseUrlPlaceholder);
 
-streamSourceSelect?.addEventListener("change", async () => {
-  if (streamSourceSelect.value === "auto" && !ytDlpAvailable) {
-    streamSourceSelect.value = "guest";
-    streamSourceStatus.textContent = `${streamSourceLabel("guest")}；${streamSourceDisabledHint()}`;
-    return;
-  }
-
-  streamSourceSelect.disabled = true;
-  streamSourceStatus.textContent = "正在切换取流方案…";
-  try {
-    const source = await invokeAppearance("set_stream_source", {
-      source: streamSourceSelect.value,
-    });
-    streamSourceSelect.value = source;
-    streamSourceStatus.textContent = streamSourceLabel(source);
-  } catch (error) {
-    streamSourceStatus.textContent = `取流方案切换失败：${error}`;
-    await restoreStreamSource();
-  } finally {
-    streamSourceSelect.disabled = false;
-  }
-});
+streamSourceSelect?.addEventListener("change", async () => { await getSettingsActions().changeSource(streamSourceSelect.value); });
 
 audioCacheEnabled?.addEventListener("change", saveAudioCacheSettings);
 audioCacheCapacity?.addEventListener("change", saveAudioCacheSettings);
@@ -1259,44 +875,22 @@ for (const [select, key] of [
   [shuffleCollectionLimit, SHUFFLE_COLLECTION_LIMIT_KEY],
 ] as [HTMLSelectElement, string][]) {
   select.addEventListener("change", () => {
-    try {
-      localStorage.setItem(key, select.value);
-    } catch (error) {
-      appearanceStatus.textContent = `随机播放设置保存失败：${error}`;
-    }
+    getSettingsActions().saveCollection(key === SHUFFLE_COLLECTION_ORDER_KEY ? "order" : "limit", select.value);
   });
 }
-clearAudioCacheButton?.addEventListener("click", async () => {
-  if (audioCacheStatusTimer !== null) clearTimeout(audioCacheStatusTimer);
-  audioCacheStatusTimer = null;
-  clearAudioCacheButton.disabled = true;
-  audioCacheStatus.textContent = "正在清空缓存…";
-  try {
-    await invokeAppearance("clear_audio_cache");
-    await refreshAudioCacheUsage();
-    audioCacheStatus.textContent = "缓存已清空";
-    audioCacheStatusTimer = setTimeout(() => {
-      audioCacheStatus.textContent = "";
-      audioCacheStatusTimer = null;
-    }, 3000);
-  } catch (error) {
-    audioCacheStatus.textContent = `清空缓存失败：${error}`;
-  } finally {
-    clearAudioCacheButton.disabled = false;
-  }
-});
+clearAudioCacheButton?.addEventListener("click", async () => { await getSettingsActions().clearCache(); });
 window.addEventListener("bilibili-music-audio-cache-updated", () => {
   if (settingsModal.classList.contains("is-open")) refreshAudioCacheUsage();
 });
 
 clearSearchHistoryButton?.addEventListener("click", async () => {
   clearSearchHistoryButton.disabled = true;
-  appearanceStatus.textContent = "正在清空搜索历史…";
+  getSettingsActions().setNotice("正在清空搜索历史…");
   try {
     await invokeAppearance("clear_search_history");
-    appearanceStatus.textContent = "搜索历史已清空。";
+    getSettingsActions().setNotice("搜索历史已清空。");
   } catch (error) {
-    appearanceStatus.textContent = `清空搜索历史失败：${error}`;
+    getSettingsActions().setNotice(`清空搜索历史失败：${error}`);
   } finally {
     clearSearchHistoryButton.disabled = false;
   }
@@ -1306,9 +900,9 @@ exportDataButton.addEventListener("click", async () => {
   exportDataButton.disabled = true;
   try {
     const saved = await invokeAppearance("export_data");
-    appearanceStatus.textContent = saved ? `已导出到：${saved}` : "";
+    getSettingsActions().setNotice(saved ? `已导出到：${saved}` : "");
   } catch (error) {
-    appearanceStatus.textContent = `导出失败：${error}`;
+    getSettingsActions().setNotice(`导出失败：${error}`);
   } finally {
     exportDataButton.disabled = false;
   }
@@ -1322,13 +916,13 @@ importDataButton.addEventListener("click", async () => {
     const result = await invokeAppearance("import_data");
     if (result) {
       try { sessionStorage.setItem("bili-music-import-result", result); } catch {}
-      appearanceStatus.textContent = `${result} 正在刷新…`;
+      getSettingsActions().setNotice(`${result} 正在刷新…`);
       window.location.reload();
       return;
     }
-    appearanceStatus.textContent = "";
+    getSettingsActions().setNotice("");
   } catch (error) {
-    appearanceStatus.textContent = String(error);
+    getSettingsActions().setNotice(String(error));
   }
   importDataButton.disabled = false;
 });
@@ -1459,7 +1053,7 @@ playerAudio.addEventListener("emptied", () => {
 
 initializeAccentColor();
 initializeShortcutSettings();
-applyTheme(localStorage.getItem(THEME_KEY), false);
+applyTheme(readSettingsPreference(THEME_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);
 initializeLoudnessNormalization();
 updateProgress(0);
@@ -1473,7 +1067,7 @@ void restoreBackground().finally(() => {
     const importResult = sessionStorage.getItem("bili-music-import-result");
     if (importResult) {
       sessionStorage.removeItem("bili-music-import-result");
-      appearanceStatus.textContent = importResult;
+      getSettingsActions().setNotice(importResult);
     }
   } catch {}
 });
@@ -1481,3 +1075,5 @@ restoreStreamSource();
 }
 
 export { isLoudnessNormalizationEnabled, setNormalizationGain, startAppearance };
+
+export type { SettingsDom };
