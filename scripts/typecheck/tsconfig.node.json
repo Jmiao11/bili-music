@@ -53,6 +53,7 @@
     "../../tests/helpers/typescript-source.ts",
     "../../tests/last-search-restore.test.ts",
     "../../tests/loudness-normalization.test.ts",
+    "../../tests/playback-volume-characterization.test.ts",
     "../../tests/lufs-gain-fixture.test.ts",
     "../../tests/media-session-actions.test.ts",
     "../../tests/mini-player-config.test.ts",
