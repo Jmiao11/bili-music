@@ -1042,6 +1042,22 @@ mod tests {
     }
 
     #[test]
+    fn key_hint_preserves_four_bullets_and_last_four_unicode_characters() {
+        for (key, expected) in [
+            ("", None),
+            ("a", Some("••••a")),
+            ("ab", Some("••••ab")),
+            ("abc", Some("••••abc")),
+            ("abcd", Some("••••abcd")),
+            ("prefix-1234", Some("••••1234")),
+            ("prefix-甲乙丙丁", Some("••••甲乙丙丁")),
+            ("prefix-甲😀乙🎵", Some("••••甲😀乙🎵")),
+        ] {
+            assert_eq!(key_hint(key).as_deref(), expected);
+        }
+    }
+
+    #[test]
     fn bad_ai_config_file_returns_error_without_overwriting() {
         let path = unique_temp_path("bad-file");
         fs::write(&path, "{ not json").unwrap();

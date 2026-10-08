@@ -543,7 +543,7 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     }
   }
   function configText(config: CommandContract.AiConfigView): string {
-    const hint = /^\*{3,}[\w-]{0,8}$/.test(config.keyHint ?? "") ? config.keyHint : "";
+    const hint = config.keyHint;
     return config.hasKey ? `API Key 已配置${hint ? `（${hint}）` : ""}` : "API Key 未配置";
   }
   function publicAi(input: {
