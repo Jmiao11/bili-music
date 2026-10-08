@@ -132,7 +132,34 @@ function renderSettingsSnapshot(state: SettingsSnapshot, previous: SettingsSnaps
   if (ai.saveDisabled !== null && ai.saveDisabled !== before?.ai.saveDisabled) dom.saveAiConfigButton.disabled = ai.saveDisabled;
   if (ai.testDisabled !== null && ai.testDisabled !== before?.ai.testDisabled) dom.testAiConnectionButton.disabled = ai.testDisabled;
   if (ai.placeholderVersion && ai.placeholderVersion !== before?.ai.placeholderVersion) dom.aiBaseUrlInput.placeholder = state.ai.apiFormat === "anthropic-messages" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1";
-
+  const session = state.session;
+  if (session.navigationVersion && session.navigationVersion !== previous?.session.navigationVersion) {
+    for (const item of dom.navItems) item.classList.toggle("active", item.dataset.view === session.currentView);
+    const realViews: Partial<Record<string, HTMLElement>> = {
+      home: dom.homeView, search: dom.searchView, favorites: dom.favoritesView, playlists: dom.playlistsView
+    };
+    for (const [name, element] of Object.entries(realViews)) {
+      if (!element) continue;
+      element.hidden = name !== session.currentView;
+      element.classList.toggle("is-active", name === session.currentView);
+    }
+    const real = session.currentView ? realViews[session.currentView] : null;
+    dom.placeholderView.hidden = Boolean(real);
+    if (!real) dom.placeholderTitle.textContent = session.placeholderTitle;
+  }
+  if (session.panelVersion && session.panelVersion !== previous?.session.panelVersion) {
+    if (session.panelOpen) requestAnimationFrame(() => {
+      dom.settingsModal.classList.add("is-open");
+      dom.settingsModal.setAttribute("aria-hidden", "false");
+    });
+    else {
+      if (dom.settingsModal.contains(document.activeElement)) dom.openSettingsButton.focus({
+        preventScroll: true
+      });
+      dom.settingsModal.classList.remove("is-open");
+      dom.settingsModal.setAttribute("aria-hidden", "true");
+    }
+  }
 }
 function finishSettingsPanelTransition(event: TransitionEvent, dom: SettingsDom): void {
   if (event.target === dom.settingsModal && !dom.settingsModal.classList.contains("is-open")) dom.settingsModal.hidden = true;

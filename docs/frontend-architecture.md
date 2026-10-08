@@ -26,10 +26,10 @@
 | video-pages.ts | ES Module | 分 P 查询调度、角标与弹窗。 |
 | search.ts | ES Module | 搜索、结果渲染、分区与分页。 |
 | main.ts | ES Module | 组合根：显式导入、原位调用 init、页面级监听和启动尾部，不再导出业务名字。 |
-| settings-state.ts | ES Module | 设置与外观的纯状态和动作，不保存 API Key。 |
+| settings-state.ts | ES Module | 设置、外观与页面会话的纯状态和动作，不保存 API Key。 |
 | settings-adapter.ts | ES Module | 存储读写、合集偏好规范化读取及缓存提示计时器。 |
 | settings-view.ts | ES Module | 设置、外观与页面会话的只读 DOM/CSS 渲染、焦点及动画。 |
-| appearance.ts | ES Module | 设置控制器及页面会话和原位监听；保留音量、响度、沉浸页逻辑。 |
+| appearance.ts | ES Module | 设置控制器及原位监听；保留音量、响度、沉浸页逻辑。 |
 | lyrics.ts | 普通 defer 脚本 | 歌词显示及事件交互。 |
 | mascot.ts | 普通 defer 脚本 | 吉祥物及 window.BiliMascot API。 |
 | mini-player-host.ts | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
@@ -258,7 +258,7 @@ video-pages 保留 IntersectionObserver、观察/可见节点、缓存查询节�
 
 应用 store 的 settings 分片保存主题、强调色、背景元信息及 data URL、三个滑块、取流来源与可用性、缓存设置、合集随机偏好、五项快捷键及录制目标。ai 只保存接口格式、地址、模型、hasKey 与请求阶段；API Key 仅作为动作参数短暂传给命令，不进入快照或 view，命令返回或异常中的参数密钥会被隐去。保存操作在连接测试成功后仍再次读取输入，保留原来的读取时机；ai-config-updated 仍在清空输入、更新提示之后和解除保存忙态之前派发。
 
-导航、占位文案与设置面板会话仍留在 appearance 控制器，下一提交单独迁移。renderer 只读快照，版本或对象引用表示原代码需要重写 DOM 的时机；取流选择值使用独立版本，保证用户改动输入草稿后仍能恢复相同的状态值。首屏由控制器显式读取，初始投影不提前写 DOM。主题在原启动调用处应用，三个滑块按原顺序读取并应用，动态主题只清除三个内联属性。背景、缓存、取流、快捷键和 AI 命令通过注入适配器调用，存储键和值格式保持原样。
+settings.session 保存导航页面、占位文案和设置面板开关。renderer 只读快照，版本或对象引用表示原代码需要重写 DOM 的时机；取流选择值使用独立版本，保证用户改动输入草稿后仍能恢复相同的状态值。首屏由控制器显式读取，初始投影不提前写 DOM。主题在原启动调用处应用，三个滑块按原顺序读取并应用，动态主题只清除三个内联属性。背景、缓存、取流、快捷键和 AI 命令通过注入适配器调用，存储键和值格式保持原样。
 
 appearance 保留事件安装位置、MutationObserver、键盘事件解析、背景与设置输入读取、导航事件派发；settings-view 保留 DOM/CSS、焦点和动画。缓存提示计时器留在 settings-adapter，state 仅接收清除回调。playback-policy 每次仍读取存储中的合集偏好，经 settings-adapter 规范化后使用，不改为复用旧快照。迷你窗继续观察原根节点属性，未改变同步时机；音量、响度和沉浸页仍留在原控制器中。
 

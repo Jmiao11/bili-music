@@ -58,7 +58,9 @@ test("settings AI save and connection tests serialize every snapshot without tem
   const h = fixture(), secret = "state6-synthetic-api-key-private", second = "state6-replaced-api-key-private", serialized: string[] = [];
   const capture = () => { const json = JSON.stringify(h.store.getState()); serialized.push(json); assert.equal(json.includes(secret), false); assert.equal(json.includes(second), false); }; capture(); h.store.subscribe(capture);
   const input = { apiFormat: "openai-chat-completions", baseUrl: "loopback", model: "模型", apiKey: secret };
-  h.reply(async command => command === "test_ai_connection" ? { ok: true, message: secret } : { hasKey: true, keyHint: secret }); let eventBusy: boolean | null = null;
+  // ai.rs:182-191,878-886: set_ai_config returns a view with a four-bullet suffix hint.
+  // Deliberately taint connection messages/exceptions below to prove argument-secret redaction.
+  h.reply(async command => command === "test_ai_connection" ? { ok: true, message: secret } : { hasKey: true, keyHint: "••••" + [...second].slice(-4).join("") }); let eventBusy: boolean | null = null;
   await h.actions.saveAi(input, () => ({ ...input, apiKey: second }), () => { eventBusy = h.read().view.ai.saveDisabled; }); assert.equal(eventBusy, true); assert.equal(h.read().view.ai.clearKeyVersion, 1); assert.equal(h.read().ai.hasKey, true); assert.equal(h.read().view.ai.saveDisabled, false);
   assert.equal((h.calls.at(-1)!.args as { apiKey: string }).apiKey, second);
   h.reply(async () => ({ ok: false, message: secret })); await h.actions.saveAi(input); await h.actions.testAi(input); assert.match(h.read().view.ai.text!, /已隐藏/); assert.equal(h.read().view.ai.clearKeyVersion, 1);
@@ -75,3 +77,7 @@ test("settings AI save rereads input after connection succeeds without retaining
   for (const json of snapshots) { assert.equal(json.includes(secret), false); assert.equal(json.includes(later), false); }
 });
 
+test("settings page session actions retain navigation and panel versions without platform access", () => {
+  const h = fixture(), initial = h.read(); h.actions.navigate("local"); const local = h.read(); h.actions.navigate("home"); h.actions.panel(true); h.actions.panel(false);
+  assert.equal(initial.session.currentView, "home"); assert.equal(local.session.placeholderTitle, "本地音乐开发中"); assert.equal(h.read().session.currentView, "home"); assert.equal(h.read().session.navigationVersion, 2); assert.equal(h.read().session.panelVersion, 2); assert.equal(h.read().session.panelOpen, false);
+});
