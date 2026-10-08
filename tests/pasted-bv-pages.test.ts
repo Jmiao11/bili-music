@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -7,7 +8,7 @@ import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const helper = sourceSlice(readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8"), "ui/track-utils.ts", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
-const context = vm.createContext({});
+const context = createQueueContext({});
 vm.runInContext(helper, context);
 const shouldOpen = vm.runInContext("shouldOpenPastedBvPages", context);
 const pending = { bvid: "BV1GF4X6MEb1", requestVersion: 7 };
@@ -15,7 +16,7 @@ const pending = { bvid: "BV1GF4X6MEb1", requestVersion: 7 };
 test("failed page loading notices only the current request while keeping single-page fallback", async () => {
   const notices: string[] = [];
   const state = { requestVersion: 7, currentPages: [{ cid: 1 }] };
-  const app = vm.createContext({
+  const app = createQueueContext({
     playerState: state,
     invoke: async () => { throw new Error("view failed"); },
     resetCurrentPageState: () => { state.currentPages = []; },
@@ -58,7 +59,7 @@ function eventContext() {
   const playerState = { requestVersion: 7, currentPages: [{}, {}], consecutiveResolveFailures: 0 };
   let currentBvid = pending.bvid;
   let opened = 0;
-  const app = vm.createContext({
+  const app = createQueueContext({
     playerState,
     window: { addEventListener: (name: string, handler: (...args: unknown[]) => unknown) => handlers.set(name, handler) },
     currentPlayableTrack: () => ({ bvid: currentBvid }),

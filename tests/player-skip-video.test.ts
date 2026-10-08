@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -21,7 +22,7 @@ test("page group is visible only with a current multi-page track", () => {
   const playerPagesButton: { hidden: boolean; textContent?: string; setAttribute(name: string, value: unknown): void } = { hidden: true, setAttribute(this: Record<string, unknown>, name: string, value: unknown) { this[name] = value; } };
   const playerPagesGroup = { hidden: true };
   const state = { queue: [{}], currentIndex: -1, currentPages: [{}, {}], currentPageIndex: 1 };
-  const context = vm.createContext({ playerState: state, playerPagesButton, playerPagesGroup });
+  const context = createQueueContext({ playerState: state, playerPagesButton, playerPagesGroup });
   vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function updatePlayerPagesButton(", "async function loadPagesForCurrentVideo("), context);
   context.updatePlayerPagesButton();
   assert.equal(playerPagesGroup.hidden, true);
@@ -42,7 +43,7 @@ test("skip video calls playNext directly and clears state only on a successful s
   const handlers: Record<string, (...args: unknown[]) => unknown> = {};
   const calls: unknown[][] = [];
   let nextSucceeds = true;
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerPagesButton: { addEventListener() {} },
     openCurrentPagesModal() {},
     skipVideoButton: { addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { handlers.skip = handler; } },

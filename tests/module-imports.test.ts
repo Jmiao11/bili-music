@@ -7,10 +7,11 @@ import { moduleDeclarations } from "./helpers/module-syntax.ts";
 import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const moduleOrder = ["playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","home-view.ts","home.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts"];
+const moduleOrder = ["playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","home-view.ts","home.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
+  ["playback-queue-state.ts:result", "shuffled local array"],
   ["settings-state.ts:result", "local command and redaction results"],
   ["settings-state.ts:source", "stream source parameter and response"],
   ["library-state.ts:title", "open modal title parameter"],
@@ -19,7 +20,6 @@ const localCollisions = new Map([
   ["library-view.ts:libraryState", "readonly render function snapshot parameter"],
   ["library-view.ts:title", "purge row title element"],
   ["track-utils.ts:result", "unavailableTrackLocations local Map"],
-  ["playback-policy.ts:result", "shuffled local array"],
   ["home-view.ts:title", "showHomeNotice parameter"],
   ["library-ui.ts:result", "toggle, purge and favorite-import local results"],
   ["pages-view.ts:currentTrack", "renderPagesModal readonly player projection"],

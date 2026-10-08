@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -76,7 +77,7 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
     callback(now);
     return id;
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerAudio, audio: playerAudio, volumeSlider: { value: "1" }, loudnessNormalizationToggle: { checked: false },
     playerState: state, currentVideoPage: () => state.currentPages[0], currentAudioCacheCid: () => state.currentPages[0]?.cid,
     currentTrackSnapshot: () => ({
@@ -116,7 +117,7 @@ function setupLoudnessDialogToggle(checked: boolean) {
       if (type === "change") listeners.push(listener);
     },
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     LOUDNESS_NORMALIZATION_KEY: settingKey,
     loudnessNormalizationToggle,
     setNormalizationGain: () => calls.push("gain"),
@@ -443,7 +444,7 @@ test("loudness explanation acknowledge button closes the shared dialog", () => {
   const body = fakeElement("div");
   const opens: { title: string; subtitle: string }[] = [];
   let closes = 0;
-  const context = vm.createContext({
+  const context = createQueueContext({
     document: { createElement: fakeElement },
     libraryModalBody: body,
     openLibraryModal: (title: string, subtitle: string) => opens.push({ title, subtitle }),

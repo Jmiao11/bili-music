@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { getEventListeners } from "node:events";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -17,7 +18,6 @@ const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState ="
   + "const libraryState = initialLibraryState();\n";
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
-  + sourceSlice(policy, "ui/playback-policy.ts", "function shuffled(", "function readShuffleCollectionPrefs(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")
   + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
@@ -73,7 +73,7 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
     disabled: false, hidden: false, value: "", textContent: "", dataset: {},
     style: { setProperty() {} }, setAttribute() {},
   });
-  const context = vm.createContext({
+  const context = createQueueContext({
     Event, CustomEvent: class extends Event { declare detail: unknown; constructor(type: string, options: { detail?: unknown }) { super(type); this.detail = options.detail; } },
     audio, HTMLMediaElement: { HAVE_METADATA: 1 }, performance: { now: () => 100 },
     window: { recordPlaybackDiag() {}, dispatchEvent: (event: Event) => events.push(event) },

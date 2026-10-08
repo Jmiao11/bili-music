@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -10,7 +11,7 @@ const helpers = sourceSlice(source, "ui/playback-core.ts", "function hasMultiple
 assert.ok(helpers.includes("function currentAudioCacheCid()"));
 
 function cacheCid(currentPages: { cid: number }[], currentPageIndex = 0) {
-  const context = vm.createContext({ playerState: { currentPages, currentPageIndex } });
+  const context = createQueueContext({ playerState: { currentPages, currentPageIndex } });
   vm.runInContext(helpers, context);
   return context.currentAudioCacheCid();
 }

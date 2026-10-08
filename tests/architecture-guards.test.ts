@@ -19,7 +19,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["playback-display-state.ts", "playback-display-view.ts", "playback-settings-state.ts", "media-adapter.ts", "playback-settings-view.ts", "settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
+const splitScripts = ["playback-queue-state.ts", "playback-display-state.ts", "playback-display-view.ts", "playback-settings-state.ts", "media-adapter.ts", "playback-settings-view.ts", "settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);

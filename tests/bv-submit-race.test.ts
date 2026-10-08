@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
@@ -22,7 +23,7 @@ test("reverse cancellation completion plays only the latest submitted BV", async
   let submit: ((event: { preventDefault(): void }) => Promise<void>) | undefined;
   const searchKeyword = { value: "BV0000000001" };
   const searchStatus = { textContent: "" };
-  const context = vm.createContext({
+  const context = createQueueContext({
     searchForm: { addEventListener(type: string, handler: (event: { preventDefault(): void }) => Promise<void>) { assert.equal(type, "submit"); submit = handler; } },
     searchKeyword, searchStatus, searchState: { requestVersion: 0 }, playerState: { requestVersion: 10 },
     pendingPastedBvPages: null,

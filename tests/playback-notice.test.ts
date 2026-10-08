@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -20,7 +21,7 @@ function setup() {
     add: (x => classes.add(x)) as (x: string) => Set<string>, remove: (x => classes.delete(x)) as (x: string) => boolean, contains: (x => classes.has(x)) as (x: string) => boolean,
   } };
   const events: string[] = [];
-  const context = vm.createContext({
+  const context = createQueueContext({
     playbackNotice: notice, playbackNoticeTimer: null, SKIP_NOTICE_DURATION_MS: 3200,
     resumePlayPauseButton: { getBoundingClientRect: () => ({ left: 970, width: 60 }) },
     result: {}, ResizeObserver: class { observe() {} },

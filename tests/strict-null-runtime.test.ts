@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -14,7 +15,7 @@ function slice(file: string, start: string | null, end: string) {
 test("theme defaults preserve null, invalid values and all supported themes", () => {
   const root = { dataset: {} as Record<string, string>, style: { removeProperty() {} } };
   const writes: [string, unknown][] = [];
-  const context = vm.createContext({ root, themeOptions: [], imageOnlyGroups: [], THEME_KEY: "theme", GLASS_BLUR_KEY: "blur", PANEL_ALPHA_KEY: "alpha", BACKGROUND_DIM_KEY: "dim",
+  const context = createQueueContext({ root, themeOptions: [], imageOnlyGroups: [], THEME_KEY: "theme", GLASS_BLUR_KEY: "blur", PANEL_ALPHA_KEY: "alpha", BACKGROUND_DIM_KEY: "dim",
     localStorage: { getItem: () => null, setItem: (key: string, value: unknown) => writes.push([key, value]) },
     setGlassBlur() {}, setPanelAlpha() {}, setBackgroundDim() {},
   });
@@ -32,7 +33,7 @@ test("restoring cache settings cancels the active timer and preserves the null t
   for (const timer of [null, 21]) {
     const cancelled: (number | null)[] = [];
     const settings = { enabled: true, maxBytes: 1024 };
-    const context = vm.createContext({ audioCacheStatusTimer: timer, audioCacheSettings: null,
+    const context = createQueueContext({ audioCacheStatusTimer: timer, audioCacheSettings: null,
       audioCacheEnabled: {}, audioCacheCapacity: {}, audioCacheStatus: {},
       clearTimeout: (id: number | null) => { if (id !== null) cancelled.push(id); },
       invokeAppearance: async () => settings,
@@ -58,7 +59,7 @@ test("native list drag handlers preserve transfers and ignore unsupported null t
       classList: { add() {}, remove() {} } };
     const state: { saving: boolean; drag: { index: number } | null } = { saving: false, drag: null };
     const kind = stateName === "favoriteDragState" ? "favorites" : stateName === "playlistDragState" ? "playlistItems" : "playlists";
-    const context = vm.createContext({ getLibrarySnapshot: () => ({ drags: { [kind]: state } }),
+    const context = createQueueContext({ getLibrarySnapshot: () => ({ drags: { [kind]: state } }),
       finishFavoriteDrag() {}, finishPlaylistDrag() {}, finishPlaylistListDrag() {},
     });
     vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/library-state.ts"), "utf8"), context);
@@ -89,7 +90,7 @@ test("native list drag handlers preserve transfers and ignore unsupported null t
 });
 
 test("window control target handling keeps native element matches and ignores null targets", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext(slice("window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);
   assert.equal(context.isWindowControlTarget(null), false);
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
@@ -114,7 +115,7 @@ function runtimeElement(): RuntimeElement {
 test("mascot picker callbacks use the initialized API for selection and hiding", () => {
   const selected: string[] = [], picker = runtimeElement();
   const api = { list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id: string) => selected.push(id) };
-  const context = vm.createContext({ mascotPicker: picker, window: { BiliMascot: api },
+  const context = createQueueContext({ mascotPicker: picker, window: { BiliMascot: api },
     document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
   });
   vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
@@ -132,7 +133,7 @@ test("page count observer disconnect handling preserves native unobserve and ign
   let callback: ((...args: unknown[]) => unknown) | undefined;
   const removed: unknown[] = [];
   class Observer { constructor(fn: (...args: unknown[]) => unknown) { callback = fn; } observe() {} unobserve(target: unknown) { removed.push(target); } }
-  const context = vm.createContext({ window: { IntersectionObserver: Observer }, pageCountObserver: undefined,
+  const context = createQueueContext({ window: { IntersectionObserver: Observer }, pageCountObserver: undefined,
     videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
     observedPageCountTargets: new Map(), stopObservingPageCountBvid() {}, queuePageCountLookup() {},
   });
@@ -152,7 +153,7 @@ test("page count observer disconnect handling preserves native unobserve and ign
 test("pages modal rendering preserves page selection and ignores a missing private context", () => {
   const list = runtimeElement(), page = { page: 1, cid: 10, part: "第一P", durationSeconds: 60 }, selections: { startPage: unknown; pages: unknown[] }[] = [];
   list.children.push("unchanged");
-  const context = vm.createContext({ pagesModalContext: null, pagesModalList: list,
+  const context = createQueueContext({ pagesModalContext: null, pagesModalList: list,
     libraryState: { disabledPagePending: new Map(), disabledPages: new Map() },
     document: { activeElement: null, createElement: runtimeElement },
     pagesModalStatus: runtimeElement(), pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
@@ -174,7 +175,7 @@ test("pages modal rendering preserves page selection and ignores a missing priva
 test("current pages opener forwards the selected page from its modal callback", () => {
   const page = { cid: 10 }, played: unknown[] = [];
   let callback: ((...args: unknown[]) => unknown) | undefined;
-  const context = vm.createContext({ currentPlayableTrack: () => ({ bvid: "BV" }), hasMultipleCurrentPages: () => true,
+  const context = createQueueContext({ currentPlayableTrack: () => ({ bvid: "BV" }), hasMultipleCurrentPages: () => true,
     playerState: { currentPages: [page] }, playerPagesButton: {}, playCurrentVideoPage: (value: unknown) => played.push(value),
     openPagesModal: (video: unknown, count: number, pages: unknown[], onPlay: (...args: unknown[]) => unknown) => { assert.equal(count, 1); callback = onPlay; },
   });
@@ -189,7 +190,7 @@ test("page advancement preserves shuffle rounds, sequential advancement and the 
   for (const [shuffle, limit, expected] of [[true, 0, true], [false, 0, true], [true, 1, false]]) {
     const loads: { keepPage?: boolean }[] = [], state = { shuffle, loopMode: "sequence", currentIndex: 0, queue: [{ bvid: "BV" }],
       currentPages: [{ cid: 1 }, { cid: 2 }], currentPageIndex: 0, currentDisplayTrack: {}, history: [] };
-    const context = vm.createContext({ playerState: state, randomPageRound: null, libraryState: { disabledPages: new Map() },
+    const context = createQueueContext({ playerState: state, randomPageRound: null, libraryState: { disabledPages: new Map() }, getLibrarySnapshot: () => ({ disabledPages: new Map() }),
       hasMultipleCurrentPages: () => true, loadCurrentTrack: (options: { keepPage?: boolean }) => loads.push(options),
       buildRandomPageRound: () => [1], isPageDisabled: () => false, readShuffleCollectionPrefs: () => ({ order: "random", limit }),
       takeRandomPageFromRound: () => ({ index: 1, remaining: [] }), findEnabledPageIndex: () => 1,
@@ -209,7 +210,7 @@ test("playlist name dialog preserves create and rename contracts and ignores a m
   for (const options of [{ mode: "create" }, { mode: "rename", playlist: { id: "p", name: "旧名" } }, { mode: "rename" }]) {
     let callback: ((...args: unknown[]) => unknown) | undefined;
     const calls: [string, Record<string, unknown>][] = [], input = runtimeElement(), primaryButton = runtimeElement(); input.value = "新名";
-    const context = vm.createContext({ openLibraryModal() {}, createNameField: () => ({ field: runtimeElement(), input }),
+    const context = createQueueContext({ openLibraryModal() {}, createNameField: () => ({ field: runtimeElement(), input }),
       createLibraryActions: (label: string, fn: () => void) => { callback = fn; return { actions: runtimeElement(), primaryButton }; },
       validatePlaylistName: () => ({ ok: true, name: "新名" }), libraryModalBody: runtimeElement(), libraryModalStatus: {},
       libraryState: { playlists: [] }, invoke: async (name: string, args: Record<string, unknown>) => { calls.push([name, args]); return []; },
@@ -238,7 +239,7 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
   const modes = [{ id: "sequence", label: "顺序播放" }, { id: "list", label: "列表循环" }, { id: "single", label: "单曲循环" }];
   for (const mode of ["sequence", "list", "single", "unsupported"]) {
     const button = runtimeElement(); button.title = "unchanged";
-    const context = vm.createContext({ LOOP_MODES: modes, loopModeButton: button,
+    const context = createQueueContext({ LOOP_MODES: modes, loopModeButton: button,
       playerState: { queue: [], currentIndex: -1, loopMode: mode, shuffle: false },
       getSearchSnapshot: () => ({ results: [] }), queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
       searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
@@ -255,7 +256,7 @@ test("mascot storage selection preserves null property conversion, defaults and 
   const kuro = {}, nullKey = {}, known = {};
   for (const [id, expected] of [[null, nullKey], ["known", known], ["unknown", kuro], ["none", "hidden"]]) {
     const rendered: unknown[] = [];
-    const context = vm.createContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
+    const context = createQueueContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
       renderMascot: (mascot: unknown) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
     });
     vm.runInContext(slice("mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);

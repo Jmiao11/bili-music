@@ -77,10 +77,11 @@ async function loadHomeFixture() {
     fs.writeFileSync(path.join(root, "runtime-api.ts"), 'const invoke = globalThis.__homeCharacterization.invoke; export { invoke };');
     fs.writeFileSync(path.join(root, "player-dom.ts"), `const { ${names.join(", ")} } = globalThis.__homeCharacterization.nodes; const homeModeTabs = globalThis.__homeCharacterization.tabs; export { ${[...names, "homeModeTabs"].join(", ")} };`);
     fs.writeFileSync(path.join(root, "playback-core.ts"), 'const { createTrackRow, playListItem, updateQueueUi } = globalThis.__homeCharacterization; export { createTrackRow, playListItem, updateQueueUi };');
-    const module = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): { getState(): { search: { userKeyword: string; requestVersion: number; results: unknown[] } } }; updateHomeModeUi(): void; setHomeMode(mode: string): void; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; refreshAiKeyState(): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
+    const module = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): { getState(): { search: { userKeyword: string; requestVersion: number; results: unknown[] }; playbackQueue: { queue: readonly unknown[] } } }; updateHomeModeUi(): void; setHomeMode(mode: string): void; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; refreshAiKeyState(): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
     const states = { ...await import(pathToFileURL(path.join(root, "player-state.ts")).href) } as { searchState: { userKeyword: string; requestVersion: number; results: unknown[] }; playerState: { queue: unknown[] } };
     module.updateHomeModeUi();
     states.searchState = module.getApplicationStore().getState().search;
+    states.playerState = { ...states.playerState, queue: [...module.getApplicationStore().getState().playbackQueue.queue] };
     return {
       module, nodes, calls, played, states, timers,
       setResponse(next: typeof response) { response = next; },

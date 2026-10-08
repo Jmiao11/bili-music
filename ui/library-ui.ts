@@ -1,6 +1,5 @@
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { playerState } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderLibraryHighlights, renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
@@ -247,7 +246,7 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
 
 function libraryBindings(): LibraryBindings {
   const actions = getApplicationStore().actions.library;
-  return { createTrackRow, playListItem, readPlayer: () => playerState, bindFavoriteDrag, bindPlaylistItemDrag, bindPlaylistDrag, isFavoriteDragClickSuppressed, isPlaylistDragClickSuppressed,
+  return { createTrackRow, playListItem, readPlayer: () => { const queue = getApplicationStore().getState().playbackQueue; return { queueSource: queue.queueSource, queuePlaylistId: queue.playlistId, currentIndex: queue.currentIndex }; }, bindFavoriteDrag, bindPlaylistItemDrag, bindPlaylistDrag, isFavoriteDragClickSuppressed, isPlaylistDragClickSuppressed,
     choosePlaylist: actions.choosePlaylist, closeModal: actions.closeModal, submitName: actions.submitName, submitDelete: actions.submitDelete, submitChoose: actions.submitChoose, createAndAdd: actions.createAndAdd, submitImport: actions.submitImport, submitPurge: () => actions.submitPurge(), setModalName: actions.setModalName, setModalLink: actions.setModalLink };
 }
 function getLibraryActions() {

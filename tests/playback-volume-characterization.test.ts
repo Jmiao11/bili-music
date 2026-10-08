@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import vm from "node:vm";
@@ -22,7 +23,7 @@ function fixture(saved: [string, string][] = []) {
   let serial = 0;
   const playerState = { requestVersion: 1, queue: [{ bvid: "BV1GF4X6MEb1" }], currentIndex: 0, currentPages: [{ cid: 1 }] };
   const audio = { volume: 1 };
-  const context = vm.createContext({ playerAudio: audio, playerState, volumeSlider: { value: "" }, loudnessNormalizationToggle: { checked: false },
+  const context = createQueueContext({ playerAudio: audio, playerState, volumeSlider: { value: "" }, loudnessNormalizationToggle: { checked: false },
     localStorage: { getItem: (key: string) => stored.get(key) ?? null, setItem(key: string, value: string) { stored.set(key, value); writes.push([key, value]); } },
     currentVideoPage: () => playerState.currentPages[0], updateRangeProgress() {}, console: { warn() {} },
     // src-tauri/src/library/loudness_store.rs:53-71: Option<f64> serializes to a number or null, never an object.

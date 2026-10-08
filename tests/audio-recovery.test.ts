@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import test from "node:test";
@@ -15,7 +16,7 @@ const recoverCurrentAudio = sourceSlice(source, "ui/playback-core.ts", "async fu
 const loadCurrentTrack = sourceSlice(source, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 
 test("network recovery requires the current started audio and remaining attempts", () => {
-  const context = vm.createContext({ recoveryVersion: 7, recoveryAttempts: 2 });
+  const context = createQueueContext({ recoveryVersion: 7, recoveryAttempts: 2 });
   vm.runInContext(`const MAX_AUDIO_RECOVERIES = 2;\n${decision}`, context);
   const eligible = (code: number, current: boolean, played: boolean, attempts: number) =>
     vm.runInContext(`shouldRecoverAudio(${code}, ${current}, ${played}, ${attempts})`, context);
@@ -34,7 +35,7 @@ test("network recovery requires the current started audio and remaining attempts
 test("metadata wait ignores its own emptied event and ends when a switch clears the source", async () => {
   const audio = (new EventTarget() as EventTarget & { readyState: number });
   audio.readyState = 0;
-  const context = vm.createContext({
+  const context = createQueueContext({
     audio,
     HTMLMediaElement: { HAVE_METADATA: 1 },
     playerState: { requestVersion: 7 },
@@ -65,7 +66,7 @@ test("recovery prepares the same page, seeks, and resumes without resetting trac
     load() { calls.push("load"); },
     play() { calls.push("play"); return Promise.resolve(); },
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state,
     audio,
     recoveryVersion: 7,
@@ -105,7 +106,7 @@ test("recovery prepares the same page, seeks, and resumes without resetting trac
 
 test("cancelled prepare refunds its attempt; other prepare failures interrupt without skipping", async () => {
   const notices: string[] = [];
-  const context = vm.createContext({
+  const context = createQueueContext({
     recoveryVersion: 7,
     recoveryAttempts: 0,
     playerState: {
@@ -135,7 +136,7 @@ test("cancelled prepare refunds its attempt; other prepare failures interrupt wi
 
 function trackContext(recoveryPromise: Promise<unknown> | null) {
   const calls: string[] = [];
-  const context = vm.createContext({
+  const context = createQueueContext({
     recoveryPromise,
     playerState: { currentIndex: 0, queue: [{ bvid: "BV1xx411c7mD" }], requestVersion: 0 },
     stopAudioElement() {},
@@ -222,7 +223,7 @@ test("expired token network error after a long pause re-resolves the same page a
     addListener(type, listener, options);
     if (type === "loadedmetadata") metadataListening.resolve();
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     Event, audio, playerState: state, MAX_AUDIO_RECOVERIES: 2,
     HTMLMediaElement: { HAVE_METADATA: 1 }, performance: { now: () => now },
     playRecordedForCurrentTrack: true, cacheRequestedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
