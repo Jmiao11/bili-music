@@ -33,10 +33,10 @@ function setup() {
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
-  vm.runInContext(sourceSlice(noticeSource, "ui/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(noticeSource, "ui/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function initPlaybackSearch("), context);
   return { context, notice, timers, events, styles };
 }
@@ -135,7 +135,7 @@ test('manual boundary preserves pending resume; successful page change clears st
   c.nextButton = { addEventListener: (_: unknown, fn: () => void) => { handlers.next = fn; } };
   c.retreatPageWithinCurrentBv = () => false;
   c.advancePageWithinCurrentBv = () => false;
-  vm.runInContext(sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), c);
   handlers.previous(); handlers.next();
   assert.deepEqual(pendingResume, { positionSeconds: 42 });
   c.advancePageWithinCurrentBv = () => true;
@@ -153,8 +153,8 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits: number[] = [];
   c.playQueueIndex = (index => visits.push(index)) as (index: number) => number;
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext(pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);
   c.playerState.currentIndex = 1;

@@ -3,7 +3,7 @@ import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount
 import type { SearchPageCommit } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
 import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
-import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, libraryState, playerState } from "./player-state.ts";
+import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS, playerState } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import { getHomeSnapshot } from "./home.ts";
@@ -752,7 +752,7 @@ async function loadCurrentTrack({
     }
 
     const selectDefaultPage = (random = false) => {
-      const isDisabled = (page: CommandContract.VideoPage) => isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
+      const isDisabled = (page: CommandContract.VideoPage) => isPageDisabled(getLibrarySnapshot().disabledPages, video.bvid, page.cid);
       const pageIndex = random
         ? pickRandomEnabledPageIndex(playerState.currentPages, isDisabled, Math.random)
         : findEnabledPageIndex(playerState.currentPages, 0, 1, isDisabled);
@@ -1121,7 +1121,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
         remaining: buildRandomPageRound(
           playerState.currentPages,
           playerState.currentPageIndex,
-          (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+          (page) => isPageDisabled(getLibrarySnapshot().disabledPages, bvid, page.cid),
         ),
       };
     }
@@ -1131,7 +1131,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
       const picked = takeRandomPageFromRound(
         randomPageRound.remaining,
         (index) => index === playerState.currentPageIndex ||
-          isPageDisabled(libraryState.disabledPages, bvid, playerState.currentPages[index].cid),
+          isPageDisabled(getLibrarySnapshot().disabledPages, bvid, playerState.currentPages[index].cid),
         Math.random,
       );
       randomPageRound.remaining = picked.remaining;
@@ -1141,7 +1141,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
         playerState.currentPages,
         playerState.currentPageIndex + 1,
         1,
-        (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+        (page) => isPageDisabled(getLibrarySnapshot().disabledPages, bvid, page.cid),
       );
       randomPageRound.remaining = randomPageRound.remaining.filter((index) => index !== nextPageIndex);
     }
@@ -1150,7 +1150,7 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
       playerState.currentPages,
       playerState.currentPageIndex + 1,
       1,
-      (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+      (page) => isPageDisabled(getLibrarySnapshot().disabledPages, bvid, page.cid),
     );
   }
   if (nextPageIndex < 0) {
@@ -1178,7 +1178,7 @@ function retreatPageWithinCurrentBv() {
     playerState.currentPages,
     playerState.currentPageIndex - 1,
     -1,
-    (page) => isPageDisabled(libraryState.disabledPages, bvid, page.cid),
+    (page) => isPageDisabled(getLibrarySnapshot().disabledPages, bvid, page.cid),
   );
   if (previousPageIndex < 0) return false;
 

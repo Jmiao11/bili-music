@@ -1,12 +1,13 @@
 import type { DeepReadonly } from "./state-store.ts";
 import { normalizeTrack, snapshotForLibrary } from "./track-utils.ts";
 
-type LibraryCommand = "list_favorites" | "list_playlists" | "list_unavailable_tracks" | "list_disabled_pages" | "toggle_favorite" | "create_playlist" | "rename_playlist" | "delete_playlist" | "add_to_playlist" | "remove_from_playlist" | "reorder_favorite" | "reorder_playlist_item" | "reorder_playlist" | "read_public_favorite_page" | "create_imported_playlist" | "purge_unavailable_tracks";
+type LibraryCommand = "list_favorites" | "list_playlists" | "list_unavailable_tracks" | "list_disabled_pages" | "toggle_favorite" | "create_playlist" | "rename_playlist" | "delete_playlist" | "add_to_playlist" | "remove_from_playlist" | "reorder_favorite" | "reorder_playlist_item" | "reorder_playlist" | "read_public_favorite_page" | "create_imported_playlist" | "purge_unavailable_tracks" | "set_page_disabled" | "clear_disabled_pages";
 type LibraryAdapter = { invoke: <K extends LibraryCommand>(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>; report: (level: "warn" | "error", message: string, error: unknown) => void };
 type ModalKind = "generic" | "name" | "delete" | "choose" | "favoriteImport" | "purge" | "loudness";
 type LibraryDragKind = "favorites" | "playlistItems" | "playlists";
 type LibraryDragState = { drag: { index: number; playlistId?: string } | null; saving: boolean; suppressClickUntil: number };
 type LibraryState = {
+  disabledPages: Map<string, Set<number>>; disabledPagePending: Map<string, number | null>;
   drags: Record<LibraryDragKind, LibraryDragState>;
   favorites: CommandContract.TrackSnapshot[]; favoriteBvids: Set<string>; playlists: CommandContract.Playlist[]; selectedPlaylistId: string; unavailableBvids: Map<string, string>; loadError: string;
   session: { kind: ModalKind; open: boolean; title: string; subtitle: string; version: number; busy: boolean; status: string;
@@ -15,12 +16,12 @@ type LibraryState = {
 };
 type LibrarySnapshot = DeepReadonly<LibraryState>;
 function initialLibraryState(): LibraryState {
-  return { drags: { favorites: { drag: null, saving: false, suppressClickUntil: 0 }, playlistItems: { drag: null, saving: false, suppressClickUntil: 0 }, playlists: { drag: null, saving: false, suppressClickUntil: 0 } }, favorites: [], favoriteBvids: new Set(), playlists: [], selectedPlaylistId: "", unavailableBvids: new Map(), loadError: "",
+  return { disabledPages: new Map(), disabledPagePending: new Map(), drags: { favorites: { drag: null, saving: false, suppressClickUntil: 0 }, playlistItems: { drag: null, saving: false, suppressClickUntil: 0 }, playlists: { drag: null, saving: false, suppressClickUntil: 0 } }, favorites: [], favoriteBvids: new Set(), playlists: [], selectedPlaylistId: "", unavailableBvids: new Map(), loadError: "",
     session: { kind: "generic", open: false, title: "", subtitle: "", version: 0, busy: false, status: "", data: {} },
     view: { rowsVersion: null, rowsKind: "all", playbackVersion: 0, playbackStatus: null, playlistsStatus: null, purgeStatus: null, purgeBusy: null } };
 }
 function isLibraryDragClickSuppressed(state: LibrarySnapshot, kind: LibraryDragKind, now: number): boolean { return state.drags[kind].drag !== null || now < state.drags[kind].suppressClickUntil; }
-function createLibraryActions(read: () => LibrarySnapshot, commit: (next: LibrarySnapshot) => void, adapter: LibraryAdapter) {
+function createLibraryActions(read: () => LibrarySnapshot, commit: (next: LibrarySnapshot, disabledResult?: { bvid: string; error: string | null }) => void, adapter: LibraryAdapter) {
   const update = (fields: Partial<LibrarySnapshot>, view: Partial<LibrarySnapshot["view"]> = {}) => {
     const current = read(); const next = { ...current, ...fields, view: Object.keys(view).length ? { ...current.view, ...view, ...(Object.hasOwn(view, "playbackStatus") ? { playbackVersion: current.view.playbackVersion + 1 } : {}) } : current.view };
     if (fields.playlists || fields.selectedPlaylistId !== undefined) next.selectedPlaylistId = next.playlists.find(p => p.id === next.selectedPlaylistId)?.id ?? next.playlists[0]?.id ?? "";
@@ -48,7 +49,7 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     if (!result.ok) { modal({ status: result.message, data: { ...read().session.data, focusName: (read().session.data.focusName ?? 0) + 1 } }); }
     return result;
   }
-  async function readLibrary(onDisabledPages: (pages: CommandMap["list_disabled_pages"]["result"]) => void): Promise<Partial<LibrarySnapshot>> {
+  async function readLibrary(onDisabledPages: (pages: CommandMap["list_disabled_pages"]["result"]) => void = () => {}): Promise<Partial<LibrarySnapshot>> {
     try {
       const [favorites, playlists, unavailable, disabled] = await Promise.all([
         adapter.invoke("list_favorites"), adapter.invoke("list_playlists"),
@@ -57,14 +58,14 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
       ]);
       onDisabledPages(disabled);
       const items = favorites.map(normalizeTrack);
-      return { favorites: items, favoriteBvids: new Set(items.map(t => t.bvid.toLowerCase())), playlists: playlists.map(p => ({ ...p, items: (p.items ?? []).map(normalizeTrack) })), unavailableBvids: new Map(unavailable.map(t => [t.bvid.toLowerCase(), t.reason])), loadError: "" };
+      return { disabledPages: new Map(Object.entries(disabled).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)])), favorites: items, favoriteBvids: new Set(items.map(t => t.bvid.toLowerCase())), playlists: playlists.map(p => ({ ...p, items: (p.items ?? []).map(normalizeTrack) })), unavailableBvids: new Map(unavailable.map(t => [t.bvid.toLowerCase(), t.reason])), loadError: "" };
     } catch (error) {
       onDisabledPages({});
       adapter.report("error", "library load failed:", error);
-      return { favorites: [], favoriteBvids: new Set(), playlists: [], unavailableBvids: new Map(), loadError: `本地资料库读取失败：${error}` };
+      return { disabledPages: new Map(), favorites: [], favoriteBvids: new Set(), playlists: [], unavailableBvids: new Map(), loadError: `本地资料库读取失败：${error}` };
     }
   }
-  async function load(onDisabledPages: Parameters<typeof readLibrary>[0]): Promise<void> { update(await readLibrary(onDisabledPages), refreshFields()); }
+  async function load(onDisabledPages: Parameters<typeof readLibrary>[0] = () => {}): Promise<void> { update(await readLibrary(onDisabledPages), refreshFields()); }
   async function toggle(video: CommandContract.TrackSnapshotInput | null) {
     const track = video ? snapshotForLibrary(video) : null;
     if (!track?.bvid) { update({}, { playbackStatus: "请先选择一首歌曲。" }); return null; }
@@ -161,7 +162,7 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     catch (error) { update({}, { purgeBusy: false, purgeStatus: `读取失效曲目失败：${error}` }); return; }
     update({ session: openedSession("purge", "清理失效曲目", "以下歌曲已无法播放，确认后会从收藏和所有歌单中移除。", { unavailable }) }, { purgeBusy: false });
   }
-  async function submitPurge(onDisabledPages: Parameters<typeof load>[0]): Promise<void> {
+  async function submitPurge(onDisabledPages: Parameters<typeof load>[0] = () => {}): Promise<void> {
     const version = read().session.version; modal({ busy: true, status: "正在清理…" });
     try { const result = await adapter.invoke("purge_unavailable_tracks"); const fields = await readLibrary(onDisabledPages); update({ ...fields, session: finishedSession() }, { ...refreshFields(), purgeStatus: `已清理 ${result.clearedMarks} 首失效曲目。` }); }
     catch (error) { modal({ ...(read().session.version === version || !read().session.open ? { busy: false } : {}), status: `清理失效曲目失败：${error}` }); }
@@ -189,7 +190,21 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
   function reorderFavorites(fromIndex: number, toIndex: number): Promise<void> { return persistOrder("favorites", async () => { const favorites = (await adapter.invoke("reorder_favorite", { fromIndex, toIndex })).map(normalizeTrack); return { favorites, favoriteBvids: new Set(favorites.map(t => t.bvid.toLowerCase())) }; }); }
   function reorderPlaylistItems(id: string, fromIndex: number, toIndex: number): Promise<void> { return persistOrder("playlistItems", async () => ({ playlists: await adapter.invoke("reorder_playlist_item", { id, fromIndex, toIndex }) })); }
   function reorderPlaylists(fromIndex: number, toIndex: number): Promise<void> { return persistOrder("playlists", async () => ({ playlists: await adapter.invoke("reorder_playlist", { fromIndex, toIndex }) })); }
-  return { beginDragSave, finishDrag, finishDragSave, startDrag, choosePlaylist, clearUnavailable, closeModal: close, createAndAdd, loadLibrary: load, markUnavailable, openModal: open, refreshViews: () => refresh(), removeTrack, reorderFavorites, reorderPlaylistItems, reorderPlaylists, setModalName: (name: string) => modalData({ name }), setModalLink: (link: string) => modalData({ link }), showChoose, showDelete, showImport, showName, showPurge, submitChoose, submitDelete, submitImport, submitName, submitPurge, toggleFavorite: toggle, validatePlaylistName: validateName };
+  async function saveDisabledPages(bvid: string, cid: number | null, disabled = false): Promise<void> {
+    const key = bvid.toLowerCase(); if (read().disabledPagePending.has(key)) return;
+    const before = new Set(read().disabledPages.get(key) ?? []), after = new Set(before);
+    if (cid === null) after.clear(); else if (disabled) after.add(cid); else after.delete(cid);
+    const preferences = new Map(read().disabledPages), pending = new Map(read().disabledPagePending);
+    if (after.size) preferences.set(key, after); else preferences.delete(key); pending.set(key, cid);
+    commit({ ...read(), disabledPages: preferences, disabledPagePending: pending }, { bvid, error: "" });
+    let errorText = "";
+    try { if (cid === null) await adapter.invoke("clear_disabled_pages", { bvid }); else await adapter.invoke("set_page_disabled", { bvid, cid, disabled }); }
+    catch (error) { errorText = `保存分P设置失败：${error}`; }
+    const values = new Map(read().disabledPages), completed = new Map(read().disabledPagePending); completed.delete(key);
+    if (errorText) { if (before.size) values.set(key, before); else values.delete(key); }
+    commit({ ...read(), disabledPages: errorText ? values : read().disabledPages, disabledPagePending: completed }, { bvid, error: errorText || null });
+  }
+  return { changeDisabledPages: saveDisabledPages, beginDragSave, finishDrag, finishDragSave, startDrag, choosePlaylist, clearUnavailable, closeModal: close, createAndAdd, loadLibrary: load, markUnavailable, openModal: open, refreshViews: () => refresh(), removeTrack, reorderFavorites, reorderPlaylistItems, reorderPlaylists, setModalName: (name: string) => modalData({ name }), setModalLink: (link: string) => modalData({ link }), showChoose, showDelete, showImport, showName, showPurge, submitChoose, submitDelete, submitImport, submitName, submitPurge, toggleFavorite: toggle, validatePlaylistName: validateName };
 }
 
 export { createLibraryActions, initialLibraryState, isLibraryDragClickSuppressed };

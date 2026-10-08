@@ -7,7 +7,7 @@ import { moduleDeclarations } from "./helpers/module-syntax.ts";
 import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const moduleOrder = ["state-store.ts", "app-state.ts", "page-selection.ts", "track-utils.ts", "search-state.ts", "library-state.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "home-view.ts", "home.ts", "library-view.ts", "library-ui.ts", "video-pages.ts", "search-view.ts", "search.ts", "playback-core.ts", "main.ts", "appearance.ts"];
+const moduleOrder = ["pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","home-view.ts","home.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","appearance.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
@@ -20,7 +20,7 @@ const localCollisions = new Map([
   ["playback-policy.ts:result", "shuffled local array"],
   ["home-view.ts:title", "showHomeNotice parameter"],
   ["library-ui.ts:result", "toggle, purge and favorite-import local results"],
-  ["video-pages.ts:currentTrack", "openPagesModal local currentPlayableTrack result"],
+  ["pages-view.ts:currentTrack", "renderPagesModal readonly player projection"],
   ["appearance.ts:status", "refreshYtDlpAvailability local response"],
   ["appearance.ts:result", "testAiConnection and import button local responses"],
 ]);

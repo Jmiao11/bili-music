@@ -1,8 +1,9 @@
-import { isPageDisabled } from "./page-selection.ts";
-import { formatDuration, normalizeVideoPage } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
-import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, status } from "./player-dom.ts";
-import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets } from "./player-state.ts";
+import { playerPagesButton, status } from "./player-dom.ts";
+import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, visiblePageCountTargets } from "./player-state.ts";
+import { getApplicationStore } from "./home.ts";
+
+import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge } from "./pages-view.ts";
 import { currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage } from "./playback-core.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
@@ -12,63 +13,11 @@ let activePageCountLookups = 0;
 let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
 let pageCountLookupTimer: ReturnType<typeof window.setTimeout> | null = null;
 let pageCacheLookupScheduled = false;
-let pagesMetaRequestVersion = 0;
-let pagesMetaStatusBeforeLoad: string | null = null;
-let pagesModalContext: { video: CommandContract.TrackSnapshotInput; videos: number; pages: CommandContract.VideoPage[]; onPlay: (selection: Required<PageSelection>) => void } | null = null;
-let pagesModalReturnFocus: Element | null = null;
-
-function updatePageCountBadge(playButton: HTMLButtonElement, bvid: string): void {
-  playButton.dataset.bvid = bvid;
-  const count = videoPageCounts.get(bvid);
-  const actions = playButton.parentElement?.querySelector(".track-actions");
-  let badge = actions?.querySelector<HTMLButtonElement>(".page-count-badge");
-  if (!((count ?? 0) > 1)) {
-    badge?.remove();
-    return;
-  }
-  if (!badge && actions) {
-    badge = document.createElement("button");
-    badge.type = "button";
-    badge.className = "page-count-badge";
-    badge.title = "查看分P";
-    badge.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      pageModalOpeners.get(playButton)?.(badge);
-    });
-    badge.addEventListener("dblclick", (event) => event.stopPropagation());
-    actions.prepend(badge);
-  }
-  if (!badge) {
-    return;
-  }
-  badge.textContent = `${count}P`;
-  badge.setAttribute("aria-label", `查看 ${count} 个分P`);
-}
-
-function refreshPageCountBadges(bvid: string): void {
-  for (const playButton of document.querySelectorAll<HTMLButtonElement>("button.track[data-bvid]")) {
-    if (playButton.dataset.bvid === bvid) {
-      updatePageCountBadge(playButton, bvid);
-    }
-  }
-}
-
-function rememberVideoPages(bvid: string, value: Pick<CommandContract.VideoMeta, "videos" | "pages">) {
-  const videos = Math.max(0, Math.round(Number(value?.videos) || 0));
-  const pages = (Array.isArray(value?.pages) ? value.pages : [])
-    .map(normalizeVideoPage)
-    .filter((page) => page.cid > 0);
-  videoPageCounts.set(bvid, videos);
-  if (videos >= 1 && pages.length > 0) {
-    videoPagesByBvid.set(bvid, { videos, pages });
-  }
-  refreshPageCountBadges(bvid);
-  return { videos, pages };
-}
+let pagesMounted = false;
+let modalPlayCallback: ((selection: Required<PageSelection>) => void) | null = null;
 
 function queueCachedVideoPagesLookup(item: HTMLElement, bvid: string): void {
-  if (!bvid || videoPageCounts.has(bvid) || failedPageCountBvids.has(bvid)) {
+  if (!bvid || getPagesSnapshot().videoPageCounts.has(bvid) || getPagesSnapshot().queries.get(bvid)?.phase === "failed") {
     return;
   }
   let targets = pendingPageCacheTargets.get(bvid);
@@ -88,7 +37,7 @@ async function loadCachedVideoPagesBatch(): Promise<void> {
   pageCacheLookupScheduled = false;
   const batch = new Map(pendingPageCacheTargets);
   pendingPageCacheTargets.clear();
-  const bvids = [...batch.keys()].filter((bvid) => !videoPageCounts.has(bvid));
+  const bvids = [...batch.keys()].filter((bvid) => !getPagesSnapshot().videoPageCounts.has(bvid));
   let cached: CommandMap["get_cached_video_pages"]["result"] = {};
   if (bvids.length > 0) {
     try {
@@ -99,7 +48,7 @@ async function loadCachedVideoPagesBatch(): Promise<void> {
   }
   for (const [bvid, targets] of batch) {
     if (cached?.[bvid]) {
-      rememberVideoPages(bvid, cached[bvid]);
+      getPagesActions().remember(bvid, cached[bvid]);
       stopObservingPageCountBvid(bvid);
       continue;
     }
@@ -149,13 +98,13 @@ function schedulePageCountLookups(): void {
   while (pageCountLookupQueue.length > 0) {
     const bvid = pageCountLookupQueue[0];
     if (
-      videoPageCounts.has(bvid) ||
-      failedPageCountBvids.has(bvid) ||
-      activePageCountBvids.has(bvid) ||
+      getPagesSnapshot().videoPageCounts.has(bvid) ||
+      getPagesSnapshot().queries.get(bvid)?.phase === "failed" ||
+      getPagesSnapshot().queries.get(bvid)?.phase === "active" ||
       !hasVisiblePageCountTarget(bvid)
     ) {
       pageCountLookupQueue.shift();
-      queuedPageCountBvids.delete(bvid);
+      getPagesActions().dropQueued(bvid, performance.now());
       continue;
     }
 
@@ -170,8 +119,7 @@ function schedulePageCountLookups(): void {
     }
 
     pageCountLookupQueue.shift();
-    queuedPageCountBvids.delete(bvid);
-    activePageCountBvids.add(bvid);
+    getPagesActions().query(bvid, "active", performance.now());
     activePageCountLookups += 1;
     lastPageCountLookupStartedAt = performance.now();
     void fetchPageCount(bvid);
@@ -182,34 +130,32 @@ function schedulePageCountLookups(): void {
 
 function queuePageCountLookup(bvid: string): void {
   if (
-    videoPageCounts.has(bvid) ||
-    failedPageCountBvids.has(bvid) ||
-    queuedPageCountBvids.has(bvid) ||
-    activePageCountBvids.has(bvid)
+    getPagesSnapshot().videoPageCounts.has(bvid) ||
+    getPagesSnapshot().queries.get(bvid)?.phase === "failed" ||
+    getPagesSnapshot().queries.get(bvid)?.phase === "queued" ||
+    getPagesSnapshot().queries.get(bvid)?.phase === "active"
   ) {
     return;
   }
-  queuedPageCountBvids.add(bvid);
+  getPagesActions().query(bvid, "queued", performance.now());
   pageCountLookupQueue.push(bvid);
   schedulePageCountLookups();
 }
 
 async function fetchPageCount(bvid: string): Promise<void> {
-  try {
-    const meta = await invoke("get_video_meta", { bvid });
-    rememberVideoPages(bvid, meta);
-  } catch {
-    failedPageCountBvids.add(bvid);
-  } finally {
+  let data: CommandContract.VideoMeta | null = null;
+  try { data = await invoke("get_video_meta", { bvid }); }
+  catch { data = null; }
+  finally {
+    getPagesActions().finishLookup(bvid, data, performance.now());
     stopObservingPageCountBvid(bvid);
-    activePageCountBvids.delete(bvid);
     activePageCountLookups -= 1;
     schedulePageCountLookups();
   }
 }
 
 function observePageCount(item: HTMLElement, bvid: string): void {
-  if (!bvid || videoPageCounts.has(bvid) || failedPageCountBvids.has(bvid)) {
+  if (!bvid || getPagesSnapshot().videoPageCounts.has(bvid) || getPagesSnapshot().queries.get(bvid)?.phase === "failed") {
     return;
   }
   if (pageCountObserver === undefined) {
@@ -221,8 +167,8 @@ function observePageCount(item: HTMLElement, bvid: string): void {
               continue;
             }
             if (
-              videoPageCounts.has(targetBvid) ||
-              failedPageCountBvids.has(targetBvid)
+              getPagesSnapshot().videoPageCounts.has(targetBvid) ||
+              getPagesSnapshot().queries.get(targetBvid)?.phase === "failed"
             ) {
               stopObservingPageCountBvid(targetBvid);
               continue;
@@ -263,48 +209,27 @@ function observePageCount(item: HTMLElement, bvid: string): void {
 }
 
 async function loadVideoPagesForModal(video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void, trigger: HTMLElement): Promise<void> {
-  const cached = videoPagesByBvid.get(video.bvid);
+  const cached = getPagesSnapshot().videoPagesByBvid.get(video.bvid);
   if (cached) {
     if (cached.videos <= 1) {
-      status.textContent = "该视频只有一个分P";
+      getPagesActions().showSinglePage();
       return;
     }
     openPagesModal(video, cached.videos, cached.pages, onPlay, trigger);
     return;
   }
-  const requestVersion = ++pagesMetaRequestVersion;
-  if (pagesMetaStatusBeforeLoad === null) {
-    pagesMetaStatusBeforeLoad = status.textContent;
-  }
-  trigger.setAttribute("aria-busy", "true");
-  trigger.dataset.pagesRequestVersion = String(requestVersion);
-  status.textContent = "正在获取分P信息…";
+  const requestVersion = getPagesActions().beginModalQuery(status.textContent);
+  renderPagesTrigger(trigger, requestVersion, true);
   try {
-    const meta = await invoke("get_video_meta", { bvid: video.bvid });
-    if (requestVersion !== pagesMetaRequestVersion) {
-      return;
-    }
-    const { videos, pages } = rememberVideoPages(video.bvid, meta);
-    if (videos <= 1) {
-      status.textContent = "该视频只有一个分P";
-      return;
-    }
-    status.textContent = pagesMetaStatusBeforeLoad;
-    openPagesModal(video, videos, pages, onPlay, trigger);
+    const data = await invoke("get_video_meta", { bvid: video.bvid });
+    if (requestVersion !== getPagesSnapshot().requestVersion) return;
+    if (data.videos > 1) { modalPlayCallback = onPlay; preparePagesModal(trigger); }
+    getPagesActions().finishModalQuery(requestVersion, video, data);
   } catch (error) {
-    if (requestVersion === pagesMetaRequestVersion) {
-      console.warn(`get_video_meta failed for ${video.bvid}:`, error);
-      status.textContent = "获取分P信息失败";
-    }
-  } finally {
-    if (requestVersion === pagesMetaRequestVersion) {
-      pagesMetaStatusBeforeLoad = null;
-    }
-    if (trigger.dataset.pagesRequestVersion === String(requestVersion)) {
-      trigger.removeAttribute("aria-busy");
-      delete trigger.dataset.pagesRequestVersion;
-    }
-  }
+    if (requestVersion !== getPagesSnapshot().requestVersion) return;
+    console.warn(`get_video_meta failed for ${video.bvid}:`, error);
+    getPagesActions().finishModalQuery(requestVersion, video, null);
+  } finally { renderPagesTrigger(trigger, requestVersion, false); }
 }
 
 function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
@@ -312,7 +237,8 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
   pageModalOpeners.set(playButton, (trigger: HTMLElement) => {
     void loadVideoPagesForModal(video, onPlay, trigger);
   });
-  updatePageCountBadge(playButton, video.bvid);
+  getPagesActions();
+  updatePageCountBadge(playButton, video.bvid, getPagesSnapshot(), pagesBindings());
   playButton.addEventListener("click", (event) => {
     if (event.detail === 0) {
       onPlay();
@@ -340,113 +266,10 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
   queueCachedVideoPagesLookup(item, video.bvid);
 }
 
-function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: number, pages: CommandContract.VideoPage[], onPlay: (selection: Required<PageSelection>) => void, trigger: HTMLElement): void {
-  pagesModalContext = { video, videos, pages, onPlay };
-  pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement;
-  pagesModalStatus.textContent = "";
-  renderPagesModal();
-
-  pagesModal.hidden = false;
-  requestAnimationFrame(() => {
-    pagesModal.classList.add("is-open");
-    pagesModal.setAttribute("aria-hidden", "false");
-    const focusTarget =
-      pagesModalList.querySelector<HTMLButtonElement>("button[aria-current]") ??
-      pagesModalList.querySelector<HTMLButtonElement>("button") ?? pagesModalClose;
-    pagesModalList.querySelector("button[aria-current]")?.scrollIntoView({ block: "nearest" });
-    focusTarget.focus();
-  });
+function openPagesModal(video: CommandContract.TrackSnapshotInput, videos: number, pages: readonly CommandContract.VideoPage[], onPlay: (selection: Required<PageSelection>) => void, trigger: Element | null = null): void {
+  modalPlayCallback = onPlay; preparePagesModal(trigger); getPagesActions().open(video, videos, pages);
 }
-
-function renderPagesModal(): void {
-  if (!pagesModalContext) return;
-  const { video, videos, pages } = pagesModalContext;
-  const bvidKey = video.bvid.toLowerCase();
-  const pending = libraryState.disabledPagePending.has(bvidKey);
-  const pendingCid = libraryState.disabledPagePending.get(bvidKey);
-  const disabledCids = libraryState.disabledPages.get(bvidKey);
-  const hadFocus = pagesModalList.contains(document.activeElement) ||
-    document.activeElement === pagesModalRestoreAll;
-  pagesModalTitle.textContent = "选择分P";
-  pagesModalSub.textContent = `${video.title || video.bvid} · 共 ${videos}P`;
-  pagesModalRestoreAll.hidden = !disabledCids?.size && !(pending && pendingCid === null);
-  pagesModalRestoreAll.disabled = pending;
-  pagesModalRestoreAll.textContent = pending && pendingCid === null ? "恢复中…" : "全部恢复";
-  pagesModalList.replaceChildren();
-  const currentTrack = currentPlayableTrack();
-  const currentPage =
-    currentTrack?.bvid.toLowerCase() === String(video.bvid).toLowerCase()
-      ? currentVideoPage()
-      : null;
-
-  for (const page of pages) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    const isCurrent = currentPage?.cid === page.cid;
-    const isDisabled = isPageDisabled(libraryState.disabledPages, video.bvid, page.cid);
-    item.classList.toggle("is-disabled", isDisabled);
-    button.type = "button";
-    button.className = "pages-list-button";
-    button.classList.toggle("is-current", isCurrent);
-    button.textContent =
-      `${page.page} · ${page.part || `第 ${page.page} P`} · ` +
-      `${formatDuration(page.durationSeconds)}${isCurrent ? " · 当前" : ""}`;
-    if (isCurrent) {
-      button.setAttribute("aria-current", "true");
-    }
-    button.addEventListener("click", () => {
-      const context = pagesModalContext;
-      closePagesModal();
-      context?.onPlay({ startPage: page, pages: context.pages });
-    });
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "pages-disable-button";
-    toggle.innerHTML = isDisabled
-      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg>';
-    toggle.title = isDisabled ? "恢复" : "不想听";
-    toggle.setAttribute("aria-label", toggle.title);
-    toggle.disabled = pending;
-    toggle.setAttribute("aria-busy", String(pending && (pendingCid === null || pendingCid === page.cid)));
-    toggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      void changeDisabledPages(video.bvid, page.cid, !isDisabled);
-    });
-    item.append(button, toggle);
-    pagesModalList.append(item);
-  }
-  if (hadFocus) pagesModalClose.focus({ preventScroll: true });
-}
-
-async function changeDisabledPages(bvid: string, cid: number | null, disabled: boolean = false): Promise<void> {
-  const key = bvid.toLowerCase();
-  if (libraryState.disabledPagePending.has(key)) return;
-  const before = new Set(libraryState.disabledPages.get(key) ?? []);
-  const after = new Set(before);
-  if (cid === null) after.clear();
-  else if (disabled) after.add(cid);
-  else after.delete(cid);
-  libraryState.disabledPagePending.set(key, cid);
-  if (after.size) libraryState.disabledPages.set(key, after);
-  else libraryState.disabledPages.delete(key);
-  if (pagesModalContext?.video.bvid.toLowerCase() === key) pagesModalStatus.textContent = "";
-  if (pagesModalContext?.video.bvid.toLowerCase() === key) renderPagesModal();
-  try {
-    if (cid === null) await invoke("clear_disabled_pages", { bvid });
-    else await invoke("set_page_disabled", { bvid, cid, disabled });
-  } catch (error) {
-    if (before.size) libraryState.disabledPages.set(key, before);
-    else libraryState.disabledPages.delete(key);
-    if (pagesModalContext?.video.bvid.toLowerCase() === key) {
-      pagesModalStatus.textContent = `保存分P设置失败：${error}`;
-    }
-  } finally {
-    libraryState.disabledPagePending.delete(key);
-    if (pagesModalContext?.video.bvid.toLowerCase() === key) renderPagesModal();
-  }
-}
-
+function changeDisabledPages(bvid: string, cid: number | null, disabled = false): Promise<void> { getPagesActions(); return getApplicationStore().actions.library.changeDisabledPages(bvid, cid, disabled); }
 function openCurrentPagesModal(): void {
   const video = currentPlayableTrack();
   if (!video || !hasMultipleCurrentPages()) {
@@ -461,34 +284,21 @@ function openCurrentPagesModal(): void {
   );
 }
 
-function closePagesModal(): void {
-  pagesModal.classList.remove("is-open");
-  pagesModal.setAttribute("aria-hidden", "true");
-  pagesModalContext = null;
-  const returnFocus = pagesModalReturnFocus;
-  pagesModalReturnFocus = null;
-  if (returnFocus instanceof HTMLElement && returnFocus.isConnected) {
-    returnFocus.focus({ preventScroll: true });
-  }
+function closePagesModal(): void { getPagesActions().close(); }
+function getPagesSnapshot() { return getApplicationStore().getState().pages; }
+function pagesBindings() {
+  return { openFromBadge: (button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined) => pageModalOpeners.get(button)?.(trigger),
+    playPage: (page: Readonly<CommandContract.VideoPage>) => { const modal = getPagesSnapshot().modal; closePagesModal(); if (modal) modalPlayCallback?.({ startPage: { ...page }, pages: modal.pages.map(value => ({ ...value })) }); },
+    changeDisabledPages, currentTrack: currentPlayableTrack, currentPage: currentVideoPage };
 }
-
-function keepFocusInPagesModal(event: KeyboardEvent): void {
-  if (event.key !== "Tab" || !pagesModal.classList.contains("is-open")) {
-    return;
+function getPagesActions() {
+  const store = getApplicationStore();
+  if (!pagesMounted) {
+    pagesMounted = true;
+    let previous: ReturnType<typeof store.getState> | undefined;
+    const render = (state: ReturnType<typeof store.getState>) => { const before = previous; previous = state; renderPagesSnapshot(state.pages, state.library, before ? { pages: before.pages, library: before.library } : undefined, pagesBindings()); };
+    store.subscribe(render); render(store.getState());
   }
-  const focusable = [...pagesModal.querySelectorAll<HTMLButtonElement>("button:not([disabled])")];
-  if (focusable.length === 0) {
-    return;
-  }
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+  return store.actions.pages;
 }
-
-export { bindTrackActivation, changeDisabledPages, closePagesModal, keepFocusInPagesModal, openCurrentPagesModal, pagesModalContext };
+export { bindTrackActivation, changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal };
