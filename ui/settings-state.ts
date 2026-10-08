@@ -70,6 +70,13 @@ type SettingsState = {
     hasKey: boolean;
     request: "idle" | "loading" | "saving" | "testing"
   };
+  session: {
+    currentView: string | null;
+    placeholderTitle: string;
+    navigationVersion: number;
+    panelOpen: boolean;
+    panelVersion: number
+  };
   view: {
     themeVersion: number;
     accent: {
@@ -128,6 +135,8 @@ function initialSettingsState(): SettingsState {
     }, recordingShortcutAction: null,
     ai: {
       apiFormat: "openai-chat-completions", baseUrl: "", model: "", hasKey: false, request: "idle"
+    }, session: {
+      currentView: "home", placeholderTitle: "", navigationVersion: 0, panelOpen: false, panelVersion: 0
     },
     view: {
       themeVersion: 0, accent: null, sliders: null, backgroundVersion: 0, notice: null, chooseDisabled: false, shortcuts: null, availabilityVersion: 0, stream: {
@@ -648,8 +657,25 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
       apiFormat
     });
   }
+  function navigate(currentView: string): void {
+    const labels: Record<string, string> = {
+      favorites: "我的收藏", playlists: "我的歌单", local: "本地音乐"
+    };
+    update({
+      session: {
+        ...read().session, currentView, placeholderTitle: `${labels[currentView] ?? "功能"}开发中`, navigationVersion: read().session.navigationVersion + 1
+      }
+    });
+  }
+  function panel(open: boolean): void {
+    update({
+      session: {
+        ...read().session, panelOpen: open, panelVersion: read().session.panelVersion + 1
+      }
+    });
+  }
   return {
-    setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, setNotice: notice
+    setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
   };
 }
 export { accentChannels, createSettingsActions, initialSettingsState, normalizeSettingsAccent };

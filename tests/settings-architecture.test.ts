@@ -14,7 +14,7 @@ test("settings renderer is readonly and owns migrated settings and page session 
   assertSettingsRenderer(fs.readFileSync(path.join(ui, "settings-view.ts"), "utf8"));
   for (const bad of ["store.actions.setTheme('dark');", "invoke('get_ai_config');", "state.ai.model = 'x';"]) assert.throws(() => assertSettingsRenderer(bad));
   const appearance = maskCommentsAndStrings(fs.readFileSync(path.join(ui, "appearance.ts"), "utf8"));
-  assert.doesNotMatch(appearance, /\b(?:appearanceStatus|audioCacheStatus|audioCacheUsage|streamSourceStatus|aiConfigStatus|backgroundName)\s*\.\s*textContent\s*=/);
+  assert.doesNotMatch(appearance, /\b(?:appearanceStatus|audioCacheStatus|audioCacheUsage|streamSourceStatus|aiConfigStatus|backgroundName|placeholderTitle)\s*\.\s*textContent\s*=/);
   assert.doesNotMatch(appearance, /\b(?:glassBlurSlider|panelAlphaSlider|backgroundDimSlider|streamSourceSelect|shuffleCollectionOrder|shuffleCollectionLimit|aiApiKeyInput)\s*\.\s*value\s*=/);
   assert.doesNotMatch(appearance, /\broot\s*\.\s*(?:dataset\s*\.\s*theme\s*=|style\s*\.\s*(?:setProperty|removeProperty)\s*\()/);
 });

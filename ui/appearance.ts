@@ -111,9 +111,6 @@ let currentTrack: CurrentTrackDetail = {
 };
 
 
-const viewLabels: Partial<Record<string, string>> = {
-  favorites: "我的收藏", playlists: "我的歌单", local: "本地音乐",
-};
 function settingsDom() { return { root, navItems, homeView, searchView, favoritesView, playlistsView, placeholderView, placeholderTitle, settingsModal, openSettingsButton, themeOptions, accentColorOptions, chooseBackgroundButton, backgroundName, appearanceStatus, imageOnlyGroups, glassBlurSlider, glassBlurValue, panelAlphaSlider, panelAlphaValue, backgroundDimSlider, backgroundDimValue, streamSourceSelect, streamSourceStatus, audioCacheEnabled, audioCacheCapacity, shuffleCollectionOrder, shuffleCollectionLimit, audioCacheUsage, audioCacheStatus, clearAudioCacheButton, aiApiFormatSelect, aiBaseUrlInput, aiModelInput, aiApiKeyInput, saveAiConfigButton, testAiConnectionButton, aiConfigStatus, shortcutRecordButtons }; }
 type SettingsDom = ReturnType<typeof settingsDom>;
 let settingsMounted = false;
@@ -636,10 +633,7 @@ function openSettings() {
   getSettingsActions().restoreCollection(order, limit === 0 ? "all" : String(limit));
   restoreAiConfig();
   renderMascotPicker();
-  requestAnimationFrame(() => {
-    settingsModal.classList.add("is-open");
-    settingsModal.setAttribute("aria-hidden", "false");
-  });
+  getSettingsActions().panel(true);
 }
 
 async function restoreAudioCacheSettings() { await getSettingsActions().restoreCache(); }
@@ -648,38 +642,11 @@ async function refreshAudioCacheUsage() { await getSettingsActions().refreshCach
 
 async function saveAudioCacheSettings() { await getSettingsActions().saveCache(audioCacheEnabled.checked, Number(audioCacheCapacity.value)); }
 
-function closeSettings() {
-  if (settingsModal.contains(document.activeElement)) {
-    openSettingsButton.focus({ preventScroll: true });
-  }
-  settingsModal.classList.remove("is-open");
-  settingsModal.setAttribute("aria-hidden", "true");
-}
+function closeSettings() { getSettingsActions().panel(false); }
 
 function setActiveView(view: string) {
-  for (const item of navItems) {
-    item.classList.toggle("active", item.dataset.view === view);
-  }
-  const realViews: Partial<Record<string, HTMLElement>> = {
-    home: homeView,
-    search: searchView,
-    favorites: favoritesView,
-    playlists: playlistsView,
-  };
-  for (const [name, element] of Object.entries(realViews)) {
-    if (!element) {
-      continue;
-    }
-    element.hidden = name !== view;
-    element.classList.toggle("is-active", name === view);
-  }
-  placeholderView.hidden = Boolean(realViews[view]);
-  if (!realViews[view]) {
-    placeholderTitle.textContent = `${viewLabels[view] ?? "功能"}开发中`;
-  }
-  window.dispatchEvent(
-    new CustomEvent("bilibili-music-viewchange", { detail: { view } }),
-  );
+  getSettingsActions().navigate(view);
+  window.dispatchEvent(new CustomEvent("bilibili-music-viewchange", { detail: { view } }));
 }
 
 function readAccentColor() {
