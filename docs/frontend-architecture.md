@@ -29,6 +29,8 @@
 | settings-state.ts | ES Module | 设置、外观与页面会话的纯状态和动作，不保存 API Key。 |
 | settings-adapter.ts | ES Module | 存储读写、合集偏好规范化读取及缓存提示计时器。 |
 | settings-view.ts | ES Module | 设置、外观与页面会话的只读 DOM/CSS 渲染、焦点及动画。 |
+| playback-display-state.ts | ES Module | 媒体观测、进度预览、按钮和 Media Session 投影的纯状态及动作。 |
+| playback-display-view.ts | ES Module | 主栏与沉浸页进度、时间、按钮的只读 renderer，以及 Media Session 写入委托。 |
 | playback-settings-state.ts | ES Module | 音量、归一化开关、增益与过渡目标的纯状态及动作。 |
 | media-adapter.ts | ES Module | 媒体操作和事件订阅适配；目前仅音量写入接入业务。 |
 | playback-settings-view.ts | ES Module | 播放设置的只读投影，委托媒体与控件写入。 |
@@ -66,7 +68,7 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state、playback-settings-state（含类型导入） |
+| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state、playback-settings-state、playback-display-state（含类型导入） |
 | search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
 | search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
@@ -81,10 +83,12 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | settings-state | state-store（类型）、page-selection；通过注入适配器读取存储和调用命令 |
 | settings-adapter | page-selection、settings-state（类型） |
 | settings-view | settings-state、appearance（仅 DOM 类型，不形成运行时依赖） |
+| playback-display-state | state-store（仅类型） |
+| playback-display-view | playback-display-state（仅类型） |
 | playback-settings-state | state-store（仅类型） |
 | media-adapter | 无导入边 |
 | playback-settings-view | playback-settings-state（仅类型） |
-| appearance | playback-settings-state、media-adapter、settings-state、settings-adapter、playback-policy、home、library-ui、playback-core、settings-view、playback-settings-view |
+| appearance | playback-settings-state、media-adapter、settings-state、settings-adapter、playback-policy、home、library-ui、playback-core、settings-view、playback-settings-view、playback-display-view |
 
 core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home 与 core 通过运行时入口互相依赖，顶层不读取循环绑定。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
 
@@ -284,3 +288,13 @@ appearance 保留启动、监听、存储键和值格式及写入位置；RAF �
 新模块登记：playback-settings-state / media-adapter / playback-settings-view 进入主窗口模块图、类型项目、导入顺序与架构清单；纯状态守卫覆盖播放设置，媒体音量归属和只读投影守卫带反例。
 
 冻结 VM 测试使用 source-slice.ts 的两项精确登记例外（源文件、起止标记、真实模块列表及理由）；未登记调用返回原字节。模块按现有原生类型擦除和模块语法工具读取 ui/ 源码，控制器辅助函数也来自原源码；不复制业务实现。登记表由专门单元测试固定。此例外为过渡措施：播放领域迁移完成、两个测试可更新接线时，改用显式模块接线并删除登记项。逐调用哈希、逐测试断言次数及三项冻结测试破坏反例证据保存仓库外。
+
+## 播放显示与控制边界（state-7b）
+
+playbackDisplay 保存媒体观测的 currentTime、duration、paused、ended、playbackRate 和 isPlaying，用户拖动的 isSeeking，以及进度预览、Media Session 元数据、播放状态和位置信息。未知时长保留原媒体观测，进度投影仍显示零；格式化函数和边界计算与旧实现相同。各类投影使用独立版本，timeupdate 只更新进度控件与系统位置信息，不重建任何列表，也不重绘播放按钮。
+
+appearance 在原监听登记位置调用媒体适配器 subscribe，首次动作时订阅 store 并显式读取首屏。RAF、媒体对象和平台 API 不进入状态。拖动时 timeupdate 继续记录媒体观测但不覆盖预览、不写系统位置；durationchange 和 loadedmetadata 保留原先覆盖预览的行为。change 仅在时长有限时通过适配器跳转，再解除拖动；emptied 在原顺序复位拖动、进度、按钮和系统播放状态。
+
+Media Session 的元数据、播放状态和位置由只读 renderer 委托 media-adapter 的平台适配器写入；原 withMediaSession 保留静默兼容边界。系统操作仍在每次操作时重新观测媒体并读取快照，保留原播放/暂停幂等判断、跳转边界与默认十秒规则。上一首、下一首及播放/暂停继续复用既有按钮 click，恢复捕获监听和所有外部 click 复用位置不变；按钮业务处理仅把实际 play/pause 调用换成媒体适配器。
+
+加载、请求、取消、恢复、队列、失败跳过、记录、缓存、响度分析及任务栏上报仍留在原模块。playback-display-characterization 在旧实现上独立提交后逐字节冻结，显式装载真实状态/view/媒体模块，不新增公共切片 helper 例外。新状态模块进入纯状态守卫、模块图、导入顺序与类型项目；只读 renderer、DOM 写入归属和进度局部重绘另有守卫及行为测试。批次报告、完整断言原文和逐测试计数继续保存在仓库外。

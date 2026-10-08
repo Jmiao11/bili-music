@@ -4,13 +4,13 @@ import path from "node:path";
 import { test } from "node:test";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const stateModuleFiles = ["playback-settings-state.ts", "settings-state.ts", "page-selection.ts", "state-store.ts", "app-state.ts", "search-state.ts", "library-state.ts", "pages-state.ts", "track-utils.ts"];
+const stateModuleFiles = ["playback-display-state.ts", "playback-settings-state.ts", "settings-state.ts", "page-selection.ts", "state-store.ts", "app-state.ts", "search-state.ts", "library-state.ts", "pages-state.ts", "track-utils.ts"];
 
 function assertStateModule(source: string, file: string): void {
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:window|document|navigator|localStorage|sessionStorage|Window|Document|Element|HTMLElement|HTML\w*Element|Node|EventTarget|MutationObserver|ResizeObserver|IntersectionObserver|__TAURI__|Tauri\w*)\b/, `${file}: state cannot reference platform globals or DOM types`);
   for (const match of source.matchAll(/\b(?:import|export)\b[^;]*?["']([^"']+)["']/g)) {
-    assert.ok(["./playback-settings-state.ts", "./settings-state.ts", "./page-selection.ts", "./state-store.ts", "./track-utils.ts", "./search-state.ts", "./library-state.ts", "./pages-state.ts"].includes(match[1]), `${file}: forbidden state dependency ${match[1]}`);
+    assert.ok(["./playback-display-state.ts", "./playback-settings-state.ts", "./settings-state.ts", "./page-selection.ts", "./state-store.ts", "./track-utils.ts", "./search-state.ts", "./library-state.ts", "./pages-state.ts"].includes(match[1]), `${file}: forbidden state dependency ${match[1]}`);
   }
 }
 
