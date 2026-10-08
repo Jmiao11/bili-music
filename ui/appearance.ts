@@ -1,6 +1,8 @@
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
 
+import { effectivePlaybackVolume } from "./playback-settings-state.ts";
+import { createMediaAdapter } from "./media-adapter.ts";
 import { normalizeSettingsAccent } from "./settings-state.ts";
 import { readSettingsPreference } from "./settings-adapter.ts";
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
@@ -10,6 +12,7 @@ import type { SettingsSnapshot } from "./settings-state.ts";
 import { choosePlaylistAndAdd } from "./library-ui.ts";
 import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.ts";
 import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
+import { renderPlaybackSettingsSnapshot } from "./playback-settings-view.ts";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
 
@@ -21,9 +24,8 @@ const GLOBAL_SHORTCUT_VOLUME_STEP = 0.05;
 const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
 const SHUFFLE_COLLECTION_ORDER_KEY = "bilibili-music.shuffle-collection-order";
 const SHUFFLE_COLLECTION_LIMIT_KEY = "bilibili-music.shuffle-collection-limit";
-let userVolume = 1.0;
-let normalizationGain = 1.0;
-let loudnessNormalizationEnabled = false;
+let playbackSettingsMounted = false;
+let playbackSettingsMedia: ReturnType<typeof createMediaAdapter> | null = null;
 let normalizationAnimationFrame: number | null = null;
 
 const root = document.documentElement;
@@ -726,10 +728,7 @@ function applyVolume(value: unknown, persist = true) {
     cancelAnimationFrame(normalizationAnimationFrame);
     normalizationAnimationFrame = null;
   }
-  userVolume = safeValue;
-  updateEffectiveVolume();
-  volumeSlider.value = String(safeValue);
-  updateRangeProgress(volumeSlider, `${safeValue * 100}%`);
+  getPlaybackSettingsActions().setUserVolume(safeValue);
   if (persist) {
     localStorage.setItem(VOLUME_KEY, String(safeValue));
   }
@@ -738,13 +737,13 @@ function applyVolume(value: unknown, persist = true) {
 function adjustVolumeByStep(direction: number) {
   const nextVolume = Math.min(
     1,
-    Math.max(0, userVolume + direction * GLOBAL_SHORTCUT_VOLUME_STEP),
+    Math.max(0, getPlaybackSettingsSnapshot().userVolume + direction * GLOBAL_SHORTCUT_VOLUME_STEP),
   );
   applyVolume(nextVolume);
 }
 
-function updateEffectiveVolume() {
-  playerAudio.volume = clampNumber(userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1), 0, 1, 1);
+function updateEffectiveVolume(volume: number) {
+  getPlaybackMedia().setVolume(volume);
 }
 
 function setNormalizationGain(gain: unknown) {
@@ -752,21 +751,16 @@ function setNormalizationGain(gain: unknown) {
     cancelAnimationFrame(normalizationAnimationFrame);
     normalizationAnimationFrame = null;
   }
-  const startVolume = playerAudio.volume;
-  normalizationGain = clampNumber(gain, 0, 1, 1);
-  const targetVolume = clampNumber(
-    userVolume * (loudnessNormalizationEnabled ? normalizationGain : 1),
-    0,
-    1,
-    1,
-  );
+  const startVolume = getPlaybackMedia().getVolume();
+  getPlaybackSettingsActions().setGain(gain);
+  const targetVolume = effectivePlaybackVolume(getPlaybackSettingsSnapshot());
   if (startVolume === targetVolume) return;
 
   let startedAt: number | null = null;
   const step = (now: number) => {
     startedAt ??= now;
     const progress = Math.min(1, (now - startedAt) / 250);
-    playerAudio.volume = startVolume + (targetVolume - startVolume) * progress;
+    getPlaybackSettingsActions().applyEffectiveVolume(startVolume + (targetVolume - startVolume) * progress);
     if (progress < 1) {
       normalizationAnimationFrame = requestAnimationFrame(step);
     } else {
@@ -777,16 +771,15 @@ function setNormalizationGain(gain: unknown) {
 }
 
 function isLoudnessNormalizationEnabled() {
-  return loudnessNormalizationEnabled;
+  return getPlaybackSettingsSnapshot().normalizationEnabled;
 }
 
 function applyLoudnessNormalization(enabled: unknown, persist = true) {
-  loudnessNormalizationEnabled = enabled === true;
-  loudnessNormalizationToggle.checked = loudnessNormalizationEnabled;
+  getPlaybackSettingsActions().setNormalizationEnabled(enabled);
   setNormalizationGain(1);
   if (persist) {
     try {
-      localStorage.setItem(LOUDNESS_NORMALIZATION_KEY, String(loudnessNormalizationEnabled));
+      localStorage.setItem(LOUDNESS_NORMALIZATION_KEY, String(isLoudnessNormalizationEnabled()));
     } catch (error) {
       console.warn("loudness normalization setting save failed:", error);
     }
@@ -802,6 +795,38 @@ function initializeLoudnessNormalization() {
     console.warn("loudness normalization setting read failed:", error);
   }
   applyLoudnessNormalization(enabled, false);
+}
+
+function getPlaybackSettingsActions() {
+  const store = getApplicationStore();
+  if (!playbackSettingsMounted) {
+    playbackSettingsMounted = true;
+    let previous: ReturnType<typeof store.getState>["playbackSettings"] | null = null;
+    const render = () => {
+      const state = store.getState().playbackSettings;
+      renderPlaybackSettingsSnapshot(state, previous, {
+        setMediaVolume: volume => updateEffectiveVolume(volume),
+        setVolumeControl: volume => {
+          volumeSlider.value = String(volume);
+          updateRangeProgress(volumeSlider, `${volume * 100}%`);
+        },
+        setNormalizationControl: enabled => { loudnessNormalizationToggle.checked = enabled; },
+      });
+      previous = state;
+    };
+    store.subscribe(render);
+    render();
+  }
+  return store.actions.playbackSettings;
+}
+
+function getPlaybackSettingsSnapshot() {
+  getPlaybackSettingsActions();
+  return getApplicationStore().getState().playbackSettings;
+}
+
+function getPlaybackMedia() {
+  return playbackSettingsMedia ??= createMediaAdapter(playerAudio);
 }
 
 function startAppearance() {

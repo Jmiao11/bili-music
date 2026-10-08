@@ -22,6 +22,7 @@
     "../../ui/settings-adapter.ts",
     "../../ui/page-selection.ts",
     "../../ui/app-state.ts",
+    "../../ui/playback-settings-state.ts",
     "../../ui/settings-state.ts",
     "../../ui/pages-state.ts",
     "../../ui/state-store.ts",
@@ -36,7 +37,9 @@
     "../../ui/search.ts",
     "../../ui/search-view.ts",
     "../../ui/appearance.ts",
+    "../../ui/media-adapter.ts",
     "../../ui/settings-view.ts",
+    "../../ui/playback-settings-view.ts",
     "../../ui/lyrics.ts",
     "../../ui/mascot.ts",
     "../../ui/mini-player-host.ts"

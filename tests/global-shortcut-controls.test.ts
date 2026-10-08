@@ -20,6 +20,7 @@ function adjust(userVolume: number, direction: number) {
     let userVolume = ${userVolume};
     let normalizationGain = 0.37;
     function applyVolume(value) { calls.push(value); }
+    function getPlaybackSettingsSnapshot() { return { userVolume }; }
     ${stepDefinition}
     ${volumeFunction}
     adjustVolumeByStep(${direction});

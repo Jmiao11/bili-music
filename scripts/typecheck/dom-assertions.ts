@@ -175,7 +175,7 @@ function checkRepository(root: string) {
 
 // These two synchronous bridges avoid the scanner bootstrap cycle; no other bridge is permitted.
 const createRequirePositions = new Set([
-  "tests/helpers/source-slice.ts:1", "tests/helpers/source-slice.ts:12",
+  "tests/helpers/source-slice.ts:1", "tests/helpers/source-slice.ts:16", "tests/helpers/source-slice.ts:60",
   "tests/helpers/typescript-source.ts:1", "tests/helpers/typescript-source.ts:20",
 ]);
 function checkEsmSources(root: string) {
