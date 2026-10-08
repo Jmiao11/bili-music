@@ -19,7 +19,7 @@ const expected = [
   "mascot.js",
   "mini-player-host.js",
 ];
-const splitScripts = ["state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
+const splitScripts = ["settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -67,7 +67,7 @@ test("split scripts contain only top-level function declarations and comments", 
         position += accepted[0].length;
         continue;
       }
-      if (script === "player-state.ts" && /^const\s+[\w$]+\s*=/.test(remaining)) {
+      if ((script === "player-state.ts" || script === "settings-state.ts") && /^const\s+[\w$]+\s*=/.test(remaining)) {
         const end = remaining.indexOf(";");
         const text = remaining.slice(0, end + 1);
         new vm.Script(text);

@@ -26,7 +26,10 @@
 | video-pages.ts | ES Module | 分 P 查询调度、角标与弹窗。 |
 | search.ts | ES Module | 搜索、结果渲染、分区与分页。 |
 | main.ts | ES Module | 组合根：显式导入、原位调用 init、页面级监听和启动尾部，不再导出业务名字。 |
-| appearance.ts | ES Module | 设置、主题、音量、响度、沉浸页；启动语句位于 startAppearance。 |
+| settings-state.ts | ES Module | 设置与外观的纯状态和动作，不保存 API Key。 |
+| settings-adapter.ts | ES Module | 存储读写、合集偏好规范化读取及缓存提示计时器。 |
+| settings-view.ts | ES Module | 设置、外观与页面会话的只读 DOM/CSS 渲染、焦点及动画。 |
+| appearance.ts | ES Module | 设置控制器及页面会话和原位监听；保留音量、响度、沉浸页逻辑。 |
 | lyrics.ts | 普通 defer 脚本 | 歌词显示及事件交互。 |
 | mascot.ts | 普通 defer 脚本 | 吉祥物及 window.BiliMascot API。 |
 | mini-player-host.ts | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
@@ -60,19 +63,22 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils、search-state、library-state（含类型导入） |
+| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state（含类型导入） |
 | search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
 | search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
-| home | app-state、runtime-api、player-dom、home-view、playback-core |
+| home | settings-adapter、app-state、runtime-api、player-dom、home-view、playback-core |
 | playback-core | page-selection、track-utils、search-state（类型）、runtime-api、player-dom、player-state、playback-policy、playback-notice、home、library-ui、video-pages、search、appearance |
-| playback-policy | page-selection、player-state |
+| playback-policy | settings-adapter、page-selection、player-state |
 | library-state | state-store（类型）、track-utils；通过注入适配器调用资料库命令 |
 | library-view | track-utils、library-state（类型）、player-dom；只读渲染及注入交互回调 |
 | library-ui | library-state（含类型导入）、player-state、home、library-view（含类型导入）、playback-core |
 | video-pages | page-selection、track-utils、runtime-api、player-dom、player-state、playback-core |
 | search | search-state（类型）、player-dom、player-state、home、video-pages、search-view、playback-core |
-| appearance | playback-policy、library-ui、playback-core |
+| settings-state | state-store（类型）、page-selection；通过注入适配器读取存储和调用命令 |
+| settings-adapter | page-selection、settings-state（类型） |
+| settings-view | settings-state、appearance（仅 DOM 类型，不形成运行时依赖） |
+| appearance | settings-state、settings-adapter、playback-policy、home、library-ui、playback-core、settings-view |
 
 core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home 与 core 通过运行时入口互相依赖，顶层不读取循环绑定。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
 
@@ -101,7 +107,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 ## 导入与导出规则
 
 - 文件头只使用命名导入与带 .ts 后缀的相对路径：`import { a, b } from "./x.ts";`。
-- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、search-state、library-state、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-view、library-ui、video-pages、search-view、search、playback-core、main、appearance；花括号内名字按字母序。
+- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：settings-state、settings-adapter、pages-state、state-store、app-state、page-selection、track-utils、search-state、library-state、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、pages-view、library-view、library-ui、video-pages、search-view、search、playback-core、main、settings-view、appearance；花括号内名字按字母序。
 - 文件尾只有一条 `export { a, b };`，按字母序，只导出被其它模块实际导入的名字。main 无业务导出，使用唯一的空列表 `export {};`；这不允许空 import 或其它模块语法。
 - 不使用 default export、内联 export function/const、namespace import、动态 import 或别名 as。
 - app 是固定入口例外：先副作用导入 main，再命名导入 startAppearance，然后调用；不增加其它入口逻辑。
@@ -248,3 +254,12 @@ pages-state 保存分P数量与元信息缓存、每个 BV 的查询阶段和传
 video-pages 保留 IntersectionObserver、观察/可见节点、缓存查询节点集合、并发计数、队列、300ms 调度时钟、定时器、Promise 和打开按钮回调注册表。查询规则仍为并发 2、可见性优先、缓存优先、失败去重；250ms 单击延迟与双击打开规则不变。pages-view 只读取快照与注入回调，负责角标、弹窗列表、状态条、焦点节点、焦点循环和动画；main 的关闭、Escape 和 transitionend 监听位置不变。
 
 禁用分P属于资料库偏好，存放在 library.disabledPages / disabledPagePending。资料库读取仍只读，不写回空降级；保存开始与完成各发布一次根快照，分P弹窗错误通过根提交同步协调。资料库重新加载不额外刷新已打开的分P弹窗。播放核心只改为读取资料库快照，播放领域结构与导航算法保持原样。pages-characterization.test.ts 在旧实现提交后保持全部字节；pages-actions.test.ts 不安装 DOM，测试中开启冻结。
+## 设置、外观与页面会话边界（state-6）
+
+应用 store 的 settings 分片保存主题、强调色、背景元信息及 data URL、三个滑块、取流来源与可用性、缓存设置、合集随机偏好、五项快捷键及录制目标。ai 只保存接口格式、地址、模型、hasKey 与请求阶段；API Key 仅作为动作参数短暂传给命令，不进入快照或 view，命令返回或异常中的参数密钥会被隐去。保存操作在连接测试成功后仍再次读取输入，保留原来的读取时机；ai-config-updated 仍在清空输入、更新提示之后和解除保存忙态之前派发。
+
+导航、占位文案与设置面板会话仍留在 appearance 控制器，下一提交单独迁移。renderer 只读快照，版本或对象引用表示原代码需要重写 DOM 的时机；取流选择值使用独立版本，保证用户改动输入草稿后仍能恢复相同的状态值。首屏由控制器显式读取，初始投影不提前写 DOM。主题在原启动调用处应用，三个滑块按原顺序读取并应用，动态主题只清除三个内联属性。背景、缓存、取流、快捷键和 AI 命令通过注入适配器调用，存储键和值格式保持原样。
+
+appearance 保留事件安装位置、MutationObserver、键盘事件解析、背景与设置输入读取、导航事件派发；settings-view 保留 DOM/CSS、焦点和动画。缓存提示计时器留在 settings-adapter，state 仅接收清除回调。playback-policy 每次仍读取存储中的合集偏好，经 settings-adapter 规范化后使用，不改为复用旧快照。迷你窗继续观察原根节点属性，未改变同步时机；音量、响度和沉浸页仍留在原控制器中。
+
+settings-characterization 在旧实现上独立提交，迁移后保持字节不变；settings-actions 直接导入纯模块并冻结快照，逐次序列化 AI 保存与测试的每个应用快照；settings-architecture 保护只读 renderer、DOM 归属及快照别名写入。现有测试的全部断言原文、逐测试与嵌套子测试执行次数保存到仓库外。

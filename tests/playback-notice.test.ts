@@ -1,3 +1,4 @@
+const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import { test } from "node:test";
@@ -36,7 +37,7 @@ function setup() {
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(noticeSource, "ui/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
     + sourceSlice(noticeSource, "ui/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function initPlaybackSearch("), context);
   return { context, notice, timers, events, styles };
 }
@@ -153,7 +154,7 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits: number[] = [];
   c.playQueueIndex = (index => visits.push(index)) as (index: number) => number;
   c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
   c.playerState.queue = [{}, {}];
   c.playNext(); assert.deepEqual(visits, [1]);

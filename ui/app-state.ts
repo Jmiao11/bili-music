@@ -1,3 +1,5 @@
+import { createSettingsActions, initialSettingsState } from "./settings-state.ts";
+import type { SettingsCommand, SettingsPlatform } from "./settings-state.ts";
 import { createPagesActions, initialPagesState, pagesWithDisabledError } from "./pages-state.ts";
 import { createStateStore } from "./state-store.ts";
 import type { DeepReadonly, StoreOptions } from "./state-store.ts";
@@ -29,7 +31,8 @@ type HomeState = {
 };
 type HomeSnapshot = DeepReadonly<HomeState>;
 type HomeAdapter = {
-  invoke: <K extends "get_ai_config" | "get_music_ranking" | "get_saved_recommendations" | "get_recommendations" | "search_videos" | "record_search_history" | LibraryCommand | "get_video_meta" | "get_cached_video_pages">(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>;
+  settings?: SettingsPlatform;
+  invoke: <K extends "get_ai_config" | "get_music_ranking" | "get_saved_recommendations" | "get_recommendations" | "search_videos" | "record_search_history" | LibraryCommand | SettingsCommand | "get_video_meta" | "get_cached_video_pages">(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>;
   setTimeout: (callback: () => void, delay: number) => number;
   clearTimeout: (id: number) => void;
   report: (level: "warn" | "error", message: string, error: unknown) => void;
@@ -40,12 +43,12 @@ function isHomePopular(home: HomeSnapshot): boolean {
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: StoreOptions = {}) {
-  const initial: { pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
+  const initial: { settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
     mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
-  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState() };
+  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState() };
   return createStateStore(initial, (getState, commit) => {
     const home = () => getState().home;
     const update = (fields: Partial<HomeSnapshot>, view: Partial<HomeSnapshot["view"]> = {}) => {
@@ -156,9 +159,10 @@ function createApplicationStore(adapter: HomeAdapter, options: StoreOptions = {}
 
     function changeHint(userHint: string): void { update({ userHint }); }
     const search = createSearchActions(() => getState().search, next => commit({ ...getState(), search: next }), adapter);
+    const settings = createSettingsActions(() => getState().settings, next => commit({ ...getState(), settings: next }), adapter);
     const pages = createPagesActions(() => getState().pages, next => commit({ ...getState(), pages: next }));
     const library = createLibraryActions(() => getState().library, (next, disabledResult) => commit({ ...getState(), library: next, ...(disabledResult ? { pages: pagesWithDisabledError(getState().pages, disabledResult.bvid, disabledResult.error) } : {}) }), adapter);
-    return { pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    return { settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
   }, options);
 }
 

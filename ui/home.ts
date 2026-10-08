@@ -1,3 +1,4 @@
+import { createSettingsPlatform } from "./settings-adapter.ts";
 import { createApplicationStore } from "./app-state.ts";
 import { invoke } from "./runtime-api.ts";
 import { homeHintInput } from "./player-dom.ts";
@@ -9,7 +10,7 @@ let applicationStore: ReturnType<typeof createApplicationStore> | null = null;
 function getApplicationStore(): ReturnType<typeof createApplicationStore> {
   if (!applicationStore) {
     applicationStore = createApplicationStore({
-      invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+      settings: createSettingsPlatform(), invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
       clearTimeout: id => window.clearTimeout(id), report: (level, message, error) => console[level](message, error),
     });
     let previous: ReturnType<typeof getHomeSnapshot> | null = null;

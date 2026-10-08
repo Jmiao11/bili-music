@@ -1,3 +1,4 @@
+const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -53,7 +54,7 @@ test("only random page advancement adds a page-level history entry", () => {
     currentVideoPage: () => pages[state.currentPageIndex],
     updatePlayerPagesButton() {}, loadCurrentTrack() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
@@ -140,7 +141,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     playQueueIndex: (index: number, options: { historyCid: number }) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "function initPlaybackSearch(")
     + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')

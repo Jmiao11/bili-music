@@ -11,7 +11,7 @@ const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts
 const policy = readFileSync(path.join(import.meta.dirname, "../ui/playback-policy.ts"), "utf8");
 const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestedForCurrentTrack = false;", "let pendingResume")
   + sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
-  + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
+  + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
   + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
   + sourceSlice(core, "ui/playback-core.ts", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
   + sourceSlice(core, "ui/playback-core.ts", "let loudnessQueryVersion", "function refreshTrackLoudness(")

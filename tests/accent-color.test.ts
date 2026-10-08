@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -6,9 +7,8 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const code = sourceSlice(source, "ui/appearance.ts", "const BACKGROUND_PATH_KEY", "const root =")
-  + sourceSlice(source, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
-  + sourceSlice(source, "ui/appearance.ts", "function normalizeAccentColor(", "function applyBackground(");
+const code = sourceSlice(source, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+  + sourceSlice(source, "ui/appearance.ts", "function readAccentColor(", "function resetBackground(");
 const key = "bilibili-music.accent-color";
 const colors: Record<string, { dark: number[]; light: number[] }> = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },
@@ -43,6 +43,7 @@ function setup(stored = new Map<string, unknown>(), faults: { read?: boolean; wr
       },
     },
   });
+  attachSettingsVm(app);
   vm.runInContext(code, app);
   app.initializeAccentColor();
   return { app, root, options, stored, writes };

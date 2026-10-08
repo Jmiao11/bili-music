@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -220,9 +221,9 @@ test("crossfade keeps only latest pending palette; reduced motion removes fade w
 
 test("dynamic texture stays fixed; image retains three controls and ignores legacy content settings", async (t) => {
   const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-  const code = sourceSlice(appearance, "ui/appearance.ts", "const BACKGROUND_PATH_KEY", "const root =")
-    + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function streamSourceLabel(")
-    + sourceSlice(appearance, "ui/appearance.ts", "function applyTheme(", "function applyBackground(");
+  const code = sourceSlice(appearance, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+    + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
+    + sourceSlice(appearance, "ui/appearance.ts", "function applyTheme(", "function resetBackground(");
   const stored = new Map<string, string>([
     ["bilibili-music.content-alpha", "75"],
     ...["glass-blur", "panel-alpha", "content-alpha", "background-dim"]
@@ -246,6 +247,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
         setItem: (key: string, value: string) => stored.set(key, value),
       },
     });
+    attachSettingsVm(context);
     vm.runInContext(code, context);
     return context;
   }

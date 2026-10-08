@@ -1,3 +1,4 @@
+import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -15,7 +16,7 @@ const formatterContext = vm.createContext({
   Set,
   document: { documentElement: { dataset: { platform: "windows" } } },
 });
-vm.runInContext(formatterSource, formatterContext);
+vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/settings-view.ts"), "utf8") + formatterSource, formatterContext);
 
 function format(event: Partial<KeyboardEvent>) {
   return formatterContext.shortcutFromKeyboardEvent({
@@ -77,6 +78,7 @@ function fakeButton(action: string, binding: string) {
       add: (name: string) => classes.add(name),
       remove: (name: string) => classes.delete(name),
       contains: (name: string) => classes.has(name),
+      toggle: (name: string, value: boolean) => value ? classes.add(name) : classes.delete(name),
     },
   };
 }
@@ -96,6 +98,7 @@ test("only one action records and Escape cancels without saving", () => {
     isShortcutModifierCode: formatterContext.isShortcutModifierCode,
     saveShortcutBinding: (...args: unknown[]) => saved.push(args),
   });
+  attachSettingsVm(context);
   vm.runInContext(recorderSource, context);
 
   context.startShortcutRecording("previous");

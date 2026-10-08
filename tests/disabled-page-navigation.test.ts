@@ -1,3 +1,4 @@
+const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -11,7 +12,7 @@ const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts
 const trackUtils = readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8");
 const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const lookupSource = pageSelection + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
+const lookupSource = pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
 const navigationSource = sourceSlice(core, "ui/playback-core.ts", "function advancePageWithinCurrentBv(", "function playNext(");
 const trackSource = sourceSlice(core, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
