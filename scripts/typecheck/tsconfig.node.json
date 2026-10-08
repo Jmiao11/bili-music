@@ -95,6 +95,7 @@
     "../../tests/source-slice-modules.test.ts",
     "../../tests/playback-settings-actions.test.ts",
     "../../tests/media-volume-ownership.test.ts",
-    "../../tests/playback-display-characterization.test.ts"
+    "../../tests/playback-display-characterization.test.ts",
+    "../../tests/playback-display-actions.test.ts"
   ]
 }

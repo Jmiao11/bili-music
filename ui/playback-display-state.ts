@@ -1,0 +1,45 @@
+import type { DeepReadonly } from "./state-store.ts";
+
+type PlaybackMediaObservation = { currentTime: number; duration: number; paused: boolean; ended: boolean; playbackRate: number };
+type PlaybackSessionTrack = { hasCurrent: boolean; title: string; uploader: string; thumbnailUrl: string };
+function initialPlaybackDisplayState() {
+  return { currentTime: 0, duration: NaN, paused: true, ended: false, playbackRate: 1, isPlaying: false, isSeeking: false,
+    progress: { position: 0, duration: 0 }, track: null as PlaybackSessionTrack | null,
+    sessionState: "none" as "none" | "paused" | "playing",
+    position: null as { duration: number; playbackRate: number; position: number } | null,
+    view: { progressVersion: 0, buttonVersion: 0, trackVersion: 0, sessionVersion: 0, positionVersion: 0 } };
+}
+type PlaybackDisplaySnapshot = DeepReadonly<ReturnType<typeof initialPlaybackDisplayState>>;
+function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commit: (state: PlaybackDisplaySnapshot) => void) {
+  const observed = (media: PlaybackMediaObservation) => ({ ...read(), ...media, isPlaying: !media.paused && !media.ended });
+  return {
+    observeMedia(media: PlaybackMediaObservation) { commit(observed(media)); },
+    setSeeking(isSeeking: boolean) { commit({ ...read(), isSeeking }); },
+    observeProgress(media: PlaybackMediaObservation, value: number | string = media.currentTime) {
+      const state = observed(media), mediaDuration = Number.isFinite(media.duration) ? media.duration : 0;
+      const position = Math.min(Math.max(Number(value) || 0, 0), mediaDuration || 0);
+      commit({ ...state, progress: { position, duration: mediaDuration }, view: { ...state.view, progressVersion: state.view.progressVersion + 1 } });
+    },
+    observePlaying(media: PlaybackMediaObservation) {
+      const state = observed(media);
+      commit({ ...state, view: { ...state.view, buttonVersion: state.view.buttonVersion + 1 } });
+    },
+    setTrack(track: PlaybackSessionTrack | null | undefined) {
+      const state = read();
+      commit({ ...state, track: track?.hasCurrent ? { hasCurrent: track.hasCurrent, title: track.title, uploader: track.uploader, thumbnailUrl: track.thumbnailUrl } : null,
+        view: { ...state.view, trackVersion: state.view.trackVersion + 1 } });
+    },
+    setSessionState(sessionState: "none" | "paused" | "playing") {
+      const state = read(); commit({ ...state, sessionState, view: { ...state.view, sessionVersion: state.view.sessionVersion + 1 } });
+    },
+    observePosition(media: PlaybackMediaObservation) {
+      const state = observed(media);
+      if (!Number.isFinite(media.duration) || media.duration <= 0) { commit(state); return; }
+      const position = { duration: media.duration, playbackRate: Number.isFinite(media.playbackRate) && media.playbackRate > 0 ? media.playbackRate : 1,
+        position: Math.min(Math.max(media.currentTime, 0), media.duration) };
+      commit({ ...state, position, view: { ...state.view, positionVersion: state.view.positionVersion + 1 } });
+    },
+  };
+}
+export { createPlaybackDisplayActions, initialPlaybackDisplayState };
+export type { PlaybackDisplaySnapshot, PlaybackMediaObservation, PlaybackSessionTrack };
