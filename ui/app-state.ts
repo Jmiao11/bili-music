@@ -1,3 +1,4 @@
+import { createPlaybackSettingsActions, initialPlaybackSettingsState } from "./playback-settings-state.ts";
 import { createSettingsActions, initialSettingsState } from "./settings-state.ts";
 import type { SettingsCommand, SettingsPlatform } from "./settings-state.ts";
 import { createPagesActions, initialPagesState, pagesWithDisabledError } from "./pages-state.ts";
@@ -43,12 +44,12 @@ function isHomePopular(home: HomeSnapshot): boolean {
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: StoreOptions = {}) {
-  const initial: { settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
+  const initial: { playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
     mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
-  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState() };
+  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState() };
   return createStateStore(initial, (getState, commit) => {
     const home = () => getState().home;
     const update = (fields: Partial<HomeSnapshot>, view: Partial<HomeSnapshot["view"]> = {}) => {
@@ -159,10 +160,11 @@ function createApplicationStore(adapter: HomeAdapter, options: StoreOptions = {}
 
     function changeHint(userHint: string): void { update({ userHint }); }
     const search = createSearchActions(() => getState().search, next => commit({ ...getState(), search: next }), adapter);
+    const playbackSettings = createPlaybackSettingsActions(() => getState().playbackSettings, next => commit({ ...getState(), playbackSettings: next }));
     const settings = createSettingsActions(() => getState().settings, next => commit({ ...getState(), settings: next }), adapter);
     const pages = createPagesActions(() => getState().pages, next => commit({ ...getState(), pages: next }));
     const library = createLibraryActions(() => getState().library, (next, disabledResult) => commit({ ...getState(), library: next, ...(disabledResult ? { pages: pagesWithDisabledError(getState().pages, disabledResult.bvid, disabledResult.error) } : {}) }), adapter);
-    return { settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    return { playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
   }, options);
 }
 

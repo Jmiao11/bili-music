@@ -29,7 +29,10 @@
 | settings-state.ts | ES Module | 设置、外观与页面会话的纯状态和动作，不保存 API Key。 |
 | settings-adapter.ts | ES Module | 存储读写、合集偏好规范化读取及缓存提示计时器。 |
 | settings-view.ts | ES Module | 设置、外观与页面会话的只读 DOM/CSS 渲染、焦点及动画。 |
-| appearance.ts | ES Module | 设置控制器及原位监听；保留音量、响度、沉浸页逻辑。 |
+| playback-settings-state.ts | ES Module | 音量、归一化开关、增益与过渡目标的纯状态及动作。 |
+| media-adapter.ts | ES Module | 媒体操作和事件订阅适配；目前仅音量写入接入业务。 |
+| playback-settings-view.ts | ES Module | 播放设置的只读投影，委托媒体与控件写入。 |
+| appearance.ts | ES Module | 设置控制器及原位监听；保留增益过渡调度、存储与沉浸页逻辑。 |
 | lyrics.ts | 普通 defer 脚本 | 歌词显示及事件交互。 |
 | mascot.ts | 普通 defer 脚本 | 吉祥物及 window.BiliMascot API。 |
 | mini-player-host.ts | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
@@ -63,7 +66,7 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state（含类型导入） |
+| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state、playback-settings-state（含类型导入） |
 | search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
 | search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
@@ -78,7 +81,10 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | settings-state | state-store（类型）、page-selection；通过注入适配器读取存储和调用命令 |
 | settings-adapter | page-selection、settings-state（类型） |
 | settings-view | settings-state、appearance（仅 DOM 类型，不形成运行时依赖） |
-| appearance | settings-state、settings-adapter、playback-policy、home、library-ui、playback-core、settings-view |
+| playback-settings-state | state-store（仅类型） |
+| media-adapter | 无导入边 |
+| playback-settings-view | playback-settings-state（仅类型） |
+| appearance | playback-settings-state、media-adapter、settings-state、settings-adapter、playback-policy、home、library-ui、playback-core、settings-view、playback-settings-view |
 
 core 与 library-ui、video-pages、search、appearance 保留原 main 与页面模块之间的循环；home 与 core 通过运行时入口互相依赖，顶层不读取循环绑定。页面模块直接从 core 导入业务入口，不经 main 转手，也不导入 main。诊断模块只依赖 player-dom。曲目行留在 core，因为它们使用 core 辅助函数和页面模块，不满足独立叶子模块条件。
 
@@ -216,6 +222,7 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 6 | AudioResponse.audioUrl 从 string 改为 number | node --test；npm run typecheck |
 | 7 | 删除 HTML 中 window-controls 普通脚本标签 | npm run verify:dist |
 | 8 | 状态模块引用 document（状态守卫上线后启用） | 对应状态架构守卫测试 |
+| 9 | 媒体适配器之外直接写入 audio.volume | node --test tests/media-volume-ownership.test.ts |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 
@@ -267,3 +274,13 @@ settings-characterization 在旧实现上独立提交，迁移后保持字节不
 ## 媒体适配器（state-7a）
 
 media-adapter.ts 封装 src、load、play、pause、currentTime、volume 和媒体事件订阅；工厂只接收媒体对象，不查找 DOM，不在构造时安装监听或操作媒体。取消订阅只移除本次订阅者，保留 play Promise 和媒体异常。契约测试使用普通对象，无真实 DOM。独立适配器提交阶段尚无业务使用，类型通过 Node 契约项目登记；接入时再进入主窗口模块图。
+
+### 音量与响度状态边界（state-7a）
+
+playback-settings-state.ts 保存用户音量、归一化开关、当前增益、过渡目标音量及当前生效音量；不持有媒体节点、RAF 或存储。playback-settings-view.ts 只读投影，先委托媒体写入，再更新滑块；增益变化不会改变用户滑块。三个版本标记保留重复操作的写入时机，初始版本零不抢写首屏。
+
+appearance 保留启动、监听、存储键和值格式及写入位置；RAF 帧号、首帧时钟与取消仍在控制器，250ms 插值不变。拖动先取消过渡，再同步提交用户音量；媒体音量只经 media-adapter 写入。响度查询身份、迟到结果检查、阈值/结束/缓存等待分析触发留在 playback-core 原位，已有增益入口转交动作；说明仍调用已有资料库弹窗动作。其他媒体加载、播放、暂停、跳转和事件安装暂不迁移。
+
+新模块登记：playback-settings-state / media-adapter / playback-settings-view 进入主窗口模块图、类型项目、导入顺序与架构清单；纯状态守卫覆盖播放设置，媒体音量归属和只读投影守卫带反例。
+
+冻结 VM 测试使用 source-slice.ts 的两项精确登记例外（源文件、起止标记、真实模块列表及理由）；未登记调用返回原字节。模块按现有原生类型擦除和模块语法工具读取 ui/ 源码，控制器辅助函数也来自原源码；不复制业务实现。登记表由专门单元测试固定。此例外为过渡措施：播放领域迁移完成、两个测试可更新接线时，改用显式模块接线并删除登记项。逐调用哈希、逐测试断言次数及三项冻结测试破坏反例证据保存仓库外。

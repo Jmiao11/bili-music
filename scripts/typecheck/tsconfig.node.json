@@ -91,6 +91,9 @@
     "../../types/main-window.d.ts",
     "../../types/tauri.d.ts",
     "../../tests/library-actions.test.ts",
-    "../../tests/library-architecture.test.ts"
+    "../../tests/library-architecture.test.ts",
+    "../../tests/source-slice-modules.test.ts",
+    "../../tests/playback-settings-actions.test.ts",
+    "../../tests/media-volume-ownership.test.ts"
   ]
 }
