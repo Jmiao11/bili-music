@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/app-state.ts";
 import type { HomeAdapter } from "../ui/app-state.ts";
+import { isLibraryDragClickSuppressed } from "../ui/library-state.ts";
 import type { LibrarySnapshot } from "../ui/library-state.ts";
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, addedAt: 1 });
@@ -92,4 +93,50 @@ test("library reorder actions preserve old order on failure and publish success 
     assert.equal(before.favorites[0].bvid, track(1).bvid); assert.equal(h.read().selectedPlaylistId, "a");
     assert.deepEqual(h.calls.at(-1)?.args, kind === "items" ? { id: "a", fromIndex: 0, toIndex: 1 } : { fromIndex: 0, toIndex: 1 });
   }
+});
+
+for (const kind of ["favorites", "playlistItems", "playlists"] as const) {
+  for (const outcome of ["success", "failure"] as const) test(`library ${kind} drag actions ${outcome} isolate DOM and preserve save guards and 400ms deadline`, async () => {
+    const h = fixture(); await h.actions.loadLibrary(() => {}); const before = h.read();
+    assert.equal(h.actions.startDrag(kind, 0, kind === "playlistItems" ? "a" : undefined), true);
+    const dragging = h.read(); assert.equal(isLibraryDragClickSuppressed(dragging, kind, 1000), true);
+    assert.deepEqual(Object.keys(dragging.drags[kind].drag!), kind === "playlistItems" ? ["index", "playlistId"] : ["index"]);
+    assert.equal(before.drags[kind].drag, null); h.actions.finishDrag(kind, 1000);
+    assert.equal(isLibraryDragClickSuppressed(h.read(), kind, 1399), true); assert.equal(isLibraryDragClickSuppressed(h.read(), kind, 1400), false);
+    assert.equal(h.actions.beginDragSave(kind), true); assert.equal(h.actions.beginDragSave(kind), false); assert.equal(h.actions.startDrag(kind, 1), false);
+    const gate = deferred<unknown>(); h.reply(() => gate.promise);
+    const pending = kind === "favorites" ? h.actions.reorderFavorites(0, 1) : kind === "playlistItems" ? h.actions.reorderPlaylistItems("a", 0, 1) : h.actions.reorderPlaylists(0, 1);
+    assert.equal(h.read().drags[kind].saving, true); assert.equal(h.read().favorites, before.favorites); assert.equal(h.read().playlists, before.playlists);
+    if (outcome === "success") { gate.resolve(kind === "favorites" ? [track(2), track(1)] : [playlist("b"), playlist("a")]); await pending; }
+    else { gate.reject(Error("保存失败")); await assert.rejects(pending, /保存失败/); assert.equal(h.read().favorites, before.favorites); assert.equal(h.read().playlists, before.playlists); }
+    assert.equal(h.read().drags[kind].saving, false); assert.equal(h.read().selectedPlaylistId, "a"); assert.equal(h.read().drags[kind].suppressClickUntil, 1400);
+    assert.equal(h.read().drags[kind === "favorites" ? "playlists" : "favorites"], before.drags[kind === "favorites" ? "playlists" : "favorites"]);
+    const finished = h.read(); h.actions.finishDragSave(kind); assert.equal(h.read(), finished);
+  });
+}
+
+test("library modal actions publish complete CRUD preview and failure phases", async () => {
+  const h = fixture(); await h.actions.loadLibrary(() => {}); const phases: LibrarySnapshot[] = [];
+  h.store.subscribe(state => phases.push(state.library)); h.actions.showName("create"); phases.length = 0;
+  h.reply(async () => [playlist("a"), playlist("new")]); await h.actions.submitName("新歌单");
+  assert.equal(phases.length, 2); assert.equal(phases[0].session.busy, true); assert.equal(phases[1].session.busy, false); assert.equal(phases[1].session.open, false);
+  h.actions.showName("rename", h.read().playlists[0]); phases.length = 0;
+  h.reply(async () => { throw Error("失败"); }); await h.actions.submitName("改名");
+  assert.equal(phases.length, 2); assert.equal(phases[1].session.busy, false); assert.match(phases[1].session.status, /失败/);
+  h.actions.showImport(); phases.length = 0;
+  h.reply(async () => ({ title: "导入", total: 1, items: [track(1)], hasMore: false, skipped: 0, duplicates: 0, scanned: 1 })); await h.actions.submitImport("fixture", "");
+  assert.equal(phases.length, 2); assert.equal(phases[0].session.busy, true); assert.match(phases[0].session.status, /正在读取/);
+  assert.equal(phases[1].session.busy, false); assert.equal(phases[1].session.data.nameVisible, true);
+});
+
+test("library purge read failure never writes and explicit success reloads through immutable phases", async () => {
+  const h = fixture(); await h.actions.loadLibrary(() => {}); const before = h.read(); h.calls.length = 0;
+  h.reply(async () => { throw Error("读取失败"); }); await h.actions.showPurge();
+  assert.deepEqual(h.calls.map(c => c.command), ["list_unavailable_tracks"]); assert.equal(h.read().favorites, before.favorites);
+  assert.equal(h.read().session.open, false); assert.equal(h.read().view.purgeBusy, false); assert.match(h.read().view.purgeStatus!, /读取失败/);
+  h.reply(async command => command === "purge_unavailable_tracks" ? { clearedMarks: 1 } : command === "list_disabled_pages" ? {} : []);
+  await h.actions.showPurge(); assert.equal(h.read().session.kind, "purge"); assert.equal(h.read().session.open, true);
+  h.calls.length = 0; await h.actions.submitPurge(() => {});
+  assert.equal(h.calls.filter(c => c.command === "purge_unavailable_tracks").length, 1); assert.equal(h.calls.length, 5);
+  assert.equal(h.read().session.open, false); assert.equal(h.read().session.busy, false); assert.equal(h.read().loadError, ""); assert.match(h.read().view.purgeStatus!, /已清理 1 首/);
 });

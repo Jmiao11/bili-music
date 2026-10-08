@@ -1,23 +1,26 @@
+import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoriteDragState, libraryState, playerState, playlistDragState, playlistListDragState } from "./player-state.ts";
+import { libraryState, playerState } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderLibraryHighlights, renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
 import { createTrackRow, currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
 
 let libraryMounted = false;
+let favoriteDragElements: { row: HTMLElement; target: HTMLElement | null } | null = null;
+let playlistDragElements: { row: HTMLElement; target: HTMLElement | null } | null = null;
+let playlistListDragElements: { row: HTMLElement; target: HTMLElement | null } | null = null;
 
 function isFavoriteDragClickSuppressed(): boolean {
-  return favoriteDragState.drag !== null || performance.now() < favoriteDragState.suppressClickUntil;
+  return isLibraryDragClickSuppressed(getLibrarySnapshot(), "favorites", performance.now());
 }
 
-function finishFavoriteDrag(): void {
-  const drag = favoriteDragState.drag;
-  drag?.row.classList.remove("is-dragging");
-  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
-  favoriteDragState.drag = null;
-  // Cover the post-drop click, including when another favorite operation re-renders the list.
-  favoriteDragState.suppressClickUntil = performance.now() + 400;
+function finishFavoriteDrag(save = false): void {
+  const elements = favoriteDragElements;
+  elements?.row.classList.remove("is-dragging");
+  elements?.target?.classList.remove("is-drop-before", "is-drop-after");
+  favoriteDragElements = null;
+  getLibraryActions().finishDrag("favorites", performance.now(), save);
 }
 
 function bindFavoriteDrag(row: HTMLElement, index: number): void {
@@ -33,70 +36,69 @@ function bindFavoriteDrag(row: HTMLElement, index: number): void {
   }
   row.addEventListener("dragstart", (event) => {
     if (!event.dataTransfer) return;
-    if (favoriteDragState.saving) {
+    if (getLibrarySnapshot().drags.favorites.saving) {
       event.preventDefault();
       return;
     }
-    favoriteDragState.drag = { index, row, target: null };
+    favoriteDragElements = { row, target: null };
+    getLibraryActions().startDrag("favorites", index);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(index));
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
     if (!event.dataTransfer) return;
-    const drag = favoriteDragState.drag;
-    if (!drag || favoriteDragState.saving) {
+    const drag = getLibrarySnapshot().drags.favorites.drag;
+    const elements = favoriteDragElements;
+    if (!elements || !drag || getLibrarySnapshot().drags.favorites.saving) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    drag.target?.classList.remove("is-drop-before", "is-drop-after");
-    drag.target = index === drag.index ? null : row;
-    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+    elements.target?.classList.remove("is-drop-before", "is-drop-after");
+    elements.target = index === drag.index ? null : row;
+    elements.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
   row.addEventListener("dragleave", (event: DragEvent) => {
-    const drag = favoriteDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
+    const elements = favoriteDragElements;
+    if (elements?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
-      drag.target = null;
+      elements.target = null;
     }
   });
   row.addEventListener("drop", async (event) => {
-    const drag = favoriteDragState.drag;
-    if (!drag || favoriteDragState.saving) {
+    const drag = getLibrarySnapshot().drags.favorites.drag;
+    if (!drag || getLibrarySnapshot().drags.favorites.saving) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    finishFavoriteDrag();
+    finishFavoriteDrag(drag.index !== index);
     if (drag.index === index) {
       return;
     }
-    favoriteDragState.saving = true;
     try {
       // Retain the current order until persistence succeeds; failure needs no local undo.
       await getLibraryActions().reorderFavorites(drag.index, index);
     } catch (error) {
       console.warn("favorite reorder failed:", error);
     } finally {
-      favoriteDragState.saving = false;
-      renderLibraryViews();
+      getLibraryActions().finishDragSave("favorites");
     }
   });
-  row.addEventListener("dragend", finishFavoriteDrag);
+  row.addEventListener("dragend", () => finishFavoriteDrag());
 }
 
 function isPlaylistDragClickSuppressed(): boolean {
-  return playlistDragState.drag !== null || performance.now() < playlistDragState.suppressClickUntil;
+  return isLibraryDragClickSuppressed(getLibrarySnapshot(), "playlistItems", performance.now());
 }
 
-function finishPlaylistDrag(): void {
-  const drag = playlistDragState.drag;
-  drag?.row.classList.remove("is-dragging");
-  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
-  playlistDragState.drag = null;
-  // Cover the mouse click emitted after a native drop, including after a re-render.
-  playlistDragState.suppressClickUntil = performance.now() + 400;
+function finishPlaylistDrag(save = false): void {
+  const elements = playlistDragElements;
+  elements?.row.classList.remove("is-dragging");
+  elements?.target?.classList.remove("is-drop-before", "is-drop-after");
+  playlistDragElements = null;
+  getLibraryActions().finishDrag("playlistItems", performance.now(), save);
 }
 
 function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: number): void {
@@ -112,70 +114,69 @@ function bindPlaylistItemDrag(row: HTMLElement, playlistId: string, index: numbe
   }
   row.addEventListener("dragstart", (event) => {
     if (!event.dataTransfer) return;
-    if (playlistDragState.saving) {
+    if (getLibrarySnapshot().drags.playlistItems.saving) {
       event.preventDefault();
       return;
     }
-    playlistDragState.drag = { playlistId, index, row, target: null };
+    playlistDragElements = { row, target: null };
+    getLibraryActions().startDrag("playlistItems", index, playlistId);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(index));
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
     if (!event.dataTransfer) return;
-    const drag = playlistDragState.drag;
-    if (!drag || drag.playlistId !== playlistId || playlistDragState.saving) {
+    const drag = getLibrarySnapshot().drags.playlistItems.drag;
+    const elements = playlistDragElements;
+    if (!elements || !drag || drag.playlistId !== playlistId || getLibrarySnapshot().drags.playlistItems.saving) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    drag.target?.classList.remove("is-drop-before", "is-drop-after");
-    drag.target = index === drag.index ? null : row;
-    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+    elements.target?.classList.remove("is-drop-before", "is-drop-after");
+    elements.target = index === drag.index ? null : row;
+    elements.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
   row.addEventListener("dragleave", (event: DragEvent) => {
-    const drag = playlistDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
+    const elements = playlistDragElements;
+    if (elements?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
-      drag.target = null;
+      elements.target = null;
     }
   });
   row.addEventListener("drop", async (event) => {
-    const drag = playlistDragState.drag;
-    if (!drag || drag.playlistId !== playlistId || playlistDragState.saving) {
+    const drag = getLibrarySnapshot().drags.playlistItems.drag;
+    if (!drag || drag.playlistId !== playlistId || getLibrarySnapshot().drags.playlistItems.saving) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    finishPlaylistDrag();
+    finishPlaylistDrag(drag.index !== index);
     if (drag.index === index) {
       return;
     }
-    playlistDragState.saving = true;
     try {
       // Keep the original order until persistence succeeds; failures need no local undo.
       await getLibraryActions().reorderPlaylistItems(playlistId, drag.index, index);
     } catch (error) {
       console.warn("playlist reorder failed:", error);
     } finally {
-      playlistDragState.saving = false;
-      renderLibraryViews();
+      getLibraryActions().finishDragSave("playlistItems");
     }
   });
-  row.addEventListener("dragend", finishPlaylistDrag);
+  row.addEventListener("dragend", () => finishPlaylistDrag());
 }
 
 function isPlaylistListDragClickSuppressed(): boolean {
-  return playlistListDragState.drag !== null || performance.now() < playlistListDragState.suppressClickUntil;
+  return isLibraryDragClickSuppressed(getLibrarySnapshot(), "playlists", performance.now());
 }
 
-function finishPlaylistListDrag(): void {
-  const drag = playlistListDragState.drag;
-  drag?.row.classList.remove("is-dragging");
-  drag?.target?.classList.remove("is-drop-before", "is-drop-after");
-  playlistListDragState.drag = null;
-  // Keep the post-drop click suppressed even if the list has already been re-rendered.
-  playlistListDragState.suppressClickUntil = performance.now() + 400;
+function finishPlaylistListDrag(save = false): void {
+  const elements = playlistListDragElements;
+  elements?.row.classList.remove("is-dragging");
+  elements?.target?.classList.remove("is-drop-before", "is-drop-after");
+  playlistListDragElements = null;
+  getLibraryActions().finishDrag("playlists", performance.now(), save);
 }
 
 function bindPlaylistDrag(row: HTMLElement, index: number): void {
@@ -190,57 +191,57 @@ function bindPlaylistDrag(row: HTMLElement, index: number): void {
   }
   row.addEventListener("dragstart", (event) => {
     if (!event.dataTransfer) return;
-    if (playlistListDragState.saving) {
+    if (getLibrarySnapshot().drags.playlists.saving) {
       event.preventDefault();
       return;
     }
-    playlistListDragState.drag = { index, row, target: null };
+    playlistListDragElements = { row, target: null };
+    getLibraryActions().startDrag("playlists", index);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", String(index));
     row.classList.add("is-dragging");
   });
   row.addEventListener("dragover", (event) => {
     if (!event.dataTransfer) return;
-    const drag = playlistListDragState.drag;
-    if (!drag || playlistListDragState.saving) {
+    const drag = getLibrarySnapshot().drags.playlists.drag;
+    const elements = playlistListDragElements;
+    if (!elements || !drag || getLibrarySnapshot().drags.playlists.saving) {
       return;
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    drag.target?.classList.remove("is-drop-before", "is-drop-after");
-    drag.target = index === drag.index ? null : row;
-    drag.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
+    elements.target?.classList.remove("is-drop-before", "is-drop-after");
+    elements.target = index === drag.index ? null : row;
+    elements.target?.classList.add(index < drag.index ? "is-drop-before" : "is-drop-after");
   });
   row.addEventListener("dragleave", (event: DragEvent) => {
-    const drag = playlistListDragState.drag;
-    if (drag?.target === row && !row.contains(event.relatedTarget as Node | null)) {
+    const elements = playlistListDragElements;
+    if (elements?.target === row && !row.contains(event.relatedTarget as Node | null)) {
       row.classList.remove("is-drop-before", "is-drop-after");
-      drag.target = null;
+      elements.target = null;
     }
   });
   row.addEventListener("drop", async (event) => {
-    const drag = playlistListDragState.drag;
-    if (!drag || playlistListDragState.saving) {
+    const drag = getLibrarySnapshot().drags.playlists.drag;
+    if (!drag || getLibrarySnapshot().drags.playlists.saving) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    finishPlaylistListDrag();
+    finishPlaylistListDrag(drag.index !== index);
     if (drag.index === index) {
       return;
     }
-    playlistListDragState.saving = true;
     try {
       // Preserve selectedPlaylistId and the visible order until persistence succeeds.
       await getLibraryActions().reorderPlaylists(drag.index, index);
     } catch (error) {
       console.warn("playlist list reorder failed:", error);
     } finally {
-      playlistListDragState.saving = false;
-      renderLibraryViews();
+      getLibraryActions().finishDragSave("playlists");
     }
   });
-  row.addEventListener("dragend", finishPlaylistListDrag);
+  row.addEventListener("dragend", () => finishPlaylistListDrag());
 }
 
 
@@ -256,9 +257,9 @@ function getLibraryActions() {
     const render = (state: ReturnType<typeof store.getState>) => {
       const before = previous; previous = state.library;
       if (state.library.view.rowsVersion !== before?.view.rowsVersion) {
-        if (state.library.view.rowsKind === "all" && favoriteDragState.drag) finishFavoriteDrag();
-        if (playlistDragState.drag) finishPlaylistDrag();
-        if (playlistListDragState.drag) finishPlaylistListDrag();
+        if (state.library.view.rowsKind === "all" && getLibrarySnapshot().drags.favorites.drag) finishFavoriteDrag();
+        if (getLibrarySnapshot().drags.playlistItems.drag) finishPlaylistDrag();
+        if (getLibrarySnapshot().drags.playlists.drag) finishPlaylistListDrag();
       }
       const bindings = libraryBindings();
       if (renderLibrarySnapshot(state.library, before, bindings)) { updateFavoriteButtons(); renderLibraryHighlights(state.library, bindings); }

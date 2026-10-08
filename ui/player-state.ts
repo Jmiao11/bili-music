@@ -1,5 +1,4 @@
 type NormalizedTrack = ReturnType<typeof import("./track-utils.ts").normalizeTrack>;
-type ListDrag = { index: number; row: HTMLElement; target: HTMLElement | null };
 
 const LOOP_MODES: { id: string; label: string }[] = [
   { id: "sequence", label: "顺序播放" },
@@ -43,24 +42,6 @@ const libraryState = {
   disabledPagePending: new Map<string, number | null>(),
 };
 
-const favoriteDragState = {
-  drag: null as ListDrag | null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
-const playlistDragState = {
-  drag: null as (ListDrag & { playlistId: string }) | null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
-const playlistListDragState = {
-  drag: null as ListDrag | null,
-  saving: false,
-  suppressClickUntil: 0,
-};
-
 const videoPageCounts = new Map<string, number>();
 
 const videoPagesByBvid = new Map();
@@ -85,4 +66,4 @@ const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 
-export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, favoriteDragState, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, playlistDragState, playlistListDragState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };
+export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, activePageCountBvids, failedPageCountBvids, libraryState, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, queuedPageCountBvids, videoPageCounts, videoPagesByBvid, visiblePageCountTargets };

@@ -54,10 +54,17 @@ test("native list drag handlers preserve transfers and ignore unsupported null t
     const row = { querySelectorAll: () => [], addEventListener: (name: string, fn: (event: object) => void) => { handlers[name] = fn; },
       classList: { add() {}, remove() {} } };
     const state: { saving: boolean; drag: { index: number } | null } = { saving: false, drag: null };
-    const context = vm.createContext({ [stateName]: state,
+    const kind = stateName === "favoriteDragState" ? "favorites" : stateName === "playlistDragState" ? "playlistItems" : "playlists";
+    const context = vm.createContext({ getLibrarySnapshot: () => ({ drags: { [kind]: state } }),
       finishFavoriteDrag() {}, finishPlaylistDrag() {}, finishPlaylistListDrag() {},
     });
-    vm.runInContext(slice("library-ui.ts", `function ${name}(`, end), context);
+    vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/library-state.ts"), "utf8"), context);
+    vm.runInContext(`let library = initialLibraryState();
+      library.drags[kind] = state;
+      const actions = createLibraryActions(() => library, next => { library = next; Object.assign(state, next.drags[kind]); }, { invoke() {}, report() {} });
+      function getLibraryActions() { return actions; }
+      let favoriteDragElements = null, playlistDragElements = null, playlistListDragElements = null;
+    ` + slice("library-ui.ts", `function ${name}(`, end), Object.assign(context, { state, kind }));
     context[name](row, ...args);
     handlers.dragstart({ dataTransfer: null });
     assert.equal(state.drag, null);

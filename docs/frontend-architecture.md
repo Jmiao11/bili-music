@@ -14,13 +14,15 @@
 | track-utils.ts | ES Module | 曲目规范化、格式化、播放错误分类。 |
 | runtime-api.ts | ES Module | 共享 Tauri invoke 引用。 |
 | player-dom.ts | ES Module | 77 个共享 DOM 引用，保持原查询写法。 |
-| player-state.ts | ES Module | 播放、搜索、首页、资料库状态与共享 Map / Set / 常量的声明。 |
+| player-state.ts | ES Module | 播放状态、尚未迁移的禁用分 P 状态与共享 Map / Set / 常量的声明。 |
 | playback-policy.ts | ES Module | 随机、合集偏好、音频恢复判定与 LUFS 公式。 |
 | playback-notice.ts | ES Module | 播放通知、定位、私有计时器及 initPlaybackNotice。 |
 | playback-diagnostics.ts | ES Module | initPlaybackDiagnostics 建立 window 诊断桥。 |
 | playback-core.ts | ES Module | 加载、恢复、取消、队列与导航、持久化、播放记录 / 缓存 / 响度触发、曲目行与私有标量。 |
 | home.ts | ES Module | 榜单和 AI 推荐的加载、渲染。 |
-| library-ui.ts | ES Module | 收藏、歌单、拖拽及共用浮层。 |
+| library-state.ts | ES Module | 资料库、共用弹窗会话及三套拖拽纯状态与动作；仅依赖纯类型与曲目工具。 |
+| library-view.ts | ES Module | 收藏、歌单、共用弹窗的只读 DOM 渲染；节点与动画留在此处。 |
+| library-ui.ts | ES Module | 资料库动作适配、订阅挂载、收藏事件与拖拽 DOM 控制器。 |
 | video-pages.ts | ES Module | 分 P 查询调度、角标与弹窗。 |
 | search.ts | ES Module | 搜索、结果渲染、分区与分页。 |
 | main.ts | ES Module | 组合根：显式导入、原位调用 init、页面级监听和启动尾部，不再导出业务名字。 |
@@ -54,18 +56,20 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | 使用方 | 提供方 |
 | --- | --- |
 | app | main、appearance |
-| main | search-state、runtime-api、player-dom、player-state、playback-notice、playback-diagnostics、home、library-ui、video-pages、search、playback-core、appearance |
+| main | search-state、runtime-api、player-dom、player-state、playback-notice、playback-diagnostics、home、library-view、library-ui、video-pages、search、playback-core、appearance |
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils、search-state（含类型导入） |
+| app-state | state-store、track-utils、search-state、library-state（含类型导入） |
 | search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
 | search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
 | home | app-state、runtime-api、player-dom、home-view、playback-core |
 | playback-core | page-selection、track-utils、search-state（类型）、runtime-api、player-dom、player-state、playback-policy、playback-notice、home、library-ui、video-pages、search、appearance |
 | playback-policy | page-selection、player-state |
-| library-ui | track-utils、runtime-api、player-dom、player-state、playback-core |
+| library-state | state-store（类型）、track-utils；通过注入适配器调用资料库命令 |
+| library-view | track-utils、library-state（类型）、player-dom；只读渲染及注入交互回调 |
+| library-ui | library-state（含类型导入）、player-state、home、library-view（含类型导入）、playback-core |
 | video-pages | page-selection、track-utils、runtime-api、player-dom、player-state、playback-core |
 | search | search-state（类型）、player-dom、player-state、home、video-pages、search-view、playback-core |
 | appearance | playback-policy、library-ui、playback-core |
@@ -97,7 +101,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 ## 导入与导出规则
 
 - 文件头只使用命名导入与带 .ts 后缀的相对路径：`import { a, b } from "./x.ts";`。
-- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、search-state、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-ui、video-pages、search-view、search、playback-core、main、appearance；花括号内名字按字母序。
+- 导入语句按 module-imports.test.ts 中的 moduleOrder 排列：state-store、app-state、page-selection、track-utils、search-state、library-state、runtime-api、player-dom、player-state、playback-policy、playback-notice、playback-diagnostics、home-view、home、library-view、library-ui、video-pages、search-view、search、playback-core、main、appearance；花括号内名字按字母序。
 - 文件尾只有一条 `export { a, b };`，按字母序，只导出被其它模块实际导入的名字。main 无业务导出，使用唯一的空列表 `export {};`；这不允许空 import 或其它模块语法。
 - 不使用 default export、内联 export function/const、namespace import、动态 import 或别名 as。
 - app 是固定入口例外：先副作用导入 main，再命名导入 startAppearance，然后调用；不增加其它入口逻辑。
@@ -108,7 +112,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 1. 确认职责和绑定归属；播放核心、状态写入白名单、命令接口遵守既有约束，不顺手改动。
 2. 使用方添加显式静态导入，提供方尾部列表只导出实际使用项；app 启动顺序保持固定。
 3. 检查普通脚本边界、循环依赖和声明初始化：不依赖隐式全局，不在求值阶段读取未初始化绑定，不移动会改变取值的初始化。
-4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入只允许 core；搜索分片只允许 search-state 动作提交，首页分片只允许 app-state 动作提交；libraryState 允许 core/library-ui/video-pages。search-view 独占搜索提交按钮；main/core/search 通过搜索动作写入，禁止快照直接或别名写入。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
+4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入只允许 core；搜索分片只允许 search-state 动作提交，首页分片只允许 app-state 动作提交；资料库分片只允许 library-state 动作提交；旧 libraryState 只保留 disabledPages / disabledPagePending，写入允许 library-ui/video-pages。search-view 独占搜索提交按钮；main/core/search 通过搜索动作写入，禁止快照直接或别名写入。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
 5. 调整测试加载方式而非业务断言；运行下述九项验证、CRLF 四项、CI 步骤、两个 Node 22 版本清单比对及 canary，再做真实 WebView 手测。
 
 ## 测试与守卫
@@ -226,3 +230,13 @@ home.ts 在原 updateHomeModeUi 调用位置挂载一次 store，注入 invoke�
 首页与搜索分别复制改变的分片。搜索开始、成功、失败和分页开始、完成各提交一次；BV 重置、元数据回填、分区或排序操作分别为同步动作。view 中的修订号保持原有列表重绘时机；状态提交不代表每次都重建列表。搜索与解析忙态分别记录，buttonDisabled/buttonSource 保存原有最后写入者的结果，不采用忙态逻辑或，否则会改变现有按钮行为。
 
 state-architecture 守卫覆盖平台引用、renderer 依赖、搜索提交按钮归属及简单快照别名写入，配直接写入、集合写入和 Object.assign 反例；它是词法守卫，深度只读类型与冻结动作测试补充保护。旧 VM 测试仅更新接线与切片，业务断言和名称保留；state-3 搜索特征测试保持提交时的全部字节。
+
+## 资料库状态边界（state-4）
+
+library-state 负责收藏、BV 索引、歌单、选中项、失效标记、读取错误及共用弹窗 session。selectedPlaylistId 的有效性在动作提交时修正；renderer 不修正状态。loadLibrary 的读失败只发布错误空状态，不发起持久化写回。播放核心通过 markLibraryUnavailable / clearLibraryUnavailable 改变内存标记，原后端命令及错误记录仍在原位置；响度说明通过 openLoudnessModal 动作打开共用弹窗。
+
+三套拖拽位于 library.drags.favorites / playlistItems / playlists：只存 index、playlistId、saving、suppressClickUntil；library-ui 的三个私有 DOM 容器只存 row / target。拖拽结束传入控制器读取的单调时钟值，纯状态层计算 400ms 截止时间；选择器 isLibraryDragClickSuppressed 只读快照。保存成功才替换排序结果；失败保留列表，解除忙态并重新渲染。
+
+library-view 不导入动作、store 工厂、invoke 或 Tauri API，交互只调用控制器注入的回调。节点、弹窗内容引用、动画和既有焦点行为由 renderer 保留；未新增关闭后主动恢复焦点的行为。library-ui 只挂载一次订阅，首屏显式 getState；收藏变更的两种窗口事件仍在持久化结果和渲染之后发出，名称与 payload 不变。禁用分 P / 分 P 保存中继续留在旧 libraryState，video-pages 未改。
+
+library-characterization.test.ts 在旧实现上先提交，通过后保持逐字节不变；library-actions.test.ts 直接导入纯模块并开启冻结；library-architecture.test.ts 保护只读 renderer 与快照别名，state-architecture 同时覆盖新状态模块的平台依赖。修改现有测试需附全部断言原文和逐测试计数：登记类更新单列，源码写法断言替换需行为测试映射，业务断言不可改变或删除；保留断言由正次数变成 0 时立即停止。

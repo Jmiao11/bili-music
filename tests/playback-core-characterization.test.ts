@@ -13,7 +13,7 @@ const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
 const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const LAST_SEARCH_KEY").replace(/\n\n$/, "\n")
-  + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const favoriteDragState =");
+  + sourceSlice(state, "ui/player-state.ts", "const libraryState =", "const videoPageCounts =");
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
   + sourceSlice(policy, "ui/playback-policy.ts", "function shuffled(", "function readShuffleCollectionPrefs(")

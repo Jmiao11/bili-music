@@ -87,7 +87,7 @@ test("split scripts contain only top-level function declarations and comments", 
         "home.ts": new Set(["applicationStore"]),
         "library-view.ts": new Set(["libraryModalControls"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
-        "library-ui.ts": new Set(["libraryMounted"]),
+        "library-ui.ts": new Set(["libraryMounted", "favoriteDragElements", "playlistDragElements", "playlistListDragElements"]),
         "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMetaRequestVersion", "pagesMetaStatusBeforeLoad", "pagesModalContext", "pagesModalReturnFocus"]),
       };
       const declaration = /^let\s+([\w$]+)(?:\s*=\s*(?:-?\d+(?:\.\d+)?|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|true|false|null|Number\.NEGATIVE_INFINITY))?\s*;/.exec(source.slice(position));
@@ -220,7 +220,7 @@ test("state fields are written only by approved scripts", () => {
   const allowedWriters: Record<string, Set<string>> = {
     playerState: new Set(["playback-core.ts"]),
     searchState: new Set(["search-state.ts"]),
-    libraryState: new Set(["playback-core.ts", "library-ui.ts", "video-pages.ts"]),
+    libraryState: new Set(["library-ui.ts", "video-pages.ts"]),
     homeState: new Set(["app-state.ts"]),
   };
   const unexpected = [];
