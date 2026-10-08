@@ -97,6 +97,10 @@
     "../../tests/media-volume-ownership.test.ts",
     "../../tests/playback-display-characterization.test.ts",
     "../../tests/playback-display-actions.test.ts",
-    "../../tests/playback-queue-characterization.test.ts"
+    "../../tests/playback-queue-characterization.test.ts",
+    "../../ui/playback-queue-state.ts",
+    "../../tests/helpers/playback-queue-fixture.ts",
+    "../../tests/playback-queue-actions.test.ts",
+    "../../tests/playback-queue-architecture.test.ts"
   ]
 }

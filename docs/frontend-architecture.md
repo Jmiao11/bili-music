@@ -14,7 +14,8 @@
 | track-utils.ts | ES Module | 曲目规范化、格式化、播放错误分类。 |
 | runtime-api.ts | ES Module | 共享 Tauri invoke 引用。 |
 | player-dom.ts | ES Module | 77 个共享 DOM 引用，保持原查询写法。 |
-| player-state.ts | ES Module | 播放状态、尚未迁移的禁用分 P 状态与共享 Map / Set / 常量的声明。 |
+| player-state.ts | ES Module | 播放请求身份、当前播放分P列表、曲目事件身份，以及共享 Map / Set / 常量的声明；队列字段已迁出。 |
+| playback-queue-state.ts | ES Module | 播放队列、来源、索引、循环随机、历史、当前曲目投影与随机分P轮次，以及纯导航动作。 |
 | playback-policy.ts | ES Module | 随机、合集偏好、音频恢复判定与 LUFS 公式。 |
 | playback-notice.ts | ES Module | 播放通知、定位、私有计时器及 initPlaybackNotice。 |
 | playback-diagnostics.ts | ES Module | initPlaybackDiagnostics 建立 window 诊断桥。 |
@@ -68,7 +69,7 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | playback-notice | player-dom |
 | playback-diagnostics | player-dom |
 | state-store | 无平台依赖 |
-| app-state | state-store、track-utils、search-state、library-state、pages-state、settings-state、playback-settings-state、playback-display-state（含类型导入） |
+| app-state | playback-queue-state、state-store、track-utils、search-state、library-state、pages-state、settings-state、playback-settings-state、playback-display-state（含类型导入） |
 | search-state | state-store（类型）、track-utils；通过注入适配器调用搜索与历史命令 |
 | search-view | search-state（类型）、track-utils、player-dom；只读渲染及注入的交互回调 |
 | home-view | app-state、player-dom（含类型导入） |
@@ -77,13 +78,14 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 | playback-policy | settings-adapter、page-selection、player-state |
 | library-state | state-store（类型）、track-utils；通过注入适配器调用资料库命令 |
 | library-view | track-utils、library-state（类型）、player-dom；只读渲染及注入交互回调 |
-| library-ui | library-state（含类型导入）、player-state、home、library-view（含类型导入）、playback-core |
+| library-ui | library-state（含类型导入）、home、library-view（含类型导入）、playback-core |
 | video-pages | page-selection、track-utils、runtime-api、player-dom、player-state、playback-core |
 | search | search-state（类型）、player-dom、player-state、home、video-pages、search-view、playback-core |
 | settings-state | state-store（类型）、page-selection；通过注入适配器读取存储和调用命令 |
 | settings-adapter | page-selection、settings-state（类型） |
 | settings-view | settings-state、appearance（仅 DOM 类型，不形成运行时依赖） |
 | playback-display-state | state-store（仅类型） |
+| playback-queue-state | page-selection、state-store（仅类型）、track-utils |
 | playback-display-view | playback-display-state（仅类型） |
 | playback-settings-state | state-store（仅类型） |
 | media-adapter | 无导入边 |
@@ -227,6 +229,8 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 7 | 删除 HTML 中 window-controls 普通脚本标签 | npm run verify:dist |
 | 8 | 状态模块引用 document（状态守卫上线后启用） | 对应状态架构守卫测试 |
 | 9 | 媒体适配器之外直接写入 audio.volume | node --test tests/media-volume-ownership.test.ts |
+| 10 | 播放核心直接或通过别名修改队列快照 | node --test tests/playback-queue-architecture.test.ts |
+| 11 | 队列状态模块直接调用 Math.random 或读取时钟 | node --test tests/playback-queue-architecture.test.ts |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 
@@ -298,3 +302,14 @@ appearance 在原监听登记位置调用媒体适配器 subscribe，首次动�
 Media Session 的元数据、播放状态和位置由只读 renderer 委托 media-adapter 的平台适配器写入；原 withMediaSession 保留静默兼容边界。系统操作仍在每次操作时重新观测媒体并读取快照，保留原播放/暂停幂等判断、跳转边界与默认十秒规则。上一首、下一首及播放/暂停继续复用既有按钮 click，恢复捕获监听和所有外部 click 复用位置不变；按钮业务处理仅把实际 play/pause 调用换成媒体适配器。
 
 加载、请求、取消、恢复、队列、失败跳过、记录、缓存、响度分析及任务栏上报仍留在原模块。playback-display-characterization 在旧实现上独立提交后逐字节冻结，显式装载真实状态/view/媒体模块，不新增公共切片 helper 例外。新状态模块进入纯状态守卫、模块图、导入顺序与类型项目；只读 renderer、DOM 写入归属和进度局部重绘另有守卫及行为测试。批次报告、完整断言原文和逐测试计数继续保存在仓库外。
+
+
+## 播放队列与导航边界（state-7c）
+
+应用 store 的 playbackQueue 保存 queue、queueSource、queueSearchVersion、playlistId（原 queuePlaylistId）、currentIndex、loopMode、shuffle、randomRemaining、history、currentPageIndex、currentDisplayTrack，以及原播放核心私有的 randomPageRound。所有写入经 playback-queue-state 动作；曲目元数据回填复制对应行，禁止修改快照别名。搜索分页回调直接调用 appendSearchQueue，由来源版本决定是否扩展队列及随机剩余项。
+
+纯导航动作处理上一首、下一首、循环、随机和历史回退；分P动作接收当前播放页列表和资料库禁用偏好快照。Fisher–Yates、分P抽取使用控制器传入的随机函数，合集偏好由控制器回调按原时机读取；状态模块不直接访问时钟或平台。playback-core 保留实际媒体操作、提示、请求身份、取消、失败跳过、恢复及记录/缓存/分析触发的原顺序。save_playback_state 仍在原位置组装相同字段，仅把队列读取改为快照。
+
+队列计数、循环/随机按钮和来源高亮仍由原位 updateQueueUi 只读渲染快照；不订阅 timeupdate，不重建列表。main 读取队列快照，资料库通过只读投影保持原高亮字段名称。playerState 只剩 requestVersion、activeAudioVersion、activeAudioUrl、audioActivatedAt、consecutiveResolveFailures、currentPages、lastEmittedTrackIdentity；当前播放页列表是请求上下文，分P元信息缓存仍由 pages 分片持有。
+
+本批旧实现队列特征测试独立提交并冻结。经明确授权，两个历史响度测试改为显式接线，原业务断言保留；其他 VM 测试也显式接入真实冻结队列 store/actions。新增 playback-queue-fixture 仅把旧测试的可变输入与真实 store 接起来，不替代导航实现，不修改 source-slice 或历史自动登记表。旧测试全部断言原文、逐测试次数、接线说明及破坏反例保存到仓库外验证目录。

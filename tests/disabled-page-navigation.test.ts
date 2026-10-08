@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -22,7 +23,7 @@ type LoadOptions = { keepPage?: boolean; skipFailed?: boolean; randomStartPage?:
 const pages = [1, 2, 3, 4].map((cid) => ({ cid, page: cid, part: `P${cid}`, durationSeconds: 10 }));
 
 test("page lookup includes its start index and scans in either direction", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const find = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "findEnabledPageIndex", context);
   assert.equal(find(pages, 0, 1, (page: Page) => page.cid === 1), 1);
@@ -32,7 +33,7 @@ test("page lookup includes its start index and scans in either direction", () =>
 });
 
 test("page lookup returns -1 at either edge and when every page is disabled", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const find = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "findEnabledPageIndex", context);
   assert.equal(find(pages, pages.length, 1, () => false), -1);
@@ -41,7 +42,7 @@ test("page lookup returns -1 at either edge and when every page is disabled", ()
 });
 
 test("random page lookup selects uniformly among enabled pages", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const pick = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "pickRandomEnabledPageIndex", context);
   assert.equal(pick(pages, (page: Page) => page.cid === 2, () => 0), 0);
@@ -53,7 +54,7 @@ test("random page lookup selects uniformly among enabled pages", () => {
 });
 
 test("random page round excludes current and disabled pages, including pages disabled later", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const build = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "buildRandomPageRound", context);
   const take = vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "takeRandomPageFromRound", context);
@@ -70,7 +71,7 @@ test("random page round excludes current and disabled pages, including pages dis
 });
 
 test("shuffle collection preferences accept only exact stored values", () => {
-  const context = vm.createContext({});
+  const context = createQueueContext({});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource, context);
   const normalize = context.normalizeShuffleCollectionPrefs;
   assert.deepEqual({ ...normalize("random", "all") }, { order: "random", limit: 0 });
@@ -93,7 +94,7 @@ function navigationContext(disabledCids: Iterable<number>, loopMode = "sequence"
     currentPageIndex: 0, currentDisplayTrack: {}, loopMode, history: [],
     activeAudioVersion: 7, requestVersion: 7, activeAudioUrl: "audio-url", audioActivatedAt: 0,
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     randomPageRound: null,
     playerState: state,
     libraryState: { disabledPages: new Map([[bvid.toLowerCase(), new Set(disabledCids)]]) },
@@ -293,11 +294,9 @@ test("storage read errors use the default random unlimited preference", () => {
 
 test("only a random next index requests a random start page", () => {
   const calls: { index: number; options: LoadOptions }[] = [];
-  const state = { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}] };
-  const context = vm.createContext({
+  const state = { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}], randomRemaining: [1] };
+  const context = createQueueContext({
     playerState: state,
-    takeRandomNext: () => 1,
-    takeSequentialNext: () => 1,
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
@@ -318,10 +317,9 @@ test("only a random next index requests a random start page", () => {
 
 test("random queue navigation starts at the first enabled page for sequential collections", () => {
   const calls: { index: number; options: LoadOptions }[] = [];
-  const context = vm.createContext({
-    playerState: { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}] },
+  const context = createQueueContext({
+    playerState: { currentIndex: 0, shuffle: true, loopMode: "sequence", queue: [{}, {}], randomRemaining: [1] },
     localStorage: { getItem: (key: string) => key.endsWith("order") ? "sequential" : "all" },
-    takeRandomNext: () => 1,
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
@@ -329,6 +327,7 @@ test("random queue navigation starts at the first enabled page for sequential co
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
   context.localStorage.getItem = () => { throw Error("storage denied"); };
+  context.playerState.randomRemaining = [1];
   assert.equal(context.playNext(), true);
   assert.equal(calls[1].options.randomStartPage, true);
 });
@@ -336,7 +335,7 @@ test("random queue navigation starts at the first enabled page for sequential co
 test("entering a queue item and toggling shuffle clear the page round", () => {
   const state = { queue: [{ bvid }, { bvid: "BV1rW4y1Q7o7" }], currentIndex: 0,
     history: [], consecutiveResolveFailures: 0, shuffle: false, randomRemaining: [1] };
-  const context = vm.createContext({
+  const context = createQueueContext({
     randomPageRound: { bvid, remaining: [1] }, playerState: state,
     clearPendingResume() {}, clearPlaybackNotice() {}, resetCurrentPageState() {},
     updatePlayerPagesButton() {}, markRandomIndexPlayed() {}, updateQueueUi() {},
@@ -370,7 +369,7 @@ function trackContext(disabledCids: Iterable<number>, videoPages = pages) {
     currentIndex: 0, queue: [{ bvid }], requestVersion: 0,
     currentPages: [] as Page[], currentPageIndex: 0, consecutiveResolveFailures: 0,
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state,
     libraryState: { disabledPages: new Map([[bvid.toLowerCase(), new Set(disabledCids)]]), unavailableBvids: new Map() },
     MAX_CONSECUTIVE_RESOLVE_FAILURES: 5,

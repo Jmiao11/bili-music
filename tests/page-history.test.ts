@@ -1,3 +1,4 @@
+import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -20,7 +21,7 @@ test("queue switches remember the departed cid and pass a history cid to track l
     currentPages: [{ cid: 11 }, { cid: 12 }], currentPageIndex: 1,
     history: [] as { index: number; cid: number; pageLevel?: boolean }[], consecutiveResolveFailures: 0,
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state, randomPageRound: null,
     currentVideoPage: () => state.currentPages.length > 1 ? state.currentPages[state.currentPageIndex] : null,
     clearPendingResume() {}, clearPlaybackNotice() {},
@@ -47,7 +48,7 @@ test("only random page advancement adds a page-level history entry", () => {
     currentPageIndex: 0, currentDisplayTrack: {}, loopMode: "sequence",
     shuffle: true, history: [] as { index: number; cid: number; pageLevel?: boolean }[],
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state, randomPageRound: null,
     libraryState: { disabledPages: new Map() },
     hasMultipleCurrentPages: () => true,
@@ -73,7 +74,7 @@ test("previous accepts numeric history, restores a page in place, and forwards m
     currentIndex: 1, currentPages: [{ cid: 11 }, { cid: 12 }],
     currentPageIndex: 1, currentDisplayTrack: {}, history: [2] as (number | { index: number; cid: number; pageLevel?: boolean })[], shuffle: true,
   };
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state, randomPageRound: round,
     playQueueIndex: (index: number, options: { historyCid: number | null }) => calls.push({ index, options }),
     updatePlayerPagesButton() {}, loadCurrentTrack: (options: { keepPage: boolean }) => calls.push({ load: options }),
@@ -105,7 +106,7 @@ test("random previous skips page retreat while sequential previous keeps it", ()
   const handlers: Record<string, (...args: unknown[]) => unknown> = {};
   const state = { shuffle: true };
   const calls: string[] = [];
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state,
     previousButton: { addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { handlers.previous = handler; } },
     retreatPageWithinCurrentBv: () => { calls.push("retreat"); return true; },
@@ -131,7 +132,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
   };
   const handlers: Record<string, (...args: unknown[]) => unknown> = {};
   const queueCalls: { index: number; options: { historyCid: number } }[] = [];
-  const context = vm.createContext({
+  const context = createQueueContext({
     playerState: state, randomPageRound: { bvid: "BV1", remaining: [] },
     libraryState: { disabledPages: new Map() },
     shuffleToggle: { checked: false, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { handlers.shuffle = handler; } },

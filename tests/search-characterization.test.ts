@@ -80,7 +80,9 @@ async function fixture(saved = "") {
     await import(pathToFileURL(path.join(root, "main.ts")).href);
     const search = await import(pathToFileURL(path.join(root, "search.ts")).href) as { runSearch(options?: { userKeyword?: string; recordHistory?: boolean; restored?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; readLastSearchKeyword(): string; getSearchSnapshot?: () => Snapshot };
     const states = await import(pathToFileURL(path.join(root, "player-state.ts")).href) as { searchState?: Snapshot; playerState: { queue: ReturnType<typeof track>[]; queueSource: string; queueSearchVersion: number | null; shuffle: boolean; currentIndex: number; randomRemaining: number[] } };
-    return { search, player: states.playerState, state: () => search.getSearchSnapshot ? search.getSearchSnapshot() : states.searchState!, nodes, musicTabs, sortModeTabs, calls, storage, windowNode, dispose,
+    const home = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): ReturnType<typeof import("../ui/app-state.ts").createApplicationStore> };
+    const queueStore = home.getApplicationStore();
+    return { search, queueActions: queueStore.actions.playbackQueue, get player() { return queueStore.getState().playbackQueue; }, state: () => search.getSearchSnapshot ? search.getSearchSnapshot() : states.searchState!, nodes, musicTabs, sortModeTabs, calls, storage, windowNode, dispose,
       reply(next: typeof reply) { reply = next; }, async flush() { for (let i = 0; i < 60; i++) await Promise.resolve(); } };
   } catch (failure) { dispose(); throw failure; }
 }
@@ -112,10 +114,10 @@ test("search discards late pagination and edited draft results without changing 
 test("search deduplicates pagination and extends only the queue with its matching source version", async () => {
   const h = await fixture(); try {
     h.nodes.searchKeyword.value = "甲"; h.reply(async () => batch()); await h.search.runSearch();
-    h.player.queue = [track(1)]; h.player.queueSource = "search"; h.player.queueSearchVersion = h.state().requestVersion; h.player.currentIndex = 0; h.player.shuffle = true;
+    h.queueActions.replaceQueue([track(1)], "search", h.state().requestVersion); h.queueActions.selectIndex(0, false, null); h.queueActions.changeShuffle(true, Math.random);
     h.reply(async () => [track(1), track(21), track(21), ...batch(22)]); await h.search.loadMoreSearchResults();
     assert.equal(h.state().results.length, 41); assert.equal(h.player.queue.length, 22); assert.equal(h.player.randomRemaining.length, 21);
-    h.player.queueSearchVersion = -1; h.reply(async () => batch(80)); await h.search.loadMoreSearchResults(); assert.equal(h.player.queue.length, 22);
+    h.queueActions.replaceQueue(h.player.queue, "search", -1); h.reply(async () => batch(80)); await h.search.loadMoreSearchResults(); assert.equal(h.player.queue.length, 22);
     h.reply(async () => [track(1), track(1)]); await h.search.loadMoreSearchResults(); assert.equal(h.state().hasMore, false); assert.equal(h.nodes.searchStatus.textContent, "没有更多了");
   } finally { h.dispose(); }
 });

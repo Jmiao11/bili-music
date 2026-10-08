@@ -1,15 +1,6 @@
 import { readSettingsCollectionPrefs } from "./settings-adapter.ts";
 import { MAX_AUDIO_RECOVERIES } from "./player-state.ts";
 
-function shuffled(values: readonly number[]): number[] {
-  const result = [...values];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(Math.random() * (index + 1));
-    [result[index], result[target]] = [result[target], result[index]];
-  }
-  return result;
-}
-
 function readShuffleCollectionPrefs(): ReturnType<typeof readSettingsCollectionPrefs> { return readSettingsCollectionPrefs(); }
 
 function shouldRecoverAudio(errorCode: number | undefined, isCurrent: boolean, hasPlayed: boolean, attempts: number): boolean {
@@ -25,4 +16,4 @@ function lufsToGain(lufs: number | null | undefined): number {
   return 10 ** (gainDb / 20);
 }
 
-export { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio, shuffled };
+export { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio };
