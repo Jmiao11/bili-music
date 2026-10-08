@@ -101,6 +101,7 @@
     "../../ui/playback-queue-state.ts",
     "../../tests/helpers/playback-queue-fixture.ts",
     "../../tests/playback-queue-actions.test.ts",
-    "../../tests/playback-queue-architecture.test.ts"
+    "../../tests/playback-queue-architecture.test.ts",
+    "../../tests/playback-request-characterization.test.ts"
   ]
 }
