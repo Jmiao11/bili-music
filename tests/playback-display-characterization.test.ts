@@ -33,14 +33,15 @@ class DisplayNode {
 async function fixture() {
   const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "appearance.ts"), "utf8"), nodes = new Map<string, DisplayNode>();
   const node = (id: string) => { if (!nodes.has(id)) nodes.set(id, new DisplayNode()); return nodes.get(id)!; };
-  const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [];
+  const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [], navigation: string[] = [];
   const session = { metadata: null as unknown, playbackState: "none", setPositionState(value: unknown) { positions.push(JSON.parse(JSON.stringify(value))); }, setActionHandler(name: string, callback: (details: Record<string, number>) => void) { handlers.set(name, callback); } };
   const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} });
   const context = createSessionContext({ document: { documentElement: node("root"), querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke: async () => null } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
     navigator: { mediaSession: session }, MediaMetadata: class { constructor(data: object) { Object.assign(this, data); } },
     getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
-    pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; } });
+    pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
+    playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.
   for (const declaration of moduleDeclarations(source, "ui/appearance.ts")) if (declaration.kind === "import" && /(?:playback-.*-(?:state|view)|media-adapter)\.ts$/.test(declaration.specifier)) {
     Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
@@ -52,10 +53,13 @@ async function fixture() {
   const core = stripModuleSyntax(fs.readFileSync(path.join(ui, "playback-core.ts"), "utf8"), "ui/playback-core.ts");
   vm.runInContext(core.slice(core.indexOf("function initPlaybackResume()"), core.indexOf("function initPlaybackPersistenceAndCache()")), context);
   context.resumePlayPauseButton = node("#play-pause-button"); context.initPlaybackResume();
+  context.previousButton = node("#previous-button"); context.nextButton = node("#next-button");
+  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
+  vm.runInContext(main.slice(main.indexOf('previousButton.addEventListener("click"'), main.indexOf("initPlaybackResume();")), context);
   vm.runInContext(erased.slice(erased.indexOf('window.addEventListener("bilibili-music-trackchange", (event) => {', erased.indexOf("function startAppearance()")), erased.indexOf("initializeAccentColor();", erased.indexOf("function startAppearance()"))), context);
   vm.runInContext("updateProgress(0); updatePlayPauseButton(); registerMediaSessionActionHandlers();", context);
   const audio = node("#audio"), flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
-  return { node, audio, session, handlers, positions, context, store, flush, track: (detail: unknown) => windowNode.fire("bilibili-music-trackchange", { detail }) };
+  return { node, audio, session, handlers, positions, navigation, context, store, flush, track: (detail: unknown) => windowNode.fire("bilibili-music-trackchange", { detail }) };
 }
 
 test("playback display media events synchronize both bars without touching lists", async () => {
@@ -99,7 +103,7 @@ test("playback Media Session metadata state position and unsupported probes pres
 test("playback Media Session actions retain click forwarding guards and seek boundaries", async () => {
   const h = await fixture(); h.audio.duration = 100; h.handlers.get("play")!({}); await h.flush(); assert.deepEqual(h.audio.operations, ["play"]); h.handlers.get("play")!({}); await h.flush(); assert.deepEqual(h.audio.operations, ["play"]);
   h.handlers.get("pause")!({}); await h.flush(); h.handlers.get("pause")!({}); await h.flush(); assert.deepEqual(h.audio.operations, ["play", "pause"]);
-  h.handlers.get("previoustrack")!({}); h.handlers.get("nexttrack")!({}); assert.deepEqual(h.node("#previous-button").operations, ["click"]); assert.deepEqual(h.node("#next-button").operations, ["click"]);
+  h.handlers.get("previoustrack")!({}); h.handlers.get("nexttrack")!({}); assert.equal(h.navigation.filter(action => action === "previous").length, 1); assert.equal(h.navigation.filter(action => action === "next").length, 1);
   h.handlers.get("seekto")!({ seekTime: 40 }); assert.equal(h.audio.currentTime, 40); h.handlers.get("seekbackward")!({ seekOffset: 50 }); assert.equal(h.audio.currentTime, 0); h.handlers.get("seekforward")!({ seekOffset: 200 }); assert.equal(h.audio.currentTime, 100);
   h.audio.currentTime = 20; h.handlers.get("seekforward")!({ seekOffset: 0 }); assert.equal(h.audio.currentTime, 30); h.handlers.get("seekbackward")!({}); assert.equal(h.audio.currentTime, 20);
   h.audio.duration = NaN; h.handlers.get("seekto")!({ seekTime: 5 }); assert.equal(h.audio.currentTime, 20);
