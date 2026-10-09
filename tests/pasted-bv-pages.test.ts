@@ -1,4 +1,4 @@
-import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
+import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";

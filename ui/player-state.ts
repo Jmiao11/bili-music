@@ -13,11 +13,6 @@ const LOAD_MORE_THRESHOLD_PX: number = 96;
 const PLAYBACK_STATE_SAVE_INTERVAL_MS: number = 15_000;
 
 const playerState = {
-  requestVersion: 0,
-  activeAudioVersion: -1,
-  activeAudioUrl: "",
-  audioActivatedAt: Number.POSITIVE_INFINITY,
-  consecutiveResolveFailures: 0,
   currentPages: [] as CommandContract.VideoPage[],
   lastEmittedTrackIdentity: "",
 };
