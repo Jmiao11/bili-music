@@ -10,7 +10,7 @@ import { finishLibraryModalTransition } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "./video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
-import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
+import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { isLoudnessNormalizationEnabled } from "./appearance.ts";
 
 let pendingSearchRestore: string | null = null;
@@ -57,13 +57,13 @@ initPlaybackResume();
 
 audio.addEventListener("ended", (event) => {
   const belongsToCurrentAudio =
-    playerState.activeAudioVersion === playerState.requestVersion &&
-    playerState.activeAudioUrl === audio.currentSrc &&
-    event.timeStamp >= playerState.audioActivatedAt;
+    getRequestSnapshot().activeAudioVersion === getRequestSnapshot().requestVersion &&
+    getRequestSnapshot().activeAudioUrl === audio.currentSrc &&
+    event.timeStamp >= getRequestSnapshot().audioActivatedAt;
   if (belongsToCurrentAudio && audio.ended) {
     const bvid = getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.bvid;
     const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
-    const audioUrl = playerState.activeAudioUrl;
+    const audioUrl = getRequestSnapshot().activeAudioUrl;
     if (!advancePageWithinCurrentBv({ automatic: true })) {
       playNext({ automatic: true });
     }

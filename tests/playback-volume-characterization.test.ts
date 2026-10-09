@@ -1,4 +1,4 @@
-import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
+import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import vm from "node:vm";

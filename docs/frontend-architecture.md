@@ -231,6 +231,8 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 9 | 媒体适配器之外直接写入 audio.volume | node --test tests/media-volume-ownership.test.ts |
 | 10 | 播放核心直接或通过别名修改队列快照 | node --test tests/playback-queue-architecture.test.ts |
 | 11 | 队列状态模块直接调用 Math.random 或读取时钟 | node --test tests/playback-queue-architecture.test.ts |
+| 12 | 任一模块改回读写 playerState 的旧请求字段 | node --test tests/playback-request-architecture.test.ts |
+| 13 | 请求状态动作读取平台时钟 | node --test tests/playback-request-architecture.test.ts |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 
@@ -313,3 +315,11 @@ Media Session 的元数据、播放状态和位置由只读 renderer 委托 medi
 队列计数、循环/随机按钮和来源高亮仍由原位 updateQueueUi 只读渲染快照；不订阅 timeupdate，不重建列表。main 读取队列快照，资料库通过只读投影保持原高亮字段名称。playerState 只剩 requestVersion、activeAudioVersion、activeAudioUrl、audioActivatedAt、consecutiveResolveFailures、currentPages、lastEmittedTrackIdentity；当前播放页列表是请求上下文，分P元信息缓存仍由 pages 分片持有。
 
 本批旧实现队列特征测试独立提交并冻结。经明确授权，两个历史响度测试改为显式接线，原业务断言保留；其他 VM 测试也显式接入真实冻结队列 store/actions。新增 playback-queue-fixture 仅把旧测试的可变输入与真实 store 接起来，不替代导航实现，不修改 source-slice 或历史自动登记表。旧测试全部断言原文、逐测试次数、接线说明及破坏反例保存到仓库外验证目录。
+
+## 播放请求边界（state-7d）
+
+app-state.ts 的 playbackRequest 分片保存 requestVersion、activeAudioVersion、activeAudioUrl、audioActivatedAt、consecutiveResolveFailures。动作处理版本递增、音频身份失效/激活/替换、失败累加与清零，isCurrent 接收显式版本判断当前请求。时间仍在控制器原调用处读取后传入动作；Promise、取消命令、媒体操作、失败跳过方向、阈值与提示留在原控制器，调用顺序不变。playerState 只保留 currentPages 和 lastEmittedTrackIdentity；恢复、缓存、记录、响度触发和跨窗同步不迁移。
+
+activeAudioUrl 是私有运行时请求数据，不进入 renderer 投影、诊断或跨窗 payload；测试与仓库外日志只输出相等/为空的判断或脱敏结果。应用工厂支持请求分片的正式初始数据，供冻结测试 fixture 构造；没有运行期任意写入接口。请求代码复用已登记的 app-state 模块及纯状态/类型守卫，未增加业务模块和初始化调用。
+
+经本批明确授权，10 个历史 VM 文件仅替换首行导入。新增 playback-request-fixture 在业务函数、事件和命令完成的明确边界接入真实冻结 store/actions，原 source-slice、例外登记表、playback-queue-fixture 不改。每个请求字段的输入/输出同步均有反例；产品代码改回旧字段由请求归属守卫拒绝。该 helper 是过渡件，playerState 整体移除时（state-9 或 Vue 阶段）删除；完整原文断言、逐测试计数、字段同步说明和变异证据保存在仓库外。

@@ -28,6 +28,9 @@ let playbackIntended = false;
 
 let pendingPastedBvPages: { bvid: string; requestVersion: number } | null = null;
 
+function getRequestSnapshot() { return getApplicationStore().getState().playbackRequest; }
+function getRequestActions() { return getApplicationStore().actions.playbackRequest; }
+
 function getQueueSnapshot() { return getApplicationStore().getState().playbackQueue; }
 function getQueueActions() { return getApplicationStore().actions.playbackQueue; }
 
@@ -112,7 +115,7 @@ async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInpu
   resetCurrentPageState();
   try {
     const pages = await invoke("get_video_pages", { bvId: video.bvid });
-    if (requestVersion !== playerState.requestVersion) {
+    if (!getRequestActions().isCurrent(requestVersion)) {
       return false;
     }
     playerState.currentPages = (Array.isArray(pages) ? pages : [])
@@ -121,13 +124,13 @@ async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInpu
     getQueueActions().selectPage(0);
     updatePlayerPagesButton();
   } catch (error) {
-    if (requestVersion === playerState.requestVersion) {
+    if (getRequestActions().isCurrent(requestVersion)) {
       console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
       resetCurrentPageState();
       showPlaybackNotice("分P列表获取失败，暂按单个视频播放。");
     }
   }
-  return requestVersion === playerState.requestVersion;
+  return getRequestActions().isCurrent(requestVersion);
 }
 
 function emitCurrentTrackChanged() {
@@ -154,16 +157,14 @@ function markRandomIndexPlayed(index: number) { getQueueActions().markPlayed(ind
 
 function stopAudioElement() {
   window.recordPlaybackDiag("stopAudioElement", String(new Error().stack ?? "").split("\n").slice(1, 5).join(" | "));
-  playerState.activeAudioVersion = -1;
-  playerState.activeAudioUrl = "";
-  playerState.audioActivatedAt = Number.POSITIVE_INFINITY;
+  getRequestActions().invalidateAudio();
   audio.pause();
   audio.removeAttribute("src");
   audio.load();
 }
 
 async function cancelCurrentPlayback() {
-  playerState.requestVersion += 1;
+  getRequestActions().beginRequest();
   stopAudioElement();
   setSearchPlaybackBusy(false);
   try {
@@ -276,7 +277,7 @@ async function restorePlaybackState() {
 function setQueue(videos: readonly CommandContract.TrackSnapshotInput[], { save = true } = {}) {
   clearPendingResume();
   getQueueActions().replaceQueue(videos);
-  playerState.consecutiveResolveFailures = 0;
+  getRequestActions().resetFailures();
   resetCurrentPageState();
   clearPlaybackNotice();
   resetRandomRemaining();
@@ -521,7 +522,7 @@ function showLoudnessNormalizationDialog() {
 }
 
 function waitForAudioMetadata() {
-  return waitForRecoveryMetadata(playerState.requestVersion);
+  return waitForRecoveryMetadata(getRequestSnapshot().requestVersion);
 }
 
 function recoveryAttemptsFor(version: number) {
@@ -547,7 +548,7 @@ function waitForRecoveryMetadata(version: number) {
     const loaded = () => { cleanup(); resolve(true); };
     const failed = () => { cleanup(); reject(audio.error ?? new Error("audio metadata load failed")); };
     const emptied = () => {
-      if (version !== playerState.requestVersion) { cleanup(); resolve(false); }
+      if (!getRequestActions().isCurrent(version)) { cleanup(); resolve(false); }
     };
     audio.addEventListener("loadedmetadata", loaded);
     audio.addEventListener("error", failed);
@@ -556,7 +557,7 @@ function waitForRecoveryMetadata(version: number) {
 }
 
 async function recoverCurrentAudio(version: number, sourceUrl: string, position: number, wasPlaying: boolean) {
-  if (version !== playerState.requestVersion || sourceUrl !== playerState.activeAudioUrl) {
+  if (!getRequestActions().isCurrent(version) || sourceUrl !== getRequestSnapshot().activeAudioUrl) {
     window.recordPlaybackDiag("audio-recovery", "abandoned before prepare_audio");
     return;
   }
@@ -573,17 +574,16 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
       part: page?.part ?? null,
       durationSeconds: page?.durationSeconds ?? null,
     });
-    if (version !== playerState.requestVersion || sourceUrl !== playerState.activeAudioUrl) {
+    if (!getRequestActions().isCurrent(version) || sourceUrl !== getRequestSnapshot().activeAudioUrl) {
       refundRecoveryAttempt(version);
       window.recordPlaybackDiag("audio-recovery", "abandoned after prepare_audio");
       return;
     }
-    playerState.activeAudioUrl = info.audioUrl;
-    playerState.audioActivatedAt = performance.now();
+    getRequestActions().replaceAudio(info.audioUrl, performance.now());
     audio.src = info.audioUrl;
     audio.load();
     const loaded = await waitForRecoveryMetadata(version);
-    if (!loaded || version !== playerState.requestVersion) {
+    if (!loaded || !getRequestActions().isCurrent(version)) {
       refundRecoveryAttempt(version);
       window.recordPlaybackDiag("audio-recovery", "abandoned while loading metadata");
       return;
@@ -591,14 +591,14 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
     const maxPosition = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - 1) : position;
     audio.currentTime = Math.min(Math.max(0, position), maxPosition);
     if (wasPlaying) await audio.play();
-    if (version !== playerState.requestVersion) {
+    if (!getRequestActions().isCurrent(version)) {
       refundRecoveryAttempt(version);
       window.recordPlaybackDiag("audio-recovery", "abandoned after play");
       return;
     }
     window.recordPlaybackDiag("audio-recovery", `success attempt=${recoveryAttempts}`);
   } catch (error) {
-    if (version !== playerState.requestVersion || String(error).includes("audio resolution was cancelled")) {
+    if (!getRequestActions().isCurrent(version) || String(error).includes("audio resolution was cancelled")) {
       refundRecoveryAttempt(version);
       window.recordPlaybackDiag("audio-recovery", `abandoned: ${error}`);
       return;
@@ -609,10 +609,10 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
 }
 
 function handleAudioRecoveryError(event: Event) {
-  const version = playerState.requestVersion;
-  const isCurrent = playerState.activeAudioVersion === version &&
-    playerState.activeAudioUrl === audio.currentSrc &&
-    event.timeStamp >= playerState.audioActivatedAt;
+  const version = getRequestSnapshot().requestVersion;
+  const isCurrent = getRequestSnapshot().activeAudioVersion === version &&
+    getRequestSnapshot().activeAudioUrl === audio.currentSrc &&
+    event.timeStamp >= getRequestSnapshot().audioActivatedAt;
   const attempts = recoveryAttemptsFor(version);
   if (recoveryPromise) {
     if (audio.error?.code === 2 && isCurrent) {
@@ -641,7 +641,7 @@ let loudnessAnalyzedForCurrentTrack = false;
 
 function refreshTrackLoudness() {
   const queryVersion = ++loudnessQueryVersion;
-  const requestVersion = playerState.requestVersion;
+  const requestVersion = getRequestSnapshot().requestVersion;
   setNormalizationGain(1);
   if (!isLoudnessNormalizationEnabled()) return;
   const bvid = getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.bvid;
@@ -651,13 +651,13 @@ function refreshTrackLoudness() {
     return;
   }
   invoke("get_track_loudness", { key: `${bvid}:${cid}` }).then((lufs) => {
-    if (queryVersion !== loudnessQueryVersion || requestVersion !== playerState.requestVersion) return;
+    if (queryVersion !== loudnessQueryVersion || !getRequestActions().isCurrent(requestVersion)) return;
     if (lufs === null || !Number.isFinite(lufs)) {
       console.warn("track loudness unavailable:", `${bvid}:${cid}`);
     }
     setNormalizationGain(lufsToGain(lufs));
   }).catch((error) => {
-    if (queryVersion !== loudnessQueryVersion || requestVersion !== playerState.requestVersion) return;
+    if (queryVersion !== loudnessQueryVersion || !getRequestActions().isCurrent(requestVersion)) return;
     setNormalizationGain(1);
     console.warn("get_track_loudness failed:", error);
   });
@@ -670,15 +670,15 @@ function analyzeCurrentTrackAtThreshold() {
   if (audio.currentTime < threshold) return;
   const bvid = getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.bvid;
   const cid = currentVideoPage()?.cid ?? playerState.currentPages[0]?.cid;
-  const audioUrl = playerState.activeAudioUrl;
+  const audioUrl = getRequestSnapshot().activeAudioUrl;
   if (!bvid || !cid || !audioUrl) return;
 
   loudnessAnalyzedForCurrentTrack = true;
-  const requestVersion = playerState.requestVersion;
+  const requestVersion = getRequestSnapshot().requestVersion;
   const startAnalysis = () => {
-    if (requestVersion !== playerState.requestVersion || !isLoudnessNormalizationEnabled()) return;
+    if (!getRequestActions().isCurrent(requestVersion) || !isLoudnessNormalizationEnabled()) return;
     invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).then((lufs) => {
-      if (requestVersion !== playerState.requestVersion) return;
+      if (!getRequestActions().isCurrent(requestVersion)) return;
       if (lufs === null || !Number.isFinite(lufs)) {
         console.warn("track loudness analysis unavailable:", `${bvid}:${cid}`);
         return;
@@ -707,7 +707,7 @@ async function loadCurrentTrack({
     return;
   }
 
-  const requestVersion = ++playerState.requestVersion;
+  const requestVersion = getRequestActions().beginRequest();
   stopAudioElement();
   setSearchPlaybackBusy(true);
   result.hidden = false;
@@ -752,7 +752,7 @@ async function loadCurrentTrack({
       const recovery = recoveryPromise;
       void invoke("cancel_prepare_audio").catch(() => {});
       await recovery.catch(() => {});
-      if (requestVersion !== playerState.requestVersion) return;
+      if (!getRequestActions().isCurrent(requestVersion)) return;
     }
     const info = await invoke("prepare_audio", {
       bvId: video.bvid,
@@ -762,10 +762,10 @@ async function loadCurrentTrack({
       part: page?.part ?? null,
       durationSeconds: page?.durationSeconds ?? null,
     });
-    if (requestVersion !== playerState.requestVersion) {
+    if (!getRequestActions().isCurrent(requestVersion)) {
       return;
     }
-    playerState.consecutiveResolveFailures = 0;
+    getRequestActions().resetFailures();
     const unavailableKey = video.bvid.toLowerCase();
     if (clearLibraryUnavailable(unavailableKey)) {
       invoke("clear_track_unavailable", { bvid: video.bvid })
@@ -807,14 +807,12 @@ async function loadCurrentTrack({
     emitCurrentTrackChanged();
     (page?.cid ?? playerState.currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? playerState.currentPages[0].cid } }));
     refreshTrackLoudness();
-    playerState.activeAudioVersion = requestVersion;
-    playerState.activeAudioUrl = info.audioUrl;
-    playerState.audioActivatedAt = performance.now();
+    getRequestActions().activateAudio(requestVersion, info.audioUrl, performance.now());
     audio.src = info.audioUrl;
     audio.load();
     if (resumePosition !== null) {
       await waitForAudioMetadata();
-      if (requestVersion !== playerState.requestVersion) {
+      if (!getRequestActions().isCurrent(requestVersion)) {
         return;
       }
       try {
@@ -836,11 +834,11 @@ async function loadCurrentTrack({
 
     try {
       await audio.play();
-      if (requestVersion === playerState.requestVersion) {
+      if (getRequestActions().isCurrent(requestVersion)) {
         status.textContent = "在线播放中。";
       }
     } catch (error) {
-      if (requestVersion === playerState.requestVersion) {
+      if (getRequestActions().isCurrent(requestVersion)) {
         status.textContent = "音频已就绪，点击播放。";
       }
       if (resumePosition !== null) {
@@ -848,7 +846,7 @@ async function loadCurrentTrack({
       }
     }
   } catch (error) {
-    if (requestVersion !== playerState.requestVersion) {
+    if (!getRequestActions().isCurrent(requestVersion)) {
       return;
     }
 
@@ -869,9 +867,9 @@ async function loadCurrentTrack({
       renderLibraryViews();
     }
 
-    playerState.consecutiveResolveFailures += 1;
+    getRequestActions().recordFailure();
     if (
-      playerState.consecutiveResolveFailures >=
+      getRequestSnapshot().consecutiveResolveFailures >=
       MAX_CONSECUTIVE_RESOLVE_FAILURES
     ) {
       const message = "队列中多首无法播放，已停止。";
@@ -894,7 +892,7 @@ async function loadCurrentTrack({
       showPlaybackNotice(message, { persistent: true });
     }
   } finally {
-    if (requestVersion === playerState.requestVersion) {
+    if (getRequestActions().isCurrent(requestVersion)) {
       setSearchPlaybackBusy(false);
     }
   }
@@ -979,7 +977,7 @@ function playListItem(
   }
 
   getQueueActions().replaceQueue(videos, source, searchVersion, playlistId);
-  playerState.consecutiveResolveFailures = 0;
+  getRequestActions().resetFailures();
   resetCurrentPageState();
   clearPlaybackNotice();
   resetRandomRemaining();
@@ -1003,7 +1001,7 @@ function playQueueIndex(
   clearPendingResume();
 
   if (!preserveFailureStreak) {
-    playerState.consecutiveResolveFailures = 0;
+    getRequestActions().resetFailures();
     clearPlaybackNotice();
   }
 
@@ -1100,7 +1098,7 @@ searchForm.addEventListener("submit", async (event) => {
     await cancelCurrentPlayback();
     if (pasteVersion !== getSearchSnapshot().requestVersion) return;
     if (pasteVersion === getSearchSnapshot().requestVersion) {
-      pendingPastedBvPages = { bvid: query, requestVersion: playerState.requestVersion + 1 };
+      pendingPastedBvPages = { bvid: query, requestVersion: getRequestSnapshot().requestVersion + 1 };
     }
     playBvId(query);
     recognizeSearchBv(query);
@@ -1119,7 +1117,7 @@ window.addEventListener("bili-track-changed", (event) => {
     pendingPastedBvPages,
     event.detail?.bvid,
     currentPlayableTrack()?.bvid,
-    playerState.requestVersion,
+    getRequestSnapshot().requestVersion,
     playerState.currentPages.length,
   );
   pendingPastedBvPages = null;
@@ -1131,13 +1129,13 @@ window.addEventListener("bilibili-music-trackchange", () => {
   const current = currentPlayableTrack();
   if (current && (
     current.bvid.toLowerCase() !== pendingPastedBvPages.bvid.toLowerCase() ||
-    playerState.requestVersion > pendingPastedBvPages.requestVersion ||
-    (playerState.requestVersion === pendingPastedBvPages.requestVersion && playerState.currentPages.length <= 1)
+    getRequestSnapshot().requestVersion > pendingPastedBvPages.requestVersion ||
+    (getRequestSnapshot().requestVersion === pendingPastedBvPages.requestVersion && playerState.currentPages.length <= 1)
   )) pendingPastedBvPages = null;
 });
 
 window.addEventListener("bilibili-music-notice-change", () => {
-  if (pendingPastedBvPages && playerState.consecutiveResolveFailures > 0) pendingPastedBvPages = null;
+  if (pendingPastedBvPages && getRequestSnapshot().consecutiveResolveFailures > 0) pendingPastedBvPages = null;
 });
 }
 
@@ -1168,11 +1166,11 @@ audio.addEventListener("timeupdate", () => {
   const snapshot = currentTrackSnapshot();
   const bvid = snapshot.bvid;
   const cid = currentAudioCacheCid();
-  const audioUrl = playerState.activeAudioUrl;
+  const audioUrl = getRequestSnapshot().activeAudioUrl;
   if (
     !bvid || !cid || !audioUrl || !snapshot.title || !snapshot.uploader ||
     !snapshot.thumbnailUrl || !snapshot.durationSeconds ||
-    playerState.activeAudioVersion !== playerState.requestVersion ||
+    !getRequestActions().isCurrent(getRequestSnapshot().activeAudioVersion) ||
     audioUrl !== audio.currentSrc
   ) return;
   cacheRequestedForCurrentTrack = true;
@@ -1210,9 +1208,9 @@ function initPlaybackAudioIdentity() {
 audio.addEventListener("play", () => { playbackIntended = true; });
 audio.addEventListener("pause", () => { playbackIntended = false; });
 audio.addEventListener("playing", () => {
-  if (playerState.activeAudioVersion === playerState.requestVersion &&
-      playerState.activeAudioUrl === audio.currentSrc) {
-    playingAudioVersion = playerState.activeAudioVersion;
+  if (getRequestActions().isCurrent(getRequestSnapshot().activeAudioVersion) &&
+      getRequestSnapshot().activeAudioUrl === audio.currentSrc) {
+    playingAudioVersion = getRequestSnapshot().activeAudioVersion;
   }
 });
 }
@@ -1230,4 +1228,4 @@ shuffleToggle.addEventListener("change", () => {
 }
 
 
-export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
