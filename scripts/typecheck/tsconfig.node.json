@@ -106,6 +106,7 @@
     "../../tests/helpers/playback-request-fixture.ts",
     "../../tests/playback-request-fixture.test.ts",
     "../../tests/playback-request-actions.test.ts",
-    "../../tests/playback-request-architecture.test.ts"
+    "../../tests/playback-request-architecture.test.ts",
+    "../../tests/playback-session-characterization.test.ts"
   ]
 }
