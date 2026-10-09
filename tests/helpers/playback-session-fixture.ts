@@ -1,5 +1,7 @@
 import vm from "node:vm";
 import { createApplicationStore } from "../../ui/app-state.ts";
+import { createPlaybackCommands } from "../../ui/playback-commands.ts";
+import { createMediaAdapter } from "../../ui/media-adapter.ts";
 import { createRequestContext } from "./playback-request-fixture.ts";
 
 // shortcut: bridges legacy mutable fixtures; remove with playerState in state-9 or the Vue migration.
@@ -91,6 +93,23 @@ function createSessionContext(seed: vm.Context, options?: vm.CreateContextOption
     if (typeof descriptor.value === "function" && !/^get(?:Queue|Request|Session)(?:Snapshot|Actions)$/.test(String(key))) descriptor.value = boundary(descriptor.value);
     return Reflect.defineProperty(target, key, descriptor);
   } }), options);
+  // Explicit VM ports use the actual controller factory; no button click is fabricated.
+  context.createPlaybackCommands = createPlaybackCommands;
+  if (typeof context.getPlaybackCommands !== "function") {
+    const resolve = (name: string) => vm.runInContext(name, context);
+    const media = () => typeof context.getPlaybackMedia === "function" ? context.getPlaybackMedia() : createMediaAdapter(context.playerAudio ?? context.audio);
+    context.getPlaybackCommands = () => createPlaybackCommands({
+      session: () => context.getSessionSnapshot(), resume: () => resolve("resumePendingPlayback")(),
+      shuffle: () => context.getQueueSnapshot().shuffle,
+      retreat: () => resolve("retreatPageWithinCurrentBv")(), advance: () => resolve("advancePageWithinCurrentBv")(),
+      previous: () => resolve("playPrevious")(), next: () => resolve("playNext")(),
+      clearResume: () => resolve("clearPendingResume")(), clearNotice: () => resolve("clearPlaybackNotice")(),
+      media, observe: () => media().getObservation(),
+      setSeeking: value => resolve("getPlaybackDisplayActions")().setSeeking(value), syncPosition: () => resolve("syncMediaSessionPosition")(),
+      diagnostic: (kind, message) => context.window?.recordPlaybackDiag?.(kind, message),
+      status: message => { (context.playbackStatus ?? context.status).textContent = message; },
+    });
+  }
   return context;
 }
 

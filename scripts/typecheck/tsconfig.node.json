@@ -114,6 +114,8 @@
     "../../tests/playback-session-architecture.test.ts",
     "../../tests/helpers/playback-control-fixture.ts",
     "../../tests/playback-control-characterization.test.ts",
-    "../../tests/playback-control-fixture.test.ts"
+    "../../tests/playback-control-fixture.test.ts",
+    "../../tests/playback-command-actions.test.ts",
+    "../../tests/playback-control-architecture.test.ts"
   ]
 }

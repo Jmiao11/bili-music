@@ -31,9 +31,11 @@ function setup(invoke: (playing: boolean) => Promise<void> = () => Promise.resol
   const context = vm.createContext({
     window,
     playerAudio: audio,
-    playPauseButton: { click: () => clicked.push("play_pause") },
-    previousButtonForImmersive: { click: () => clicked.push("previous") },
-    nextButtonForImmersive: { click: () => clicked.push("next") },
+    getPlaybackCommands: () => ({
+      togglePlayPause: () => clicked.push("play_pause"),
+      previous: () => clicked.push("previous"),
+      next: () => clicked.push("next"),
+    }),
     invokeAppearance(command: string, payload: CommandMap["set_taskbar_playback_state"]["args"]) {
       assert.equal(command, "set_taskbar_playback_state");
       reports.push(payload.isPlaying);

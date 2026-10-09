@@ -63,9 +63,11 @@ test("global shortcut payloads dispatch to the existing controls", async () => {
   } } };
   const context = vm.createContext({
     window,
-    previousButtonForImmersive: { click: () => actions.push("previous") },
-    playPauseButton: { click: () => actions.push("play_pause") },
-    nextButtonForImmersive: { click: () => actions.push("next") },
+    getPlaybackCommands: () => ({
+      togglePlayPause: () => actions.push("play_pause"),
+      previous: () => actions.push("previous"),
+      next: () => actions.push("next"),
+    }),
     adjustVolumeByStep: (direction: number) => actions.push(direction > 0 ? "volume_up" : "volume_down"),
     console: { warn: () => {} },
   });

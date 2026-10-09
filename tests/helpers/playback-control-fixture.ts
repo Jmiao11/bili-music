@@ -32,6 +32,7 @@ async function createPlaybackControlFixture() {
   const ui = path.join(import.meta.dirname, "../../ui"), source = fs.readFileSync(path.join(ui, "appearance.ts"), "utf8"), nodes = new Map<string, DisplayNode>();
   const node = (id: string) => { if (!nodes.has(id)) nodes.set(id, new DisplayNode()); return nodes.get(id)!; };
   const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [], navigation: string[] = [];
+  // Event payloads: src-tauri/src/taskbar.rs:488 and shortcuts.rs:45 emit the action string.
   const events = new Map<string, (event: { payload: string }) => void>(), registration: string[] = [], invocations: string[] = [];
   const focused = node("input");
   // src-tauri/src/taskbar.rs:6 returns unit, serialized by Tauri as null.

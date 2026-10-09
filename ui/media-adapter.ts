@@ -1,5 +1,6 @@
 type MediaTarget = {
   src: string;
+  currentSrc?: string;
   currentTime: number;
   volume: number;
   duration?: number;
@@ -16,6 +17,7 @@ type MediaTarget = {
 function createMediaAdapter(media: MediaTarget) {
   return {
     getSource: () => media.src,
+    getCurrentSource: () => media.currentSrc ?? "",
     setSource: (source: string) => { media.src = source; },
     load: () => media.load(),
     play: () => media.play(),

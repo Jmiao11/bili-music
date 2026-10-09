@@ -16,6 +16,7 @@
 | player-dom.ts | ES Module | 77 个共享 DOM 引用，保持原查询写法。 |
 | player-state.ts | ES Module | 播放请求身份、当前播放分P列表、曲目事件身份，以及共享 Map / Set / 常量的声明；队列字段已迁出。 |
 | playback-queue-state.ts | ES Module | 播放队列、来源、索引、循环随机、历史、当前曲目投影与随机分P轮次，以及纯导航动作。 |
+| playback-commands.ts | ES Module 控制器 | 统一播放/暂停、上一首/下一首与进度跳转；复现恢复拦截和原提示，经媒体适配器执行操作。 |
 | playback-policy.ts | ES Module | 随机、合集偏好、音频恢复判定与 LUFS 公式。 |
 | playback-notice.ts | ES Module | 播放通知、定位、私有计时器及 initPlaybackNotice。 |
 | playback-diagnostics.ts | ES Module | initPlaybackDiagnostics 建立 window 诊断桥。 |
@@ -235,6 +236,7 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 13 | 请求状态动作读取平台时钟 | node --test tests/playback-request-architecture.test.ts |
 | 14 | 播放模块改回读写旧会话字段或 playerState | node --test tests/playback-session-architecture.test.ts |
 | 15 | 会话状态动作读取平台时钟 | node --test tests/playback-session-architecture.test.ts |
+| 16 | UI 出现未登记的模拟播放控制 .click() | node --test tests/playback-control-architecture.test.ts |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 

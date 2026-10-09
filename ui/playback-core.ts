@@ -10,7 +10,7 @@ import { getApplicationStore, getHomeSnapshot } from "./home.ts";
 import { choosePlaylistAndAdd, clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
-import { isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
+import { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 
 type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid"> & Pick<CommandContract.PlaybackState, "page" | "cid">>;
 
@@ -1135,12 +1135,12 @@ window.addEventListener("bilibili-music-notice-change", () => {
 
 function initPlaybackResume() {
 resumePlayPauseButton?.addEventListener("click", (event) => {
-  if (!getSessionSnapshot().pendingResume && !getSessionSnapshot().resumeInProgress) {
+  if (!getPlaybackCommands().hasPendingResume()) {
     return;
   }
   event.preventDefault();
   event.stopImmediatePropagation();
-  void resumePendingPlayback();
+  void getPlaybackCommands().togglePlayPause();
 }, true);
 }
 
@@ -1222,4 +1222,4 @@ shuffleToggle.addEventListener("change", () => {
 }
 
 
-export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };

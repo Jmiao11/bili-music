@@ -1,16 +1,18 @@
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
 
+import { createPlaybackCommands } from "./playback-commands.ts";
 import { effectivePlaybackVolume } from "./playback-settings-state.ts";
 import { createMediaAdapter, createMediaSessionAdapter } from "./media-adapter.ts";
 import { normalizeSettingsAccent } from "./settings-state.ts";
 import { readSettingsPreference } from "./settings-adapter.ts";
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
+import { clearPlaybackNotice } from "./playback-notice.ts";
 import { getApplicationStore } from "./home.ts";
 import type { SettingsSnapshot } from "./settings-state.ts";
 
 import { choosePlaylistAndAdd } from "./library-ui.ts";
-import { currentPlayableTrack, refreshTrackLoudness, showLoudnessNormalizationDialog } from "./playback-core.ts";
+import { advancePageWithinCurrentBv, clearPendingResume, currentPlayableTrack, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog } from "./playback-core.ts";
 import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
 import { renderPlaybackSettingsSnapshot } from "./playback-settings-view.ts";
 import { renderPlaybackDisplaySnapshot } from "./playback-display-view.ts";
@@ -341,6 +343,19 @@ function syncMediaSessionPosition() {
   getPlaybackDisplayActions().observePosition(getPlaybackMedia().getObservation());
 }
 
+function getPlaybackCommands() {
+  return createPlaybackCommands({
+    session: () => getSessionSnapshot(), resume: () => resumePendingPlayback(),
+    shuffle: () => getQueueSnapshot().shuffle,
+    retreat: () => retreatPageWithinCurrentBv(), advance: () => advancePageWithinCurrentBv(),
+    previous: () => playPrevious(), next: () => playNext(), clearResume: () => clearPendingResume(), clearNotice: () => clearPlaybackNotice(),
+    media: getPlaybackMedia, observe: readPlaybackMediaSnapshot,
+    setSeeking: value => getPlaybackDisplayActions().setSeeking(value), syncPosition: syncMediaSessionPosition,
+    diagnostic: (kind, message) => window.recordPlaybackDiag?.(kind, message),
+    status: message => { playbackStatus.textContent = message; },
+  });
+}
+
 function shouldForwardMediaSessionAction(action: string, paused: boolean) {
   return action === "play" ? paused : action === "pause" && !paused;
 }
@@ -351,7 +366,7 @@ function registerMediaSessionActionHandlers() {
     controls.setActionHandler("play", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session play");
       if (shouldForwardMediaSessionAction("play", readPlaybackMediaSnapshot().paused)) {
-        playPauseButton.click();
+        void getPlaybackCommands().togglePlayPause();
       } else {
         window.recordPlaybackDiag?.("external-control", "Media Session play ignored: already playing");
       }
@@ -359,51 +374,16 @@ function registerMediaSessionActionHandlers() {
     controls.setActionHandler("pause", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session pause");
       if (shouldForwardMediaSessionAction("pause", readPlaybackMediaSnapshot().paused)) {
-        playPauseButton.click();
+        void getPlaybackCommands().togglePlayPause();
       } else {
         window.recordPlaybackDiag?.("external-control", "Media Session pause ignored: already paused");
       }
     });
-    controls.setActionHandler("previoustrack", () => previousButtonForImmersive.click());
-    controls.setActionHandler("nexttrack", () => nextButtonForImmersive.click());
-    controls.setActionHandler("seekto", (details) => {
-      withMediaSession(() => {
-        const media = readPlaybackMediaSnapshot();
-        if (!Number.isFinite(media.duration) || media.duration <= 0) {
-          return;
-        }
-        if (details.seekTime != null) {
-          getPlaybackMedia().setCurrentTime(details.seekTime);
-          syncMediaSessionPosition();
-        }
-      });
-    });
-    controls.setActionHandler("seekbackward", (details) => {
-      withMediaSession(() => {
-        const media = readPlaybackMediaSnapshot();
-        if (!Number.isFinite(media.duration) || media.duration <= 0) {
-          return;
-        }
-        getPlaybackMedia().setCurrentTime(Math.max(
-          0,
-          media.currentTime - (details.seekOffset || 10),
-        ));
-        syncMediaSessionPosition();
-      });
-    });
-    controls.setActionHandler("seekforward", (details) => {
-      withMediaSession(() => {
-        const media = readPlaybackMediaSnapshot();
-        if (!Number.isFinite(media.duration) || media.duration <= 0) {
-          return;
-        }
-        getPlaybackMedia().setCurrentTime(Math.min(
-          media.duration,
-          media.currentTime + (details.seekOffset || 10),
-        ));
-        syncMediaSessionPosition();
-      });
-    });
+    controls.setActionHandler("previoustrack", () => getPlaybackCommands().previous());
+    controls.setActionHandler("nexttrack", () => getPlaybackCommands().next());
+    controls.setActionHandler("seekto", details => { withMediaSession(() => getPlaybackCommands().seekTo(details.seekTime)); });
+    controls.setActionHandler("seekbackward", details => { withMediaSession(() => getPlaybackCommands().seekBy(-1, details.seekOffset)); });
+    controls.setActionHandler("seekforward", details => { withMediaSession(() => getPlaybackCommands().seekBy(1, details.seekOffset)); });
   });
 }
 
@@ -443,11 +423,11 @@ function initializeTaskbarControls() {
     }
     if (payload === "play_pause") {
       window.recordPlaybackDiag?.("external-control", "taskbar play_pause");
-      playPauseButton.click();
+      void getPlaybackCommands().togglePlayPause();
     } else if (payload === "previous") {
-      previousButtonForImmersive.click();
+      getPlaybackCommands().previous();
     } else if (payload === "next") {
-      nextButtonForImmersive.click();
+      getPlaybackCommands().next();
     }
   }).then((stop) => {
     if (disposed) {
@@ -487,12 +467,12 @@ function initializeGlobalShortcutControls() {
   window.__TAURI__.event.listen("global-shortcut", ({ payload }) => {
     if (disposed) return;
     if (payload === "previous") {
-      previousButtonForImmersive.click();
+      getPlaybackCommands().previous();
     } else if (payload === "play_pause") {
       window.recordPlaybackDiag?.("external-control", "global shortcut play_pause");
-      playPauseButton.click();
+      void getPlaybackCommands().togglePlayPause();
     } else if (payload === "next") {
-      nextButtonForImmersive.click();
+      getPlaybackCommands().next();
     } else if (payload === "volume_up") {
       adjustVolumeByStep(1);
     } else if (payload === "volume_down") {
@@ -934,30 +914,14 @@ window.addEventListener("bilibili-music-trackchange", (event) => {
   syncMediaSessionTrack(event.detail);
 });
 
-playPauseButton.addEventListener("click", async () => {
-  if (!playerAudio.currentSrc) {
-    window.recordPlaybackDiag?.("play-pause-button", "no source");
-    playbackStatus.textContent = "请先从队列中选择一首歌曲。";
-    return;
-  }
-  if (playerAudio.paused) {
-    window.recordPlaybackDiag?.("play-pause-button", "play");
-    try {
-      await getPlaybackMedia().play();
-    } catch {
-      playbackStatus.textContent = "音频暂时无法播放，请稍后重试。";
-    }
-  } else {
-    window.recordPlaybackDiag?.("play-pause-button", "pause");
-    getPlaybackMedia().pause();
-  }
-});
+playPauseButton.addEventListener("click", () => { void getPlaybackCommands().togglePlayPause(); });
+
 immersivePlayPauseButton.addEventListener("click", () => {
   window.recordPlaybackDiag?.("external-control", "immersive button");
-  playPauseButton.click();
+  void getPlaybackCommands().togglePlayPause();
 });
-immersivePreviousButton.addEventListener("click", () => previousButtonForImmersive.click());
-immersiveNextButton.addEventListener("click", () => nextButtonForImmersive.click());
+immersivePreviousButton.addEventListener("click", () => getPlaybackCommands().previous());
+immersiveNextButton.addEventListener("click", () => getPlaybackCommands().next());
 openBilibiliButton.addEventListener("click", openCurrentBilibiliVideo);
 openBilibiliBarButton.addEventListener("click", openCurrentBilibiliVideo);
 addPlaylistCurrentButton.addEventListener("click", () => choosePlaylistAndAdd());
@@ -985,18 +949,8 @@ immersiveProgressSlider.addEventListener("input", () => {
   updateProgress(Number(immersiveProgressSlider.value));
 });
 
-progressSlider.addEventListener("change", () => {
-  if (Number.isFinite(readPlaybackMediaSnapshot().duration)) {
-    getPlaybackMedia().setCurrentTime(Number(progressSlider.value));
-  }
-  getPlaybackDisplayActions().setSeeking(false);
-});
-immersiveProgressSlider.addEventListener("change", () => {
-  if (Number.isFinite(readPlaybackMediaSnapshot().duration)) {
-    getPlaybackMedia().setCurrentTime(Number(immersiveProgressSlider.value));
-  }
-  getPlaybackDisplayActions().setSeeking(false);
-});
+progressSlider.addEventListener("change", () => { getPlaybackCommands().seekSlider(Number(progressSlider.value)); });
+immersiveProgressSlider.addEventListener("change", () => { getPlaybackCommands().seekSlider(Number(immersiveProgressSlider.value)); });
 
 getPlaybackMedia().subscribe("timeupdate", () => {
   if (!getPlaybackDisplaySnapshot().isSeeking) {
@@ -1056,6 +1010,6 @@ void restoreBackground().finally(() => {
 restoreStreamSource();
 }
 
-export { isLoudnessNormalizationEnabled, setNormalizationGain, startAppearance };
+export { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain, startAppearance };
 
 export type { SettingsDom };

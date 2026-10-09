@@ -39,6 +39,7 @@
     "../../ui/search.ts",
     "../../ui/search-view.ts",
     "../../ui/appearance.ts",
+    "../../ui/playback-commands.ts",
     "../../ui/media-adapter.ts",
     "../../ui/settings-view.ts",
     "../../ui/playback-settings-view.ts",

@@ -10,8 +10,8 @@ import { finishLibraryModalTransition } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "./video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
-import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, playPrevious, restorePlaybackState, retreatPageWithinCurrentBv, savePlaybackState, updateQueueUi } from "./playback-core.ts";
-import { isLoudnessNormalizationEnabled } from "./appearance.ts";
+import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "./playback-core.ts";
+import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "./appearance.ts";
 
 let pendingSearchRestore: string | null = null;
 
@@ -37,22 +37,8 @@ skipVideoButton.addEventListener("click", () => {
     clearPlaybackNotice();
   }
 });
-previousButton.addEventListener("click", () => {
-  if (!getQueueSnapshot().shuffle && retreatPageWithinCurrentBv()) {
-    clearPendingResume();
-    clearPlaybackNotice();
-  } else {
-    playPrevious();
-  }
-});
-nextButton.addEventListener("click", () => {
-  if (advancePageWithinCurrentBv()) {
-    clearPendingResume();
-    clearPlaybackNotice();
-  } else {
-    playNext();
-  }
-});
+previousButton.addEventListener("click", () => { getPlaybackCommands().previous(); });
+nextButton.addEventListener("click", () => { getPlaybackCommands().next(); });
 initPlaybackResume();
 
 audio.addEventListener("ended", (event) => {
