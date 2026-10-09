@@ -1,4 +1,4 @@
-import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
+import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import { getEventListeners } from "node:events";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -14,7 +14,7 @@ const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const settingsAdapterSource = read("settings-adapter.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
-const stateCode = sourceSlice(state, "ui/player-state.ts", "const playerState =", "const LAST_SEARCH_KEY").replace(/\n\n$/, "\n")
+const stateCode = "const playerState = { currentPages: [], lastEmittedTrackIdentity: \"\" };\n"
   + "const libraryState = initialLibraryState();\n";
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")

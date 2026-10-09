@@ -1,6 +1,6 @@
 import { invoke } from "./runtime-api.ts";
 import { playerPagesButton, status } from "./player-dom.ts";
-import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, visiblePageCountTargets } from "./player-state.ts";
+import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
 
 import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge } from "./pages-view.ts";
@@ -277,8 +277,8 @@ function openCurrentPagesModal(): void {
   }
   openPagesModal(
     video,
-    playerState.currentPages.length,
-    playerState.currentPages,
+    getApplicationStore().getState().playbackSession.currentPages.length,
+    getApplicationStore().getState().playbackSession.currentPages,
     ({ startPage }) => playCurrentVideoPage(startPage),
     playerPagesButton,
   );

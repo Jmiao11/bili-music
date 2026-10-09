@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createSessionContext } from "./helpers/playback-session-fixture.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -31,7 +32,7 @@ async function fixture({ count = 3, pageCount = 1, mode = "sequence", shuffle = 
   Object.defineProperty(audio, "src", { get: () => audio.currentSrc, set: (value: string) => { audio.currentSrc = value; writes.push(true); } });
   const invoke = (command: string) => { commands.push(command); return command === "prepare_audio" ? new Promise<unknown>((resolve, reject) => pending.push({ resolve, reject })) : Promise.resolve(command === "get_video_pages" ? pages(pageCount) : null); };
   const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
-  const context = vm.createContext({ ...nodes, audio, invoke, getApplicationStore: () => store, performance: { now: () => 100 }, HTMLMediaElement: { HAVE_METADATA: 1 },
+  const context = createSessionContext({ ...nodes, audio, invoke, getApplicationStore: () => store, performance: { now: () => 100 }, HTMLMediaElement: { HAVE_METADATA: 1 },
     window: { recordPlaybackDiag() {}, dispatchEvent: (event: { type: string }) => events.push(event.type) }, CustomEvent: class { type: string; constructor(type: string, _options: unknown) { this.type = type; } },
     console: { error() {}, warn() {}, debug() {} }, document: { querySelectorAll: () => [] }, localStorage: { getItem: () => null },
     getSearchSnapshot: () => ({ requestVersion: 0, results: [] }), getLibrarySnapshot: () => store.getState().library, clearLibraryUnavailable: () => false,

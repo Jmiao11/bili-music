@@ -1,4 +1,4 @@
-import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
+import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import vm from "node:vm";
@@ -12,7 +12,6 @@ const policy = readFileSync(path.join(import.meta.dirname, "../ui/playback-polic
 const code = sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
   + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
   + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", { endAfterStart: true })
-  + sourceSlice(core, "ui/playback-core.ts", "let loudnessQueryVersion", "function refreshTrackLoudness(")
   + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true })
   + sourceSlice(core, "ui/playback-core.ts", "function refreshTrackLoudness(", "function analyzeCurrentTrackAtThreshold(");
 const startup = sourceSlice(appearance, "ui/appearance.ts", "applyVolume(localStorage.getItem(VOLUME_KEY), false);", "updateProgress(0);", { endAfterStart: true });

@@ -233,6 +233,8 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 11 | 队列状态模块直接调用 Math.random 或读取时钟 | node --test tests/playback-queue-architecture.test.ts |
 | 12 | 任一模块改回读写 playerState 的旧请求字段 | node --test tests/playback-request-architecture.test.ts |
 | 13 | 请求状态动作读取平台时钟 | node --test tests/playback-request-architecture.test.ts |
+| 14 | 播放模块改回读写旧会话字段或 playerState | node --test tests/playback-session-architecture.test.ts |
+| 15 | 会话状态动作读取平台时钟 | node --test tests/playback-session-architecture.test.ts |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 

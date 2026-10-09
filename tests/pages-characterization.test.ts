@@ -84,7 +84,7 @@ async function fixture() {
     await import(pathToFileURL(path.join(root, "main.ts")).href);
     const pages = await import(pathToFileURL(path.join(root, "video-pages.ts")).href) as { bindTrackActivation(item: LibraryNode, button: LibraryNode, video: ReturnType<typeof track>, play: (selection?: unknown) => void): void; changeDisabledPages(bvid: string, cid: number | null, disabled?: boolean): Promise<void>; closePagesModal(): void; openCurrentPagesModal(): void };
     const library = await import(pathToFileURL(path.join(root, "library-ui.ts")).href) as { loadLibrary(): Promise<void> };
-    const states = await import(pathToFileURL(path.join(root, "player-state.ts")).href) as { playerState: { currentPages: unknown[] } }; states.playerState.currentPages = bridge.pages;
+    const home = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): ReturnType<typeof import("../ui/app-state.ts").createApplicationStore> }; home.getApplicationStore().actions.playbackSession.setCurrentPages(bridge.pages);
     const h = { pages, library, nodes, doc, calls, observed, bridge, dispose,
       reply(next: typeof reply) { reply = next; }, visible(item: LibraryNode, isIntersecting = true) { intersection([{ target: item, isIntersecting }]); },
       async flush() { for (let i = 0; i < 40; i++) await Promise.resolve(); while (frames.length) frames.shift()?.(); },
