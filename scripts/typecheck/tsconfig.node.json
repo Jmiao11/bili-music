@@ -116,6 +116,10 @@
     "../../tests/playback-control-characterization.test.ts",
     "../../tests/playback-control-fixture.test.ts",
     "../../tests/playback-command-actions.test.ts",
-    "../../tests/playback-control-architecture.test.ts"
+    "../../tests/playback-control-architecture.test.ts",
+    "../../tests/helpers/mini-host-fixture.ts",
+    "../../tests/mini-host-characterization.test.ts",
+    "../../tests/mini-host-fixture.test.ts",
+    "../../tests/mini-host-loading.test.ts"
   ]
 }
