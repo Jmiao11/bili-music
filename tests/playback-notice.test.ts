@@ -1,4 +1,4 @@
-import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
+import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";

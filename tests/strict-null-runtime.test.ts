@@ -1,4 +1,4 @@
-import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
+import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";

@@ -34,7 +34,28 @@ type HomeState = {
 };
 type HomeSnapshot = DeepReadonly<HomeState>;
 type PlaybackRequestState = { requestVersion: number; activeAudioVersion: number; activeAudioUrl: string; audioActivatedAt: number; consecutiveResolveFailures: number };
-type ApplicationStoreOptions = StoreOptions & { playbackRequest?: PlaybackRequestState };
+function initialPlaybackSessionState() { return { currentPages: [] as CommandContract.VideoPage[], lastEmittedTrackIdentity: "", playRecordedForCurrentTrack: false, cacheRequestedForCurrentTrack: false, pendingResume: null as Pick<CommandContract.PlaybackState, "positionSeconds" | "page" | "cid"> | null, resumeInProgress: false, lastPlaybackStateSavedAt: Number.NEGATIVE_INFINITY, recoveryVersion: -1, recoveryAttempts: 0, playingAudioVersion: -1, playbackIntended: false, pendingPastedBvPages: null as { bvid: string; requestVersion: number } | null, loudnessQueryVersion: 0, loudnessAnalyzedForCurrentTrack: false }; }
+type PlaybackSessionState = ReturnType<typeof initialPlaybackSessionState>;
+function createPlaybackSessionActions(read: () => DeepReadonly<PlaybackSessionState>, commit: (state: DeepReadonly<PlaybackSessionState>) => void) {
+  function setCurrentPages(currentPages: DeepReadonly<PlaybackSessionState>["currentPages"]) { commit({ ...read(), currentPages }); }
+  function setTrackIdentity(lastEmittedTrackIdentity: DeepReadonly<PlaybackSessionState>["lastEmittedTrackIdentity"]) { commit({ ...read(), lastEmittedTrackIdentity }); }
+  function setPlayRecorded(playRecordedForCurrentTrack: DeepReadonly<PlaybackSessionState>["playRecordedForCurrentTrack"]) { commit({ ...read(), playRecordedForCurrentTrack }); }
+  function setCacheRequested(cacheRequestedForCurrentTrack: DeepReadonly<PlaybackSessionState>["cacheRequestedForCurrentTrack"]) { commit({ ...read(), cacheRequestedForCurrentTrack }); }
+  function setPendingResume(pendingResume: DeepReadonly<PlaybackSessionState>["pendingResume"]) { commit({ ...read(), pendingResume }); }
+  function setResumeInProgress(resumeInProgress: DeepReadonly<PlaybackSessionState>["resumeInProgress"]) { commit({ ...read(), resumeInProgress }); }
+  function setLastSavedAt(lastPlaybackStateSavedAt: DeepReadonly<PlaybackSessionState>["lastPlaybackStateSavedAt"]) { commit({ ...read(), lastPlaybackStateSavedAt }); }
+  function setRecoveryVersion(recoveryVersion: DeepReadonly<PlaybackSessionState>["recoveryVersion"]) { commit({ ...read(), recoveryVersion }); }
+  function setRecoveryAttempts(recoveryAttempts: DeepReadonly<PlaybackSessionState>["recoveryAttempts"]) { commit({ ...read(), recoveryAttempts }); }
+  function setPlayingVersion(playingAudioVersion: DeepReadonly<PlaybackSessionState>["playingAudioVersion"]) { commit({ ...read(), playingAudioVersion }); }
+  function setPlaybackIntended(playbackIntended: DeepReadonly<PlaybackSessionState>["playbackIntended"]) { commit({ ...read(), playbackIntended }); }
+  function setPendingPastedPages(pendingPastedBvPages: DeepReadonly<PlaybackSessionState>["pendingPastedBvPages"]) { commit({ ...read(), pendingPastedBvPages }); }
+  function setLoudnessAnalyzed(loudnessAnalyzedForCurrentTrack: DeepReadonly<PlaybackSessionState>["loudnessAnalyzedForCurrentTrack"]) { commit({ ...read(), loudnessAnalyzedForCurrentTrack }); }
+  function setLoudnessQueryVersion(loudnessQueryVersion: number) { commit({ ...read(), loudnessQueryVersion }); }
+  function nextLoudnessQuery() { const version = read().loudnessQueryVersion + 1; commit({ ...read(), loudnessQueryVersion: version }); return version; }
+  return { setCurrentPages, setTrackIdentity, setPlayRecorded, setCacheRequested, setPendingResume, setResumeInProgress, setLastSavedAt, setRecoveryVersion, setRecoveryAttempts, setPlayingVersion, setPlaybackIntended, setPendingPastedPages, setLoudnessAnalyzed, setLoudnessQueryVersion, nextLoudnessQuery };
+}
+
+type ApplicationStoreOptions = StoreOptions & { playbackRequest?: PlaybackRequestState; playbackSession?: PlaybackSessionState };
 
 function initialPlaybackRequestState(): PlaybackRequestState {
   return { requestVersion: 0, activeAudioVersion: -1, activeAudioUrl: "", audioActivatedAt: Number.POSITIVE_INFINITY, consecutiveResolveFailures: 0 };
@@ -63,12 +84,12 @@ function isHomePopular(home: HomeSnapshot): boolean {
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
-  const initial: { playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
+  const initial: { playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
     mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
-  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState(), playbackDisplay: initialPlaybackDisplayState(), playbackQueue: initialPlaybackQueueState(), playbackRequest: options.playbackRequest ?? initialPlaybackRequestState() };
+  }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState(), playbackDisplay: initialPlaybackDisplayState(), playbackQueue: initialPlaybackQueueState(), playbackRequest: options.playbackRequest ?? initialPlaybackRequestState(), playbackSession: options.playbackSession ?? initialPlaybackSessionState() };
   return createStateStore(initial, (getState, commit) => {
     const home = () => getState().home;
     const update = (fields: Partial<HomeSnapshot>, view: Partial<HomeSnapshot["view"]> = {}) => {
@@ -178,6 +199,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     }
 
     function changeHint(userHint: string): void { update({ userHint }); }
+    const playbackSession = createPlaybackSessionActions(() => getState().playbackSession, next => commit({ ...getState(), playbackSession: next }));
     const playbackRequest = createPlaybackRequestActions(() => getState().playbackRequest, next => commit({ ...getState(), playbackRequest: next }));
     const search = createSearchActions(() => getState().search, next => commit({ ...getState(), search: next }), adapter);
     const playbackQueue = createPlaybackQueueActions(() => getState().playbackQueue, next => commit({ ...getState(), playbackQueue: next }));
@@ -186,7 +208,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     const settings = createSettingsActions(() => getState().settings, next => commit({ ...getState(), settings: next }), adapter);
     const pages = createPagesActions(() => getState().pages, next => commit({ ...getState(), pages: next }));
     const library = createLibraryActions(() => getState().library, (next, disabledResult) => commit({ ...getState(), library: next, ...(disabledResult ? { pages: pagesWithDisabledError(getState().pages, disabledResult.bvid, disabledResult.error) } : {}) }), adapter);
-    return { playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    return { playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
   }, options);
 }
 

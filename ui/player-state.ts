@@ -12,11 +12,6 @@ const LOAD_MORE_THRESHOLD_PX: number = 96;
 
 const PLAYBACK_STATE_SAVE_INTERVAL_MS: number = 15_000;
 
-const playerState = {
-  currentPages: [] as CommandContract.VideoPage[],
-  lastEmittedTrackIdentity: "",
-};
-
 const LAST_SEARCH_KEY = "bilibili-music.last-search";
 
 const pageModalOpeners = new WeakMap();
@@ -33,4 +28,4 @@ const PAGE_COUNT_LOOKUP_INTERVAL_MS: number = 300;
 
 const pendingPageCacheTargets = new Map();
 
-export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, playerState, visiblePageCountTargets };
+export { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX, LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, PLAYBACK_STATE_SAVE_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets };

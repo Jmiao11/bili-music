@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createSessionContext } from "./helpers/playback-session-fixture.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -35,7 +36,7 @@ async function fixture() {
   const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [];
   const session = { metadata: null as unknown, playbackState: "none", setPositionState(value: unknown) { positions.push(JSON.parse(JSON.stringify(value))); }, setActionHandler(name: string, callback: (details: Record<string, number>) => void) { handlers.set(name, callback); } };
   const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} });
-  const context = vm.createContext({ document: { documentElement: node("root"), querySelector: node, querySelectorAll: () => [] },
+  const context = createSessionContext({ document: { documentElement: node("root"), querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke: async () => null } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
     navigator: { mediaSession: session }, MediaMetadata: class { constructor(data: object) { Object.assign(this, data); } },
     getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,

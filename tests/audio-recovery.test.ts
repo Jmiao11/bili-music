@@ -1,4 +1,4 @@
-import { createRequestContext as createQueueContext } from "./helpers/playback-request-fixture.ts";
+import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import test from "node:test";
@@ -235,10 +235,10 @@ test("expired token network error after a long pause re-resolves the same page a
     },
   });
   const mainSource = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise", "let pendingPastedBvPages")
+  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise", "function getRequestSnapshot(")
     + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
     + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
-    + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "let loudnessQueryVersion")
+    + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "function refreshTrackLoudness(")
     + sourceSlice(source, "ui/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
     + "\ninitPlaybackAudioIdentity();\n"
     + sourceSlice(mainSource, "ui/main.ts", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
