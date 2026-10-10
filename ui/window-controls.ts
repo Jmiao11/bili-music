@@ -1,3 +1,4 @@
+function initializeWindowControls() {
 const tauriWindowApi = window.__TAURI__?.window;
 const appWindow = tauriWindowApi?.getCurrentWindow?.();
 
@@ -161,3 +162,6 @@ appWindow?.onResized?.(() => {
 });
 
 updateMaximizedState();
+}
+
+export { initializeWindowControls };

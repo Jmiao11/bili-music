@@ -67,7 +67,7 @@ test("bottom classic scripts defer and the sole module entry keeps its position"
   assert.doesNotMatch(sidebar[1], /\bdefer\b/);
   const body = html.slice(html.indexOf("<body"));
   const bodyScripts = [...body.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
-  assert.equal(bodyScripts.length, 5);
+  assert.equal(bodyScripts.length, 4);
   for (const script of bodyScripts) {
     if (/\btype=["']module["']/.test(script[1])) {
       assert.match(script[1], /\bsrc=["']app\.ts["']/);

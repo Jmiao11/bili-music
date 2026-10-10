@@ -12,7 +12,6 @@ const html = readFileSync(path.join(ui, "index.html"), "utf8");
 const { files: scripts } = collectBusinessScripts(ui);
 const expected = [
   "sidebar.js",
-  "window-controls.js",
   "app.ts",
   "lyrics.js",
   "mascot.js",

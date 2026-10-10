@@ -16,7 +16,7 @@ test("startup five deferred controllers retain their phases and first trackchang
   });
   const loaded = await loadNativeModules(ui, collectBusinessScripts(ui).files, "app.ts", scripts);
   const first = (pattern: RegExp) => loaded.events.findIndex(event => pattern.test(String(event.stack)));
-  const phases = [/window-controls\.ts:/, /dynamic-background\.ts:/, /main\.ts:/, /startAppearance .*appearance\.ts/, /lyrics\.ts:/, /mascot\.ts:/, /mini-player-host\.ts:/].map(first);
+  const phases = [/window-controls\.ts:/, /dynamic-background\.ts:/, /[/\\]main\.ts:/, /startAppearance .*appearance\.ts/, /lyrics\.ts:/, /mascot\.ts:/, /mini-player-host\.ts:/].map(first);
   assert.ok(phases.every(index => index >= 0));
   assert.deepEqual([...phases].sort((a, b) => a - b), phases);
   const dispatch = loaded.events.findIndex(event => event.action === "dispatch" && event.type === "bilibili-music-trackchange");

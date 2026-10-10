@@ -180,7 +180,6 @@ async function checkDevelopment() {
         const rewrites = [
           ["href", "./styles.css", "/styles.css"],
           ["src", "./sidebar.js", "/sidebar.js"],
-          ["src", "./window-controls.js", "/window-controls.js"],
           ["src", "app.ts", "/app.ts"],
           ["src", "./lyrics.js", "/lyrics.js"],
           ["src", "./mascot.js", "/mascot.js"],

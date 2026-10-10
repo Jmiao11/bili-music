@@ -2,12 +2,12 @@
 
 ## 入口与文件边界
 
-主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化动态背景，再求值 main，最后调用 startAppearance 和 installMiniPlayerBridge。窗口控制仍由入口前的 defer 脚本初始化。
+主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化动态背景，再求值 main，最后调用 startAppearance 和 installMiniPlayerBridge。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
 
 | 文件 | 形式 | 职责 |
 | --- | --- | --- |
 | sidebar.ts | head 普通脚本 | 侧栏及宽度持久化。 |
-| window-controls.ts | 普通 defer 脚本 | 窗口按钮、拖动与缩放。 |
+| window-controls.ts | ES Module | 导出显式初始化函数，窗口按钮、拖动与缩放。 |
 | dynamic-background.ts | ES Module | 导出显式初始化函数，封面配色与曲目事件响应。 |
 | startup-before-main.ts | ES Module 启动调度 | 在 main 顶层执行前初始化动态背景。 |
 | app.ts | ES Module 入口 | 固定的 main → startAppearance 启动顺序。 |
@@ -50,9 +50,9 @@ head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html�
 
 开发流程为 `cargo tauri dev` → beforeDevCommand (`npm run dev`) → localhost:1420 → WebView；构建流程为 `cargo tauri build` → beforeBuildCommand (`npm run build`) → dist → Rust 编译与前端嵌入。Node/npm 和前端依赖必须先准备好。withGlobalTauri 保持 true，CSP 保持 null，不引入 @tauri-apps/api。
 
-scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，模块标签仍在 window-controls 之后、lyrics 之前。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
+scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，模块标签仍在 lyrics 之前。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
 
-开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`./window-controls.js` → `/window-controls.js`、`app.ts` → `/app.ts`、`./lyrics.js` → `/lyrics.js`、`./mascot.js` → `/mascot.js`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
+开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`、`./lyrics.js` → `/lyrics.js`、`./mascot.js` → `/mascot.js`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 

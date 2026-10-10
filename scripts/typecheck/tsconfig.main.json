@@ -7,9 +7,9 @@
   ],
   "files": [
     "../../ui/sidebar.ts",
-    "../../ui/window-controls.ts",
     "../../ui/app.ts",
     "../../ui/startup-before-main.ts",
+    "../../ui/window-controls.ts",
     "../../ui/dynamic-background.ts",
     "../../ui/main.ts",
     "../../ui/search-state.ts",
