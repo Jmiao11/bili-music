@@ -16,6 +16,7 @@ import { advancePageWithinCurrentBv, clearPendingResume, currentPlayableTrack, g
 import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
 import { renderPlaybackSettingsSnapshot } from "./playback-settings-view.ts";
 import { renderPlaybackDisplaySnapshot } from "./playback-display-view.ts";
+import { setPlaybackStatus } from "./playback-messages.ts";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
 
@@ -83,7 +84,6 @@ const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-b
 const progressSlider = document.querySelector<HTMLInputElement>("#progress-slider")!;
 const currentTimeLabel = document.querySelector<HTMLSpanElement>("#current-time")!;
 const durationLabel = document.querySelector<HTMLSpanElement>("#duration")!;
-const playbackStatus = document.querySelector<HTMLParagraphElement>("#status")!;
 const openImmersiveButton = document.querySelector<HTMLButtonElement>("#open-immersive-button")!;
 const immersivePlayer = document.querySelector<HTMLElement>("#immersive-player")!;
 const closeImmersiveButton = document.querySelector<HTMLButtonElement>("#close-immersive-button")!;
@@ -345,7 +345,7 @@ function getPlaybackCommands() {
     media: getPlaybackMedia, observe: readPlaybackMediaSnapshot,
     setSeeking: value => getPlaybackDisplayActions().setSeeking(value), syncPosition: syncMediaSessionPosition,
     diagnostic: (kind, message) => window.recordPlaybackDiag?.(kind, message),
-    status: message => { playbackStatus.textContent = message; },
+    status: message => { setPlaybackStatus(message); },
   });
 }
 
@@ -504,7 +504,7 @@ function syncImmersiveTrack() {
 function openImmersive() {
   const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
   if (!currentTrack.hasCurrent && !playerAudio.currentSrc) {
-    playbackStatus.textContent = "请先从队列中选择一首歌曲。";
+    setPlaybackStatus("请先从队列中选择一首歌曲。");
     return;
   }
   syncImmersiveTrack();
@@ -672,13 +672,13 @@ async function testAiConnection() {
 async function openCurrentBilibiliVideo() {
   const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
   if (!currentTrack.bvid) {
-    playbackStatus.textContent = "当前没有可打开的 B 站视频。";
+    setPlaybackStatus("当前没有可打开的 B 站视频。");
     return;
   }
   try {
     await invokeAppearance("open_bilibili_video", { bvId: currentTrack.bvid });
   } catch (error) {
-    playbackStatus.textContent = `打开 B站失败：${error}`;
+    setPlaybackStatus(`打开 B站失败：${error}`);
   }
 }
 

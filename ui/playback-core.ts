@@ -1,8 +1,8 @@
 import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
-import type { SearchPageCommit } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, status, thumbnail, title, uploader } from "./player-dom.ts";
+import type { SearchPageCommit } from "./search-state.ts";
+import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, thumbnail, title, uploader } from "./player-dom.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
@@ -11,6 +11,7 @@ import { choosePlaylistAndAdd, clearLibraryUnavailable, getLibrarySnapshot, mark
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
 import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
+import { setPlaybackStatus } from "./playback-messages.ts";
 
 type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid"> & Pick<CommandContract.PlaybackState, "page" | "cid">>;
 
@@ -230,7 +231,7 @@ function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, pos
   if (immersiveResumeDurationLabel) {
     immersiveResumeDurationLabel.textContent = formatDuration(totalSeconds);
   }
-  status.textContent = "已恢复上次播放，点击播放继续。";
+  setPlaybackStatus("已恢复上次播放，点击播放继续。");
 }
 
 async function restorePlaybackState() {
@@ -704,7 +705,7 @@ async function loadCurrentTrack({
   stopAudioElement();
   setSearchPlaybackBusy(true);
   result.hidden = false;
-  status.textContent = "正在解析音频…";
+  setPlaybackStatus("正在解析音频…");
 
   try {
     if (!keepPage) {
@@ -829,11 +830,11 @@ async function loadCurrentTrack({
     try {
       await audio.play();
       if (getRequestActions().isCurrent(requestVersion)) {
-        status.textContent = "在线播放中。";
+        setPlaybackStatus("在线播放中。");
       }
     } catch (error) {
       if (getRequestActions().isCurrent(requestVersion)) {
-        status.textContent = "音频已就绪，点击播放。";
+        setPlaybackStatus("音频已就绪，点击播放。");
       }
       if (resumePosition !== null) {
         console.warn("restored audio could not start playing:", error);
@@ -867,7 +868,7 @@ async function loadCurrentTrack({
       MAX_CONSECUTIVE_RESOLVE_FAILURES
     ) {
       const message = "队列中多首无法播放，已停止。";
-      status.textContent = message;
+      setPlaybackStatus(message);
       showPlaybackNotice(message, { persistent: true });
       return;
     }
@@ -882,7 +883,7 @@ async function loadCurrentTrack({
       showPlaybackNotice(`${playbackFailureMessage(error)}，已自动跳过。`);
     } else {
       const message = `${playbackFailureMessage(error)}，队列中没有可继续播放的内容。`;
-      status.textContent = message;
+      setPlaybackStatus(message);
       showPlaybackNotice(message, { persistent: true });
     }
   } finally {
@@ -1053,7 +1054,7 @@ function playNext({ automatic = false, skipFailed = false } = {}) {
     return true;
   }
   if (navigation.kind === "end") {
-    if (automatic) status.textContent = "队列播放完毕。";
+    if (automatic) setPlaybackStatus("队列播放完毕。");
     else showPlaybackNotice(getQueueSnapshot().shuffle ? "本轮随机播放已结束" : "已经是最后一首了", { kind: "info" });
     return false;
   }

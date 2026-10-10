@@ -13,4 +13,7 @@ function selectMiniPlayerSnapshot(state: ReturnType<ReturnType<typeof createAppl
     theme: state.settings.theme || "dark", accent: { r: accent[0], g: accent[1], b: accent[2] },
   };
 }
-export { selectMiniPlayerSnapshot };
+function selectMiniPlayerMessages(state: ReturnType<ReturnType<typeof createApplicationStore>["getState"]>) {
+  return { status: state.playbackMessages.status, notice: state.playbackMessages.notice.text };
+}
+export { selectMiniPlayerMessages, selectMiniPlayerSnapshot };

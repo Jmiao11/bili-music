@@ -1,4 +1,7 @@
 import vm from "node:vm";
+import fs from "node:fs";
+import path from "node:path";
+import { stripModuleSyntax } from "./module-syntax.ts";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { createPlaybackCommands } from "../../ui/playback-commands.ts";
 import { createMediaAdapter } from "../../ui/media-adapter.ts";
@@ -110,6 +113,11 @@ function createSessionContext(seed: vm.Context, options?: vm.CreateContextOption
       status: message => { (context.playbackStatus ?? context.status).textContent = message; },
     });
   }
+  // Explicit controller wiring: legacy nodes are output only; message writes use real actions.
+  context.status ??= context.playbackStatus ?? context.document?.querySelector?.("#status");
+  context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
+  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/playback-messages-view.ts"), "utf8"), "ui/playback-messages-view.ts"), context);
+  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/playback-messages.ts"), "utf8"), "ui/playback-messages.ts"), context);
   return context;
 }
 

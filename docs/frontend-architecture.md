@@ -338,7 +338,7 @@ mini-player-host.ts 保留 classic 加载和 HTML 原有位置；mini-player-bri
 
 playbackDisplay.renderedTrack 记录主栏原写入点的数据，currentTrack 记录沉浸页原 trackchange 的合并数据；buttonPlaying 保留最近一次播放按钮更新值，媒体时间观察不会改变宿主原按钮读值。播放、队列、请求及发送时机不变。mini.ts 保持不变。
 
-桥接仅暴露六个必需函数（含只发通知的 subscribeTheme），Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
+桥接暴露七个宿主必需函数（含只发通知的 subscribeTheme，以及提交播放状态文字的 setStatus），Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
 
 新增 canary 17：在 mini-player-host.ts 加入从 #title.textContent 读取同步标题，node --test tests/mini-host-architecture.test.ts 必须失败。原四条宿主点击临时例外移除，五条非播放用途长期例外保留。
 
@@ -349,3 +349,12 @@ playback-request-state.ts 与 playback-session-state.ts 分别持有请求、会
 搜索待恢复关键词 pendingSearchRestore 属于 search 分片。localStorage 的原读取位置保持不变；setPendingRestore 登记待恢复值，takePendingRestore 同步取出并清空，首次搜索页导航再检查结果与输入草稿，自动恢复不写搜索历史。
 
 canary 13（请求内读取时钟）和 15（会话内读取时钟）的目标分别改为 playback-request-state.ts 与 playback-session-state.ts；判据仍是各自守卫测试失败。新增两项纯状态反例：分别向这两个模块加入 document.title，node --test tests/state-architecture.test.ts 必须失败。既有 canary 保留。
+## 播放状态栏与提示（state-9b）
+
+playback-messages-state.ts 持有 status、递增写入序号和 notice 的文字、kind、可见状态与提交序号。playback-messages-view.ts 是两区域文字和显示状态的唯一 DOM 写入方，只读取快照；定位与 ResizeObserver、2000/3200ms 计时器仍在 playback-notice.ts。控制器先提交、同步渲染，再派发 bilibili-music-notice-change；清空空提示仍派发一次。
+
+library/pages 的原提示投影在 app-state.ts 组装层与 playbackMessages 一次提交。分P查询恢复捕获的旧文字，包含查询期间其他模块覆盖后的恢复；原有文案与借用播放状态栏的语义保持。
+
+mini 宿主 status/notice 从 selectMiniPlayerMessages 投影读取，移除两项 DOM 读取例外；发布仍只由原事件与主题通知触发。setStatus 通过冻结且 satisfies 校验的既有桥接提交，state-9c 移除桥接。G0 保持 157 条、首个 trackchange 索引 70。
+
+新增 canary：在 playback-messages-state.ts 引用 document，state-architecture 测试必须失败；其他 ui 模块写 status.textContent 或 renderer 调用 action，playback-messages-architecture 测试必须失败；setStatus 声明改为不匹配返回类型，main 类型检查必须失败。原有 canary 全部保留。

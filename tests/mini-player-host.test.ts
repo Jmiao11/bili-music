@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 import { createApplicationStore } from "../ui/app-state.ts";
-import { selectMiniPlayerSnapshot } from "../ui/playback-mini-view.ts";
+import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "../ui/playback-mini-view.ts";
 import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 
 const source = stripModuleSyntax(readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8"), "ui/mini-player-host.ts");
@@ -90,7 +90,13 @@ function setup() {
     },
     console: { warn() {}, error() {} },
   })({
-    getSnapshot: () => selectMiniPlayerSnapshot(store.getState()),
+    getSnapshot: () => {
+      // Legacy DOM inputs enter real actions at the publication boundary.
+      store.actions.playbackMessages.setStatus(controls["#status"].textContent);
+      store.actions.playbackMessages.showNotice(controls["#playback-notice"].textContent, "info");
+      return { ...selectMiniPlayerSnapshot(store.getState()), ...selectMiniPlayerMessages(store.getState()) };
+    },
+    setStatus: (text: string) => { store.actions.playbackMessages.setStatus(text); controls["#status"].textContent = store.getState().playbackMessages.status; },
     commands: () => { throw new Error("Unexpected playback command in publication-only fixture"); },
     favorite: () => { throw new Error("Unexpected favorite command in publication-only fixture"); },
     eventApi,

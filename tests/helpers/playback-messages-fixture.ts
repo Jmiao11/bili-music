@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 
-function createMessagesFixture() {
+function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApplicationStore>) => void) {
   const classes = new Set<string>(), timers = new Map<number, { callback: () => void; delay: number }>();
   const events: { type: string; text: string; visible: boolean }[] = [];
   const handlers = new Map<string, (() => void)[]>();
@@ -24,6 +24,10 @@ function createMessagesFixture() {
     getRequestSnapshot: () => store.getState().playbackRequest,
   });
   const read = (file: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file);
+  vm.runInContext(read("playback-messages-view.ts"), context);
+  vm.runInContext(read("playback-messages.ts"), context);
+  beforeMount?.(store);
+  context.getPlaybackMessagesActions();
   vm.runInContext(read("playback-notice.ts"), context);
   vm.runInContext(read("library-view.ts"), context);
   vm.runInContext(read("pages-view.ts"), context);
@@ -45,4 +49,11 @@ function createMessagesFixture() {
     expire: () => { const pending = [...timers]; timers.clear(); for (const [, timer] of pending) timer.callback(); },
   };
 }
-export { createMessagesFixture };
+function wirePlaybackMessagesContext(context: vm.Context): void {
+  context.status ??= context.playbackStatus ?? context.document?.querySelector?.("#status");
+  context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
+  for (const file of ["playback-messages-view.ts", "playback-messages.ts"]) {
+    vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file), context);
+  }
+}
+export { createMessagesFixture, wirePlaybackMessagesContext };

@@ -1,9 +1,5 @@
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
-function readMiniPlayerMessages(document: Document) {
-  return { status: document.querySelector("#status")?.textContent || "",
-    notice: document.querySelector("#playback-notice")?.textContent || "" };
-}
 function createMiniPlayerHost({
   eventApi,
   invoke: invokeMini,
@@ -17,10 +13,10 @@ function createMiniPlayerHost({
   requestFrame = callback => window.requestAnimationFrame(callback),
   cancelFrame = id => window.cancelAnimationFrame(id),
   commands = () => window.bilibiliMusicMiniHost,
+  setStatus = message => window.bilibiliMusicMiniHost.setStatus(message),
   favorite = () => window.bilibiliMusicMiniHost.toggleFavorite(),
-}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: Window["bilibiliMusicMiniHost"]["subscribeTheme"]; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: Window["bilibiliMusicMiniHost"]["subscribeTheme"]; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; setStatus?: (message: string) => void; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
   const openButton = document.querySelector("#mini-player-button");
-  const status = document.querySelector("#status");
   const audio = document.querySelector("#audio");
   const unlisteners: (() => void)[] = [];
   let disposed = false;
@@ -57,9 +53,7 @@ function createMiniPlayerHost({
     }
   }
   function reportError(message: string) {
-    if (status) {
-      status.textContent = message;
-    }
+    setStatus(message);
   }
 
   function publish() {
@@ -67,7 +61,7 @@ function createMiniPlayerHost({
       return;
     }
     Promise.resolve(
-      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", { ...getSnapshot(), ...readMiniPlayerMessages(document) }),
+      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", getSnapshot()),
     ).catch((error) => console.warn("mini player state publish failed:", error));
   }
   function handleCommand({ payload }: TauriEvent<TauriAppEventMap["mini-player-command"]>) {

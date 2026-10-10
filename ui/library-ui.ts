@@ -1,9 +1,10 @@
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
-import type { LibrarySnapshot } from "./library-state.ts";
 import { getApplicationStore } from "./home.ts";
+import type { LibrarySnapshot } from "./library-state.ts";
 import { renderLibraryHighlights, renderLibrarySnapshot } from "./library-view.ts";
-import type { LibraryBindings } from "./library-view.ts";
 import { createTrackRow, currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
+import type { LibraryBindings } from "./library-view.ts";
+import { getPlaybackMessagesActions } from "./playback-messages.ts";
 
 let libraryMounted = false;
 let favoriteDragElements: { row: HTMLElement; target: HTMLElement | null } | null = null;
@@ -250,6 +251,7 @@ function libraryBindings(): LibraryBindings {
     choosePlaylist: actions.choosePlaylist, closeModal: actions.closeModal, submitName: actions.submitName, submitDelete: actions.submitDelete, submitChoose: actions.submitChoose, createAndAdd: actions.createAndAdd, submitImport: actions.submitImport, submitPurge: () => actions.submitPurge(), setModalName: actions.setModalName, setModalLink: actions.setModalLink };
 }
 function getLibraryActions() {
+  getPlaybackMessagesActions();
   const store = getApplicationStore();
   if (!libraryMounted) {
     libraryMounted = true; let previous: LibrarySnapshot | null = null;

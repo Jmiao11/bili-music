@@ -1,3 +1,4 @@
+import { createPlaybackMessagesActions, initialPlaybackMessagesState, messagesWithStatus } from "./playback-messages-state.ts";
 import { createPlaybackRequestActions, initialPlaybackRequestState } from "./playback-request-state.ts";
 import type { PlaybackRequestState } from "./playback-request-state.ts";
 import { createPlaybackSessionActions, initialPlaybackSessionState } from "./playback-session-state.ts";
@@ -52,7 +53,7 @@ function isHomePopular(home: HomeSnapshot): boolean {
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
-  const initial: { playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { home: {
+  const initial: { playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { playbackMessages: initialPlaybackMessagesState(), home: {
     mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
@@ -174,9 +175,20 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     const playbackDisplay = createPlaybackDisplayActions(() => getState().playbackDisplay, next => commit({ ...getState(), playbackDisplay: next }));
     const playbackSettings = createPlaybackSettingsActions(() => getState().playbackSettings, next => commit({ ...getState(), playbackSettings: next }));
     const settings = createSettingsActions(() => getState().settings, next => commit({ ...getState(), settings: next }), adapter);
-    const pages = createPagesActions(() => getState().pages, next => commit({ ...getState(), pages: next }));
-    const library = createLibraryActions(() => getState().library, (next, disabledResult) => commit({ ...getState(), library: next, ...(disabledResult ? { pages: pagesWithDisabledError(getState().pages, disabledResult.bvid, disabledResult.error) } : {}) }), adapter);
-    return { playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    const pages = createPagesActions(() => getState().pages, next => {
+      const current = getState();
+      commit({ ...current, pages: next, playbackMessages: next.view.status && next.view.status !== current.pages.view.status
+        ? messagesWithStatus(current.playbackMessages, next.view.status.text ?? "") : current.playbackMessages });
+    });
+    const library = createLibraryActions(() => getState().library, (next, disabledResult) => {
+      const current = getState();
+      commit({ ...current, library: next,
+        playbackMessages: next.view.playbackVersion !== current.library.view.playbackVersion && next.view.playbackStatus !== null
+          ? messagesWithStatus(current.playbackMessages, next.view.playbackStatus) : current.playbackMessages,
+        ...(disabledResult ? { pages: pagesWithDisabledError(current.pages, disabledResult.bvid, disabledResult.error) } : {}) });
+    }, adapter);
+    const playbackMessages = createPlaybackMessagesActions(() => getState().playbackMessages, next => commit({ ...getState(), playbackMessages: next }));
+    return { playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
   }, options);
 }
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
+import { wirePlaybackMessagesContext } from "./helpers/playback-messages-fixture.ts";
 import { createApplicationStore } from "../ui/app-state.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.ts";
 
@@ -145,6 +146,7 @@ async function fixture({ count = 3, pageCount = 1, normalization = false, cacheR
     isLoudnessNormalizationEnabled: () => normalization, setNormalizationGain: (gain: number) => gains.push(gain) });
   for (const declaration of moduleDeclarations(source, "ui/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
   for (const file of ["player-state.ts", "settings-adapter.ts", "playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
+  wirePlaybackMessagesContext(context);
   vm.runInContext(stripModuleSyntax(source, "ui/playback-core.ts"), context);
   const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
   vm.runInContext(main.slice(main.indexOf('audio.addEventListener("ended", (event) => {'), main.indexOf("initPlaybackPersistenceAndCache();")), context);

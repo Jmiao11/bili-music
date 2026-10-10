@@ -43,13 +43,13 @@ test("mini snapshot uses applied accent variant and exposes only approved non-se
   assert.equal(selectMiniPlayerSnapshot(store.getState()).title, "尚未播放");
 });
 
-test("mini bridge exposes exactly six frozen functions backed by actual commands and snapshot projection", async () => {
+test("mini bridge exposes exactly seven frozen functions backed by actual commands and snapshot projection", async () => {
   const h = await createMiniHostFixture(); h.setTrack();
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
   const source = stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
   vm.runInContext(source + "\ninstallMiniPlayerBridge();", h.context);
   const bridge = h.context.window.bilibiliMusicMiniHost;
-  assert.deepEqual(Object.keys(bridge).sort(), ["getSnapshot", "next", "previous", "subscribeTheme", "toggleFavorite", "togglePlayPause"]);
+  assert.deepEqual(Object.keys(bridge).sort(), ["getSnapshot", "next", "previous", "setStatus", "subscribeTheme", "toggleFavorite", "togglePlayPause"]);
   assert.equal(Object.isFrozen(bridge), true);
   bridge.previous(); bridge.next(); await bridge.togglePlayPause();
   assert.deepEqual(h.navigation, ["previous", "next"]); assert.deepEqual(h.audio.operations, ["play"]);

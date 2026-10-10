@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { selectMiniPlayerSnapshot } from "../../ui/playback-mini-view.ts";
+import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/playback-mini-view.ts";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 import { createPlaybackControlFixture } from "./playback-control-fixture.ts";
@@ -73,6 +73,7 @@ async function createMiniHostFixture() {
   } };
   h.context.getApplicationStore = () => observedStore;
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
+  h.context.selectMiniPlayerMessages = selectMiniPlayerMessages;
   const bridgeSource = stripModuleSyntax(fs.readFileSync(path.join(ui, "mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
   vm.runInContext(bridgeSource, h.context);
   const subscribeTheme = vm.runInContext("subscribeMiniPlayerTheme", h.context);
@@ -82,9 +83,10 @@ async function createMiniHostFixture() {
   };
   const flush = async () => { await h.flush(); await flushFrame(); };
   const host = createHost({ subscribeTheme,
+    setStatus: (text: string) => h.store.actions.playbackMessages.setStatus(text),
     requestFrame: (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; }, cancelFrame: (id: number) => { frames.delete(id); },
     getSnapshot: () => {
-      return selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library });
+      return { ...selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library }), ...selectMiniPlayerMessages(h.store.getState()) };
     }, commands: () => h.context.getPlaybackCommands(), favorite: () => h.context.toggleCurrentFavorite(), document: h.context.document, window: h.context.window, console,
     invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } | null }) => void, options?: { target: { kind: string; label: string } }) => { listenTargets.push({ name, target: options?.target }); installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
       emitTo: async (label: string, name: string, payload: MiniPlayerStatePayload) => { emissions.push({ label, name, payload: structuredClone(payload) }); } },
@@ -103,6 +105,15 @@ async function createMiniHostFixture() {
     h.node("#uploader").textContent = track.uploader; h.node("#thumbnail").setAttribute("src", track.thumbnailUrl); favoriteButton.disabled = false;
     return track;
   };
+  // Legacy initialization nodes -> real message actions; renderer remains the production writer.
+  for (const [selector, kind] of [["#status", "status"], ["#playback-notice", "notice"]]) {
+    const node = h.node(selector); let text = node.textContent;
+    Object.defineProperty(node, "textContent", { configurable: true, get: () => text, set(value: string) {
+      text = value; const messages = h.store.getState().playbackMessages;
+      if (kind === "status" && value !== messages.status) h.store.actions.playbackMessages.setStatus(value);
+      if (kind === "notice" && value !== messages.notice.text) h.store.actions.playbackMessages.showNotice(value, "info");
+    } });
+  }
   favoriteButton.disabled = true;
   const fire = async (name: string, action?: string) => { listeners.get(name)?.({ payload: name === "mini-player-ready" || name === "tauri://destroyed" ? null : { action } }); await h.flush(); };
   const publishEvent = async (name: string) => { for (const handler of windowHandlers.get(name) ?? []) handler(); await h.flush(); };

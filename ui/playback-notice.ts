@@ -1,4 +1,5 @@
 import { playbackNotice, result, resumePlayPauseButton } from "./player-dom.ts";
+import { getPlaybackMessages, getPlaybackMessagesActions } from "./playback-messages.ts";
 
 const SKIP_NOTICE_DURATION_MS: number = 3200;
 
@@ -9,8 +10,7 @@ function clearPlaybackNotice(): void {
     clearTimeout(playbackNoticeTimer);
     playbackNoticeTimer = null;
   }
-  playbackNotice.classList.remove("is-visible");
-  playbackNotice.textContent = "";
+  getPlaybackMessagesActions().clearNotice();
   window.dispatchEvent(new Event("bilibili-music-notice-change"));
 }
 
@@ -26,15 +26,13 @@ new ResizeObserver(positionPlaybackNotice).observe(result);
 
 function showPlaybackNotice(message: string, { persistent = false, kind = "error" }: { persistent?: boolean; kind?: "error" | "info" } = {}): void {
   positionPlaybackNotice();
-  if (kind === "info" && playbackNotice.classList.contains("is-visible") &&
-      playbackNotice.dataset.kind === "error") return;
+  const notice = getPlaybackMessages().notice;
+  if (kind === "info" && notice.visible && notice.kind === "error") return;
   if (playbackNoticeTimer !== null) {
     clearTimeout(playbackNoticeTimer);
     playbackNoticeTimer = null;
   }
-  playbackNotice.dataset.kind = kind;
-  playbackNotice.textContent = message;
-  playbackNotice.classList.add("is-visible");
+  getPlaybackMessagesActions().showNotice(message, kind);
   window.dispatchEvent(new Event("bilibili-music-notice-change"));
   if (!persistent) {
     playbackNoticeTimer = window.setTimeout(clearPlaybackNotice,

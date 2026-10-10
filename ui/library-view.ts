@@ -1,6 +1,6 @@
 import { displayThumbnailUrl, escapeText, unavailableTrackLocations } from "./track-utils.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, status } from "./player-dom.ts";
+import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {
@@ -332,7 +332,6 @@ function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot
       if (modal.data.focusName !== previous?.session.data.focusName && modal.data.focusName) { controls.input.focus(); controls.input.select(); }
     }
   }
-  if (state.view.playbackVersion !== previous?.view.playbackVersion && state.view.playbackStatus !== null) status.textContent = state.view.playbackStatus;
   if (state.view.playlistsStatus !== null && state.view.playlistsStatus !== previous?.view.playlistsStatus) playlistsStatus.textContent = state.view.playlistsStatus;
   if (state.view.purgeStatus !== null && state.view.purgeStatus !== previous?.view.purgeStatus) purgeAppearanceStatus.textContent = state.view.purgeStatus;
   if (state.view.purgeBusy !== null && state.view.purgeBusy !== previous?.view.purgeBusy) purgeUnavailableTracksButton.disabled = state.view.purgeBusy;

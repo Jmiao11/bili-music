@@ -2,7 +2,7 @@ import { isPageDisabled } from "./page-selection.ts";
 import { formatDuration } from "./track-utils.ts";
 import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, status } from "./player-dom.ts";
+import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
   playPage(page: Readonly<CommandContract.VideoPage>): void;
@@ -117,7 +117,6 @@ function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindin
 
 function renderPagesSnapshot(state: PagesSnapshot, library: LibrarySnapshot, previous: { pages: PagesSnapshot; library: LibrarySnapshot } | undefined, bindings: PagesBindings): void {
   if (state.view.badges && state.view.badges !== previous?.pages.view.badges) refreshPageCountBadges(state.view.badges.bvid, state, bindings);
-  if (state.view.status && state.view.status !== previous?.pages.view.status) status.textContent = state.view.status.text;
   const prior = previous?.pages.modal;
   if (state.modal && (state.modal !== prior)) renderPagesModal(state, library, bindings);
   if (state.modal && (!prior || state.modal.version !== prior.version)) {

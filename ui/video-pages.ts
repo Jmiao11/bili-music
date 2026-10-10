@@ -1,10 +1,12 @@
 import { invoke } from "./runtime-api.ts";
-import { playerPagesButton, status } from "./player-dom.ts";
+import { playerPagesButton } from "./player-dom.ts";
 import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
-
 import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge } from "./pages-view.ts";
 import { currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage } from "./playback-core.ts";
+
+import { getPlaybackMessagesActions } from "./playback-messages.ts";
+import { getPlaybackMessages } from "./playback-messages.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 
@@ -218,7 +220,7 @@ async function loadVideoPagesForModal(video: CommandContract.TrackSnapshotInput,
     openPagesModal(video, cached.videos, cached.pages, onPlay, trigger);
     return;
   }
-  const requestVersion = getPagesActions().beginModalQuery(status.textContent);
+  const requestVersion = getPagesActions().beginModalQuery(getPlaybackMessages().status);
   renderPagesTrigger(trigger, requestVersion, true);
   try {
     const data = await invoke("get_video_meta", { bvid: video.bvid });
@@ -292,6 +294,7 @@ function pagesBindings() {
     changeDisabledPages, currentTrack: currentPlayableTrack, currentPage: currentVideoPage };
 }
 function getPagesActions() {
+  getPlaybackMessagesActions();
   const store = getApplicationStore();
   if (!pagesMounted) {
     pagesMounted = true;

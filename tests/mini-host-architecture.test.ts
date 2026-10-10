@@ -4,10 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const messageReadExceptions = [
-  { selector: "#status", function: "readMiniPlayerMessages", reason: "状态栏多写入方统一，state-9 处理" },
-  { selector: "#playback-notice", function: "readMiniPlayerMessages", reason: "状态栏多写入方统一，state-9 处理" },
-];
+const messageReadExceptions: { selector: string; function: string; reason: string }[] = [];
 function checkHost(source: string) {
   const messages = source.slice(source.indexOf("function readMiniPlayerMessages("), source.indexOf("function createMiniPlayerHost("));
   assert.deepEqual([...messages.matchAll(/querySelector\("([^"]+)"\)/g)].map(match => match[1]), messageReadExceptions.map(item => item.selector));
@@ -16,10 +13,7 @@ function checkHost(source: string) {
   assert.doesNotMatch(rest, /\.\s*click\s*\(/, "host commands cannot simulate clicks");
 }
 test("mini host DOM message exceptions exactly match approved state-9 debt", () => {
-  assert.deepEqual(messageReadExceptions, [
-    { selector: "#status", function: "readMiniPlayerMessages", reason: "状态栏多写入方统一，state-9 处理" },
-    { selector: "#playback-notice", function: "readMiniPlayerMessages", reason: "状态栏多写入方统一，state-9 处理" },
-  ]);
+  assert.deepEqual(messageReadExceptions, []);
 });
 test("mini host publishes snapshots with only the two approved message reads", () => {
   checkHost(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8"));
