@@ -106,14 +106,7 @@ const volumeSlider = document.querySelector<HTMLInputElement>("#volume-slider")!
 const loudnessNormalizationToggle = document.querySelector<HTMLInputElement>("#loudness-normalization-toggle")!;
 
 let playbackDisplayMounted = false;
-let currentTrack: CurrentTrackDetail = {
-  bvid: "",
-  title: "尚未播放",
-  uploader: "—",
-  thumbnailUrl: "",
-  durationSeconds: 0,
-  hasCurrent: false,
-};
+
 
 
 function settingsDom() { return { root, navItems, homeView, searchView, favoritesView, playlistsView, placeholderView, placeholderTitle, settingsModal, openSettingsButton, themeOptions, accentColorOptions, chooseBackgroundButton, backgroundName, appearanceStatus, imageOnlyGroups, glassBlurSlider, glassBlurValue, panelAlphaSlider, panelAlphaValue, backgroundDimSlider, backgroundDimValue, streamSourceSelect, streamSourceStatus, audioCacheEnabled, audioCacheCapacity, shuffleCollectionOrder, shuffleCollectionLimit, audioCacheUsage, audioCacheStatus, clearAudioCacheButton, aiApiFormatSelect, aiBaseUrlInput, aiModelInput, aiApiKeyInput, saveAiConfigButton, testAiConnectionButton, aiConfigStatus, shortcutRecordButtons }; }
@@ -491,11 +484,8 @@ function initializeGlobalShortcutControls() {
   }, { once: true });
 }
 
-function syncImmersiveTrack(track = currentTrack) {
-  currentTrack = {
-    ...currentTrack,
-    ...track,
-  };
+function syncImmersiveTrack() {
+  const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
   immersiveTitle.textContent = currentTrack.title || "尚未播放";
   immersiveUploader.textContent = currentTrack.uploader || "—";
   openBilibiliButton.disabled = !currentTrack.bvid;
@@ -512,6 +502,7 @@ function syncImmersiveTrack(track = currentTrack) {
 }
 
 function openImmersive() {
+  const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
   if (!currentTrack.hasCurrent && !playerAudio.currentSrc) {
     playbackStatus.textContent = "请先从队列中选择一首歌曲。";
     return;
@@ -679,6 +670,7 @@ async function testAiConnection() {
 }
 
 async function openCurrentBilibiliVideo() {
+  const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
   if (!currentTrack.bvid) {
     playbackStatus.textContent = "当前没有可打开的 B 站视频。";
     return;
@@ -910,7 +902,8 @@ window.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("bilibili-music-trackchange", (event) => {
-  syncImmersiveTrack(event.detail);
+  getApplicationStore().actions.playbackDisplay.setCurrentTrack(event.detail);
+  syncImmersiveTrack();
   syncMediaSessionTrack(event.detail);
 });
 

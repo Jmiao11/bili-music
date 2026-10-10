@@ -802,6 +802,7 @@
         "once": true
       }
     },
+    { "action": "window-set", "property": "bilibiliMusicMiniHost", "valueType": "object" },
     {
       "action": "listen",
       "target": "#audio",

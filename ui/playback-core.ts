@@ -213,6 +213,7 @@ function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, pos
   const progress = `${sliderMax > 0 ? (safePosition / sliderMax) * 100 : 0}%`;
 
   thumbnail.src = displayThumbnailUrl(track.thumbnailUrl);
+  getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: track.title, uploader: track.uploader, thumbnailUrl: displayThumbnailUrl(track.thumbnailUrl) });
   title.textContent = track.title;
   uploader.textContent = track.uploader;
   duration.textContent = formatDuration(totalSeconds);
@@ -793,6 +794,7 @@ async function loadCurrentTrack({
       durationSeconds: info.durationSeconds,
     };
     thumbnail.src = displayThumbnailUrl(visibleTrack.thumbnailUrl);
+    getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: visibleTrack.title, uploader: visibleTrack.uploader, thumbnailUrl: displayThumbnailUrl(visibleTrack.thumbnailUrl) });
     title.textContent = visibleTrack.title;
     uploader.textContent = visibleTrack.uploader;
     duration.textContent = formatDuration(visibleTrack.durationSeconds);

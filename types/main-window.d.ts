@@ -20,6 +20,14 @@ interface CurrentTrackDetail {
 }
 
 interface Window {
+  // shortcut: classic 宿主仅调用此端口，state-9 移除桥接。
+  bilibiliMusicMiniHost: {
+    getSnapshot: () => ReturnType<typeof import("../ui/playback-mini-view.ts").selectMiniPlayerSnapshot>;
+    previous: () => void;
+    togglePlayPause: () => Promise<void>;
+    next: () => void;
+    toggleFavorite: () => Promise<void> | undefined;
+  };
   // main.js:173-190; appearance.js:448, mini-player-host.js:97.
   __playbackDiagLog: PlaybackDiagEntry[];
   recordPlaybackDiag(category: string, message: string): void;

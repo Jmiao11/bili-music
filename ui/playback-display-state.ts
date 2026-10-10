@@ -3,7 +3,9 @@ import type { DeepReadonly } from "./state-store.ts";
 type PlaybackMediaObservation = { currentTime: number; duration: number; paused: boolean; ended: boolean; playbackRate: number };
 type PlaybackSessionTrack = { hasCurrent: boolean; title: string; uploader: string; thumbnailUrl: string };
 function initialPlaybackDisplayState() {
-  return { currentTime: 0, duration: NaN, paused: true, ended: false, playbackRate: 1, isPlaying: false, isSeeking: false,
+  return { currentTime: 0, duration: NaN, paused: true, ended: false, playbackRate: 1, isPlaying: false, buttonPlaying: false, isSeeking: false,
+    renderedTrack: { title: "尚未播放", uploader: "—", thumbnailUrl: "" },
+    currentTrack: { bvid: "", title: "尚未播放", uploader: "—", thumbnailUrl: "", durationSeconds: 0, hasCurrent: false },
     progress: { position: 0, duration: 0 }, track: null as PlaybackSessionTrack | null,
     sessionState: "none" as "none" | "paused" | "playing",
     position: null as { duration: number; playbackRate: number; position: number } | null,
@@ -13,6 +15,13 @@ type PlaybackDisplaySnapshot = DeepReadonly<ReturnType<typeof initialPlaybackDis
 function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commit: (state: PlaybackDisplaySnapshot) => void) {
   const observed = (media: PlaybackMediaObservation) => ({ ...read(), ...media, isPlaying: !media.paused && !media.ended });
   return {
+    setRenderedTrack(track: { title: string; uploader: string; thumbnailUrl: string }) {
+      commit({ ...read(), renderedTrack: { title: track.title, uploader: track.uploader, thumbnailUrl: track.thumbnailUrl } });
+    },
+    setCurrentTrack(track: Partial<PlaybackDisplaySnapshot["currentTrack"]>) {
+      const before = read(), next = { ...before.currentTrack, ...track };
+      commit({ ...before, currentTrack: { bvid: next.bvid, title: next.title, uploader: next.uploader, thumbnailUrl: next.thumbnailUrl, durationSeconds: next.durationSeconds, hasCurrent: next.hasCurrent } });
+    },
     observeMedia(media: PlaybackMediaObservation) { commit(observed(media)); },
     setSeeking(isSeeking: boolean) { commit({ ...read(), isSeeking }); },
     observeProgress(media: PlaybackMediaObservation, value: number | string = media.currentTime) {
@@ -22,7 +31,7 @@ function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commi
     },
     observePlaying(media: PlaybackMediaObservation) {
       const state = observed(media);
-      commit({ ...state, view: { ...state.view, buttonVersion: state.view.buttonVersion + 1 } });
+      commit({ ...state, buttonPlaying: state.isPlaying, view: { ...state.view, buttonVersion: state.view.buttonVersion + 1 } });
     },
     setTrack(track: PlaybackSessionTrack | null | undefined) {
       const state = read();

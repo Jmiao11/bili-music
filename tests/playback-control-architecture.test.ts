@@ -29,30 +29,6 @@ const clickExceptions = [
     "file": "ui/library-view.ts",
     "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
     "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "previousButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "playPauseButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "nextButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "favoriteButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
   }
 ] as const;
 const expected = [
@@ -80,39 +56,12 @@ const expected = [
     "file": "ui/library-view.ts",
     "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
     "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "previousButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "playPauseButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "nextButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
-  },
-  {
-    "file": "ui/mini-player-host.ts",
-    "line": "favoriteButton?.click();",
-    "reason": "classic 脚本迷你窗宿主，state-8b 移除",
-    "removeIn": "state-8b"
   }
 ] as const;
 
 test("playback click exceptions exactly match approved long-term and temporary entries", () => {
   assert.deepEqual(clickExceptions, expected);
-  assert.equal(clickExceptions.filter(item => "removeIn" in item).length, 4);
-  for (const item of clickExceptions) if ("removeIn" in item) {
-    assert.equal(item.removeIn, "state-8b"); assert.ok(item.reason.includes(item.removeIn));
-  }
+  assert.equal(clickExceptions.filter(item => "removeIn" in item).length, 0);
 });
 
 function checkClicks(root: string) {

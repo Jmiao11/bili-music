@@ -66,7 +66,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
 - Node 22.18.0 与 22.23.3 各运行完整测试，原测试名及重复次数全部保留并通过，新增测试名单列。
 - 全部 canary 在仓库外临时副本逐个运行，必须按对应命令非零失败，结束恢复原文件并删除新增文件。新增架构守卫同步增加反例与验收登记。
-- G0 必须与 tests/fixtures/playback-startup-installation.json 的156条及首个trackchange索引70逐项相同，不重录fixture。类型项目必须零诊断；构建产物的平台字节一致性和两个反例继续执行。
+- G0 必须与 tests/fixtures/playback-startup-installation.json 的157条及首个trackchange索引70逐项相同，不重录fixture。类型项目必须零诊断；构建产物的平台字节一致性和两个反例继续执行。
 - 完整命令、canary清单和判据见架构文档；数量先实测，不用旧报告数字替代结果。真实WebView手测与自动验证分开报告，不把未执行的手测写成通过。
 
 ## Store 设计约定

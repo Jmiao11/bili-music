@@ -55,7 +55,7 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 
-检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 156 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 157 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
 
 源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
 
@@ -209,7 +209,7 @@ Node 自测只使用内置模块和构造的编译器输出，不依赖已安装
 8. `npm run typecheck`
 9. `npm run verify:dist`
 
-基线数量须先实测，不用文档数字替代结果。类型检查 main/mini/node 均须为零诊断，diagnostics.json 为 {}。G0 必须与 tests/fixtures/playback-startup-installation.json 逐项相同（156 条，首个 trackchange 索引 70），不能为通过检查重录。verify:dist 比较 Windows/darwin 环境产物逐字节一致，并要求缺失普通脚本、模块位置错误两个反例失败。
+基线数量须先实测，不用文档数字替代结果。类型检查 main/mini/node 均须为零诊断，diagnostics.json 为 {}。G0 必须与 tests/fixtures/playback-startup-installation.json 逐项相同（157 条，首个 trackchange 索引 70），不能为通过检查重录。verify:dist 比较 Windows/darwin 环境产物逐字节一致，并要求缺失普通脚本、模块位置错误两个反例失败。
 
 CRLF 验证：在 %TEMP%\bili-music-verify\ 下，用 `git clone --config core.autocrlf=true --branch <当前分支> --single-branch <仓库路径> <临时目录>` 创建克隆；覆盖未提交候选文件，删除候选中的旧路径；检查 ui/ 清单与工作区相同，全部使用 CRLF；依次运行 `node --test`、`npm ci`、`npm run typecheck`、`npm run verify:dist`，第一项必须在安装依赖之前。ui/ 数量随已批准新增模块变化，不能固定成旧数量。
 
@@ -237,6 +237,9 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 14 | 播放模块改回读写旧会话字段或 playerState | node --test tests/playback-session-architecture.test.ts |
 | 15 | 会话状态动作读取平台时钟 | node --test tests/playback-session-architecture.test.ts |
 | 16 | UI 出现未登记的模拟播放控制 .click() | node --test tests/playback-control-architecture.test.ts |
+| 17 | 宿主把同步字段改回 DOM 读取 | node --test tests/mini-host-architecture.test.ts |
+| 18 | 宿主以外的 classic 脚本（主窗或迷你窗）读取桥接 | node --test tests/mini-host-architecture.test.ts |
+| 19 | 桥接声明的 togglePlayPause 签名改为 () => number | npm run typecheck（main 必须失败，恢复后三个项目均零诊断） |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 
@@ -327,3 +330,13 @@ app-state.ts 的 playbackRequest 分片保存 requestVersion、activeAudioVersio
 activeAudioUrl 是私有运行时请求数据，不进入 renderer 投影、诊断或跨窗 payload；测试与仓库外日志只输出相等/为空的判断或脱敏结果。应用工厂支持请求分片的正式初始数据，供冻结测试 fixture 构造；没有运行期任意写入接口。请求代码复用已登记的 app-state 模块及纯状态/类型守卫，未增加业务模块和初始化调用。
 
 经本批明确授权，10 个历史 VM 文件仅替换首行导入。新增 playback-request-fixture 在业务函数、事件和命令完成的明确边界接入真实冻结 store/actions，原 source-slice、例外登记表、playback-queue-fixture 不改。每个请求字段的输入/输出同步均有反例；产品代码改回旧字段由请求归属守卫拒绝。该 helper 是过渡件，playerState 整体移除时（state-9 或 Vue 阶段）删除；完整原文断言、逐测试计数、字段同步说明和变异证据保存在仓库外。
+
+### state-8b 迷你窗宿主
+
+mini-player-host.ts 保留 classic 加载和 HTML 原有位置；mini-player-bridge.ts 在 app.ts 完成 startAppearance 后注册类型化端口。Vite 合并多 ESM 入口，方案 A 无法保留生产产物的脚本位置，因此采用方案 B；桥接登记为 state-9 技术债；state-9 将 classic 脚本迁入 ESM 时必须采用单一 ESM 入口。宿主使用播放命令和 toggleCurrentFavorite；只有 ready、原媒体事件、trackchange、favorite-change、notice-change 发布同步，不订阅 store 提交。playback-mini-view.ts 从快照投影标题、作者、封面、曲目存在、收藏、按钮播放显示及主题有效强调色；status/notice 暂由 readMiniPlayerMessages 读取，登记为 state-9 的状态栏统一技术债。主题仍等下一次原发布事件才同步。
+
+playbackDisplay.renderedTrack 记录主栏原写入点的数据，currentTrack 记录沉浸页原 trackchange 的合并数据；buttonPlaying 保留最近一次播放按钮更新值，媒体时间观察不会改变宿主原按钮读值。播放、队列、请求及发送时机不变。mini.ts 保持不变。
+
+桥接仅暴露五个必需函数，Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
+
+新增 canary 17：在 mini-player-host.ts 加入从 #title.textContent 读取同步标题，node --test tests/mini-host-architecture.test.ts 必须失败。原四条宿主点击临时例外移除，五条非播放用途长期例外保留。

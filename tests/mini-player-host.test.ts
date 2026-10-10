@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync, stripModuleSyntax } from "./helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
+import { createApplicationStore } from "../ui/app-state.ts";
+import { selectMiniPlayerSnapshot } from "../ui/playback-mini-view.ts";
+import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8");
+const source = stripModuleSyntax(readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8"), "ui/mini-player-host.ts");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 type MockElement = EventTarget & { dataset: Record<string, string | undefined>; textContent: string; disabled: boolean; click?: () => unknown; classList: { add(name: string): unknown; contains(name: string): boolean; remove(name: string): unknown; toggle(name: string, force: boolean): unknown } };
@@ -74,6 +77,8 @@ function setup() {
     return id;
   };
   const clearTimeoutFn: (id: number) => boolean = (id) => timers.delete(id);
+  const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} });
+  store.actions.playbackDisplay.setRenderedTrack({ title: controls["#title"].textContent, uploader: controls["#uploader"].textContent, thumbnailUrl: "https://example.com/cover.jpg" });
   const host = vm.runInNewContext(`${source}\ncreateMiniPlayerHost`, {
     window,
     document,
@@ -85,6 +90,9 @@ function setup() {
     },
     console: { warn() {}, error() {} },
   })({
+    getSnapshot: () => selectMiniPlayerSnapshot(store.getState()),
+    commands: () => { throw new Error("Unexpected playback command in publication-only fixture"); },
+    favorite: () => { throw new Error("Unexpected favorite command in publication-only fixture"); },
     eventApi,
     invoke,
     document,
@@ -109,18 +117,16 @@ function setup() {
 }
 
 test("ready publishes the current track and the four commands click existing controls", async () => {
-  const app = setup();
+  const fixture = await createMiniHostFixture();
+  const track = { ...fixture.setTrack(), title: "测试歌曲", uploader: "测试 UP" };
+  fixture.store.actions.playbackQueue.replaceQueue([track]);
+  fixture.store.actions.playbackQueue.selectIndex(0, false, null);
+  fixture.store.actions.playbackDisplay.setRenderedTrack(track);
+  fixture.node("#title").textContent = track.title;
+  fixture.node("#uploader").textContent = track.uploader;
+  fixture.node("#status").textContent = "在线播放中。";
+  const app = { emitted: fixture.emissions, fire: (name: string, payload: { action?: string } = {}) => fixture.fire(name, payload.action) };
   await settle();
-
-  const clicked: string[] = [];
-  for (const [selector, action] of [
-    ["#previous-button", "previous"],
-    ["#play-pause-button", "toggle_play"],
-    ["#next-button", "next"],
-    ["#favorite-current-button", "toggle_favorite"],
-  ]) {
-    app.controls[selector].click = () => clicked.push(action);
-  }
 
   app.fire("mini-player-ready");
   await settle();
@@ -150,7 +156,17 @@ test("ready publishes the current track and the four commands click existing con
   for (const action of ["previous", "toggle_play", "next", "toggle_favorite", "unknown"]) {
     app.fire("mini-player-command", { action });
   }
-  assert.deepEqual(clicked, ["previous", "toggle_play", "next", "toggle_favorite"]);
+  await fixture.flush();
+  // src-tauri/src/library/favorites.rs:49: toggle_favorite command.
+  const favoriteCalls = fixture.invoked.filter(command => command === "toggle_favorite").length;
+  fixture.store.actions.playbackQueue.replaceQueue([]);
+  fixture.node("#favorite-current-button").disabled = true;
+  await app.fire("mini-player-command", { action: "toggle_favorite" });
+  await fixture.flush();
+  assert.deepEqual({ previous: fixture.navigation.filter(action => action === "previous").length,
+    next: fixture.navigation.filter(action => action === "next").length, togglePlay: fixture.audio.operations.filter(action => action === "play").length,
+    favorite: favoriteCalls, emptyFavorite: fixture.invoked.filter(command => command === "toggle_favorite").length - favoriteCalls },
+  { previous: 1, next: 1, togglePlay: 1, favorite: 1, emptyFavorite: 0 });
 });
 
 test("notices synchronize on ready, change and expiration", async () => {

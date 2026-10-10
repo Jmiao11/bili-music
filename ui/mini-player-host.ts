@@ -1,62 +1,22 @@
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
-function miniPlayerAccent(root: HTMLElement | null) {
-  const read = (name: string, fallback: number) => {
-    const value = Number(root?.style?.getPropertyValue?.(name));
-    return Number.isFinite(value) ? value : fallback;
-  };
-  return {
-    r: read("--accent-r", 251),
-    g: read("--accent-g", 114),
-    b: read("--accent-b", 153),
-  };
-}
-function miniPlayerState(document: Document): MiniPlayerStatePayload {
-  const query = <T extends HTMLElement>(selector: string): T | null => document.querySelector<T>(selector);
-    const previousButton = query<HTMLButtonElement>("#previous-button");
-    const nextButton = query<HTMLButtonElement>("#next-button");
-    const playPauseButton = query<HTMLButtonElement>("#play-pause-button");
-    const favoriteButton = query<HTMLButtonElement>("#favorite-current-button");
-  const title = query("#title");
-  const uploader = query("#uploader");
-    const thumbnail = query<HTMLImageElement>("#thumbnail");
-  const status = query("#status");
-  const root = document.documentElement;
-  const hasCurrent = favoriteButton
-    ? !favoriteButton.disabled
-    : previousButton
-      ? !previousButton.disabled
-      : false;
-
-  return {
-    title: title?.textContent || "尚未播放",
-    uploader: uploader?.textContent || "—",
-    thumbnailUrl: thumbnail?.getAttribute?.("src") || thumbnail?.src || "",
-    status: status?.textContent || "",
-    hasCurrent,
-    canPrevious: previousButton ? !previousButton.disabled : false,
-    canNext: nextButton ? !nextButton.disabled : false,
-    isPlaying: playPauseButton?.dataset?.playing === "true",
-    isFavorited: favoriteButton?.classList?.contains("is-favorited") ?? false,
-    theme: root?.dataset?.theme || "dark",
-    accent: miniPlayerAccent(root),
-    notice: query("#playback-notice")?.textContent || "",
-  };
+function readMiniPlayerMessages(document: Document) {
+  return { status: document.querySelector("#status")?.textContent || "",
+    notice: document.querySelector("#playback-notice")?.textContent || "" };
 }
 function createMiniPlayerHost({
   eventApi,
-  invoke,
+  invoke: invokeMini,
   document,
   window,
   setTimeoutFn = window.setTimeout.bind(window),
   clearTimeoutFn = window.clearTimeout.bind(window),
   console,
-}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"] }) {
+  getSnapshot = () => window.bilibiliMusicMiniHost.getSnapshot(),
+  commands = () => window.bilibiliMusicMiniHost,
+  favorite = () => window.bilibiliMusicMiniHost.toggleFavorite(),
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
   const openButton = document.querySelector("#mini-player-button");
-    const previousButton = document.querySelector<HTMLButtonElement>("#previous-button");
-    const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button");
-    const nextButton = document.querySelector<HTMLButtonElement>("#next-button");
-    const favoriteButton = document.querySelector<HTMLButtonElement>("#favorite-current-button");
   const status = document.querySelector("#status");
   const audio = document.querySelector("#audio");
   const unlisteners: (() => void)[] = [];
@@ -82,20 +42,20 @@ function createMiniPlayerHost({
       return;
     }
     Promise.resolve(
-      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", miniPlayerState(document)),
+      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", { ...getSnapshot(), ...readMiniPlayerMessages(document) }),
     ).catch((error) => console.warn("mini player state publish failed:", error));
   }
   function handleCommand({ payload }: TauriEvent<TauriAppEventMap["mini-player-command"]>) {
     const action = payload?.action;
     if (action === "previous") {
-      previousButton?.click();
+      commands().previous();
     } else if (action === "toggle_play") {
       window.recordPlaybackDiag?.("external-control", "mini player toggle_play");
-      playPauseButton?.click();
+      void commands().togglePlayPause();
     } else if (action === "next") {
-      nextButton?.click();
+      commands().next();
     } else if (action === "toggle_favorite") {
-      favoriteButton?.click();
+      void favorite();
     }
   }
 
@@ -114,7 +74,7 @@ function createMiniPlayerHost({
     miniReady = false;
     clearReadyTimer();
     try {
-      await invoke("open_mini_player");
+      await invokeMini("open_mini_player");
     } catch (error) {
       reportError(`迷你播放器打开失败：${error}`);
       console.warn("open_mini_player failed:", error);
@@ -130,7 +90,7 @@ function createMiniPlayerHost({
       miniReady = false;
       reportError("迷你播放器打开失败，已恢复主窗口。");
       try {
-        await invoke("exit_mini_player");
+        await invokeMini("exit_mini_player");
       } catch (error) {
         console.warn("mini player recovery failed:", error);
       }

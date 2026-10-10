@@ -280,6 +280,10 @@ async function toggleFavorite(video = currentPlayableTrack()) {
     if (result.favorited) window.dispatchEvent(new CustomEvent("bilibili-music-favorite", { detail: { bvid: result.track.bvid, title: result.track.title } }));
   }
 }
+function toggleCurrentFavorite(): Promise<void> | undefined {
+  const current = currentPlayableTrack();
+  if (current) return toggleFavorite(current);
+}
 function closeLibraryModal(): void { getLibraryActions().closeModal(); }
 function createPlaylist(): void { getLibraryActions().showName("create"); }
 function renameSelectedPlaylist(): void { const p = getLibrarySnapshot().playlists.find(p => p.id === getLibrarySnapshot().selectedPlaylistId); if (p) getLibraryActions().showName("rename", p); }
@@ -292,4 +296,4 @@ function markLibraryUnavailable(bvid: string, reason: string): void { getLibrary
 function clearLibraryUnavailable(bvid: string): boolean { return getLibraryActions().clearUnavailable(bvid); }
 function openLoudnessModal(): void { getLibraryActions().openModal("loudness", "响度归一化", ""); }
 
-export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights };
+export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleCurrentFavorite, toggleFavorite, updateLibraryHighlights };

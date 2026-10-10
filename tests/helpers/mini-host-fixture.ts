@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { selectMiniPlayerSnapshot } from "../../ui/playback-mini-view.ts";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 import { createPlaybackControlFixture } from "./playback-control-fixture.ts";
@@ -55,7 +56,18 @@ async function createMiniHostFixture() {
   const tauri = h.context.window.__TAURI__; h.context.window.__TAURI__ = undefined;
   const createHost = vm.runInContext(hostSource + "\ncreateMiniPlayerHost", h.context);
   h.context.window.__TAURI__ = tauri;
-  const host = createHost({ document: h.context.document, window: h.context.window, console,
+  Object.defineProperty(root.dataset, "theme", { configurable: true, get: () => h.store.getState().settings.theme || "dark",
+    // Explicit fixture setting input -> real action; publishing remains event-driven.
+    set: value => { h.store.actions.settings.setTheme(value, false); } });
+  const setChannel = channels.set.bind(channels);
+  channels.set = (name, value) => {
+    setChannel(name, value);
+    if (['--accent-r', '--accent-g', '--accent-b'].map(key => channels.get(key)).join(',') === '40,88,161') h.store.actions.settings.setAccent('blue', root.dataset.theme, false);
+    return channels;
+  };
+  const host = createHost({ getSnapshot: () => {
+      return selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library });
+    }, commands: () => h.context.getPlaybackCommands(), favorite: () => h.context.toggleCurrentFavorite(), document: h.context.document, window: h.context.window, console,
     invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } }) => void) => { installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
       emitTo: async (label: string, name: string, payload: MiniPlayerStatePayload) => { emissions.push({ label, name, payload: structuredClone(payload) }); } },
     setTimeoutFn: (handler: () => Promise<void>, delay: number) => { timers.push({ handler, delay }); return timers.length; }, clearTimeoutFn() {},
@@ -68,6 +80,7 @@ async function createMiniHostFixture() {
     h.store.actions.playbackSession.setCurrentPages(Array.from({ length: pages }, (_, index) => ({ cid: index + 1, page: index + 1, part: "分P" + (index + 1), durationSeconds: 60 })));
     const displayed = { ...track, title: pages > 1 ? "分P1" : track.title, hasCurrent: true };
     h.store.actions.playbackQueue.setDisplayTrack(displayed);
+    h.store.actions.playbackDisplay.setRenderedTrack(displayed);
     h.node("#title").textContent = displayed.title;
     h.node("#uploader").textContent = track.uploader; h.node("#thumbnail").setAttribute("src", track.thumbnailUrl); favoriteButton.disabled = false;
     return track;
