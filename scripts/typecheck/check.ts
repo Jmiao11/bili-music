@@ -54,12 +54,13 @@ function run() {
   const baseline: Record<string, number> = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
   if (!baseline || Array.isArray(baseline) || typeof baseline !== "object" || Object.entries(baseline).some(([key, count]) => !key || !Number.isSafeInteger(count) || count < 1)) throw new Error("Invalid diagnostic baseline");
   const all: Diagnostic[] = [];
-  const executable = path.join(root, "node_modules/typescript/bin/tsc");
+
   for (const project of ["main", "mini", "node"]) {
+    const executable = path.join(root, project === "main" ? "node_modules/vue-tsc/bin/vue-tsc.js" : "node_modules/typescript/bin/tsc");
     const config = path.join(import.meta.dirname, `tsconfig.${project}.json`);
     fs.accessSync(config);
     const result = spawnSync(process.execPath, [executable, "-p", config, "--pretty", "false"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-    if (result.error || result.signal || !([0, 1] as (number | null)[]).includes(result.status) || result.stderr.trim()) throw new Error(`tsc ${project} failed: ${result.error || result.signal || result.stderr || result.stdout || result.status}`);
+    if (result.error || result.signal || !([0, 1, 2] as (number | null)[]).includes(result.status) || result.stderr.trim()) throw new Error(`tsc ${project} failed: ${result.error || result.signal || result.stderr || result.stdout || result.status}`);
     const diagnostics = parseDiagnostics(result.stdout, root);
     if (project === "node" && diagnostics.length) throw new Error(`Node tool diagnostics must be fixed, not baselined: ${JSON.stringify(diagnostics)}`);
     if (diagnostics.some(({ file }) => !file.startsWith("ui/"))) throw new Error(`Contract/declaration diagnostics must be fixed, not baselined: ${JSON.stringify(diagnostics.filter(({ file }) => !file.startsWith("ui/")))}`);
@@ -69,6 +70,7 @@ function run() {
     console.log(`${project}: ${diagnostics.length} diagnostics ${JSON.stringify(codes)}`);
   }
   const actual = diagnosticCounts(all);
+  if (all.length) throw new Error(`Type checks require zero diagnostics: ${JSON.stringify(actual)}`);
   const errors = rebaseline ? [] : compareCounts(actual, baseline, update);
   if (errors.length) throw new Error(errors.join("\n"));
   if (update || rebaseline) fs.writeFileSync(baselineFile, JSON.stringify(actual, null, 2) + "\n");
