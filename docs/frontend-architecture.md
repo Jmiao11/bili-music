@@ -240,6 +240,7 @@ CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步�
 | 17 | 宿主把同步字段改回 DOM 读取 | node --test tests/mini-host-architecture.test.ts |
 | 18 | 宿主以外的 classic 脚本（主窗或迷你窗）读取桥接 | node --test tests/mini-host-architecture.test.ts |
 | 19 | 桥接声明的 togglePlayPause 签名改为 () => number | npm run typecheck（main 必须失败，恢复后三个项目均零诊断） |
+| 20 | 桥接 subscribeTheme 的返回类型改为 number | npm run typecheck（main 必须失败，恢复后三个项目均零诊断） |
 
 测试只使用临时目录与回环地址，不访问外网、不接触真实数据目录。日志、诊断及报告不得输出完整播放 URL、游客身份或 cookie 值；.local-data/ 永不提交。禁止 push、amend、rebase、reset、checkout、switch、stash；提交只用具体文件路径。src-tauri/Cargo.toml 的纯换行差异不提交。
 
@@ -333,10 +334,10 @@ activeAudioUrl 是私有运行时请求数据，不进入 renderer 投影、诊�
 
 ### state-8b 迷你窗宿主
 
-mini-player-host.ts 保留 classic 加载和 HTML 原有位置；mini-player-bridge.ts 在 app.ts 完成 startAppearance 后注册类型化端口。Vite 合并多 ESM 入口，方案 A 无法保留生产产物的脚本位置，因此采用方案 B；桥接登记为 state-9 技术债；state-9 将 classic 脚本迁入 ESM 时必须采用单一 ESM 入口。宿主使用播放命令和 toggleCurrentFavorite；只有 ready、原媒体事件、trackchange、favorite-change、notice-change 发布同步，不订阅 store 提交。playback-mini-view.ts 从快照投影标题、作者、封面、曲目存在、收藏、按钮播放显示及主题有效强调色；status/notice 暂由 readMiniPlayerMessages 读取，登记为 state-9 的状态栏统一技术债。主题仍等下一次原发布事件才同步。
+mini-player-host.ts 保留 classic 加载和 HTML 原有位置；mini-player-bridge.ts 在 app.ts 完成 startAppearance 后注册类型化端口。Vite 合并多 ESM 入口，方案 A 无法保留生产产物的脚本位置，因此采用方案 B；桥接登记为 state-9 技术债；state-9 将 classic 脚本迁入 ESM 时必须采用单一 ESM 入口。宿主使用播放命令和 toggleCurrentFavorite；ready、原媒体事件、trackchange、favorite-change、notice-change 的发布时机与次数保留；额外订阅 settings 的 theme/有效 accent。playback-mini-view.ts 从快照投影标题、作者、封面、曲目存在、收藏、按钮播放显示及主题有效强调色；status/notice 暂由 readMiniPlayerMessages 读取，登记为 state-9 的状态栏统一技术债。主题和有效强调色真正变化后，经 subscribeTheme 通知由宿主合并到下一帧发送完整数据；其他设置或不变值不通知。ready 前不排队，关闭迷你窗或 beforeunload 时取消订阅及待发帧，ready 后重新订阅。原发布事件仍各自立即发送，不参与帧合并。
 
 playbackDisplay.renderedTrack 记录主栏原写入点的数据，currentTrack 记录沉浸页原 trackchange 的合并数据；buttonPlaying 保留最近一次播放按钮更新值，媒体时间观察不会改变宿主原按钮读值。播放、队列、请求及发送时机不变。mini.ts 保持不变。
 
-桥接仅暴露五个必需函数，Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
+桥接仅暴露六个必需函数（含只发通知的 subscribeTheme），Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
 
 新增 canary 17：在 mini-player-host.ts 加入从 #title.textContent 读取同步标题，node --test tests/mini-host-architecture.test.ts 必须失败。原四条宿主点击临时例外移除，五条非播放用途长期例外保留。

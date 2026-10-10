@@ -68,13 +68,14 @@ test("mini publishes once per registered event after ready and never for progres
   assert.equal(h.emissions.length, count);
 });
 
-test("mini theme and accent changes wait for next existing publish event", async () => {
+test("mini theme and accent changes publish immediately and existing events still publish", async () => {
   const h = await createMiniHostFixture(); await h.fire("mini-player-ready");
   h.root.dataset.theme = "light"; h.channels.set("--accent-r", "40"); h.channels.set("--accent-g", "88"); h.channels.set("--accent-b", "161");
-  await h.flush(); assert.equal(h.emissions.length, 1); assert.equal(h.emissions[0].payload.theme, "dark");
+  await h.flush(); assert.equal(h.emissions.length, 2); assert.equal(h.emissions[0].payload.theme, "dark");
   await h.publishEvent("bilibili-music-favorite-change");
-  assert.equal(h.emissions.length, 2); assert.equal(h.emissions[1].payload.theme, "light");
+  assert.equal(h.emissions.length, 3); assert.equal(h.emissions[1].payload.theme, "light");
   assert.deepEqual(h.emissions[1].payload.accent, { r: 40, g: 88, b: 161 });
+  assert.equal(h.emissions[2].payload.theme, "light");
 });
 
 test("mini installs ready and command listeners before attaching publication listeners", async () => {

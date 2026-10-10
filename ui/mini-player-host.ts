@@ -13,9 +13,12 @@ function createMiniPlayerHost({
   clearTimeoutFn = window.clearTimeout.bind(window),
   console,
   getSnapshot = () => window.bilibiliMusicMiniHost.getSnapshot(),
+  subscribeTheme = listener => window.bilibiliMusicMiniHost?.subscribeTheme(listener) ?? (() => {}),
+  requestFrame = callback => window.requestAnimationFrame(callback),
+  cancelFrame = id => window.cancelAnimationFrame(id),
   commands = () => window.bilibiliMusicMiniHost,
   favorite = () => window.bilibiliMusicMiniHost.toggleFavorite(),
-}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: Window["bilibiliMusicMiniHost"]["subscribeTheme"]; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
   const openButton = document.querySelector("#mini-player-button");
   const status = document.querySelector("#status");
   const audio = document.querySelector("#audio");
@@ -24,6 +27,28 @@ function createMiniPlayerHost({
   let miniReady = false;
   let readyTimer: number | null = null;
   let openVersion = 0;
+  let themeFrame: number | null = null;
+  let unlistenTheme: (() => void) | null = null;
+  let watchingClose = false;
+
+  function stopThemeSync() {
+    unlistenTheme?.(); unlistenTheme = null;
+    if (themeFrame !== null) { cancelFrame(themeFrame); themeFrame = null; }
+  }
+  function scheduleThemeSync() {
+    if (disposed || !miniReady || themeFrame !== null) return;
+    themeFrame = requestFrame(() => { themeFrame = null; publish(); });
+  }
+  function startThemeSync() {
+    if (unlistenTheme === null) unlistenTheme = subscribeTheme(scheduleThemeSync);
+    // Register only after ready so startup listener installation remains unchanged.
+    if (!watchingClose) {
+      watchingClose = true;
+      void eventApi.listen("tauri://destroyed", stopThemeSync, { target: { kind: "Window", label: MINI_PLAYER_LABEL } })
+        .then(unlisten => { if (disposed) unlisten(); else unlisteners.push(unlisten); })
+        .catch(error => { watchingClose = false; console.warn("mini player close listener failed:", error); });
+    }
+  }
 
   function clearReadyTimer() {
     if (readyTimer !== null) {
@@ -67,11 +92,13 @@ function createMiniPlayerHost({
     miniReady = true;
     clearReadyTimer();
     publish();
+    startThemeSync();
   }
 
   async function openMiniPlayer() {
     const version = ++openVersion;
     miniReady = false;
+    stopThemeSync();
     clearReadyTimer();
     try {
       await invokeMini("open_mini_player");
@@ -107,8 +134,10 @@ function createMiniPlayerHost({
   }
 
   async function start() {
+    unlistenTheme = subscribeTheme(scheduleThemeSync);
     window.addEventListener("beforeunload", () => {
       disposed = true;
+      stopThemeSync();
       clearReadyTimer();
       for (const unlisten of unlisteners.splice(0)) {
         Promise.resolve(unlisten()).catch(() => {});

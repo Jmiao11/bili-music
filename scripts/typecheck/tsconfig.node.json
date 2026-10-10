@@ -122,6 +122,7 @@
     "../../tests/mini-host-fixture.test.ts",
     "../../tests/mini-host-loading.test.ts",
     "../../tests/mini-snapshot.test.ts",
+    "../../tests/mini-theme-sync.test.ts",
     "../../tests/mini-host-architecture.test.ts",
     "../../ui/playback-mini-view.ts"
   ]

@@ -8,8 +8,9 @@ import { createPlaybackControlFixture } from "./playback-control-fixture.ts";
 
 async function createMiniHostFixture() {
   const h = await createPlaybackControlFixture(), ui = path.join(import.meta.dirname, "../../ui");
-  const listeners = new Map<string, (event: { payload: { action?: string } }) => void>();
+  const listeners = new Map<string, (event: { payload: { action?: string } | null }) => void>();
   const emissions: { label: string; name: string; payload: MiniPlayerStatePayload }[] = [];
+  const listenTargets: { name: string; target?: { kind: string; label: string } }[] = [];
   const invoked: string[] = [], changes: string[] = [], installed: string[] = [];
   const windowHandlers = new Map<string, (() => void)[]>();
   const add = h.context.window.addEventListener;
@@ -65,10 +66,27 @@ async function createMiniHostFixture() {
     if (['--accent-r', '--accent-g', '--accent-b'].map(key => channels.get(key)).join(',') === '40,88,161') h.store.actions.settings.setAccent('blue', root.dataset.theme, false);
     return channels;
   };
-  const host = createHost({ getSnapshot: () => {
+  const frames = new Map<number, FrameRequestCallback>(); let frameId = 0, themeSubscribers = 0;
+  const observedStore = { ...h.store, subscribe(listener: Parameters<typeof h.store.subscribe>[0]) {
+    themeSubscribers++; const unlisten = h.store.subscribe(listener);
+    return () => { themeSubscribers--; unlisten(); };
+  } };
+  h.context.getApplicationStore = () => observedStore;
+  h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
+  const bridgeSource = stripModuleSyntax(fs.readFileSync(path.join(ui, "mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
+  vm.runInContext(bridgeSource, h.context);
+  const subscribeTheme = vm.runInContext("subscribeMiniPlayerTheme", h.context);
+  const flushFrame = async () => {
+    const pending = [...frames.values()]; frames.clear(); for (const callback of pending) callback(0);
+    await h.flush();
+  };
+  const flush = async () => { await h.flush(); await flushFrame(); };
+  const host = createHost({ subscribeTheme,
+    requestFrame: (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; }, cancelFrame: (id: number) => { frames.delete(id); },
+    getSnapshot: () => {
       return selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library });
     }, commands: () => h.context.getPlaybackCommands(), favorite: () => h.context.toggleCurrentFavorite(), document: h.context.document, window: h.context.window, console,
-    invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } }) => void) => { installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
+    invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } | null }) => void, options?: { target: { kind: string; label: string } }) => { listenTargets.push({ name, target: options?.target }); installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
       emitTo: async (label: string, name: string, payload: MiniPlayerStatePayload) => { emissions.push({ label, name, payload: structuredClone(payload) }); } },
     setTimeoutFn: (handler: () => Promise<void>, delay: number) => { timers.push({ handler, delay }); return timers.length; }, clearTimeoutFn() {},
   });
@@ -86,8 +104,8 @@ async function createMiniHostFixture() {
     return track;
   };
   favoriteButton.disabled = true;
-  const fire = async (name: string, action?: string) => { listeners.get(name)?.({ payload: { action } }); await h.flush(); };
+  const fire = async (name: string, action?: string) => { listeners.get(name)?.({ payload: name === "mini-player-ready" || name === "tauri://destroyed" ? null : { action } }); await h.flush(); };
   const publishEvent = async (name: string) => { for (const handler of windowHandlers.get(name) ?? []) handler(); await h.flush(); };
-  return { ...h, host, library, emissions, invoked, changes, installed, timers, root, channels, setTrack, fire, publishEvent };
+  return { ...h, flush, flushFrame, themeSubscriberCount: () => themeSubscribers, frameCount: () => frames.size, listenTargets, host, library, emissions, invoked, changes, installed, timers, root, channels, setTrack, fire, publishEvent };
 }
 export { createMiniHostFixture };

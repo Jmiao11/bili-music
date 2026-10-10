@@ -34,7 +34,7 @@ type TauriAppEventArguments<K extends keyof TauriAppEventMap> = TauriAppEventMap
 
 interface TauriEventApi {
   listen<K extends keyof TauriAppEventMap>(event: K, handler: (event: TauriEvent<TauriAppEventMap[K]>) => void): Promise<() => void>;
-  listen<T = unknown>(event: TauriExternalEventName, handler: (event: TauriEvent<T>) => void): Promise<() => void>;
+  listen<T = unknown>(event: TauriExternalEventName, handler: (event: TauriEvent<T>) => void, options?: { target: { kind: "Window"; label: string } }): Promise<() => void>;
   emit<K extends keyof TauriAppEventMap>(event: K, ...payload: TauriAppEventArguments<K>): Promise<void>;
   emit(event: TauriExternalEventName, payload?: unknown): Promise<void>;
   emitTo<K extends keyof TauriAppEventMap>(target: string, event: K, ...payload: TauriAppEventArguments<K>): Promise<void>;
