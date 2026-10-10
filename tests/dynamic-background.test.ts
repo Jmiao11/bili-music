@@ -68,7 +68,7 @@ function setup(theme = "dynamic", reduced = true) {
       return visible.style; },
     extract(data: unknown) { return plain(context.extractDynamicPalette(data)); },
   };
-  vm.runInContext(source, context);
+  vm.runInContext(source + "\ninitializeDynamicBackground();", context);
   return app;
 }
 

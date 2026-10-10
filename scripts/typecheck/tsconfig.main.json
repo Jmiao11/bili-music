@@ -8,8 +8,9 @@
   "files": [
     "../../ui/sidebar.ts",
     "../../ui/window-controls.ts",
-    "../../ui/dynamic-background.ts",
     "../../ui/app.ts",
+    "../../ui/startup-before-main.ts",
+    "../../ui/dynamic-background.ts",
     "../../ui/main.ts",
     "../../ui/search-state.ts",
     "../../ui/track-utils.ts",

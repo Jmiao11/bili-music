@@ -221,4 +221,4 @@ function initializeDynamicBackground() {
   updateAvailability();
 }
 
-initializeDynamicBackground();
+export { initializeDynamicBackground };
