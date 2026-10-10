@@ -37,7 +37,5 @@ function createMascotFixture(saved: string | null = null) {
 function wireMiniHostApi(context: vm.Context, library: { getState(): { library: unknown } }) {
   const app = context.getApplicationStore();
   context.getApplicationStore = () => ({ ...app, getState: () => ({ ...app.getState(), library: library.getState().library }) });
-  const ui = path.join(import.meta.dirname, "../../ui");
-  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, "mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts") + "\ninstallMiniPlayerBridge();", context);
 }
 export { createMascotFixture, wireMiniHostApi };

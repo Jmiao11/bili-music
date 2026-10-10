@@ -4,7 +4,6 @@ import path from "node:path";
 import vm from "node:vm";
 import { collectBusinessScripts } from "./helpers/module-graph.ts";
 import { loadNativeModules } from "./helpers/native-module-loader.ts";
-import { stripModuleSyntax } from "./helpers/module-syntax.ts";
 import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/app-state.ts";
@@ -46,22 +45,24 @@ test("mini snapshot uses applied accent variant and exposes only approved non-se
 test("mini bridge exposes exactly seven frozen functions backed by actual commands and snapshot projection", async () => {
   const h = await createMiniHostFixture(); h.setTrack();
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
-  const source = stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
-  vm.runInContext(source + "\ninstallMiniPlayerBridge();", h.context);
-  const bridge = h.context.window.bilibiliMusicMiniHost;
-  assert.deepEqual(Object.keys(bridge).sort(), ["getSnapshot", "next", "previous", "setStatus", "subscribeTheme", "toggleFavorite", "togglePlayPause"]);
-  assert.equal(Object.isFrozen(bridge), true);
-  bridge.previous(); bridge.next(); await bridge.togglePlayPause();
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8");
+  const ports = vm.runInContext("({ getMiniPlayerHostSnapshot, subscribeMiniPlayerTheme })", h.context);
+  const commands = h.context.getPlaybackCommands();
+  assert.deepEqual(Object.keys(ports).sort(), ["getMiniPlayerHostSnapshot", "subscribeMiniPlayerTheme"]);
+  assert.equal(h.context.window.bilibiliMusicMiniHost, undefined);
+  commands.previous(); commands.next(); await commands.togglePlayPause();
   assert.deepEqual(h.navigation, ["previous", "next"]); assert.deepEqual(h.audio.operations, ["play"]);
-  await bridge.toggleFavorite(); assert.deepEqual(h.invoked, ["toggle_favorite"]);
-  const projection = bridge.getSnapshot();
+  await h.context.toggleCurrentFavorite(); assert.deepEqual(h.invoked, ["toggle_favorite"]);
+  const projection = ports.getMiniPlayerHostSnapshot();
   assert.equal(projection.title, "曲目"); assert.equal(projection.hasCurrent, true);
-  assert.throws(() => { bridge.previous = () => {}; }, TypeError);
+  assert.doesNotMatch(source, /window\.bilibiliMusicMiniHost/);
 });
 
 test("mini default host reports an early command error and uses the bridge after registration", async () => {
   const h = await createMiniHostFixture(); h.setTrack();
   const createHost = vm.runInContext("createMiniPlayerHost", h.context);
+  const getCommands = h.context.getPlaybackCommands;
+  h.context.getPlaybackCommands = () => undefined;
   let command: ((event: { payload: { action: string } }) => void) | undefined;
   const host = createHost({ document: h.context.document, window: h.context.window, console,
     invoke: async () => null,
@@ -72,12 +73,10 @@ test("mini default host reports an early command error and uses the bridge after
   await host.start();
   assert.equal(h.context.window.bilibiliMusicMiniHost, undefined);
   if (!command) throw Error("Command listener missing");
-  // A forced out-of-order invocation reports its exception; actual script ordering registers the bridge first.
+  // A forced invocation before commands are initialized still reports its exception.
   assert.throws(() => command!({ payload: { action: "previous" } }), /Cannot read properties of undefined/);
   assert.deepEqual(h.navigation, []);
-  h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
-  const source = stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
-  vm.runInContext(source + "\ninstallMiniPlayerBridge();", h.context);
+  h.context.getPlaybackCommands = getCommands;
   command({ payload: { action: "previous" } }); assert.deepEqual(h.navigation, ["previous"]);
 });
 
@@ -92,7 +91,7 @@ test("mini host actual classic execution follows the registered bridge and appea
   const host = loaded.events.findIndex(event => /mini-player-host\.ts:/.test(String(event.stack)));
   const appearance = loaded.events.map((event, index) => ({ event, index })).filter(item => /startAppearance .*appearance\.ts/.test(String(item.event.stack)));
   assert.equal(scripts.filter(script => script.module).length, 1);
-  assert.equal(scripts.at(-1)!.module, false);
-  assert.ok(bridge >= 0 && bridge < host);
-  assert.ok(appearance.length > 0 && appearance.every(item => item.index < bridge));
+  assert.equal(scripts.at(-1)!.module, true);
+  assert.equal(bridge, -1);
+  assert.ok(appearance.length > 0 && appearance.every(item => item.index < host));
 });

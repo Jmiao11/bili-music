@@ -52,8 +52,7 @@
     "../../ui/playback-messages-view.ts",
     "../../ui/playback-diagnostics.ts",
     "../../ui/lyrics.ts",
-    "../../ui/mini-player-bridge.ts",
-    "../../ui/playback-mini-view.ts",
-    "../../ui/mini-player-host.ts"
+    "../../ui/mini-player-host.ts",
+    "../../ui/playback-mini-view.ts"
   ]
 }

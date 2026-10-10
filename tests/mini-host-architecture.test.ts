@@ -24,6 +24,9 @@ test("mini host guard rejects DOM field regressions and simulated playback click
 });
 
 function checkClassicBridgeReaders(ui: string) {
+  for (const file of fs.readdirSync(ui).filter(file => file.endsWith(".ts"))) {
+    assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(ui, file), "utf8")), /\b(?:bilibiliMusicMiniHost|BiliLyrics|BiliMascot)\b/, file + ": removed window bridges are forbidden");
+  }
   for (const page of ["index.html", "mini.html"]) {
     const html = fs.readFileSync(path.join(ui, page), "utf8");
     for (const tag of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {

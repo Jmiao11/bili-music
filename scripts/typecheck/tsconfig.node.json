@@ -127,6 +127,7 @@
     "../../tests/startup-classic-characterization.test.ts",
     "../../tests/helpers/startup-api-fixture.ts",
     "../../tests/startup-api-fixture.test.ts",
+    "../../tests/startup-esm-architecture.test.ts",
     "../../ui/playback-mini-view.ts"
   ]
 }

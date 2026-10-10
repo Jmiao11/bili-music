@@ -1,3 +1,28 @@
+import { getApplicationStore } from "./home.ts";
+import { toggleCurrentFavorite } from "./library-ui.ts";
+import { getPlaybackCommands } from "./appearance.ts";
+import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "./playback-mini-view.ts";
+import { setPlaybackStatus } from "./playback-messages.ts";
+
+function subscribeMiniPlayerTheme(listener: () => void) {
+  const store = getApplicationStore();
+  let settings = store.getState().settings;
+  let previous = selectMiniPlayerSnapshot(store.getState());
+  return store.subscribe(state => {
+    if (state.settings === settings) return;
+    settings = state.settings;
+    const next = selectMiniPlayerSnapshot(state);
+    if (next.theme === previous.theme && next.accent.r === previous.accent.r && next.accent.g === previous.accent.g && next.accent.b === previous.accent.b) return;
+    previous = next;
+    listener();
+  });
+}
+
+function getMiniPlayerHostSnapshot() {
+  const state = getApplicationStore().getState();
+  return { ...selectMiniPlayerSnapshot(state), ...selectMiniPlayerMessages(state) };
+}
+
 const MINI_PLAYER_LABEL = "mini";
 const MINI_PLAYER_READY_TIMEOUT_MS = 5000;
 function createMiniPlayerHost({
@@ -8,14 +33,14 @@ function createMiniPlayerHost({
   setTimeoutFn = window.setTimeout.bind(window),
   clearTimeoutFn = window.clearTimeout.bind(window),
   console,
-  getSnapshot = () => window.bilibiliMusicMiniHost.getSnapshot(),
-  subscribeTheme = listener => window.bilibiliMusicMiniHost?.subscribeTheme(listener) ?? (() => {}),
+  getSnapshot = getMiniPlayerHostSnapshot,
+  subscribeTheme = subscribeMiniPlayerTheme,
   requestFrame = callback => window.requestAnimationFrame(callback),
   cancelFrame = id => window.cancelAnimationFrame(id),
-  commands = () => window.bilibiliMusicMiniHost,
-  setStatus = message => window.bilibiliMusicMiniHost.setStatus(message),
-  favorite = () => window.bilibiliMusicMiniHost.toggleFavorite(),
-}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: Window["bilibiliMusicMiniHost"]["subscribeTheme"]; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<Window["bilibiliMusicMiniHost"]["getSnapshot"]>; commands?: () => Pick<Window["bilibiliMusicMiniHost"], "previous" | "togglePlayPause" | "next">; setStatus?: (message: string) => void; favorite?: Window["bilibiliMusicMiniHost"]["toggleFavorite"] }) {
+  commands = () => getPlaybackCommands(),
+  setStatus = setPlaybackStatus,
+  favorite = toggleCurrentFavorite,
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: (listener: () => void) => () => void; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<typeof getMiniPlayerHostSnapshot>; commands?: () => Pick<ReturnType<typeof getPlaybackCommands>, "previous" | "togglePlayPause" | "next">; setStatus?: (message: string) => void; favorite?: typeof toggleCurrentFavorite }) {
   const openButton = document.querySelector("#mini-player-button");
   const audio = document.querySelector("#audio");
   const unlisteners: (() => void)[] = [];
@@ -168,4 +193,4 @@ function startMiniPlayerHost() {
   void host.start();
 }
 
-startMiniPlayerHost();
+export { startMiniPlayerHost };

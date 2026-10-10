@@ -74,8 +74,6 @@ async function createMiniHostFixture() {
   h.context.getApplicationStore = () => observedStore;
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
   h.context.selectMiniPlayerMessages = selectMiniPlayerMessages;
-  const bridgeSource = stripModuleSyntax(fs.readFileSync(path.join(ui, "mini-player-bridge.ts"), "utf8"), "ui/mini-player-bridge.ts");
-  vm.runInContext(bridgeSource, h.context);
   const subscribeTheme = vm.runInContext("subscribeMiniPlayerTheme", h.context);
   const flushFrame = async () => {
     const pending = [...frames.values()]; frames.clear(); for (const callback of pending) callback(0);

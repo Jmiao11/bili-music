@@ -96,6 +96,7 @@ function setup() {
       store.actions.playbackMessages.showNotice(controls["#playback-notice"].textContent, "info");
       return { ...selectMiniPlayerSnapshot(store.getState()), ...selectMiniPlayerMessages(store.getState()) };
     },
+    subscribeTheme: () => () => {},
     setStatus: (text: string) => { store.actions.playbackMessages.setStatus(text); controls["#status"].textContent = store.getState().playbackMessages.status; },
     commands: () => { throw new Error("Unexpected playback command in publication-only fixture"); },
     favorite: () => { throw new Error("Unexpected favorite command in publication-only fixture"); },

@@ -16,7 +16,7 @@ test("main titlebar exposes the mini player without changing the minimize contro
   const controlsIndex = html.indexOf('class="window-controls"');
   assert.ok(utilityIndex < miniIndex && miniIndex < controlsIndex);
   assert.ok(miniIndex < html.indexOf('id="window-minimize-button"'));
-  assert.match(html, /src="\.\/mini-player-host\.js"/);
+  assert.match(read("ui/app.ts"), /startMiniPlayerHost\(\);/);
   assert.ok(existsSync(path.join(root, "ui/mini.html")));
   assert.ok(existsSync(path.join(root, "ui/mini.ts")));
   assert.ok(existsSync(path.join(root, "ui/mini.css")));

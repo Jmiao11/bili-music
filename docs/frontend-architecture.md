@@ -2,7 +2,7 @@
 
 ## 入口与文件边界
 
-主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化动态背景，再求值 main，最后调用 startAppearance 和 installMiniPlayerBridge。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
+主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化窗口控制与动态背景，再求值 main，最后按顺序调用 startAppearance、initializeLyrics、initializeMascot、startMiniPlayerHost。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
 
 | 文件 | 形式 | 职责 |
 | --- | --- | --- |
@@ -40,7 +40,7 @@
 | appearance.ts | ES Module | 设置控制器及原位监听；保留增益过渡调度、存储与沉浸页逻辑。 |
 | lyrics.ts | ES Module | startAppearance 之后显式初始化，歌词显示及事件交互。 |
 | mascot.ts | ES Module | startAppearance 后显式初始化，模块 API 供外观设置使用。 |
-| mini-player-host.ts | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
+| mini-player-host.ts | ES Module | startAppearance、歌词、吉祥物之后显式初始化；直接调用命令、快照投影、主题订阅与提示动作。 |
 
 head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html、mini.ts 不属于主窗口模块图。
 
@@ -50,13 +50,13 @@ head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html�
 
 开发流程为 `cargo tauri dev` → beforeDevCommand (`npm run dev`) → localhost:1420 → WebView；构建流程为 `cargo tauri build` → beforeBuildCommand (`npm run build`) → dist → Rust 编译与前端嵌入。Node/npm 和前端依赖必须先准备好。withGlobalTauri 保持 true，CSP 保持 null，不引入 @tauri-apps/api。
 
-scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，模块标签仍在 lyrics 之前。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
+scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，body 仅保留一个 app ESM 标签。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
 
-开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
+开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 
-检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 155 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 154 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
 
 源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
 
@@ -335,7 +335,7 @@ activeAudioUrl 是私有运行时请求数据，不进入 renderer 投影、诊�
 
 ### state-8b 迷你窗宿主
 
-mini-player-host.ts 保留 classic 加载和 HTML 原有位置；mini-player-bridge.ts 在 app.ts 完成 startAppearance 后注册类型化端口。Vite 合并多 ESM 入口，方案 A 无法保留生产产物的脚本位置，因此采用方案 B；桥接登记为 state-9 技术债；state-9 将 classic 脚本迁入 ESM 时必须采用单一 ESM 入口。宿主使用播放命令和 toggleCurrentFavorite；ready、原媒体事件、trackchange、favorite-change、notice-change 的发布时机与次数保留；额外订阅 settings 的 theme/有效 accent。playback-mini-view.ts 从快照投影标题、作者、封面、曲目存在、收藏、按钮播放显示及主题有效强调色；status/notice 暂由 readMiniPlayerMessages 读取，登记为 state-9 的状态栏统一技术债。主题和有效强调色真正变化后，经 subscribeTheme 通知由宿主合并到下一帧发送完整数据；其他设置或不变值不通知。ready 前不排队，关闭迷你窗或 beforeunload 时取消订阅及待发帧，ready 后重新订阅。原发布事件仍各自立即发送，不参与帧合并。
+mini-player-host.ts 已迁入唯一 app ESM 入口；window-controls 与 dynamic-background 由最先导入的 startup-before-main 调度，确保 main 顶层执行前完成初始化。lyrics、mascot、mini-player-host 在 startAppearance 后按旧顺序显式初始化。删除 bilibiliMusicMiniHost、BiliLyrics、BiliMascot 三个 window 桥接；保留播放诊断全局。宿主直接使用播放命令、收藏命令、快照投影与主题订阅；原发布事件、主题每帧合并、未 ready/关闭时不发送的规则保持。status/notice 已由 playbackMessages 快照提供。G0 只删除三条 window-set 登记，其余 154 条保持原相对顺序，首个 trackchange 索引 70。
 
 playbackDisplay.renderedTrack 记录主栏原写入点的数据，currentTrack 记录沉浸页原 trackchange 的合并数据；buttonPlaying 保留最近一次播放按钮更新值，媒体时间观察不会改变宿主原按钮读值。播放、队列、请求及发送时机不变。mini.ts 保持不变。
 
@@ -359,3 +359,6 @@ library/pages 的原提示投影在 app-state.ts 组装层与 playbackMessages �
 mini 宿主 status/notice 从 selectMiniPlayerMessages 投影读取，移除两项 DOM 读取例外；发布仍只由原事件与主题通知触发。setStatus 通过冻结且 satisfies 校验的既有桥接提交，state-9c 移除桥接。G0 保持 157 条、首个 trackchange 索引 70。
 
 新增 canary：在 playback-messages-state.ts 引用 document，state-architecture 测试必须失败；其他 ui 模块写 status.textContent 或 renderer 调用 action，playback-messages-architecture 测试必须失败；setStatus 声明改为不匹配返回类型，main 类型检查必须失败。原有 canary 全部保留。
+
+state-9c 登记：startup-before-main.ts → window-controls.ts、dynamic-background.ts；app.ts → startup-before-main.ts、mascot.ts、main.ts、appearance.ts、lyrics.ts、mini-player-host.ts；appearance.ts → mascot.ts；mini-player-host.ts → home.ts、library-ui.ts、appearance.ts、playback-mini-view.ts、playback-messages.ts。主窗口产物不再单独输出五个 defer 脚本，平台字节比较仍覆盖全部实际产物。
+新增启动守卫 canary：ESM 控制器顶层执行初始化；重新注册已删除的 window 桥接。旧桥接类型 canary 改为宿主注入端口的签名不匹配检查；缺少 window-controls 标签的 canary 改为缺少其显式初始化调用，仍由 verify:dist 的 G0 拦截。

@@ -13,5 +13,5 @@ test("appearance only declares bindings and app starts it once after importing m
   }
   assert.equal(statements.filter((statement) => /^function startAppearance\(/.test(statement.code)).length, 1);
   const app = nodeFs.readFileSync(path.join(import.meta.dirname, "../ui/app.ts"), "utf8").replace(/\r\n/g, "\n");
-  assert.equal(app, 'import "./startup-before-main.ts";\nimport { initializeMascot } from "./mascot.ts";\nimport "./main.ts";\nimport { startAppearance } from "./appearance.ts";\nimport { initializeLyrics } from "./lyrics.ts";\nimport { installMiniPlayerBridge } from "./mini-player-bridge.ts";\nstartAppearance();\ninstallMiniPlayerBridge();\ninitializeLyrics();\ninitializeMascot();\n');
+  assert.equal(app, "import \"./startup-before-main.ts\";\nimport { initializeMascot } from \"./mascot.ts\";\nimport \"./main.ts\";\nimport { startAppearance } from \"./appearance.ts\";\nimport { initializeLyrics } from \"./lyrics.ts\";\nimport { startMiniPlayerHost } from \"./mini-player-host.ts\";\nstartAppearance();\ninitializeLyrics();\ninitializeMascot();\nstartMiniPlayerHost();\n");
 });
