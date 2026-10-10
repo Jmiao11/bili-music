@@ -55,9 +55,9 @@ function run() {
   if (!baseline || Array.isArray(baseline) || typeof baseline !== "object" || Object.entries(baseline).some(([key, count]) => !key || !Number.isSafeInteger(count) || count < 1)) throw new Error("Invalid diagnostic baseline");
   const all: Diagnostic[] = [];
 
-  for (const project of ["main", "mini", "node"]) {
-    const executable = path.join(root, project === "main" ? "node_modules/vue-tsc/bin/vue-tsc.js" : "node_modules/typescript/bin/tsc");
-    const config = path.join(import.meta.dirname, `tsconfig.${project}.json`);
+  for (const project of ["main", "mini", "node", "sfc"]) {
+    const executable = path.join(root, ["main", "sfc"].includes(project) ? "node_modules/vue-tsc/bin/vue-tsc.js" : "node_modules/typescript/bin/tsc");
+    const config = project === "sfc" ? path.join(root, "tests/fixtures/vue/tsconfig.json") : path.join(import.meta.dirname, `tsconfig.${project}.json`);
     fs.accessSync(config);
     const result = spawnSync(process.execPath, [executable, "-p", config, "--pretty", "false"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
     if (result.error || result.signal || !([0, 1, 2] as (number | null)[]).includes(result.status) || result.stderr.trim()) throw new Error(`tsc ${project} failed: ${result.error || result.signal || result.stderr || result.stdout || result.status}`);

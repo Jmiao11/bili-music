@@ -25,6 +25,9 @@ jobs:
       - name: 安装前端开发依赖
         run: npm ci
 
+      - name: 运行安装后 DOM 测试
+        run: npm run test:dom
+
       - name: 检查前端构建产物与开发页面
         run: npm run verify:dist
 

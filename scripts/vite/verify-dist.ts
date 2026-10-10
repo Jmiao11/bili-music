@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { get, type IncomingMessage } from "node:http";
 import { build, createServer } from "vite";
 import { scripts, stylesheets, replaceAttribute, ordinarySource } from "./preserve-html.ts";
+import { checkJavaScript } from "./javascript-guard.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
@@ -32,6 +33,8 @@ async function checkPlatformBuilds() {
   }
   const files = (directory: string) => (fs.readdirSync(directory, { recursive: true }) as string[]).filter((file) => /\.(?:js|html|css)$/.test(file)).sort();
   const windowsFiles = files(output);
+  for (const file of windowsFiles.filter(file => file.endsWith(".js"))) checkJavaScript(fs.readFileSync(path.join(output, file), "utf8"), file);
+  console.log("PASS JS AST: direct eval=0; new Function=0");
   assert.deepEqual(files(darwin), windowsFiles, "Windows/darwin JS/HTML/CSS file inventories differ");
   for (const file of windowsFiles) {
     assert.deepEqual(fs.readFileSync(path.join(output, file)), fs.readFileSync(path.join(darwin, file)),
@@ -59,6 +62,7 @@ function checkPage(page: string) {
   }
   const originals = scripts(source);
   const generated = scripts(html);
+  for (const [index, script] of generated.entries()) if (!script.src) checkJavaScript(script.body, `${page}:inline-${index}`);
   assert.equal(generated.length, originals.length, `${page}: script count changed`);
   let expected = source;
   originals.forEach((script, index) => {

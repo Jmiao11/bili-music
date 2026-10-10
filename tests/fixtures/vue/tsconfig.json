@@ -1,0 +1,5 @@
+{
+  "extends": "../../../scripts/typecheck/tsconfig.base.json",
+  "files": ["ToolchainSmoke.vue"],
+  "include": ["../../../types/tauri.d.ts"]
+}
