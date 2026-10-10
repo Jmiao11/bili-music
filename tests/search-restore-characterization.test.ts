@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
-import { collectModuleGraph } from "./helpers/module-graph.ts";
 
 class SearchNode {
   value = ""; textContent = ""; innerHTML = ""; className = ""; hidden = false; disabled = false;
@@ -68,7 +67,7 @@ async function fixture(saved = "", draft = "") {
   const warn = console.warn; const error = console.error; console.warn = () => {}; console.error = () => {};
   const dispose = () => { console.warn = warn; console.error = error; for (const [name, descriptor] of globals) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); } fs.rmSync(root, { recursive: true, force: true }); };
   try {
-    for (const name of collectModuleGraph(source, ["main.ts"])) fs.copyFileSync(path.join(source, name), path.join(root, name));
+    for (const name of fs.readdirSync(source).filter(name => name.endsWith(".ts"))) fs.copyFileSync(path.join(source, name), path.join(root, name));
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     fs.writeFileSync(path.join(root, "runtime-api.ts"), 'const invoke = globalThis.__searchFixture.invoke; export { invoke };');
     fs.writeFileSync(path.join(root, "player-dom.ts"), 'const { '+names.filter(x => !["musicTabs", "sortModeTabs"].includes(x)).join(", ")+' } = globalThis.__searchFixture.nodes; const { musicTabs, sortModeTabs } = globalThis.__searchFixture; export { '+names.join(", ")+' };');

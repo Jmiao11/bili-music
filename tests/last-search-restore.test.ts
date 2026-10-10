@@ -13,7 +13,6 @@ const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/player-st
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（注入应用 store 动作）。
 const helpers = sourceSlice(stateSource, "ui/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
-  + sourceSlice(source, "ui/main.ts", "let pendingSearchRestore", "initPlaybackDiagnostics();")
   + sourceSlice(searchSource, "ui/search.ts", "function readLastSearchKeyword(", "function getSearchActions(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
 

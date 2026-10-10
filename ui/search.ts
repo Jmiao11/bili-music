@@ -40,6 +40,8 @@ function getSearchActions() {
   }
   return store.actions.search;
 }
+function setPendingSearchRestore(keyword: string): void { getApplicationStore().actions.search.setPendingRestore(keyword); }
+function takePendingSearchRestore(): string | null { return getApplicationStore().actions.search.takePendingRestore(); }
 function getSearchSnapshot() { return getApplicationStore().getState().search; }
 function renderSearchResults(): void { getSearchActions().refreshResults(); }
 function updateMusicTabs(): void { getSearchActions().refreshDivision(); }
@@ -61,4 +63,4 @@ function loadMoreSearchResults(): Promise<void> {
   return getSearchActions().loadMoreSearchResults(() => searchKeyword.value, (videos, page) => appendSearchResults(videos, page));
 }
 
-export { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchDivision, setSearchPlaybackBusy, setSearchSort, updateMusicTabs };
+export { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setPendingSearchRestore, setSearchDivision, setSearchPlaybackBusy, setSearchSort, takePendingSearchRestore, updateMusicTabs };

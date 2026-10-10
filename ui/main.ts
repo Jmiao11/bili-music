@@ -9,11 +9,9 @@ import { keepFocusInPagesModal } from "./pages-view.ts";
 import { finishLibraryModalTransition } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "./video-pages.ts";
-import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "./search.ts";
+import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setPendingSearchRestore, setSearchDivision, setSearchSort, takePendingSearchRestore, updateMusicTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "./appearance.ts";
-
-let pendingSearchRestore: string | null = null;
 
 initPlaybackDiagnostics();
 initPlaybackNotice();
@@ -196,10 +194,9 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
   if (["favorites", "playlists"].includes(event.detail?.view)) {
     loadLibrary();
   }
-  if (event.detail?.view === "search" && pendingSearchRestore) {
-    const keyword = pendingSearchRestore;
-    pendingSearchRestore = null;
-    if (!getSearchSnapshot().results.length && searchKeyword.value.trim() === keyword) {
+  if (event.detail?.view === "search" && getSearchSnapshot().pendingSearchRestore) {
+    const keyword = takePendingSearchRestore();
+    if (keyword !== null && !getSearchSnapshot().results.length && searchKeyword.value.trim() === keyword) {
       // 自动恢复不算用户搜索，不计入搜索历史。
       runSearch({ userKeyword: keyword, recordHistory: false, restored: true });
     }
@@ -213,7 +210,7 @@ window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true }
 const restoreKeyword = readLastSearchKeyword();
 if (restoreKeyword && !searchKeyword.value.trim()) {
   searchKeyword.value = restoreKeyword;
-  pendingSearchRestore = restoreKeyword;
+  setPendingSearchRestore(restoreKeyword);
 }
 loadLibrary();
 updateMusicTabs();

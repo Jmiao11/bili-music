@@ -341,3 +341,11 @@ playbackDisplay.renderedTrack 记录主栏原写入点的数据，currentTrack �
 桥接仅暴露六个必需函数（含只发通知的 subscribeTheme），Object.freeze 冻结并以 satisfies 校验声明；不暴露 store、actions 或 getState。用户批准在原 G0 的索引 131 新增一条 window-set，其余 156 条逐项相同，首个 trackchange 仍为 70。
 
 新增 canary 17：在 mini-player-host.ts 加入从 #title.textContent 读取同步标题，node --test tests/mini-host-architecture.test.ts 必须失败。原四条宿主点击临时例外移除，五条非播放用途长期例外保留。
+
+## 状态归属收尾（state-9a）
+
+playback-request-state.ts 与 playback-session-state.ts 分别持有请求、会话的类型、初始状态和动作工厂；app-state.ts 仅导入并组装，不提供兼容 re-export。字段、初值、动作与提交时机原样保留，时钟仍由控制器传入；activeAudioUrl 的隐私边界不变。两模块登记到主窗口类型项目、模块清单、导入顺序和纯状态守卫。
+
+搜索待恢复关键词 pendingSearchRestore 属于 search 分片。localStorage 的原读取位置保持不变；setPendingRestore 登记待恢复值，takePendingRestore 同步取出并清空，首次搜索页导航再检查结果与输入草稿，自动恢复不写搜索历史。
+
+canary 13（请求内读取时钟）和 15（会话内读取时钟）的目标分别改为 playback-request-state.ts 与 playback-session-state.ts；判据仍是各自守卫测试失败。新增两项纯状态反例：分别向这两个模块加入 document.title，node --test tests/state-architecture.test.ts 必须失败。既有 canary 保留。
