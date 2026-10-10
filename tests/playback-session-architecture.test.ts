@@ -17,7 +17,8 @@ test("session ownership rejects all legacy data reads and writes and removes the
   for (const field of fields.slice(2)) for (const example of [field + ";", field + " = input;"]) assert.throws(() => assertSessionOwnership(example));
 });
 test("session state has no platform handles clocks randomness or sensitive URL data", () => {
-  const app = fs.readFileSync(path.join(import.meta.dirname, "../ui/app-state.ts"), "utf8");
-  const factory = app.slice(app.indexOf("function initialPlaybackSessionState("), app.indexOf("type ApplicationStoreOptions"));
+  const app = fs.readFileSync(path.join(import.meta.dirname, "../ui/playback-session-state.ts"), "utf8");
+  const factory = app;
+  assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(import.meta.dirname, "../ui/app-state.ts"), "utf8")), /\bfunction\s+(?:initialPlaybackSessionState|createPlaybackSessionActions)\s*\(/);
   assert.doesNotMatch(maskCommentsAndStrings(factory), /\b(?:Date|performance|Math|window|document|invoke|audio|Promise|AbortController|setTimeout|requestAnimationFrame|activeAudioUrl)\b/);
 });

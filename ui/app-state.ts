@@ -1,3 +1,7 @@
+import { createPlaybackRequestActions, initialPlaybackRequestState } from "./playback-request-state.ts";
+import type { PlaybackRequestState } from "./playback-request-state.ts";
+import { createPlaybackSessionActions, initialPlaybackSessionState } from "./playback-session-state.ts";
+import type { PlaybackSessionState } from "./playback-session-state.ts";
 import { createPlaybackQueueActions, initialPlaybackQueueState } from "./playback-queue-state.ts";
 import { createPlaybackDisplayActions, initialPlaybackDisplayState } from "./playback-display-state.ts";
 import { createPlaybackSettingsActions, initialPlaybackSettingsState } from "./playback-settings-state.ts";
@@ -33,44 +37,8 @@ type HomeState = {
   };
 };
 type HomeSnapshot = DeepReadonly<HomeState>;
-type PlaybackRequestState = { requestVersion: number; activeAudioVersion: number; activeAudioUrl: string; audioActivatedAt: number; consecutiveResolveFailures: number };
-function initialPlaybackSessionState() { return { currentPages: [] as CommandContract.VideoPage[], lastEmittedTrackIdentity: "", playRecordedForCurrentTrack: false, cacheRequestedForCurrentTrack: false, pendingResume: null as Pick<CommandContract.PlaybackState, "positionSeconds" | "page" | "cid"> | null, resumeInProgress: false, lastPlaybackStateSavedAt: Number.NEGATIVE_INFINITY, recoveryVersion: -1, recoveryAttempts: 0, playingAudioVersion: -1, playbackIntended: false, pendingPastedBvPages: null as { bvid: string; requestVersion: number } | null, loudnessQueryVersion: 0, loudnessAnalyzedForCurrentTrack: false }; }
-type PlaybackSessionState = ReturnType<typeof initialPlaybackSessionState>;
-function createPlaybackSessionActions(read: () => DeepReadonly<PlaybackSessionState>, commit: (state: DeepReadonly<PlaybackSessionState>) => void) {
-  function setCurrentPages(currentPages: DeepReadonly<PlaybackSessionState>["currentPages"]) { commit({ ...read(), currentPages }); }
-  function setTrackIdentity(lastEmittedTrackIdentity: DeepReadonly<PlaybackSessionState>["lastEmittedTrackIdentity"]) { commit({ ...read(), lastEmittedTrackIdentity }); }
-  function setPlayRecorded(playRecordedForCurrentTrack: DeepReadonly<PlaybackSessionState>["playRecordedForCurrentTrack"]) { commit({ ...read(), playRecordedForCurrentTrack }); }
-  function setCacheRequested(cacheRequestedForCurrentTrack: DeepReadonly<PlaybackSessionState>["cacheRequestedForCurrentTrack"]) { commit({ ...read(), cacheRequestedForCurrentTrack }); }
-  function setPendingResume(pendingResume: DeepReadonly<PlaybackSessionState>["pendingResume"]) { commit({ ...read(), pendingResume }); }
-  function setResumeInProgress(resumeInProgress: DeepReadonly<PlaybackSessionState>["resumeInProgress"]) { commit({ ...read(), resumeInProgress }); }
-  function setLastSavedAt(lastPlaybackStateSavedAt: DeepReadonly<PlaybackSessionState>["lastPlaybackStateSavedAt"]) { commit({ ...read(), lastPlaybackStateSavedAt }); }
-  function setRecoveryVersion(recoveryVersion: DeepReadonly<PlaybackSessionState>["recoveryVersion"]) { commit({ ...read(), recoveryVersion }); }
-  function setRecoveryAttempts(recoveryAttempts: DeepReadonly<PlaybackSessionState>["recoveryAttempts"]) { commit({ ...read(), recoveryAttempts }); }
-  function setPlayingVersion(playingAudioVersion: DeepReadonly<PlaybackSessionState>["playingAudioVersion"]) { commit({ ...read(), playingAudioVersion }); }
-  function setPlaybackIntended(playbackIntended: DeepReadonly<PlaybackSessionState>["playbackIntended"]) { commit({ ...read(), playbackIntended }); }
-  function setPendingPastedPages(pendingPastedBvPages: DeepReadonly<PlaybackSessionState>["pendingPastedBvPages"]) { commit({ ...read(), pendingPastedBvPages }); }
-  function setLoudnessAnalyzed(loudnessAnalyzedForCurrentTrack: DeepReadonly<PlaybackSessionState>["loudnessAnalyzedForCurrentTrack"]) { commit({ ...read(), loudnessAnalyzedForCurrentTrack }); }
-  function setLoudnessQueryVersion(loudnessQueryVersion: number) { commit({ ...read(), loudnessQueryVersion }); }
-  function nextLoudnessQuery() { const version = read().loudnessQueryVersion + 1; commit({ ...read(), loudnessQueryVersion: version }); return version; }
-  return { setCurrentPages, setTrackIdentity, setPlayRecorded, setCacheRequested, setPendingResume, setResumeInProgress, setLastSavedAt, setRecoveryVersion, setRecoveryAttempts, setPlayingVersion, setPlaybackIntended, setPendingPastedPages, setLoudnessAnalyzed, setLoudnessQueryVersion, nextLoudnessQuery };
-}
-
 type ApplicationStoreOptions = StoreOptions & { playbackRequest?: PlaybackRequestState; playbackSession?: PlaybackSessionState };
 
-function initialPlaybackRequestState(): PlaybackRequestState {
-  return { requestVersion: 0, activeAudioVersion: -1, activeAudioUrl: "", audioActivatedAt: Number.POSITIVE_INFINITY, consecutiveResolveFailures: 0 };
-}
-
-function createPlaybackRequestActions(read: () => DeepReadonly<PlaybackRequestState>, commit: (state: DeepReadonly<PlaybackRequestState>) => void) {
-  function beginRequest() { const version = read().requestVersion + 1; commit({ ...read(), requestVersion: version }); return version; }
-  function invalidateAudio() { commit({ ...read(), activeAudioVersion: -1, activeAudioUrl: "", audioActivatedAt: Number.POSITIVE_INFINITY }); }
-  function activateAudio(activeAudioVersion: number, activeAudioUrl: string, audioActivatedAt: number) { commit({ ...read(), activeAudioVersion, activeAudioUrl, audioActivatedAt }); }
-  function replaceAudio(activeAudioUrl: string, audioActivatedAt: number) { commit({ ...read(), activeAudioUrl, audioActivatedAt }); }
-  function resetFailures() { commit({ ...read(), consecutiveResolveFailures: 0 }); }
-  function recordFailure() { const count = read().consecutiveResolveFailures + 1; commit({ ...read(), consecutiveResolveFailures: count }); return count; }
-  function isCurrent(version: number) { return version === read().requestVersion; }
-  return { beginRequest, invalidateAudio, activateAudio, replaceAudio, resetFailures, recordFailure, isCurrent };
-}
 type HomeAdapter = {
   settings?: SettingsPlatform;
   invoke: <K extends "get_ai_config" | "get_music_ranking" | "get_saved_recommendations" | "get_recommendations" | "search_videos" | "record_search_history" | LibraryCommand | SettingsCommand | "get_video_meta" | "get_cached_video_pages">(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>;

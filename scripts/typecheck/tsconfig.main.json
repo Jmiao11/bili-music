@@ -22,6 +22,8 @@
     "../../ui/settings-adapter.ts",
     "../../ui/page-selection.ts",
     "../../ui/app-state.ts",
+    "../../ui/playback-request-state.ts",
+    "../../ui/playback-session-state.ts",
     "../../ui/playback-queue-state.ts",
     "../../ui/playback-display-state.ts",
     "../../ui/playback-settings-state.ts",

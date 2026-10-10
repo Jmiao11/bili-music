@@ -21,8 +21,9 @@ test("request ownership rejects every legacy field read and write including alia
   assert.doesNotThrow(() => assertRequestOwnership("playerState.currentPages; playerState.lastEmittedTrackIdentity;"));
 });
 test("request state has no platform clock or media operations and no URL projection", () => {
-  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "app-state.ts"), "utf8");
-  const request = source.slice(source.indexOf("function initialPlaybackRequestState("), source.indexOf("type HomeAdapter"));
+  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "playback-request-state.ts"), "utf8");
+  const request = source;
+  assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(import.meta.dirname, "../ui/app-state.ts"), "utf8")), /\bfunction\s+(?:initialPlaybackRequestState|createPlaybackRequestActions)\s*\(/);
   assert.doesNotMatch(maskCommentsAndStrings(request), /\b(?:Date|performance|Math|window|document|invoke|audio|AbortController|Promise|setTimeout)\b/);
   for (const file of ["home-view.ts", "search-view.ts", "library-view.ts", "pages-view.ts", "settings-view.ts", "playback-display-view.ts", "playback-settings-view.ts", "mini-player-host.ts", "playback-diagnostics.ts"]) assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(ui, file), "utf8")), /\b(?:activeAudioUrl|playbackRequest|getRequestSnapshot)\b/);
 });
