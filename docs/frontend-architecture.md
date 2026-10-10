@@ -159,7 +159,9 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 
 ## 类型检查
 
-TypeScript 7.0.2 与 Vite 8.3.2 均为开发依赖，精确版本写入 package.json 与 package-lock.json；package 的 type 固定为 module，Node 脚本和测试使用 ESM，UI 源码的普通脚本与模块边界保持不变。类型检查使用 noEmit，配置和声明都在 ui/ 之外；Tauri 的 frontendDist 为 dist，不包含测试、类型声明或构建配置。scripts/typecheck/tsconfig.node.json 独立检查 Node 脚本和 ESM 测试。
+vue-1a 统一使用 TypeScript 6.0.3，原因是 vue-tsc 3.3.12 暂不支持 TS 7；待 Vue 官方工具支持后全项目统一升级。main 使用根目录官方 vue-tsc CLI，mini/node 使用根目录 tsc，不设独立工具目录。本批切换前后的实际检查清单按 main/mini/node 分别为 154/67/353 个文件，归一编译器标准库安装目录后，内容与顺序均相同；不修改 include/exclude 或任何编译选项。
+
+TypeScript 6.0.3 与 Vite 8.3.2 均为开发依赖，精确版本写入 package.json 与 package-lock.json；package 的 type 固定为 module，Node 脚本和测试使用 ESM，UI 源码的普通脚本与模块边界保持不变。类型检查使用 noEmit，配置和声明都在 ui/ 之外；Tauri 的 frontendDist 为 dist，不包含测试、类型声明或构建配置。scripts/typecheck/tsconfig.node.json 独立检查 Node 脚本和 ESM 测试。
 
 UI 检查有两个独立项目：scripts/typecheck/tsconfig.main.json 的 files 对应 index.html 普通脚本与 app.ts 静态模块图的并集；tsconfig.mini.json 只检查 mini.ts。两者继承 tsconfig.base.json，不让主窗口普通脚本的全局绑定污染迷你窗。主窗口外部接口位于 types/main-window.d.ts，两项目共用 types/tauri.d.ts。新增主窗口脚本后需同步 files；Node 测试会核对 files 与 HTML/模块图。
 
@@ -170,7 +172,7 @@ npm ci
 npm run typecheck
 ```
 
-typecheck 的成功表示诊断与已审查清单一致，不表示零诊断。scripts/typecheck/diagnostics.json 的键是仓库相对路径（使用 /）、错误码、空白规范化后的消息，值是出现次数，不含行号。新增键或次数增加均失败；修复使键消失或次数下降也先失败，要求显式缩减清单，以免以后重新引入已修复的问题。编译器异常退出、缺配置及无法解析的输出均失败。
+typecheck 的成功要求全部项目零诊断，并且诊断清单仍与已审查的空基线一致。scripts/typecheck/diagnostics.json 的键是仓库相对路径（使用 /）、错误码、空白规范化后的消息，值是出现次数，不含行号。新增键或次数增加均失败；修复使键消失或次数下降也先失败，要求显式缩减清单，以免以后重新引入已修复的问题。编译器异常退出、缺配置及无法解析的输出均失败。
 
 修复诊断后运行：
 
@@ -178,7 +180,7 @@ typecheck 的成功表示诊断与已审查清单一致，不表示零诊断。s
 npm run typecheck -- --update
 ```
 
---update 只能删除键或降低次数，发现增长不会写文件。审查 diagnostics.json 的 diff 后再提交。--rebaseline 是人工重建模式，可增加诊断，仅在维护者明确授权时使用；仅在明确授权的文件归属迁移等场景使用，不能未经授权新增诊断。默认 npm run typecheck 和 CI 都不调用它，不能用它绕过新增错误。
+--update 只能删除键或降低次数，发现增长不会写文件。审查 diagnostics.json 的 diff 后再提交。--rebaseline 保留历史 CLI 接口，但零诊断门槛优先，不能增加诊断或绕过错误。默认 npm run typecheck 和 CI 都不调用它，不能用它绕过新增错误。
 
 声明只描述 UI 实际使用的接口；禁止 any、宽泛的 Window/Element 扩展或任意 __TAURI__。无法确定的值用 unknown。invoke 使用共享 CommandMap 推导参数与返回类型，状态工厂仅接收注入适配器；不能为减少诊断而编造个别命令的返回类型。声明新增或修改时必须核对 UI 使用点和事件派发点，不能为压掉错误虚构类型。
 
@@ -194,11 +196,13 @@ npm run typecheck -- --update
 | 原生模块加载、TDZ 与真实模块启动测试 | 检查运行时链接、求值与调用次数，不能由类型检查替代。 |
 | 播放错误契约与业务切片测试 | 保护字符串契约和实际行为，类型检查不覆盖这些断言。 |
 
-Node 自测只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript 或 Vite。CI 在 Windows、macOS 的 Cargo 步骤之前执行 npm ci 与 npm run verify:dist，并保留 Node 测试和 npm run typecheck。TypeScript 通过 optionalDependencies 安装对应平台原生包；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。
+安装前 Node 测试只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript 或 Vite。安装后 DOM 组使用 Vue、Vite 与 jsdom。CI 在 Windows、macOS 的 npm ci 后新增 npm run test:dom，其余 run 步骤保持原样。TypeScript 6 使用官方 JavaScript CLI；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。
 
 ## 每批验收口径
 
-每个 commit 提交前依次运行九项：
+vue-1a 实测安装前 625 个测试（原 622 个与新增 3 个分组守卫），安装后 1 个冒烟测试。新增测试不替换任何业务断言；原特征测试、sourceSlice 历史例外、播放过渡 fixture 和 G0 文件均保持不变。每批仍须实际运行并核对名称、重复次数与哈希，不能直接沿用本次数字。
+
+每个 commit 提交前运行原九项并增加安装后测试：
 
 1. `cargo fmt --all -- --check`
 2. `cargo build --workspace`
@@ -207,16 +211,17 @@ Node 自测只使用内置模块和构造的编译器输出，不依赖已安装
 5. `cargo test --workspace --release`
 6. `node --test`
 7. `npm ci`
-8. `npm run typecheck`
-9. `npm run verify:dist`
+8. `npm run test:dom`
+9. `npm run typecheck`（main 与 SFC fixture 使用官方 vue-tsc；mini/node 使用 tsc）
+10. `npm run verify:dist`
 
-基线数量须先实测，不用文档数字替代结果。类型检查 main/mini/node 均须为零诊断，diagnostics.json 为 {}。G0 必须与 tests/fixtures/playback-startup-installation.json 逐项相同（157 条，首个 trackchange 索引 70），不能为通过检查重录。verify:dist 比较 Windows/darwin 环境产物逐字节一致，并要求缺失普通脚本、模块位置错误两个反例失败。
+基线数量须先实测，不用文档数字替代结果。类型检查 main/mini/node/SFC fixture 均须为零诊断，diagnostics.json 为 {}。G0 必须与 tests/fixtures/playback-startup-installation.json 逐项相同（154 条，首个 trackchange 索引 70），不能为通过检查重录。verify:dist 比较 Windows/darwin 环境产物逐字节一致，并要求缺失普通脚本、模块位置错误两个反例失败。
 
-CRLF 验证：在 %TEMP%\bili-music-verify\ 下，用 `git clone --config core.autocrlf=true --branch <当前分支> --single-branch <仓库路径> <临时目录>` 创建克隆；覆盖未提交候选文件，删除候选中的旧路径；检查 ui/ 清单与工作区相同，全部使用 CRLF；依次运行 `node --test`、`npm ci`、`npm run typecheck`、`npm run verify:dist`，第一项必须在安装依赖之前。ui/ 数量随已批准新增模块变化，不能固定成旧数量。
+CRLF 验证：在 %TEMP%\bili-music-verify\ 下，用 `git clone --config core.autocrlf=true --branch <当前分支> --single-branch <仓库路径> <临时目录>` 创建克隆；覆盖未提交候选文件，删除候选中的旧路径；检查 ui/ 清单与工作区相同，全部使用 CRLF；依次运行 `node --test`、`npm ci`、`npm run test:dom`、`npm run typecheck`、`npm run verify:dist`，第一项必须在安装依赖之前。ui/ 数量随已批准新增模块变化，不能固定成旧数量。
 
 CI 一致性：逐条执行 .github/workflows/ci.yml 的 run 步骤；bash 步骤通过 `"C:/Program Files/Git/bin/bash.exe" --noprofile --norc -c` 执行。仅跳过 Linux 系统依赖安装，并说明当前为 Windows。
 
-测试名：分别用 Node 22.18.0、22.23.3 运行完整 `node --test`，导出全部测试名，对比实测基线；原有名字必须完整保留并通过，新增名字单列。
+测试名：分别用 Node 22.18.0、22.23.3 运行完整 `node --test` 与 `npm run test:dom`，导出两组全部测试名，对比实测基线；原有名字必须完整保留并通过，新增名字单列。
 
 反向验证仅在仓库外临时副本进行；每项恢复文件并删除新增文件，命令必须非零退出：
 
@@ -356,9 +361,42 @@ playback-messages-state.ts 持有 status、递增写入序号和 notice 的文�
 
 library/pages 的原提示投影在 app-state.ts 组装层与 playbackMessages 一次提交。分P查询恢复捕获的旧文字，包含查询期间其他模块覆盖后的恢复；原有文案与借用播放状态栏的语义保持。
 
-mini 宿主 status/notice 从 selectMiniPlayerMessages 投影读取，移除两项 DOM 读取例外；发布仍只由原事件与主题通知触发。setStatus 通过冻结且 satisfies 校验的既有桥接提交，state-9c 移除桥接。G0 保持 157 条、首个 trackchange 索引 70。
+mini 宿主 status/notice 从 selectMiniPlayerMessages 投影读取，移除两项 DOM 读取例外；发布仍只由原事件与主题通知触发。setStatus 通过冻结且 satisfies 校验的既有桥接提交，state-9c 移除桥接。该历史批次 G0 为 157 条；state-9c 后当前基线为 154 条、首个 trackchange 索引 70。
 
 新增 canary：在 playback-messages-state.ts 引用 document，state-architecture 测试必须失败；其他 ui 模块写 status.textContent 或 renderer 调用 action，playback-messages-architecture 测试必须失败；setStatus 声明改为不匹配返回类型，main 类型检查必须失败。原有 canary 全部保留。
 
 state-9c 登记：startup-before-main.ts → window-controls.ts、dynamic-background.ts；app.ts → startup-before-main.ts、mascot.ts、main.ts、appearance.ts、lyrics.ts、mini-player-host.ts；appearance.ts → mascot.ts；mini-player-host.ts → home.ts、library-ui.ts、appearance.ts、playback-mini-view.ts、playback-messages.ts。主窗口产物不再单独输出五个 defer 脚本，平台字节比较仍覆盖全部实际产物。
 新增启动守卫 canary：ESM 控制器顶层执行初始化；重新注册已删除的 window 桥接。旧桥接类型 canary 改为宿主注入端口的签名不匹配检查；缺少 window-controls 标签的 canary 改为缺少其显式初始化调用，仍由 verify:dist 的 G0 拦截。
+
+## vue-1a 工具链登记
+
+根目录精确运行时依赖 vue 3.5.43；精确开发依赖 @vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、typescript 6.0.3、vue-tsc 3.3.12。原有其他包版本不变；不引入 Vitest、Pinia 或其他状态库。Vite 8.3.2 的 rolldownOptions、preserve-html、HTML 中 sidebar/inline 与单一 ESM 入口保持原样，只增加 vue() 插件。本批 ui/ 没有 Vue 导入或 SFC，没有产品挂载；运行时继续选用 Vue 默认 runtime-only 入口，模板由插件预编译。
+
+产物比较条件：master 与候选各自使用对应 lockfile 执行 npm ci，在同一操作系统、Node 版本与构建命令下，比较所有文件路径、数量与 SHA256。本批 Windows / Node 22.23.3 / npm run build 的 7 个产物逐字节相同。发生差异必须报告完整清单并停止，不能更新 golden fixture 或放宽守卫。
+
+测试分组由 scripts/tests/groups.ts 约定：tests/ 下、tests/dom/ 外的 *.test.ts 为安装前组；安装后组只有精确登记的 tests/dom/vue-smoke.dom.ts。*.spec.ts、未登记的 *.dom.ts、DOM 目录中的 *.test.ts 均拒绝。守卫遍历仓库测试文件并追踪安装前测试的本地 TS 导入，禁止第三方导入；默认 node --test 不收集 *.dom.ts。test:dom 先核对登记，再显式运行安装后清单。CI 仅在 npm ci 后增加 test:dom，其他步骤不变。
+
+唯一 SFC fixture 为 tests/fixtures/vue/ToolchainSmoke.vue；tests/fixtures/vue/tsconfig.json 继承现有 strict 配置，由 typecheck 调用官方 vue-tsc 检查。测试经 Vite API 编译到系统临时目录，以 @vue/test-utils 在 jsdom 中验证渲染、点击回调与卸载。Vue 插件和 test-utils 在 document 初始化后动态导入，避免 runtime 提前绑定空 document；结束恢复 globals、关闭 jsdom、删除临时产物。types/jsdom.d.ts 仅声明所用 JSDOM 构造、document、DOM 构造器与 close，依据 jsdom 26.1.0 lib/api.js，无 any 或 Window 全局扩展；不生成 SFC 声明，不使用 declare module '*.vue'。
+
+scripts/vue/check.ts 使用 TypeScript AST 检查导入，Vue 包仅允许 scripts/vue/check.ts 的 vue/compiler-sfc 与 tests/dom/vue-smoke.dom.ts 的 vue 类型导入；产品 Vue 位置登记为空。产品 SFC 默认导入目标限 ui/components/；测试默认导入例外仅限 tests/dom/vue-smoke.dom.ts → tests/fixtures/vue/ToolchainSmoke.vue。现有 UI 模块守卫不变，后续试点若改变模块登记须另行审计，不放宽其他模块规则。
+
+SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 window、__TAURI__、invoke、actions 的直接引用或对应字符串属性访问；组件只通过 props 和回调交互。禁止外部 script src。生产产物守卫 scripts/vite/javascript-guard.ts 扫描 JS 文件与 HTML 内联脚本 AST，直接 eval 与 new Function 必须均为 0；不会把注释、字符串或 object.eval() 计为直接 eval。
+
+以下新增 canary 全在仓库外候选副本修改，每项执行后恢复；命令必须非零退出且出现对应诊断或守卫消息。原有全部 canary 继续执行。两类 AST 守卫还含运行时自检，涵盖注释/字符串误报、模板内违规与括号调用的解析路径。
+
+| canary | 外部副本中的修改 | 必须失败的命令与判据 |
+| --- | --- | --- |
+| Vue 模板字段 | fixture 模板引用 props.missingField | npm run typecheck；TS2339 |
+| Vue props | fixture 自引用传入数字 snapshot | npm run typecheck；TS2322 |
+| Vue 只读 | fixture 写 props.snapshot.count | npm run typecheck；TS2540 |
+| Vue strict | fixture 函数参数无类型 | npm run typecheck；TS7006 |
+| Vue 平台调用 | fixture 添加 window.location、window.__TAURI__、invoke 或 actions 调用 | npm run typecheck；类型错误或内容守卫拒绝 |
+| SFC 内容独立验证 | fixture 声明类型合法的局部 window/invoke/actions 并使用 | npm run typecheck；必须由内容守卫拒绝 |
+| Vue 导入 | ui/app.ts 导入 vue | npm run typecheck；未登记 Vue 导入 |
+| SFC 导入 | ui/app.ts 导入测试 fixture | npm run typecheck；未登记 SFC 导入 |
+| 产物 eval | sidebar.ts 加入 eval("1") | npm run verify:dist；动态代码生成守卫拒绝 |
+| 产物 Function | sidebar.ts 加入 new Function("return 1") | npm run verify:dist；动态代码生成守卫拒绝 |
+| 安装前依赖 | 安装前守卫测试导入 vue | node --test tests/vue-toolchain.test.ts；第三方导入拒绝 |
+| 测试归属 | tests/dom/ 添加未登记 *.dom.ts | node --test tests/vue-toolchain.test.ts；未分组测试拒绝 |
+
+推进顺序固定为 vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。vue-2b 使用 Vue 公开 render()，必须以真实 DOM 特征测试证明 store action 返回前，DOM、disabled 与焦点已和旧实现一致；不得以普通 Vue 响应式更新默认同步代替验证。Vue 只替代 renderer，读深只读快照、经控制器回调调用 actions；不改 store、命令与控制器逻辑。vue-1b 音量切片例外、vue-1c 播放过渡 fixture 等播放栏迁移时再处理，迷你窗暂不迁移。

@@ -50,6 +50,15 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 # 长期协作与状态迁移规则
 
+## Vue 工具链与推进决定
+
+- 精确依赖：运行时 vue 3.5.43；开发依赖 @vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、typescript 6.0.3、vue-tsc 3.3.12。Vite 保持 8.3.2；不引入 Vitest、Pinia 或其他状态库。
+- 全项目统一 TypeScript 6.0.3：vue-tsc 暂不支持 TS 7，待 Vue 官方工具支持后再统一升级。main 由根目录官方 vue-tsc CLI 检查，mini/node 由根目录 tsc 检查；不建 tools/vue-typecheck。strict、erasableSyntaxOnly、isolatedModules 等选项不得放宽，不生成 any 声明，不用宽泛 declare module '*.vue'。
+- 安装前组沿用 node --test；安装后组使用 npm run test:dom。scripts/tests/groups.ts 登记唯一 DOM 测试并核对所有测试归属，安装前组及其本地依赖不得导入第三方包。本批安装后只保留一个 SFC 编译、渲染、点击与卸载冒烟测试。
+- Vue 导入仅按 scripts/vue/check.ts 的精确文件与包名登记；产品 SFC 默认导入目标限 ui/components/，测试例外限登记的基础设施与 tests/fixtures/vue/ToolchainSmoke.vue。本批产品 Vue 导入与组件均为空。组件不得访问 window、__TAURI__、invoke、actions，只经 props 与回调交互；生产 JS（含内联脚本）直接 eval 与 new Function 的 AST 计数必须均为 0。
+- 推进顺序：vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。分P使用 Vue 公开 render()；vue-2b 必须验证 store action 返回前，相关 DOM、disabled 与焦点都和旧实现一致，不能默认普通响应式更新同步。
+- vue-1b（音量测试切片例外）与 vue-1c（播放过渡 fixture）推迟到播放栏改为 Vue 时；本批不改历史切片登记、过渡 fixture、G0 或产品行为。迷你窗暂不迁移，主题、强调色、毛玻璃、透明度和暗化设置继续沿用现有逻辑。
+
 本节规定后续批次的工作纪律；上文项目安全与固化链路约束继续有效。当前 TS/ESM 架构与完整验收命令以 `docs/frontend-architecture.md` 为准，历史文件名不能作为改写固化链路的依据。
 
 ## 开始工作与提交
@@ -61,17 +70,17 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## 验收口径
 
-- 每个 commit 提交前跑九项：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run typecheck、npm run verify:dist。
-- 每批完成 CRLF 四项：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、typecheck、verify:dist。Node 必须在安装依赖之前运行。
+- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-1a 实测安装前 625 个测试、安装后 1 个；以后仍须重新实测。
+- 每批完成原 CRLF 四项并增加 test:dom：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、test:dom、typecheck、verify:dist。安装前 Node 测试必须在安装依赖之前运行；package-lock.json 等候选文本也要检查换行。
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
-- Node 22.18.0 与 22.23.3 各运行完整测试，原测试名及重复次数全部保留并通过，新增测试名单列。
+- Node 22.18.0 与 22.23.3 各运行完整安装前与安装后两组测试，原测试名及重复次数全部保留并通过，新增测试名单列。
 - 全部 canary 在仓库外临时副本逐个运行，必须按对应命令非零失败，结束恢复原文件并删除新增文件。新增架构守卫同步增加反例与验收登记。
-- G0 必须与 tests/fixtures/playback-startup-installation.json 的157条及首个trackchange索引70逐项相同，不重录fixture。类型项目必须零诊断；构建产物的平台字节一致性和两个反例继续执行。
+- G0 必须与 tests/fixtures/playback-startup-installation.json 的154条及首个trackchange索引70逐项相同，不重录fixture。类型项目必须零诊断；构建产物的平台字节一致性和两个反例继续执行。vue-1a 与 master 的产物比较须在同一操作系统、同一 Node、同一构建命令下，各自按对应提交 lockfile 执行 npm ci，再比较路径、数量和内容哈希；有差异就停止报告。
 - 完整命令、canary清单和判据见架构文档；数量先实测，不用旧报告数字替代结果。真实WebView手测与自动验证分开报告，不把未执行的手测写成通过。
 
 ## Store 设计约定
 
-- 不新增依赖；自写极简store，一个应用store按领域分片，公开getState、subscribe（返回取消订阅函数）和领域actions；选择器是纯函数，不提供任意写入接口。
+- store 不新增依赖或状态库；自写极简store，一个应用store按领域分片，公开getState、subscribe（返回取消订阅函数）和领域actions；选择器是纯函数，不提供任意写入接口。Vue 工具链依赖仅按下节已批准清单登记。
 - 快照类型深只读，提交只复制改变路径，Map/Set写入创建新集合。测试工厂开启深冻结并验证写快照会抛错；生产不冻结。
 - 每个完整同步阶段提交一次并同步按顺序通知，异步开始/成功/失败分阶段。订阅者异常必须报告，不能阻断其他订阅者或动作后续步骤。
 - subscribe不立即回调，挂载显式getState完成首屏。renderer只读快照，不调用actions、invoke，不修改状态。
