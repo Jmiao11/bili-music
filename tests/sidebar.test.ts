@@ -208,10 +208,9 @@ test("unchanged mascot API and bubble cleanup work while the sidebar is collapse
     setTimeout(fn: (event?: Record<string, unknown>) => void, ms: number) { timers.set(++timerId, { fn, ms }); return timerId; },
     clearTimeout(id: number) { timers.delete(id); },
   });
-  vm.runInNewContext(readFileSync(path.join(import.meta.dirname, "../ui/mascot.ts"), "utf8"), {
+  const api = vm.runInNewContext(readFileSync(path.join(import.meta.dirname, "../ui/mascot.ts"), "utf8") + "\ninitializeMascot(); getMascotApi();", {
     document, window, localStorage: { getItem: () => null, setItem() {} },
   });
-  const api = window.BiliMascot;
   if (!api) throw new Error("Mascot API is missing");
   assert.deepEqual(Object.keys(api), ["list", "getActive", "setActive"]);
   assert.ok(bubble.textContent); // Greeting still has its normal lifetime, even when CSS hides it.

@@ -181,7 +181,6 @@ async function checkDevelopment() {
           ["href", "./styles.css", "/styles.css"],
           ["src", "./sidebar.js", "/sidebar.js"],
           ["src", "app.ts", "/app.ts"],
-          ["src", "./mascot.js", "/mascot.js"],
           ["src", "./mini-player-host.js", "/mini-player-host.js"],
         ];
         for (const [name, before, after] of rewrites) {

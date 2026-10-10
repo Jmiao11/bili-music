@@ -11,6 +11,7 @@
     "../../ui/startup-before-main.ts",
     "../../ui/window-controls.ts",
     "../../ui/dynamic-background.ts",
+    "../../ui/mascot.ts",
     "../../ui/main.ts",
     "../../ui/search-state.ts",
     "../../ui/track-utils.ts",
@@ -53,7 +54,6 @@
     "../../ui/lyrics.ts",
     "../../ui/mini-player-bridge.ts",
     "../../ui/playback-mini-view.ts",
-    "../../ui/mascot.ts",
     "../../ui/mini-player-host.ts"
   ]
 }

@@ -115,7 +115,7 @@ function runtimeElement(): RuntimeElement {
 test("mascot picker callbacks use the initialized API for selection and hiding", () => {
   const selected: string[] = [], picker = runtimeElement();
   const api = { list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id: string) => selected.push(id) };
-  const context = createQueueContext({ mascotPicker: picker, window: { BiliMascot: api },
+  const context = createQueueContext({ mascotPicker: picker, getMascotApi: () => api,
     document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
   });
   vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
@@ -124,7 +124,7 @@ test("mascot picker callbacks use the initialized API for selection and hiding",
   (picker.children[0] as RuntimeElement).listeners.click();
   (picker.children[1] as RuntimeElement).listeners.click();
   assert.deepEqual(selected, ["kuro", "none"]);
-  context.window.BiliMascot = undefined;
+  context.getMascotApi = () => undefined;
   context.renderMascotPicker();
   assert.equal(picker.children.length, 2);
 });

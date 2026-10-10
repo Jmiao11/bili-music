@@ -1,4 +1,7 @@
-(() => {
+type MascotApi = { list(): { id: string; name: string; svg: string }[]; getActive(): string; setActive(id: string): string };
+let mascotApi: MascotApi | undefined;
+function getMascotApi() { return mascotApi; }
+function initializeMascot() {
   const MASCOTS: Record<string, { id: string; name: string; personality: string; lines: Record<string, string[]>; svg: string }> = {
     kuro: {
       id: "kuro",
@@ -350,7 +353,7 @@
     }
   }
 
-  window.BiliMascot = {
+  mascotApi = {
     list() {
       return Object.values(MASCOTS).map(({ id, name, svg }) => ({ id, name, svg }));
     },
@@ -437,4 +440,6 @@
       syncState();
     }
   });
-})();
+}
+
+export { getMascotApi, initializeMascot };

@@ -18,10 +18,7 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["dynamic-background.ts", "playback-core.ts", "appearance.ts", "mascot.ts", "mini-player-host.ts"]);
-  const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
-  const entry = tags.indexOf("app.ts");
-  for (const file of ["mascot.js", "mini-player-host.js"]) assert.ok(tags.indexOf(file) > entry);
+  assert.deepEqual(listeners, ["dynamic-background.ts", "mascot.ts", "playback-core.ts", "appearance.ts", "mini-player-host.ts"]);
   const appearance = topLevelStatements(read("appearance.ts"));
   assert.ok(appearance.every((statement) => /^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code)));
 });
@@ -67,7 +64,7 @@ test("bottom classic scripts defer and the sole module entry keeps its position"
   assert.doesNotMatch(sidebar[1], /\bdefer\b/);
   const body = html.slice(html.indexOf("<body"));
   const bodyScripts = [...body.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
-  assert.equal(bodyScripts.length, 3);
+  assert.equal(bodyScripts.length, 2);
   for (const script of bodyScripts) {
     if (/\btype=["']module["']/.test(script[1])) {
       assert.match(script[1], /\bsrc=["']app\.ts["']/);

@@ -1,6 +1,7 @@
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
 
+import { getMascotApi } from "./mascot.ts";
 import { createPlaybackCommands } from "./playback-commands.ts";
 import { effectivePlaybackVolume } from "./playback-settings-state.ts";
 import { createMediaAdapter, createMediaSessionAdapter } from "./media-adapter.ts";
@@ -524,7 +525,7 @@ function closeImmersive() {
 }
 
 function syncMascotPickerSelection() {
-  const activeId = window.BiliMascot?.getActive?.();
+  const activeId = getMascotApi()?.getActive?.();
   for (const tile of mascotPicker?.querySelectorAll<HTMLButtonElement>(".mascot-tile") ?? []) {
     const selected = tile.dataset.mascotId === activeId;
     tile.classList.toggle("is-selected", selected);
@@ -533,7 +534,7 @@ function syncMascotPickerSelection() {
 }
 
 function renderMascotPicker() {
-  const mascotApi = window.BiliMascot;
+  const mascotApi = getMascotApi();
   if (!mascotPicker || !mascotApi) {
     return;
   }

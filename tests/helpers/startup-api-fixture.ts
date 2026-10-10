@@ -28,8 +28,7 @@ function createMascotFixture(saved: string | null = null) {
     createElement: element, querySelector: (selector: string) => ({ "#mascot-stage": stage, "#mascot-slot": slot, "#mascot-bubble": bubble } as Record<string, unknown>)[selector] ?? null },
     localStorage: { getItem: () => saved, setItem: (key: string, value: string) => writes.push([key, value]) } });
   const read = (name: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
-  vm.runInContext(read("mascot.ts"), context);
-  const api = window.BiliMascot;
+  const api: MascotApi | undefined = vm.runInContext(read("mascot.ts") + "\ninitializeMascot(); getMascotApi();", context);
   if (!api) throw Error("Mascot API is missing");
   const appearance = read("appearance.ts");
   vm.runInContext(appearance.slice(appearance.indexOf("function syncMascotPickerSelection("), appearance.indexOf("function openSettings(")), context);

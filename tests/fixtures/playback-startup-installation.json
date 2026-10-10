@@ -882,11 +882,6 @@
       "options": null
     },
     {
-      "action": "window-set",
-      "property": "BiliMascot",
-      "valueType": "object"
-    },
-    {
       "action": "listen",
       "target": "#audio",
       "type": "play",

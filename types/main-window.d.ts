@@ -33,12 +33,6 @@ interface Window {
   // main.js:173-190; appearance.js:448, mini-player-host.js:97.
   __playbackDiagLog: PlaybackDiagEntry[];
   recordPlaybackDiag(category: string, message: string): void;
-  // mascot.js:353-373; appearance.js:649-701.
-  BiliMascot?: {
-    list(): { id: string; name: string; svg: string }[];
-    getActive(): string;
-    setActive(id: string): string;
-  };
 }
 
 interface WindowEventMap {
