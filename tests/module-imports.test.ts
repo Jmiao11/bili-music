@@ -7,10 +7,16 @@ import { moduleDeclarations } from "./helpers/module-syntax.ts";
 import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const moduleOrder = ["window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","home-view.ts","home.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "mini-player-bridge.ts", "playback-messages-view.ts", "playback-messages.ts"];
+const moduleOrder = ["window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","home-view.ts","home.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "lyrics.ts", "mini-player-bridge.ts", "playback-messages-view.ts", "playback-messages.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
+  ["lyrics.ts:duration", "local duration value inside lyrics formatter"],
+  ["lyrics.ts:formatDuration", "local lyrics duration formatter inside initializer"],
+  ["lyrics.ts:status", "local lyrics resolution status inside initializer"],
+  ["lyrics.ts:result", "local search and lyrics command results inside initializer"],
+  ["lyrics.ts:invoke", "local Tauri command adapter inside initializer"],
+  ["lyrics.ts:audio", "local audio node inside initializer"],
   ["dynamic-background.ts:root", "local document root inside initializer"],
   ["playback-queue-state.ts:result", "shuffled local array"],
   ["settings-state.ts:result", "local command and redaction results"],
@@ -71,7 +77,7 @@ test("modules import every cross-module binding and have no unused imports", () 
     if (source === undefined) throw new Error(`Collision source is missing: ${file}`);
     assert.ok(references(source).has(name), `${collision}: stale collision entry (${reason})`);
     const code = maskCommentsAndStrings(source);
-    const binding = new RegExp(`\\b(?:const|let|var)\\s+${name}\\b|\\bfunction\\s+[\\w$]+\\s*\\([^)]*\\b${name}\\b[^)]*\\)`);
+    const binding = new RegExp(`\\b(?:const|let|var|function)\\s+${name}\\b|\\bfunction\\s+[\\w$]+\\s*\\([^)]*\\b${name}\\b[^)]*\\)`);
     assert.match(code, binding, `${collision}: reviewed local binding must remain`);
   }
 });

@@ -883,11 +883,6 @@
     },
     {
       "action": "window-set",
-      "property": "BiliLyrics",
-      "valueType": "object"
-    },
-    {
-      "action": "window-set",
       "property": "BiliMascot",
       "valueType": "object"
     },

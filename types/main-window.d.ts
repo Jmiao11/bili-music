@@ -33,11 +33,6 @@ interface Window {
   // main.js:173-190; appearance.js:448, mini-player-host.js:97.
   __playbackDiagLog: PlaybackDiagEntry[];
   recordPlaybackDiag(category: string, message: string): void;
-  // lyrics.js:650-704.
-  BiliLyrics?: {
-    loadBySongId(songId: string, context?: { bvid?: unknown; cid?: unknown }): Promise<void>;
-    clear(): void;
-  };
   // mascot.js:353-373; appearance.js:649-701.
   BiliMascot?: {
     list(): { id: string; name: string; svg: string }[];

@@ -38,7 +38,7 @@
 | media-adapter.ts | ES Module | 媒体操作和事件订阅适配；目前仅音量写入接入业务。 |
 | playback-settings-view.ts | ES Module | 播放设置的只读投影，委托媒体与控件写入。 |
 | appearance.ts | ES Module | 设置控制器及原位监听；保留增益过渡调度、存储与沉浸页逻辑。 |
-| lyrics.ts | 普通 defer 脚本 | 歌词显示及事件交互。 |
+| lyrics.ts | ES Module | startAppearance 之后显式初始化，歌词显示及事件交互。 |
 | mascot.ts | 普通 defer 脚本 | 吉祥物及 window.BiliMascot API。 |
 | mini-player-host.ts | 普通 defer 脚本 | 主窗口与迷你窗的状态、命令同步。 |
 
@@ -52,11 +52,11 @@ head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html�
 
 scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，模块标签仍在 lyrics 之前。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
 
-开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`、`./lyrics.js` → `/lyrics.js`、`./mascot.js` → `/mascot.js`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
+开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`、`./mascot.js` → `/mascot.js`、`./mini-player-host.js` → `/mini-player-host.js`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 
-检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 157 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 156 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
 
 源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
 

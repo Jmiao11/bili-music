@@ -1,4 +1,4 @@
-(() => {
+function initializeLyrics() {
   "use strict";
 
   type LyricsLine = { time: number; text: string };
@@ -651,8 +651,8 @@
     scheduleMatchIdle(1500);
   });
 
-  window.BiliLyrics = {
-    async loadBySongId(songId, context) {
+  return {
+    async loadBySongId(songId: string, context?: { bvid?: unknown; cid?: unknown }) {
       currentOffsetMs = 0;
       currentBvid = "";
       currentCid = 0;
@@ -701,4 +701,6 @@
     },
     clear: showPlaceholder,
   };
-})();
+}
+
+export { initializeLyrics };

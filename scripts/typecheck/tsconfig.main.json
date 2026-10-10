@@ -50,9 +50,9 @@
     "../../ui/playback-display-view.ts",
     "../../ui/playback-messages-view.ts",
     "../../ui/playback-diagnostics.ts",
+    "../../ui/lyrics.ts",
     "../../ui/mini-player-bridge.ts",
     "../../ui/playback-mini-view.ts",
-    "../../ui/lyrics.ts",
     "../../ui/mascot.ts",
     "../../ui/mini-player-host.ts"
   ]

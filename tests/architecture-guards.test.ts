@@ -13,7 +13,6 @@ const { files: scripts } = collectBusinessScripts(ui);
 const expected = [
   "sidebar.js",
   "app.ts",
-  "lyrics.js",
   "mascot.js",
   "mini-player-host.js",
 ];

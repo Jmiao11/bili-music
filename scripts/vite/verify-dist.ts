@@ -181,7 +181,6 @@ async function checkDevelopment() {
           ["href", "./styles.css", "/styles.css"],
           ["src", "./sidebar.js", "/sidebar.js"],
           ["src", "app.ts", "/app.ts"],
-          ["src", "./lyrics.js", "/lyrics.js"],
           ["src", "./mascot.js", "/mascot.js"],
           ["src", "./mini-player-host.js", "/mini-player-host.js"],
         ];
