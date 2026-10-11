@@ -84,7 +84,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## 验收口径
 
-- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。fix(pages) 当前安装前 618 个测试、安装后 48 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8、授权迁移 1、矩阵 9 个子测试及 1 个父测试、惰性同步投影 1、完整流程 Vue 警告 1、禁用按钮接线及冒泡 2、Tab 可见性矩阵与隐藏祖先 6）；以后仍须重新实测。
+- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-5a 当前安装前 618 个测试、安装后 97 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8、授权迁移 1、矩阵 9 个子测试及 1 个父测试、惰性同步投影 1、完整流程 Vue 警告 1、禁用按钮接线及冒泡 2、Tab 可见性矩阵与隐藏祖先 6、资料库浮层基线 49）；以后仍须重新实测。
 - 每批完成原 CRLF 四项并增加 test:dom：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、test:dom、typecheck、verify:dist。安装前 Node 测试必须在安装依赖之前运行；package-lock.json 等候选文本也要检查换行。
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
 - Node 22.18.0 与 22.23.3 各运行完整安装前与安装后两组测试，原测试名及重复次数全部保留并通过，新增测试名单列。
@@ -142,3 +142,14 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 安装前业务模块图把 pages-view.ts 的两个精确编译边界另列为 rendererFiles；不在无依赖环境解释 SFC 或导入 Vue。冷入口测试的精确临时模块解析边界一旦尝试创建区域便抛错，不能模拟渲染成功；安装后 fixture 经 Vite 编译真实模块和组件，生产 G0 再用真实产物核对。其他模块语法与导入规则不放宽。
 - 用户 2026-10-11 单项授权：strict-null-runtime 中空 modal 测试迁到 tests/dom/pages-null.dom.ts；仅将 children 数组断言等价适配为读取真实 childNodes 文本，其余四条业务断言原文、测试名与五条各执行一次保持。报告明确登记这一项业务断言适配；两个分P冻结文件和 G0 fixture 不改。
 - 九个真实旧 renderer 状态矩阵由 master 3c21c42 生成，记录于 pages-list-baseline.json；新列表 innerHTML 完全相同，Vue Fragment 仅增加宿主首尾两个空文本锚点。首次引入 Vue 后与 master 的产物字节比较不再适用，但同机 windows/darwin 配置的七产物字节一致检查继续保留；真实 macOS 测试与 WebView 手测另由用户执行，远程 CI 待账号恢复后补验。
+
+## vue-5a/5b 资料库浮层基线
+
+- vue-4 保留给可选的分P弹窗外壳迁移；vue-5a 先在旧 renderer 上建立真实 DOM 基线，vue-5b 再逐区域迁移资料库浮层。vue-5a 不修改 ui/、依赖、lockfile、既有业务断言、分P冻结文件或 G0。
+- 安装后新增 49 个资料库测试（结构和时序 19、输入 6、命令路径 24），使用 Vite 编译真实 main、appearance、资料库控制器、renderer 和 store，jsdom 平台桩只记录调用。没有 Tab 陷阱、关闭不返回焦点、组字中间 input 写入、同一 session 输入节点复用均按现状冻结，不据此宣称真实 WebView 验证。
+- 下列三个特征测试以及两个专用 helper 作为 vue-5b 冻结基线，迁移时逐字节不改；不改 pages-fixture.ts。若需改变冻结断言或共享接线，先附完整 diff 申请。
+- `tests/dom/library-modal-actions.dom.ts`：Git/LF `3accaca75ec841c2effc094ed8decdc80147740e2832a4e15797b63ae561e004`；检出/CRLF `aa14e3c8e72ac62f22759c49524e69985dffe1e183c4b43a65ace3c3f2cf9f67`。
+- `tests/dom/library-modal-input.dom.ts`：Git/LF `34c47569c0e23c653adbd9ad9b6cd0c3da4c2d7fc8486409384c32bad6a5b3e7`；检出/CRLF `792b53713f7cb971a7c8b76ad33fbd84e5949fc8bd8079228e1e4ff58392d580`。
+- `tests/dom/library-modal-render.dom.ts`：Git/LF `8c81f687d922de920d177a0a66dbe9c8a989018a90ad2f94597b1e107c02bdd2`；检出/CRLF `06a0496abb56d210bd3709e5c944e874a9c70c6c2cf7e9714ec214ee338de979`。
+- `tests/dom/library-modal-fixture.ts`：Git/LF `f7c49fbc15c48a3c85050903cd9765d6b3a7fd79662c8028078db91733e8a443`；检出/CRLF `bdd2e3a04a41a784f16e71d973f607d89344fb2a291023df7ab6492ae79754c8`。
+- `tests/dom/library-modal-open.ts`：Git/LF `663de181a0261fa96c5aa96defacb2217b3abe96eb1e3f8b576023dfef712a97`；检出/CRLF `8ac3a5772847151a0b4ca772e477f4f75be8bcefb7fd99fa6af96a23b8a0b547`。
