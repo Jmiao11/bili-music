@@ -20,6 +20,8 @@
     "../../scripts/vite/javascript-guard.ts",
     "../../tests/vue-toolchain.test.ts",
     "../../tests/dom/vue-smoke.dom.ts",
+    "../../tests/dom/pages-fixture.ts",
+    "../../tests/dom/pages-real-dom.dom.ts",
     "../../types/jsdom.d.ts",
     "../../tests/library-characterization.test.ts",
     "../../tests/search-actions.test.ts",

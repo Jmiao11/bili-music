@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { maskCommentsAndStrings } from "../../tests/helpers/js-source.ts";
 
-const domTests = ["tests/dom/vue-smoke.dom.ts"];
+const domTests = ["tests/dom/pages-real-dom.dom.ts", "tests/dom/vue-smoke.dom.ts"];
 function sourceImports(source: string) {
   const code = maskCommentsAndStrings(source);
   return [...source.matchAll(/\b(?:import|export)\s*(?:(?:[^;]*?\bfrom\s*)?["']([^"']+)["']|\(\s*["']([^"']+)["'])/g)]
