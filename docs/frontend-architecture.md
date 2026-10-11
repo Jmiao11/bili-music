@@ -374,7 +374,7 @@ state-9c 登记：startup-before-main.ts → window-controls.ts、dynamic-backgr
 
 产物比较条件：master 与候选各自使用对应 lockfile 执行 npm ci，在同一操作系统、Node 版本与构建命令下，比较所有文件路径、数量与 SHA256。本批 Windows / Node 22.23.3 / npm run build 的 7 个产物逐字节相同。发生差异必须报告完整清单并停止，不能更新 golden fixture 或放宽守卫。
 
-测试分组由 scripts/tests/groups.ts 约定：tests/ 下、tests/dom/ 外的 *.test.ts 为安装前组；安装后组只有精确登记的 tests/dom/vue-smoke.dom.ts。*.spec.ts、未登记的 *.dom.ts、DOM 目录中的 *.test.ts 均拒绝。守卫遍历仓库测试文件并追踪安装前测试的本地 TS 导入，禁止第三方导入；默认 node --test 不收集 *.dom.ts。test:dom 先核对登记，再显式运行安装后清单。CI 仅在 npm ci 后增加 test:dom，其他步骤不变。
+测试分组由 scripts/tests/groups.ts 约定：tests/ 下、tests/dom/ 外的 *.test.ts 为安装前组；安装后组精确登记 tests/dom/pages-characterization.dom.ts、tests/dom/pages-real-dom.dom.ts、tests/dom/vue-smoke.dom.ts。*.spec.ts、未登记的 *.dom.ts、DOM 目录中的 *.test.ts 均拒绝。守卫遍历仓库测试文件并追踪安装前测试的本地 TS 导入，禁止第三方导入；默认 node --test 不收集 *.dom.ts；登记守卫禁止安装后使用会被默认发现的 *.test.ts。test:dom 先核对登记，再显式运行安装后清单。CI 仅在 npm ci 后增加 test:dom，其他步骤不变。
 
 唯一 SFC fixture 为 tests/fixtures/vue/ToolchainSmoke.vue；tests/fixtures/vue/tsconfig.json 继承现有 strict 配置，由 typecheck 调用官方 vue-tsc 检查。测试经 Vite API 编译到系统临时目录，以 @vue/test-utils 在 jsdom 中验证渲染、点击回调与卸载。Vue 插件和 test-utils 在 document 初始化后动态导入，避免 runtime 提前绑定空 document；结束恢复 globals、关闭 jsdom、删除临时产物。types/jsdom.d.ts 仅声明所用 JSDOM 构造、document、DOM 构造器与 close，依据 jsdom 26.1.0 lib/api.js，无 any 或 Window 全局扩展；不生成 SFC 声明，不使用 declare module '*.vue'。
 
@@ -400,3 +400,17 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 | 测试归属 | tests/dom/ 添加未登记 *.dom.ts | node --test tests/vue-toolchain.test.ts；未分组测试拒绝 |
 
 推进顺序固定为 vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。vue-2b 使用 Vue 公开 render()，必须以真实 DOM 特征测试证明 store action 返回前，DOM、disabled 与焦点已和旧实现一致；不得以普通 Vue 响应式更新默认同步代替验证。Vue 只替代 renderer，读深只读快照、经控制器回调调用 actions；不改 store、命令与控制器逻辑。vue-1b 音量切片例外、vue-1c 播放过渡 fixture 等播放栏迁移时再处理，迷你窗暂不迁移。
+
+## vue-2a 分P真实 DOM 基线
+
+产品 ui/、依赖与 lockfile、G0 和全部 golden fixture 不改。先在旧 renderer 上独立提交 tests/dom/pages-real-dom.dom.ts 的八组特征测试，文件 SHA256（CRLF）为 f786175c81a116c08a434500b1feae3c0ece3216b674fa68c7ab5af8ad31fbab，后续 renderer 迁移时逐字节保留。
+
+经本批用户明确授权，原 tests/pages-characterization.test.ts 的十个测试仅迁移环境与接线，改名为 tests/dom/pages-characterization.dom.ts 以移入安装后组。62 条业务断言调用及参数原文、测试名、逐测试实际断言次数（含共享 helper）全部不变；旧 SHA256（CRLF）3e2da6a8c4654545703418b507665bd61501e615246687efe87ea3ed6361ae68 → 新 8c71baa2e14854474639e517f1b17eec540549afe276cf66b8eb6b26f93c1c8d。完整 diff、逐断言审计及原分P变异复验记录放仓库外报告。
+
+两份分P测试共用 pages-fixture.ts：以真实 ui/index.html 和 player-dom 接线，模块副本按 git ls-files 核对后建立。保留真实 store、actions、pages-state、pages-view、video-pages 与 main 事件监听；IPC 和播放出口沿用记录式端口。可控时钟驱动 250ms 单击和查询调度，RAF 明确推进，transitionend 明确派发；IntersectionObserver、scrollIntoView 和媒体接口只记录平台调用。每次 fixture 独立 window，结束移除监听、清空调度、关闭 window、恢复 globals 并清理临时文件。
+
+真实 DOM 基线覆盖 RAF 前后与焦点优先级、各关闭入口与 transitionend、重绘焦点、原生可聚焦按钮清单、单击/双击/键盘点击、迟到查询与忙态清理、禁用分P先关闭再播放、保存期间 DOM/disabled/焦点同步变化。jsdom 没有布局、真实键盘默认动作或 CSS 动画；隐藏按钮焦点、原生 Tab 顺序、IntersectionObserver 可见性、滚动定位、双击事件时序与 transitionend 必须另行在真实 WebView 手测，不将自动结果当作浏览器验证。
+
+本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，原有全部 canary 继续执行。
+
+GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 仍须证明公开 Vue render() 在 store action 返回前保持 DOM、disabled 与焦点同步；vue-3 等账号恢复、积累提交推送和双平台 CI 全部通过后再开始。

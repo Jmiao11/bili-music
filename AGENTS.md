@@ -54,7 +54,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 - 精确依赖：运行时 vue 3.5.43；开发依赖 @vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、typescript 6.0.3、vue-tsc 3.3.12。Vite 保持 8.3.2；不引入 Vitest、Pinia 或其他状态库。
 - 全项目统一 TypeScript 6.0.3：vue-tsc 暂不支持 TS 7，待 Vue 官方工具支持后再统一升级。main 由根目录官方 vue-tsc CLI 检查，mini/node 由根目录 tsc 检查；不建 tools/vue-typecheck。strict、erasableSyntaxOnly、isolatedModules 等选项不得放宽，不生成 any 声明，不用宽泛 declare module '*.vue'。
-- 安装前组沿用 node --test；安装后组使用 npm run test:dom。scripts/tests/groups.ts 登记唯一 DOM 测试并核对所有测试归属，安装前组及其本地依赖不得导入第三方包。本批安装后只保留一个 SFC 编译、渲染、点击与卸载冒烟测试。
+- 安装前组沿用 node --test；安装后组使用 npm run test:dom。scripts/tests/groups.ts 精确登记安装后文件并核对所有测试归属，安装前组及其本地依赖不得导入第三方包。安装后统一使用 tests/dom/*.dom.ts，禁止登记会被 node --test 默认发现的 *.test.ts；当前包含原十个分P特征、八个真实 DOM 基线及一个 SFC 冒烟测试。
 - Vue 导入仅按 scripts/vue/check.ts 的精确文件与包名登记；产品 SFC 默认导入目标限 ui/components/，测试例外限登记的基础设施与 tests/fixtures/vue/ToolchainSmoke.vue。本批产品 Vue 导入与组件均为空。组件不得访问 window、__TAURI__、invoke、actions，只经 props 与回调交互；生产 JS（含内联脚本）直接 eval 与 new Function 的 AST 计数必须均为 0。
 - 推进顺序：vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。分P使用 Vue 公开 render()；vue-2b 必须验证 store action 返回前，相关 DOM、disabled 与焦点都和旧实现一致，不能默认普通响应式更新同步。
 - vue-1b（音量测试切片例外）与 vue-1c（播放过渡 fixture）推迟到播放栏改为 Vue 时；本批不改历史切片登记、过渡 fixture、G0 或产品行为。迷你窗暂不迁移，主题、强调色、毛玻璃、透明度和暗化设置继续沿用现有逻辑。
@@ -78,7 +78,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## 验收口径
 
-- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-1a 实测安装前 625 个测试、安装后 1 个；以后仍须重新实测。
+- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-2a 实测安装前 615 个测试、安装后 19 个（原分P 10、新增真实 DOM 8、SFC 1）；以后仍须重新实测。
 - 每批完成原 CRLF 四项并增加 test:dom：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、test:dom、typecheck、verify:dist。安装前 Node 测试必须在安装依赖之前运行；package-lock.json 等候选文本也要检查换行。
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
 - Node 22.18.0 与 22.23.3 各运行完整安装前与安装后两组测试，原测试名及重复次数全部保留并通过，新增测试名单列。
