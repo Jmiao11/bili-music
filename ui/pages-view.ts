@@ -1,8 +1,8 @@
-import { isPageDisabled } from "./page-selection.ts";
-import { formatDuration } from "./track-utils.ts";
 import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
 import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
+import PagesList from "./components/PagesList.vue";
+import { createSyncRegion } from "./vue/sync-region.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
   playPage(page: Readonly<CommandContract.VideoPage>): void;
@@ -11,6 +11,8 @@ type PagesBindings = {
   currentPage(): Readonly<CommandContract.VideoPage> | null;
 };
 let pagesModalReturnFocus: Element | null = null;
+let pagesListRegion: ReturnType<typeof createSyncRegion> | null = null;
+let pagesListRenderVersion = 0;
 function preparePagesModal(trigger: Element | null): void { pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement; }
 function renderPagesTrigger(trigger: HTMLElement | null, version: number, busy: boolean): void {
   if (busy) { trigger?.setAttribute("aria-busy", "true"); if (trigger) trigger.dataset.pagesRequestVersion = String(version); }
@@ -56,7 +58,7 @@ function refreshPageCountBadges(bvid: string, state: PagesSnapshot, bindings: Pa
 
 function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindings: PagesBindings): void {
   if (!state.modal) return;
-  const { video, videos, pages } = state.modal;
+  const { video, videos } = state.modal;
   const bvidKey = video.bvid.toLowerCase();
   const pending = library.disabledPagePending.has(bvidKey);
   const pendingCid = library.disabledPagePending.get(bvidKey);
@@ -69,48 +71,17 @@ function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindin
   pagesModalRestoreAll.hidden = !disabledCids?.size && !(pending && pendingCid === null);
   pagesModalRestoreAll.disabled = pending;
   pagesModalRestoreAll.textContent = pending && pendingCid === null ? "恢复中…" : "全部恢复";
-  pagesModalList.replaceChildren();
-  const currentTrack = bindings.currentTrack();
-  const currentPage =
-    currentTrack?.bvid.toLowerCase() === String(video.bvid).toLowerCase()
-      ? bindings.currentPage()
-      : null;
-
-  for (const page of pages) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    const isCurrent = currentPage?.cid === page.cid;
-    const isDisabled = isPageDisabled(library.disabledPages, video.bvid, page.cid);
-    item.classList.toggle("is-disabled", isDisabled);
-    button.type = "button";
-    button.className = "pages-list-button";
-    button.classList.toggle("is-current", isCurrent);
-    button.textContent =
-      `${page.page} · ${page.part || `第 ${page.page} P`} · ` +
-      `${formatDuration(page.durationSeconds)}${isCurrent ? " · 当前" : ""}`;
-    if (isCurrent) {
-      button.setAttribute("aria-current", "true");
-    }
-    button.addEventListener("click", () => {
-      bindings.playPage(page);
-    });
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "pages-disable-button";
-    toggle.innerHTML = isDisabled
-      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>'
-      : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg>';
-    toggle.title = isDisabled ? "恢复" : "不想听";
-    toggle.setAttribute("aria-label", toggle.title);
-    toggle.disabled = pending;
-    toggle.setAttribute("aria-busy", String(pending && (pendingCid === null || pendingCid === page.cid)));
-    toggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      void bindings.changeDisabledPages(video.bvid, page.cid, !isDisabled);
-    });
-    item.append(button, toggle);
-    pagesModalList.append(item);
+  if (!pagesListRegion) {
+    pagesModalList.replaceChildren();
+    pagesListRegion = createSyncRegion(pagesModalList, PagesList);
   }
+  const currentTrack = bindings.currentTrack();
+  // Preserve the old replaceChildren contract, including detaching previously focused rows.
+  const props = { key: ++pagesListRenderVersion, modal: state.modal,
+    disabledPages: library.disabledPages, pending: library.disabledPagePending,
+    currentBvid: currentTrack?.bvid ?? null, currentCid: currentTrack?.bvid.toLowerCase() === bvidKey ? bindings.currentPage()?.cid ?? null : null,
+    onPlay: bindings.playPage, onToggle: bindings.changeDisabledPages } satisfies InstanceType<typeof PagesList>["$props"];
+  pagesListRegion.update(props);
   if (hadFocus) pagesModalClose.focus({ preventScroll: true });
 }
 

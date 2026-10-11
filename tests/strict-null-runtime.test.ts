@@ -150,27 +150,6 @@ test("page count observer disconnect handling preserves native unobserve and ign
   assert.deepEqual(removed, [item]);
 });
 
-test("pages modal rendering preserves page selection and ignores a missing private context", () => {
-  const list = runtimeElement(), page = { page: 1, cid: 10, part: "第一P", durationSeconds: 60 }, selections: { startPage: unknown; pages: unknown[] }[] = [];
-  list.children.push("unchanged");
-  const context = createQueueContext({ pagesModalContext: null, pagesModalList: list,
-    libraryState: { disabledPagePending: new Map(), disabledPages: new Map() },
-    document: { activeElement: null, createElement: runtimeElement },
-    pagesModalStatus: runtimeElement(), pagesModalRestoreAll: runtimeElement(), pagesModalTitle: {}, pagesModalSub: {}, pagesModalClose: runtimeElement(),
-    currentPlayableTrack: () => null, currentVideoPage: () => null, isPageDisabled: () => false, formatDuration: () => "1:00",
-  });
-  context.closePagesModal = () => { context.pagesModalContext = null; };
-  vm.runInContext(slice("pages-view.ts", "function renderPagesModal(", "function renderPagesSnapshot("), context);
-  context.renderPagesModal({ modal: context.pagesModalContext }, context.libraryState, { currentTrack: context.currentPlayableTrack, currentPage: context.currentVideoPage, playPage: (selected: unknown) => { const modal = context.pagesModalContext; context.closePagesModal(); modal?.onPlay({ startPage: selected, pages: modal.pages }); } });
-  assert.deepEqual(list.children, ["unchanged"]);
-  context.pagesModalContext = { video: { bvid: "BV", title: "视频" }, videos: 1, pages: [page], onPlay: (selection: { startPage: unknown; pages: unknown[] }) => selections.push(selection) };
-  context.renderPagesModal({ modal: context.pagesModalContext }, context.libraryState, { currentTrack: context.currentPlayableTrack, currentPage: context.currentVideoPage, playPage: (selected: unknown) => { const modal = context.pagesModalContext; context.closePagesModal(); modal?.onPlay({ startPage: selected, pages: modal.pages }); } });
-  assert.equal(list.children.length, 1);
-  ((list.children[0] as unknown as RuntimeElement).children[0] as RuntimeElement).listeners.click();
-  assert.equal(selections[0].startPage, page);
-  assert.equal(selections[0].pages[0], page);
-  assert.equal(context.pagesModalContext, null);
-});
 
 test("current pages opener forwards the selected page from its modal callback", () => {
   const page = { cid: 10 }, played: unknown[] = [];

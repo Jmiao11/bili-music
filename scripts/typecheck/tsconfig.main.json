@@ -55,6 +55,7 @@
     "../../ui/mini-player-host.ts",
     "../../ui/playback-mini-view.ts",
     "../../ui/vue/use-app-state.ts",
-    "../../ui/vue/sync-region.ts"
+    "../../ui/vue/sync-region.ts",
+    "../../ui/components/PagesList.vue"
   ]
 }

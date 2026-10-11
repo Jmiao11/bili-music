@@ -143,6 +143,12 @@
     "../../scripts/vue/infra-guard.ts",
     "../../tests/vue-infrastructure.test.ts",
     "../../tests/dom/vue-infrastructure.dom.ts",
-    "../../tests/fixtures/vue/infra.ts"
+    "../../tests/fixtures/vue/infra.ts",
+    "../../tests/helpers/vue-renderer-boundary.ts",
+    "../../tests/dom/pages-null.dom.ts",
+    "../../tests/dom/pages-runtime.ts",
+    "../../tests/dom/pages-list.dom.ts",
+    "../../tests/dom/pages-toggle.dom.ts",
+    "../../tests/pages-vue-boundary.test.ts"
   ]
 }

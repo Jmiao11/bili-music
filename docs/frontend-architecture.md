@@ -413,7 +413,7 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 
 本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，原有全部 canary 继续执行。
 
-GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 分别验证响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 通过同步投影和原控制器保持 action 返回前的旧 DOM、disabled 与焦点契约，等账号恢复、积累提交推送和双平台 CI 全部通过后再开始。
+GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 分别验证响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 通过同步投影和原控制器保持 action 返回前的旧 DOM、disabled 与焦点契约，按用户 2026-10-11 补充决定，vue-3 及后续批次按纯本地流程开展，远程 CI 待账号恢复后补验。
 
 
 ## vue-2b 读取与同步渲染基础设施
@@ -445,4 +445,26 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 | 写 selected.value.requestVersion / selected.value | npm run typecheck 的 vue-tsc 产生 TS2540 |
 | 修改只读 Map / reader.actions | npm run typecheck 的 vue-tsc 产生 TS2339 |
 
-本地十项、CRLF 与双 Node 两组、CI workflow 的适用 run 步骤、原全部 canary、G0 和 7 产物同环境逐字节比较均需完成；远程 CI 为“待账号恢复后补验”。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，之后停在 vue-2b，账号恢复且积累提交推送并通过双平台 CI 才能启动 vue-3。
+本地十项、CRLF 与双 Node 两组、CI workflow 的适用 run 步骤、原全部 canary、G0 和 7 产物同环境逐字节比较均需完成；远程 CI 为“待账号恢复后补验”。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，历史批次的推进上限由用户 2026-10-11 补充决定取消，后续批次按纯本地流程开展。
+
+## vue-3 分P列表渲染
+
+用户 2026-10-11 明确授权本批按纯本地流程执行，覆盖此前停在 vue-2b 的推进上限；不访问 GitHub。本批一个提交，等待新的手测与本地 fast-forward 授权。远程 Windows/macOS CI 待账号恢复后补验；真实 macOS 环境由用户运行测试及 WebView 手测，不能用同机平台配置构建代替。
+
+仅 ui/pages-view.ts 的列表循环替换为 ui/components/PagesList.vue。首个打开投影先清空旧列表，再建立独占同步区域并公开 render；后续投影显式 update，使用递增 key 保留旧整批替换行为，随后在同一流程恢复关闭按钮焦点。打开 RAF、关闭/transitionend、Tab、查询、版本丢弃与偏好保存仍在旧模块。组件只接深只读 modal/集合、当前播放标识和两个控制器回调；复用 styles.css，无 scoped 样式。禁用页播放按钮仍可点击，控制器先关闭再播放。
+
+安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包 G0 继续核对 154/70。原安装前其他领域测试不得被误写成 Vue 运行时验证。
+
+两个分P冻结测试 SHA256 保持 vue-2a 的值。用户单项批准原 strict-null-runtime 空上下文测试迁入安装后组：第一条 assert.deepEqual(list.children, ["unchanged"]) 适配为 assert.deepEqual(Array.from(list.childNodes, node => node.textContent), ["unchanged"])，其余四条原文、原测试名及五条各一次保持。授权来自 2026-10-11 本任务的用户回复；本批业务断言等价适配 1，删除 0，不能写成改变 0。
+
+新增九个旧 renderer 状态矩阵覆盖空、单页、多页、当前页、禁用页、两种保存项、全部恢复、BV 大小写不同。基线由本地 master 3c21c42 的真实 renderer 配合 jsdom 生成，innerHTML 原文保留；Vue 仅在列表首尾各增加一个不可见空文本 Fragment 锚点，无注释或其他差异。当前安装前 618，安装后 42（包含矩阵父测试及九个子测试、惰性同步投影、完整流程 Vue 警告、禁用按钮接线及冒泡测试）；两组文件清单、默认 Node 实际发现文件与逐断言计数保存到仓库外。
+
+验证仍按十项、CRLF、两种 Node 两组、CI run 步骤对等、全部 canary 与本批八项变异执行。首次引入 Vue 导致主 ESM 包变化，与 master 的七产物字节一致口径不适用；体积增量报告在外部验证目录。同机 windows/darwin 两种配置分别构建，七产物路径、数量与内容哈希仍须完全一致；AST eval/new Function 均为零。真实 Windows/macOS 手测另核对主题、Tab、焦点、scrollIntoView、RAF、transitionend、单/双击与禁用偏好同步状态，不把 jsdom 结果写成真实 WebView 通过。
+
+vue-3 补充验收：tests/dom/pages-toggle.dom.ts 以原生 click 验证第 1P 禁用/恢复的精确 command、cid=11、单次调用、保存中禁止点击、弹窗保持打开及全部恢复；列表矩阵另直接计数 onToggle 回调，避免控制器的 pending 守卫掩盖重复回调。冒泡观察器区分 @click.stop 的效果；完整打开→禁用→恢复→播放关闭流程不得收集 Vue 警告。
+
+安装前冷入口使用精确登记的编译器边界，不提供业务 renderer 替身；跨越边界先增加全局尝试计数再抛错。node:test afterEach 在真正解析过冷边界的测试结束时断言尝试次数为 0，恢复计数全局属性并注销加载钩子，防止 store 隔离订阅异常使测试空过。边界自身的反例测试显式消费并验证预期的 1 次尝试；真实 DOM 组编译真实源码，不触发此冷边界，冻结测试断言次数保持不变。
+
+补充变异均在仓库外副本运行全量 node --test 和 test:dom：禁用布尔取反错误、cid 改为 page.page、双重 onToggle、删除 @click、删除组件 key 递增、焦点来源读取移到 render 后、清理宿主移到 createSyncRegion 后、删除 .stop；所有要求的非等价变异必须被业务行为测试抓到。冷入口 canary 让现有安装前测试打开弹窗，必须使 node --test 非零退出；恢复后全部通过。
+
+用户 2026-10-11 已取消等待远程 CI 才能推进下一批的阻塞。GitHub 暂停期间后续批次均走本地流程，验收标准不降低；每批合并前由用户在 Windows 与 Mac 手测，并在 Mac 执行 npm ci && node --test && npm run test:dom && npm run typecheck && npm run verify:dist && cargo test --workspace。远程 Windows/macOS CI 待账号恢复后补验；此决定不自动授予手测、合并或发布权限。隐藏的“全部恢复”按钮 Tab 行为另开批次处理，本批保留 keepFocusInPagesModal 及冻结真实 DOM 测试第 69、74 行。

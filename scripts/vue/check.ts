@@ -10,6 +10,7 @@ const readerFixture = "tests/fixtures/vue/StoreReader.vue";
 const vueImports: Record<string, string[]> = {
   "scripts/vue/check.ts": ["vue/compiler-sfc"],
   "tests/dom/vue-smoke.dom.ts": ["vue"],
+  "tests/dom/pages-runtime.ts": ["vue"],
   "tests/fixtures/vue/infra.ts": ["vue"],
   "ui/vue/use-app-state.ts": ["vue"],
   "ui/vue/sync-region.ts": ["vue"],

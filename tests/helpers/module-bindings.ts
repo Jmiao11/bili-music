@@ -1,9 +1,9 @@
 import { topLevelStatements, maskCommentsAndStrings } from "./js-source.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 
-function topLevelNames(source: string, file = "source.js") {
+function topLevelNames(source: string, file = "source.js", grammarFile = file) {
   const names = new Set<string>();
-  for (const statement of topLevelStatements(stripModuleSyntax(source, file))) {
+  for (const statement of topLevelStatements(stripModuleSyntax(source, file, grammarFile))) {
     const name = /^(?:(?:async\s+)?function|class|const|let|var)\s+([\w$]+)/.exec(statement.code);
     if (name) names.add(name[1]);
     else if (/^(?:const|let)\s*\{/.test(statement.code)) {
@@ -19,8 +19,8 @@ function topLevelNames(source: string, file = "source.js") {
 }
 
 // Ratchet for current sources; local collisions must be explicitly reviewed by tests.
-function references(source: string, file = "source.js") {
-  const code = maskCommentsAndStrings(stripModuleSyntax(source, file));
+function references(source: string, file = "source.js", grammarFile = file) {
+  const code = maskCommentsAndStrings(stripModuleSyntax(source, file, grammarFile));
   const names = new Set<string>();
   for (const match of code.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
     const before = code.slice(0, match.index).trimEnd();

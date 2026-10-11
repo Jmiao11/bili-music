@@ -4,6 +4,10 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { JSDOM } from "jsdom";
+import { build } from "vite";
+import vue from "@vitejs/plugin-vue";
+import { vueFeatureFlags } from "../../scripts/vue/features.ts";
+import { vueRendererImports, disposeColdRendererBoundary } from "../helpers/vue-renderer-boundary.ts";
 import { collectModuleGraph } from "../helpers/module-graph.ts";
 
 const track = (i: number) => ({ bvid: "BV" + String(i).padStart(10, "0"), title: "曲目" + i, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, addedAt: "2026-01-01" });
@@ -48,12 +52,15 @@ async function fixture() {
     unobserve(target: Element) { observed.delete(target); platform.push({ operation: "unobserve", target }); }
     disconnect() { observed.clear(); platform.push({ operation: "disconnect" }); }
   }
-  const descriptors = new Map<string, PropertyDescriptor | undefined>();
+  const descriptors = new Map<string, PropertyDescriptor | undefined>([["__VUE__", Object.getOwnPropertyDescriptor(globalThis, "__VUE__")]]);
+  let disposeVue: (() => void) | undefined;
   const install = (name: string, value: unknown) => {
     descriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
     Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
   };
   const bridge = {
+    regions: 0,
+    regionCreated() { this.regions++; platform.push({ operation: "createSyncRegion" }); },
     current: track(1), pages: meta.pages.map(page => ({ ...page, durationSeconds: page.duration })), played: [] as unknown[],
     playObservations: [] as { selection: unknown; hidden: boolean; open: boolean; ariaHidden: string | null; modal: unknown; focus: Element | null }[],
     invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args, at: now }); return reply(command, args); },
@@ -70,10 +77,11 @@ async function fixture() {
   window.clearTimeout = (id: number) => { timers.delete(id); platform.push({ operation: "clearTimeout", detail: id }); };
   window.requestAnimationFrame = callback => { const id = ++serial; frames.set(id, callback); platform.push({ operation: "requestAnimationFrame", detail: id }); return id; };
   window.cancelAnimationFrame = id => { frames.delete(id); platform.push({ operation: "cancelAnimationFrame", detail: id }); };
-  for (const [name, value] of Object.entries({ __pagesFixture: bridge, window, document: doc, HTMLElement: window.HTMLElement, localStorage: window.localStorage, performance: { now: () => now }, requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame })) install(name, value);
+  for (const [name, value] of Object.entries({ __pagesFixture: bridge, window, document: doc, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, localStorage: window.localStorage, performance: { now: () => now }, requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame })) install(name, value);
   const warnings: unknown[][] = [], originalWarn = console.warn;
   console.warn = (...args: unknown[]) => { warnings.push(args); };
   const dispose = () => {
+    disposeColdRendererBoundary(); disposeVue?.();
     for (const listener of listeners) listener.target.removeEventListener(listener.type, listener.callback, listener.options);
     listeners.length = 0; timers.clear(); frames.clear(); observed.clear(); window.close(); console.warn = originalWarn;
     for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
@@ -101,11 +109,25 @@ async function fixture() {
       const bodies: Record<string, string> = { currentPlayableTrack: 'return globalThis.__pagesFixture.current;', currentVideoPage: 'return globalThis.__pagesFixture.pages[0];', hasMultipleCurrentPages: 'return globalThis.__pagesFixture.pages.length > 1;', playCurrentVideoPage: 'globalThis.__pagesFixture.onPlay(arguments[0]);', isLoudnessNormalizationEnabled: 'return false;' };
       fs.writeFileSync(path.join(root, name), exports.map(x => 'function '+x+'() {'+(bodies[x] ?? '')+'}').join("\n")+'\nexport { '+exports.join(", ")+' };');
     }
-    await import(pathToFileURL(path.join(root, "main.ts")).href);
-    const nodes = await import(pathToFileURL(path.join(root, "player-dom.ts")).href) as PageNodes;
-    const pages = await import(pathToFileURL(path.join(root, "video-pages.ts")).href) as Pages;
-    const library = await import(pathToFileURL(path.join(root, "library-ui.ts")).href) as { loadLibrary(): Promise<void> };
-    const home = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): Store };
+    for (const entry of vueRendererImports) {
+      const name = path.posix.normalize(path.posix.join(path.posix.dirname(entry.file), entry.specifier));
+      if (!tracked.has("ui/" + name)) throw Error(`Untracked renderer source: ${name}`);
+      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+      fs.copyFileSync(path.join(source, name), path.join(root, name));
+    }
+    const syncFile = path.join(root, "vue/sync-region.ts");
+    const syncSource = fs.readFileSync(syncFile, "utf8");
+    const signature = /function createSyncRegion[^\n]+\{/;
+    if (!signature.test(syncSource)) throw Error("Missing real region constructor for call tracing");
+    fs.writeFileSync(syncFile, syncSource.replace(signature, "$& globalThis.__pagesFixture.regionCreated();"));
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./main.ts"; export * as nodes from "./player-dom.ts"; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
+    await build({ configFile: false, root, plugins: [vue()], logLevel: "silent", define: vueFeatureFlags,
+      resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
+      build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } },
+    });
+    const compiled = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as { nodes: PageNodes; pages: Pages; library: { loadLibrary(): Promise<void> }; home: { getApplicationStore(): Store }; disposeVue(): void };
+    const { nodes, pages, library, home } = compiled;
+    disposeVue = compiled.disposeVue;
     const store = home.getApplicationStore(); store.actions.playbackSession.setCurrentPages(bridge.pages);
     bridge.onPlay = selection => {
       bridge.playObservations.push({ selection, hidden: Boolean(nodes.pagesModal.hidden), open: nodes.pagesModal.classList.contains("is-open"), ariaHidden: nodes.pagesModal.getAttribute("aria-hidden"), modal: pages.getPagesSnapshot().modal, focus: doc.activeElement });

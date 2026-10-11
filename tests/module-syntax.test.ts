@@ -16,11 +16,11 @@ test("module syntax stripping preserves ordinary source bytes", () => {
   }
 });
 
-function assertModuleLines(source: string) {
+function assertModuleLines(source: string, file = "source.js") {
   const original = source.split(/\r?\n/);
-  const stripped = stripModuleSyntax(source).split(/\r?\n/);
+  const stripped = stripModuleSyntax(source, "source.js", file).split(/\r?\n/);
   const syntaxLines = new Set();
-  for (const declaration of moduleDeclarations(source)) {
+  for (const declaration of moduleDeclarations(source, "source.js", file)) {
     const first = source.slice(0, declaration.start).split("\n").length - 1;
     const last = source.slice(0, declaration.end).split("\n").length - 1;
     for (let line = first; line <= last; line++) syntaxLines.add(line);
@@ -37,7 +37,7 @@ test("module stripping changes only declaration lines and preserves every other 
   assertModuleLines(source.replace(/\n/g, "\r\n"));
   const ui = path.join(import.meta.dirname, "../ui");
   for (const name of collectBusinessScripts(ui).modules) {
-    assertModuleLines(stripTypes(fs.readFileSync(path.join(ui, name), "utf8"), name));
+    assertModuleLines(stripTypes(fs.readFileSync(path.join(ui, name), "utf8"), name), "ui/" + name);
   }
 });
 

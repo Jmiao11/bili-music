@@ -12,7 +12,7 @@ test("Vue infrastructure is precisely registered and absent from the product ent
   const graph = collectBusinessScripts(path.join(root, "ui"));
   for (const file of vueInfrastructure) {
     assert.ok(main.files.includes(`../../ui/${file}`));
-    assert.ok(!graph.files.includes(file), `${file}: not mounted in the product`);
+    assert.equal(graph.rendererFiles?.includes(file) ?? false, file === "vue/sync-region.ts", `${file}: approved product compiler boundary`);
   }
 });
 

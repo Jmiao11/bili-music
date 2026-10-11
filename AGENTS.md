@@ -54,8 +54,8 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 - 精确依赖：运行时 vue 3.5.43；开发依赖 @vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、typescript 6.0.3、vue-tsc 3.3.12。Vite 保持 8.3.2；不引入 Vitest、Pinia 或其他状态库。
 - 全项目统一 TypeScript 6.0.3：vue-tsc 暂不支持 TS 7，待 Vue 官方工具支持后再统一升级。main 由根目录官方 vue-tsc CLI 检查，mini/node 由根目录 tsc 检查；不建 tools/vue-typecheck。strict、erasableSyntaxOnly、isolatedModules 等选项不得放宽，不生成 any 声明，不用宽泛 declare module '*.vue'。
-- 安装前组沿用 node --test；安装后组使用 npm run test:dom。scripts/tests/groups.ts 精确登记安装后文件并核对所有测试归属，安装前组及其本地依赖不得导入第三方包。安装后统一使用 tests/dom/*.dom.ts，禁止登记会被 node --test 默认发现的 *.test.ts；当前包含原十个分P特征、八个真实 DOM 基线、一个 SFC 冒烟测试及八个 Vue 基础设施测试。
-- Vue 导入仅按 scripts/vue/check.ts 的精确文件与包名登记；产品 SFC 默认导入目标限 ui/components/，测试例外限登记的基础设施与 tests/fixtures/vue/ToolchainSmoke.vue。Vue 基础设施仅精确登记 ui/vue/use-app-state.ts 与 ui/vue/sync-region.ts；产品入口不导入它们，不挂载任何产品组件。StoreReader.vue 只登记为类型检查 fixture，默认导入例外仍只限原冒烟测试。组件不得访问 window、__TAURI__、invoke、actions，只经 props 与回调交互；生产 JS（含内联脚本）直接 eval 与 new Function 的 AST 计数必须均为 0。
+- 安装前组沿用 node --test；安装后组使用 npm run test:dom。scripts/tests/groups.ts 精确登记安装后文件并核对所有测试归属，安装前组及其本地依赖不得导入第三方包。安装后统一使用 tests/dom/*.dom.ts，禁止登记会被 node --test 默认发现的 *.test.ts；当前包含原十个分P特征、八个真实 DOM 基线、一个 SFC 冒烟测试、八个 Vue 基础设施测试、一个获授权迁移的空上下文测试及九个列表矩阵子测试（含一个父测试）。
+- Vue 导入仅按 scripts/vue/check.ts 的精确文件与包名登记；产品 SFC 默认导入目标限 ui/components/，测试例外限登记的基础设施与 tests/fixtures/vue/ToolchainSmoke.vue。Vue 基础设施仅精确登记 ui/vue/use-app-state.ts 与 ui/vue/sync-region.ts；vue-3 仅由 pages-view.ts 导入 PagesList.vue 与 sync-region.ts，第一次打开分P弹窗才创建同步区域；use-app-state.ts 仍不接产品，其他区域不挂载组件。StoreReader.vue 只登记为类型检查 fixture，默认导入例外仍只限原冒烟测试。组件不得访问 window、__TAURI__、invoke、actions，只经 props 与回调交互；生产 JS（含内联脚本）直接 eval 与 new Function 的 AST 计数必须均为 0。
 - 推进顺序：vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。分P使用 Vue 公开 render()；vue-2b 分别刻画响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 必须在 store action 返回前保持旧 DOM、disabled 与焦点契约，不能默认普通响应式更新同步。
 - useAppState 只接收 getState/subscribe reader，返回 shallowReadonly(shallowRef)；选择器返回稳定引用或标量，继承 store 的 DeepReadonly，Object.is 未变化不写入，作用域释放取消订阅。它同步更新 ref，DOM 默认到 nextTick 才更新。vue-3 的分P同步投影必须显式调用 createSyncRegion.update(props)，不能以订阅响应式更新替代；render 后由原控制器同步处理焦点，Vue 不自动恢复替换节点的焦点。
 - createSyncRegion 只用公开 h/render，首个 update 才渲染，宿主独占，卸载后 update 报错。按用户 2026-10-11 补充批准，创建时要求并校验空宿主，首次 update 前卸载不创建渲染器；vue-3 由原控制器先清理旧区域再创建区域。卸载清空宿主并由组件 onUnmounted/onScopeDispose 清理 store 订阅和外部监听；Vue 保留在被外部持有的脱离节点上的原生监听必须如实刻画，不宣称全部移除。开发 render 异常会抛出，store 订阅边界仍按现有机制报告；生产默认 console.error。
@@ -80,11 +80,11 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - vue-1a 遗留的 all-canaries/canary-copy 已由用户手动删除；2026-10-11 已核查原路径不存在，清理完成。
 - GitHub 账号暂停期间只走本地流程，直到用户通知恢复：不 fetch、不推送、不创建或查询 PR、不查询 CI，不使用 gh、GitHub 插件、其他凭证或接口。每批按“本地分支 → 全部本地验收 → 仓库外报告 → 用户回复手测通过，允许合并 → 本地 fast-forward 合并”执行；远程 CI 一律标注“待账号恢复后补验”。此规则优先于下文远程工作流。
 - 合并前核对 master、任务分支 HEAD、工作区和祖先关系；只有指定提交一致且 master 可 fast-forward 才合并。分叉、非预期修改或提交不一致即停止，不自动 rebase、reset --hard 或覆盖本地历史。下一批从合并后的本地 master 建分支。
-- 本地最多推进到 vue-2b。账号恢复后先核查本地 master、远程 master 与 PR #61 的实际状态，再决定推送与 PR 收尾；不得预认直接推送 master 会使 PR 自动标记合并。vue-3 必须等积累提交推送且 Windows/macOS CI 全部通过后才能开始。
+- 用户 2026-10-11 已取消“等远程 CI 通过才能开始下一批”的阻塞；GitHub 账号暂停期间，vue-3 及后续批次都按纯本地流程开展，本地验收标准不降低；每批合并前由用户在 Windows 与 Mac 上手测，并在 Mac 上运行 `npm ci && node --test && npm run test:dom && npm run typecheck && npm run verify:dist && cargo test --workspace`；远程 Windows/macOS CI 登记为待账号恢复后补验；此规则不自动授予任何批次的手测、合并或发布权限。账号恢复后先核查本地 master、远程 master 与 PR #61 的实际状态，再决定推送与 PR 收尾；不得预认直接推送 master 会使 PR 自动标记合并。
 
 ## 验收口径
 
-- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-2b 实测安装前 617 个测试、安装后 27 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8）；以后仍须重新实测。
+- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-3 当前安装前 618 个测试、安装后 42 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8、授权迁移 1、矩阵 9 个子测试及 1 个父测试、惰性同步投影 1、完整流程 Vue 警告 1、禁用按钮接线及冒泡 2）；以后仍须重新实测。
 - 每批完成原 CRLF 四项并增加 test:dom：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、test:dom、typecheck、verify:dist。安装前 Node 测试必须在安装依赖之前运行；package-lock.json 等候选文本也要检查换行。
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
 - Node 22.18.0 与 22.23.3 各运行完整安装前与安装后两组测试，原测试名及重复次数全部保留并通过，新增测试名单列。
@@ -134,3 +134,10 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 用户明确回复“手测通过，允许合并”前，不合并master、不删除远程分支、不提前开始下一批实现。
 - 获授权后再次确认PR双平台CI通过且对应分支最新提交，git fetch后核对本地master与origin/master完全一致且无未推送提交；不一致停止。git switch master，git merge --ff-only <任务分支>，git push；不能fast-forward就停止。确认远程master包含提交、PR显示已合并后，才从最新master创建下一批分支，然后等待下一份任务。
 - 本次7a/7b的顺序按用户明确指令：7b包含7a三个提交、共同祖先为当前master；先处理7a，再处理7b的推送与Draft PR。7b描述开头注明依赖7a；若7a已合并则复用原PR并如实说明当前diff。两个PR的双平台CI完成后等待手测；获得授权后依序核对并fast-forward合并，全部完成才创建refactor/state-7c并停止。
+
+## vue-3 分P列表边界
+
+- PagesList.vue 只渲染列表内部 li 与两个按钮，继续复用既有样式；外壳、控制器、查询/请求版本、禁用保存和全部恢复逻辑保持原模块。同步投影调用 createSyncRegion.update，整批替换列表节点后原入口同步应用焦点规则；RAF 打开焦点规则保持原样。只读 props 与回调交互，不引入 store 订阅路径。
+- 安装前业务模块图把 pages-view.ts 的两个精确编译边界另列为 rendererFiles；不在无依赖环境解释 SFC 或导入 Vue。冷入口测试的精确临时模块解析边界一旦尝试创建区域便抛错，不能模拟渲染成功；安装后 fixture 经 Vite 编译真实模块和组件，生产 G0 再用真实产物核对。其他模块语法与导入规则不放宽。
+- 用户 2026-10-11 单项授权：strict-null-runtime 中空 modal 测试迁到 tests/dom/pages-null.dom.ts；仅将 children 数组断言等价适配为读取真实 childNodes 文本，其余四条业务断言原文、测试名与五条各执行一次保持。报告明确登记这一项业务断言适配；两个分P冻结文件和 G0 fixture 不改。
+- 九个真实旧 renderer 状态矩阵由 master 3c21c42 生成，记录于 pages-list-baseline.json；新列表 innerHTML 完全相同，Vue Fragment 仅增加宿主首尾两个空文本锚点。首次引入 Vue 后与 master 的产物字节比较不再适用，但同机 windows/darwin 配置的七产物字节一致检查继续保留；真实 macOS 测试与 WebView 手测另由用户执行，远程 CI 待账号恢复后补验。

@@ -1,0 +1,367 @@
+[
+  {
+    "name": "empty",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 0,
+      "pages": [],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "",
+    "childNodeKinds": []
+  },
+  {
+    "name": "single",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 1,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "multiple",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "current",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [],
+    "currentBvid": "BV0000000001",
+    "currentCid": 22,
+    "innerHTML": "<li><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button is-current\" aria-current=\"true\">2 · 第 2 P · 1:30 · 当前</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "disabled",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [
+      11
+    ],
+    "pending": [],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li class=\"is-disabled\"><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"恢复\" aria-label=\"恢复\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "saving first",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [
+      11
+    ],
+    "pending": [
+      11
+    ],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li class=\"is-disabled\"><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"恢复\" aria-label=\"恢复\" disabled=\"\" aria-busy=\"true\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" disabled=\"\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "saving second",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [
+      22
+    ],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" disabled=\"\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" disabled=\"\" aria-busy=\"true\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "restore all",
+    "modal": {
+      "video": {
+        "bvid": "BV0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [
+      11,
+      22
+    ],
+    "pending": [
+      null
+    ],
+    "currentBvid": null,
+    "currentCid": null,
+    "innerHTML": "<li class=\"is-disabled\"><button type=\"button\" class=\"pages-list-button\">1 · 一 · 1:00</button><button type=\"button\" class=\"pages-disable-button\" title=\"恢复\" aria-label=\"恢复\" disabled=\"\" aria-busy=\"true\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg></button></li><li class=\"is-disabled\"><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"恢复\" aria-label=\"恢复\" disabled=\"\" aria-busy=\"true\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"></path><path d=\"M3 3v5h5\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  },
+  {
+    "name": "case insensitive BV",
+    "modal": {
+      "video": {
+        "bvid": "bv0000000001",
+        "title": "视频"
+      },
+      "videos": 2,
+      "pages": [
+        {
+          "page": 1,
+          "cid": 11,
+          "part": "一",
+          "durationSeconds": 60
+        },
+        {
+          "page": 2,
+          "cid": 22,
+          "part": "",
+          "durationSeconds": 90
+        }
+      ],
+      "error": "",
+      "version": 1
+    },
+    "disabled": [],
+    "pending": [],
+    "currentBvid": "BV0000000001",
+    "currentCid": 11,
+    "innerHTML": "<li><button type=\"button\" class=\"pages-list-button is-current\" aria-current=\"true\">1 · 一 · 1:00 · 当前</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li><li><button type=\"button\" class=\"pages-list-button\">2 · 第 2 P · 1:30</button><button type=\"button\" class=\"pages-disable-button\" title=\"不想听\" aria-label=\"不想听\" aria-busy=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M5.6 18.4 18.4 5.6\"></path></svg></button></li>",
+    "childNodeKinds": [
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      },
+      {
+        "type": 1,
+        "name": "LI",
+        "text": null
+      }
+    ]
+  }
+]
