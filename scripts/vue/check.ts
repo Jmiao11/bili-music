@@ -3,11 +3,16 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { compileTemplate, parse } from "vue/compiler-sfc";
+import { checkVueInfrastructureFiles } from "./infra-guard.ts";
 
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
+const readerFixture = "tests/fixtures/vue/StoreReader.vue";
 const vueImports: Record<string, string[]> = {
   "scripts/vue/check.ts": ["vue/compiler-sfc"],
   "tests/dom/vue-smoke.dom.ts": ["vue"],
+  "tests/fixtures/vue/infra.ts": ["vue"],
+  "ui/vue/use-app-state.ts": ["vue"],
+  "ui/vue/sync-region.ts": ["vue"],
 };
 function inspect(source: string, file: string, visit: (node: ts.Node) => void) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
@@ -63,7 +68,7 @@ function checkRepository(root: string) {
       if (entry.isDirectory()) {
         if (!["node_modules", "dist", "target", ".git"].includes(entry.name)) visit(absolute);
       } else if (file.endsWith(".vue")) {
-        assert.ok(file.startsWith("ui/components/") || file === fixture, `Unregistered SFC file: ${file}`);
+        assert.ok(file.startsWith("ui/components/") || file === fixture || file === readerFixture, `Unregistered SFC file: ${file}`);
         checkSfc(fs.readFileSync(absolute, "utf8"), file);
       } else if (file.endsWith(".ts")) checkImports(fs.readFileSync(absolute, "utf8"), file);
     }
@@ -80,4 +85,5 @@ for (const expression of ["window.location", "window.__TAURI__", "invoke('x')", 
   assert.throws(() => checkSfc(`<template><button>{{ ${expression} }}</button></template>`, fixture), /forbidden component access/);
 }
 checkRepository(path.resolve(import.meta.dirname, "../.."));
+checkVueInfrastructureFiles(path.resolve(import.meta.dirname, "../.."));
 console.log("PASS Vue import and SFC content guards");

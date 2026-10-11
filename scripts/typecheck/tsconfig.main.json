@@ -53,6 +53,8 @@
     "../../ui/playback-diagnostics.ts",
     "../../ui/lyrics.ts",
     "../../ui/mini-player-host.ts",
-    "../../ui/playback-mini-view.ts"
+    "../../ui/playback-mini-view.ts",
+    "../../ui/vue/use-app-state.ts",
+    "../../ui/vue/sync-region.ts"
   ]
 }

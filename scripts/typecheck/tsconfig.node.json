@@ -138,6 +138,11 @@
     "../../tests/helpers/startup-api-fixture.ts",
     "../../tests/startup-api-fixture.test.ts",
     "../../tests/startup-esm-architecture.test.ts",
-    "../../ui/playback-mini-view.ts"
+    "../../ui/playback-mini-view.ts",
+    "../../scripts/vue/features.ts",
+    "../../scripts/vue/infra-guard.ts",
+    "../../tests/vue-infrastructure.test.ts",
+    "../../tests/dom/vue-infrastructure.dom.ts",
+    "../../tests/fixtures/vue/infra.ts"
   ]
 }

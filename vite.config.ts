@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import { vueFeatureFlags } from "./scripts/vue/features.ts";
 import { preserveHtmlScripts, ordinaryTypeScriptScripts } from "./scripts/vite/preserve-html.ts";
 
 const ui = fileURLToPath(new URL("./ui/", import.meta.url));
@@ -12,6 +13,7 @@ export default defineConfig({
   publicDir: false,
   clearScreen: false,
   plugins: [preserveHtmlScripts(), ordinaryTypeScriptScripts(), vue()],
+  define: vueFeatureFlags,
   server: {
     port: 1420,
     strictPort: true,

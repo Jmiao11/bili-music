@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { build } from "vite";
 import { JSDOM } from "jsdom";
 import type { Component } from "vue";
+import { vueFeatureFlags } from "../../scripts/vue/features.ts";
 
 test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in jsdom", async () => {
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "bili-vue-smoke-"));
@@ -21,6 +22,7 @@ test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in 
       configFile: false,
       root: path.resolve(import.meta.dirname, "../.."),
       plugins: [vue()],
+      define: vueFeatureFlags,
       logLevel: "silent",
       build: {
         outDir: output,

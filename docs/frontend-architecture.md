@@ -163,7 +163,7 @@ vue-1a 统一使用 TypeScript 6.0.3，原因是 vue-tsc 3.3.12 暂不支持 TS 
 
 TypeScript 6.0.3 与 Vite 8.3.2 均为开发依赖，精确版本写入 package.json 与 package-lock.json；package 的 type 固定为 module，Node 脚本和测试使用 ESM，UI 源码的普通脚本与模块边界保持不变。类型检查使用 noEmit，配置和声明都在 ui/ 之外；Tauri 的 frontendDist 为 dist，不包含测试、类型声明或构建配置。scripts/typecheck/tsconfig.node.json 独立检查 Node 脚本和 ESM 测试。
 
-UI 检查有两个独立项目：scripts/typecheck/tsconfig.main.json 的 files 对应 index.html 普通脚本与 app.ts 静态模块图的并集；tsconfig.mini.json 只检查 mini.ts。两者继承 tsconfig.base.json，不让主窗口普通脚本的全局绑定污染迷你窗。主窗口外部接口位于 types/main-window.d.ts，两项目共用 types/tauri.d.ts。新增主窗口脚本后需同步 files；Node 测试会核对 files 与 HTML/模块图。
+UI 检查有两个独立项目：scripts/typecheck/tsconfig.main.json 的 files 对应 index.html 普通脚本与 app.ts 静态模块图的并集，以及精确登记但不接入入口的 vue/use-app-state.ts、vue/sync-region.ts；tsconfig.mini.json 只检查 mini.ts。两者继承 tsconfig.base.json，不让主窗口普通脚本的全局绑定污染迷你窗。主窗口外部接口位于 types/main-window.d.ts，两项目共用 types/tauri.d.ts。新增主窗口脚本后需同步 files；Node 测试会核对 files 与 HTML/模块图。
 
 基础配置为 noEmit、strict:true、allowImportingTsExtensions:true、erasableSyntaxOnly:true、isolatedModules:true，target ES2022、module ESNext、moduleResolution Bundler、moduleDetection legacy，lib 为 ES2023、DOM、DOM.Iterable，types 为空且 skipLibCheck。它保留普通脚本与 ES Module 的现有可见性边界，不把所有文件强制变成模块。
 
@@ -200,7 +200,7 @@ npm run typecheck -- --update
 
 ## 每批验收口径
 
-vue-1a 实测安装前 625 个测试（原 622 个与新增 3 个分组守卫），安装后 1 个冒烟测试。新增测试不替换任何业务断言；原特征测试、sourceSlice 历史例外、播放过渡 fixture 和 G0 文件均保持不变。每批仍须实际运行并核对名称、重复次数与哈希，不能直接沿用本次数字。
+vue-2b 实测安装前 617 个测试、安装后 27 个测试（分P原特征 10、真实 DOM 基线 8、SFC 冒烟 1、Vue 基础设施 8）。新增测试不替换任何业务断言；原特征测试、sourceSlice 历史例外、播放过渡 fixture 和 G0 文件均保持不变。每批仍须实际运行并核对名称、重复次数与哈希，不能直接沿用本次数字。
 
 每个 commit 提交前运行原九项并增加安装后测试：
 
@@ -399,7 +399,7 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 | 安装前依赖 | 安装前守卫测试导入 vue | node --test tests/vue-toolchain.test.ts；第三方导入拒绝 |
 | 测试归属 | tests/dom/ 添加未登记 *.dom.ts | node --test tests/vue-toolchain.test.ts；未分组测试拒绝 |
 
-推进顺序固定为 vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。vue-2b 使用 Vue 公开 render()，必须以真实 DOM 特征测试证明 store action 返回前，DOM、disabled 与焦点已和旧实现一致；不得以普通 Vue 响应式更新默认同步代替验证。Vue 只替代 renderer，读深只读快照、经控制器回调调用 actions；不改 store、命令与控制器逻辑。vue-1b 音量切片例外、vue-1c 播放过渡 fixture 等播放栏迁移时再处理，迷你窗暂不迁移。
+推进顺序固定为 vue-1a → vue-2a（分P真实 DOM 基线）→ vue-2b（store 读取工具与同步渲染）→ vue-3（分P列表试点）。vue-2b 使用 Vue 公开 render()，分别以真实 DOM 测试刻画显式 render 与响应式订阅的更新边界，记录 keyed 复用与替换时的实际焦点；vue-3 再由显式同步投影与原控制器保证 action 返回前保持旧 DOM、disabled 和焦点契约，不得以普通 Vue 响应式更新默认同步代替验证。Vue 只替代 renderer，读深只读快照、经控制器回调调用 actions；不改 store、命令与控制器逻辑。vue-1b 音量切片例外、vue-1c 播放过渡 fixture 等播放栏迁移时再处理，迷你窗暂不迁移。
 
 ## vue-2a 分P真实 DOM 基线
 
@@ -413,4 +413,36 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 
 本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，原有全部 canary 继续执行。
 
-GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 仍须证明公开 Vue render() 在 store action 返回前保持 DOM、disabled 与焦点同步；vue-3 等账号恢复、积累提交推送和双平台 CI 全部通过后再开始。
+GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 分别验证响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 通过同步投影和原控制器保持 action 返回前的旧 DOM、disabled 与焦点契约，等账号恢复、积累提交推送和双平台 CI 全部通过后再开始。
+
+
+## vue-2b 读取与同步渲染基础设施
+
+本批从本地 master 872a8a4 建立 feat/vue-render-infra；不访问 GitHub，不接入产品入口。新增 ui/vue/use-app-state.ts、ui/vue/sync-region.ts，由 scripts/vue/check.ts 精确允许 vue 导入，scripts/vue/infra-guard.ts 核对模块清单、只读依赖与求值规则。原模块图、其他模块的语法与导入守卫保持原规则；main 类型项目只增加这两个明确文件，Node 项目登记新增脚本与测试。两个基础设施模块只声明函数及内部 WeakSet，不创建渲染器；冷导入和创建区域时 __VUE__ 均无写入，第一次 update 才出现 Vue 的渲染器信号。
+
+useAppState(reader, selector) 的 reader 类型为应用 store 的 getState/subscribe Pick；调用方实际传入仅含这两个方法的对象，不将完整 store 或 actions 作为 props。首屏显式 getState，选择器使用应用的深只读快照。shallowRef 与 shallowReadonly 保留原快照引用，不做 deep reactive、复制或序列化；稳定选择器结果由 Object.is 比较，onScopeDispose 取消订阅。生产不冻结快照，shallowReadonly 仅保护 ref.value 的写入，深层保护依靠原 DeepReadonly 类型及归属纪律，不能声称阻止强转后的所有运行时写入。
+
+同步边界分别实测：useAppState 订阅在 action 内更新 ref，但 action 返回时 DOM 文本和 disabled 仍是旧值，nextTick 后仅渲染一次；无关领域提交不重绘。相同的测试展示组件经显式 store.subscribe 投影入口调用 region.update(props) 时，文本与 disabled 在 action 内、返回前已更新。vue-3 必须使用这条显式投影路径保持分P行为；时间显示等经单独确认不依赖即时 DOM 的区域才可用普通响应式异步更新，不能把整个分P状态改为异步。
+
+createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), host)。按用户 2026-10-11 补充批准，创建时校验宿主没有子节点；公开 render 不接管非 Vue 子节点，vue-3 由原控制器先清理旧区域，再创建区域。第一次 update 才渲染，重复 update 复用组件，活动区域独占宿主；首次 update 前 unmount 不创建渲染器，已渲染区域 unmount 清空宿主并释放所有权，旧区域再 update 报错，新区域可以重用已释放宿主。keyed 列表移动并保留同一节点时焦点仍在原节点；替换该节点时 jsdom 的焦点落到 body，nextTick 后也不恢复。这两种行为都不同于旧分P重绘回关闭按钮的主动策略，vue-3 仍须在原控制器/投影入口显式恢复关闭按钮焦点并通过 vue-2a 冻结测试；不授权本批调整产品焦点逻辑。
+
+用户在 2026-10-11 明确批准卸载边界：组件 onUnmounted/onScopeDispose 清理 store 订阅和外部监听，宿主清空；外部保留的已移除 Vue DOM 节点仍保留 Vue 事件 invoker，向它派发事件仍会回调，此行为单独刻画。控制器卸载后应释放节点引用，不能把 host 清空等同移除脱离节点的所有监听。开发构建的组件 render 异常向调用者抛出并产生 Vue 告警，经 store 订阅入口则由既有 onSubscriberError 报告；生产构建默认返回并 console.error，未被静默吞掉，但不是可依赖的抛错契约。
+
+构建期三个开关统一由 scripts/vue/features.ts 定义为 false：__VUE_OPTIONS_API__、__VUE_PROD_DEVTOOLS__、__VUE_PROD_HYDRATION_MISMATCH_DETAILS__。Vite 产品配置、原 SFC 冒烟与新基础设施测试共用定义；测试用 Vite 编译并分别刻画开发/生产错误行为，每例建立独立 jsdom window 和冷模块实例，卸载、关闭 window、恢复 globals/console，并删除临时编译产物。测试 fixture 不进入生产包。
+
+新增 tests/fixtures/vue/StoreReader.vue 由官方 vue-tsc 单独验证 useAppState 深只读推导，保持全部 strict/erasableSyntaxOnly/isolatedModules 选项。它只作为精确登记的类型 fixture，不扩大产品或测试默认 SFC 导入例外。新增测试仍属 tests/dom/*.dom.ts，安装前新增两个内置模块架构测试；当前完整数量为安装前 617、安装后 27。原测试名和重复次数保留，两份分P冻结测试及 G0 fixture 逐字节不变，既有业务断言改变 0、删除 0。只更新 main.files 与安装后文件清单两个登记类断言，扫描循环从 102→103 个安装前文件、744→756 个本地导入边；完整原文与逐测试执行计数在仓库外报告附录。
+
+新增反例与变异均在仅含 Git 跟踪文件的仓库外副本执行，结束恢复：
+
+| 反例/变异 | 判据 |
+| --- | --- |
+| 删除显式 Object.is | test:dom 与全量 node --test 的基础设施守卫失败；Vue shallowRef 自身也按 Object.is 去重，单删判断不产生额外 DOM 渲染 |
+| 强制每次 triggerRef 更新 | test:dom 的无关切片渲染次数断言失败，安装前精确导入/比较守卫失败 |
+| 遗漏 onScopeDispose | test:dom 的取消订阅与卸载后更新断言失败；安装前组仍通过，不能承担 Vue 运行时验证 |
+| update 延迟到 nextTick | test:dom 的 action 内文本/disabled/焦点断言失败；安装前组仍通过 |
+| 删除宿主重复创建检查 | test:dom 的独占生命周期断言失败；安装前组仍通过 |
+| 顶层 render 创建渲染器 | test:dom 的冷导入 __VUE__ 信号断言失败，安装前求值守卫失败 |
+| 写 selected.value.requestVersion / selected.value | npm run typecheck 的 vue-tsc 产生 TS2540 |
+| 修改只读 Map / reader.actions | npm run typecheck 的 vue-tsc 产生 TS2339 |
+
+本地十项、CRLF 与双 Node 两组、CI workflow 的适用 run 步骤、原全部 canary、G0 和 7 产物同环境逐字节比较均需完成；远程 CI 为“待账号恢复后补验”。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，之后停在 vue-2b，账号恢复且积累提交推送并通过双平台 CI 才能启动 vue-3。
