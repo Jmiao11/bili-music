@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { maskCommentsAndStrings } from "../../tests/helpers/js-source.ts";
 
-const domTests = ["tests/dom/pages-real-dom.dom.ts", "tests/dom/vue-smoke.dom.ts"];
+const domTests = ["tests/dom/pages-characterization.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/vue-smoke.dom.ts"];
+if (domTests.some(file => !file.startsWith("tests/dom/") || !file.endsWith(".dom.ts"))) throw new Error("DOM test registration must use tests/dom/*.dom.ts to avoid default Node discovery");
 function sourceImports(source: string) {
   const code = maskCommentsAndStrings(source);
   return [...source.matchAll(/\b(?:import|export)\s*(?:(?:[^;]*?\bfrom\s*)?["']([^"']+)["']|\(\s*["']([^"']+)["'])/g)]
