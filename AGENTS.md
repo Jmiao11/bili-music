@@ -84,7 +84,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## 验收口径
 
-- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。vue-3 当前安装前 618 个测试、安装后 42 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8、授权迁移 1、矩阵 9 个子测试及 1 个父测试、惰性同步投影 1、完整流程 Vue 警告 1、禁用按钮接线及冒泡 2）；以后仍须重新实测。
+- 每个 commit 提交前跑原九项并增加安装后 DOM 测试：cargo fmt --all -- --check、cargo build --workspace、cargo build --release --workspace、cargo test --workspace、cargo test --workspace --release、node --test、npm ci、npm run test:dom、npm run typecheck（含官方 vue-tsc）、npm run verify:dist。fix(pages) 当前安装前 618 个测试、安装后 48 个（原分P 10、真实 DOM 8、SFC 1、Vue 基础设施 8、授权迁移 1、矩阵 9 个子测试及 1 个父测试、惰性同步投影 1、完整流程 Vue 警告 1、禁用按钮接线及冒泡 2、Tab 可见性矩阵与隐藏祖先 6）；以后仍须重新实测。
 - 每批完成原 CRLF 四项并增加 test:dom：在系统临时验证目录用 core.autocrlf=true 克隆当前分支，覆盖候选并处理删除/改名，确认 ui 文件清单相同且全为 CRLF，依次执行 node --test、npm ci、test:dom、typecheck、verify:dist。安装前 Node 测试必须在安装依赖之前运行；package-lock.json 等候选文本也要检查换行。
 - 逐条执行 CI workflow 的 run 步骤，bash 使用指定 Git Bash 的 --noprofile --norc -c；只跳过当前 Windows 环境不适用的 Linux 系统依赖安装并说明。
 - Node 22.18.0 与 22.23.3 各运行完整安装前与安装后两组测试，原测试名及重复次数全部保留并通过，新增测试名单列。
@@ -137,6 +137,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## vue-3 分P列表边界
 
+- Tab 循环只计入可见且可用的按钮；按 hidden 属性排除按钮自身或祖先，不使用布局判断。
 - PagesList.vue 只渲染列表内部 li 与两个按钮，继续复用既有样式；外壳、控制器、查询/请求版本、禁用保存和全部恢复逻辑保持原模块。同步投影调用 createSyncRegion.update，整批替换列表节点后原入口同步应用焦点规则；RAF 打开焦点规则保持原样。只读 props 与回调交互，不引入 store 订阅路径。
 - 安装前业务模块图把 pages-view.ts 的两个精确编译边界另列为 rendererFiles；不在无依赖环境解释 SFC 或导入 Vue。冷入口测试的精确临时模块解析边界一旦尝试创建区域便抛错，不能模拟渲染成功；安装后 fixture 经 Vite 编译真实模块和组件，生产 G0 再用真实产物核对。其他模块语法与导入规则不放宽。
 - 用户 2026-10-11 单项授权：strict-null-runtime 中空 modal 测试迁到 tests/dom/pages-null.dom.ts；仅将 children 数组断言等价适配为读取真实 childNodes 文本，其余四条业务断言原文、测试名与五条各执行一次保持。报告明确登记这一项业务断言适配；两个分P冻结文件和 G0 fixture 不改。

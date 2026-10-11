@@ -148,6 +148,7 @@
     "../../tests/dom/pages-null.dom.ts",
     "../../tests/dom/pages-runtime.ts",
     "../../tests/dom/pages-list.dom.ts",
+    "../../tests/dom/pages-tab.dom.ts",
     "../../tests/dom/pages-toggle.dom.ts",
     "../../tests/pages-vue-boundary.test.ts"
   ]

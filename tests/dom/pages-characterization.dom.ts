@@ -55,8 +55,8 @@ test("pages modal keeps Escape Tab Shift Tab animation and return focus behavior
   const h = await fixture(); try {
     h.pages.openCurrentPagesModal(); await h.flush(); 
     const focusable = Array.from(h.nodes.pagesModal.querySelectorAll("button:not([disabled])")), last = focusable.at(-1)!;
-    focusable[0].focus(); const backward = await h.nodes.pagesModal.fire("keydown", { key: "Tab", shiftKey: true }); assert.equal(backward.defaultPrevented, true); assert.equal(h.doc.activeElement, last);
-    const forward = await h.nodes.pagesModal.fire("keydown", { key: "Tab" }); assert.equal(forward.defaultPrevented, true); assert.equal(h.doc.activeElement, focusable[0]);
+    focusable[1].focus(); const backward = await h.nodes.pagesModal.fire("keydown", { key: "Tab", shiftKey: true }); assert.equal(backward.defaultPrevented, true); assert.equal(h.doc.activeElement, last);
+    const forward = await h.nodes.pagesModal.fire("keydown", { key: "Tab" }); assert.equal(forward.defaultPrevented, true); assert.equal(h.doc.activeElement, h.nodes.pagesModalList.querySelector(".pages-list-button"));
     assert.equal(h.nodes.pagesModalList.children.length, 2); assert.equal(h.nodes.pagesModalList.querySelector('button[aria-current="true"]')?.textContent.includes("当前"), true);
     await h.escape(); assert.equal(h.nodes.pagesModal.classList.contains("is-open"), false); assert.equal(h.doc.activeElement, h.nodes.playerPagesButton); assert.equal(h.nodes.pagesModal.hidden, false);
     await h.nodes.pagesModal.fire("transitionend"); assert.equal(h.nodes.pagesModal.hidden, true);

@@ -8,7 +8,7 @@ import { sourceImports, testGroups } from "../scripts/tests/groups.ts";
 test("test groups cover every test and before-install imports use only built-ins or local modules", () => {
   const groups = testGroups(path.resolve(import.meta.dirname, ".."));
   assert.ok(groups.before.includes("tests/typecheck.test.ts"));
-  assert.deepEqual(groups.after, ["tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"]);
+  assert.deepEqual(groups.after, ["tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-tab.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"]);
   assert.equal(new Set([...groups.before, ...groups.after]).size, groups.before.length + groups.after.length);
 });
 
@@ -20,6 +20,7 @@ test("test grouping rejects misplaced tests and transitive third-party imports",
     fs.writeFileSync(path.join(root, "tests/dom/pages-real-dom.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/pages-null.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/pages-list.dom.ts"), "");
+    fs.writeFileSync(path.join(root, "tests/dom/pages-tab.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/pages-toggle.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/pages-characterization.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/vue-infrastructure.dom.ts"), "");

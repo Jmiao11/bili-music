@@ -108,7 +108,7 @@ function keepFocusInPagesModal(event: KeyboardEvent): void {
   if (event.key !== "Tab" || !pagesModal.classList.contains("is-open")) {
     return;
   }
-  const focusable = [...pagesModal.querySelectorAll<HTMLButtonElement>("button:not([disabled])")];
+  const focusable = [...pagesModal.querySelectorAll<HTMLButtonElement>("button:not([disabled])")].filter(button => !button.closest("[hidden]"));
   if (focusable.length === 0) {
     return;
   }

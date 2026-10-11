@@ -68,10 +68,10 @@ test("pages real DOM Tab uses native button list including hidden restore and ex
     const list = () => [...h.nodes.pagesModal.querySelectorAll<HTMLButtonElement>("button:not([disabled])")];
     assert.deepEqual(list().map(button => button.id || button.className), ["pages-modal-restore-all", "pages-list-button is-current", "pages-disable-button", "pages-list-button", "pages-disable-button", "pages-modal-close"]);
     assert.equal(h.nodes.pagesModalRestoreAll.hidden, true);
-    list()[0].focus(); const backward = await h.fire(h.nodes.pagesModal, "keydown", { key: "Tab", shiftKey: true });
+    list()[1].focus(); const backward = await h.fire(h.nodes.pagesModal, "keydown", { key: "Tab", shiftKey: true });
     assert.equal(backward.defaultPrevented, true); assert.equal(h.doc.activeElement, list().at(-1));
     const forward = await h.fire(h.nodes.pagesModal, "keydown", { key: "Tab" });
-    assert.equal(forward.defaultPrevented, true); assert.equal(h.doc.activeElement, h.nodes.pagesModalRestoreAll);
+    assert.equal(forward.defaultPrevented, true); assert.equal(h.doc.activeElement, h.nodes.pagesModalList.querySelector(".pages-list-button"));
     list()[2].focus(); const interior = await h.fire(h.nodes.pagesModal, "keydown", { key: "Tab" });
     assert.equal(interior.defaultPrevented, false);
     const gate = deferred(); h.reply(() => gate.promise); const pending = h.pages.changeDisabledPages(track(1).bvid, 11, true);

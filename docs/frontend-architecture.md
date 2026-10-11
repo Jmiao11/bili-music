@@ -457,7 +457,7 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 
 两个分P冻结测试 SHA256 保持 vue-2a 的值。用户单项批准原 strict-null-runtime 空上下文测试迁入安装后组：第一条 assert.deepEqual(list.children, ["unchanged"]) 适配为 assert.deepEqual(Array.from(list.childNodes, node => node.textContent), ["unchanged"])，其余四条原文、原测试名及五条各一次保持。授权来自 2026-10-11 本任务的用户回复；本批业务断言等价适配 1，删除 0，不能写成改变 0。
 
-新增九个旧 renderer 状态矩阵覆盖空、单页、多页、当前页、禁用页、两种保存项、全部恢复、BV 大小写不同。基线由本地 master 3c21c42 的真实 renderer 配合 jsdom 生成，innerHTML 原文保留；Vue 仅在列表首尾各增加一个不可见空文本 Fragment 锚点，无注释或其他差异。当前安装前 618，安装后 42（包含矩阵父测试及九个子测试、惰性同步投影、完整流程 Vue 警告、禁用按钮接线及冒泡测试）；两组文件清单、默认 Node 实际发现文件与逐断言计数保存到仓库外。
+新增九个旧 renderer 状态矩阵覆盖空、单页、多页、当前页、禁用页、两种保存项、全部恢复、BV 大小写不同。基线由本地 master 3c21c42 的真实 renderer 配合 jsdom 生成，innerHTML 原文保留；Vue 仅在列表首尾各增加一个不可见空文本 Fragment 锚点，无注释或其他差异。当前安装前 618，安装后 48（包含矩阵父测试及九个子测试、惰性同步投影、完整流程 Vue 警告、禁用按钮接线及冒泡测试、六个 Tab 可见性测试）；两组文件清单、默认 Node 实际发现文件与逐断言计数保存到仓库外。
 
 验证仍按十项、CRLF、两种 Node 两组、CI run 步骤对等、全部 canary 与本批八项变异执行。首次引入 Vue 导致主 ESM 包变化，与 master 的七产物字节一致口径不适用；体积增量报告在外部验证目录。同机 windows/darwin 两种配置分别构建，七产物路径、数量与内容哈希仍须完全一致；AST eval/new Function 均为零。真实 Windows/macOS 手测另核对主题、Tab、焦点、scrollIntoView、RAF、transitionend、单/双击与禁用偏好同步状态，不把 jsdom 结果写成真实 WebView 通过。
 
@@ -468,3 +468,7 @@ vue-3 补充验收：tests/dom/pages-toggle.dom.ts 以原生 click 验证第 1P 
 补充变异均在仓库外副本运行全量 node --test 和 test:dom：禁用布尔取反错误、cid 改为 page.page、双重 onToggle、删除 @click、删除组件 key 递增、焦点来源读取移到 render 后、清理宿主移到 createSyncRegion 后、删除 .stop；所有要求的非等价变异必须被业务行为测试抓到。冷入口 canary 让现有安装前测试打开弹窗，必须使 node --test 非零退出；恢复后全部通过。
 
 用户 2026-10-11 已取消等待远程 CI 才能推进下一批的阻塞。GitHub 暂停期间后续批次均走本地流程，验收标准不降低；每批合并前由用户在 Windows 与 Mac 手测，并在 Mac 执行 npm ci && node --test && npm run test:dom && npm run typecheck && npm run verify:dist && cargo test --workspace。远程 Windows/macOS CI 待账号恢复后补验；此决定不自动授予手测、合并或发布权限。隐藏的“全部恢复”按钮 Tab 行为另开批次处理，本批保留 keepFocusInPagesModal 及冻结真实 DOM 测试第 69、74 行。
+
+## fix(pages) Tab 隐藏按钮边界
+
+Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hidden 属性的元素；不读取布局。恢复按钮隐藏、可用、保存中、空列表、关闭及隐藏祖先均由独立 jsdom fixture 验证。用户本批批准两个冻结文件各一条焦点期望和一处起点索引适配；原始 DOM 查询、按钮清单、其他断言、名称与执行次数保留，新 Git/LF 与检出/CRLF 冻结 SHA 及逐断言审计记录在仓库外报告。jsdom 不执行默认 Tab 导航，中间按钮仅验证未拦截且 activeElement 不变；真实 Windows/macOS WebView 手测另行验证前进顺序。远程 Windows/macOS CI 待账号恢复后补验。
