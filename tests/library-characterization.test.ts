@@ -117,46 +117,12 @@ test("library favorite add remove and failure publish existing mini and mascot e
     h.events.length = 0; h.reply(async () => { throw Error("写入失败"); }); await h.library.toggleFavorite(track(3)); assert.deepEqual(h.events[0].detail, { bvid: track(3).bvid, title: track(3).title, failed: true }); assert.equal(h.state().favorites.length, 0);
   } finally { h.dispose(); }
 });
-test("library playlist create rename delete validate names and repair selected playlist", async () => {
-  const h = await fixture(); try {
-    await seed(h); h.library.createPlaylist(); h.input().value = "  "; await h.primary().fire("click"); assert.match(h.nodes.libraryModalStatus.textContent, /不能为空/); assert.equal(h.calls.length, 0);
-    h.input().value = "歌单a"; await h.primary().fire("click"); assert.match(h.nodes.libraryModalStatus.textContent, /同名/); assert.equal(h.calls.length, 0);
-    h.input().value = "新歌单"; h.reply(async (_c, args) => [playlist("a"), playlist("b"), { ...playlist("c"), name: args.name }]); await h.primary().fire("click"); assert.equal(h.state().selectedPlaylistId, "c"); assert.deepEqual(h.calls[0], { command: "create_playlist", args: { name: "新歌单" } });
-    h.library.renameSelectedPlaylist(); h.input().value = "改名"; h.reply(async () => [playlist("a"), playlist("b"), { ...playlist("c"), name: "改名" }]); await h.primary().fire("click"); assert.deepEqual(h.calls[1], { command: "rename_playlist", args: { id: "c", name: "改名" } });
-    h.library.deleteSelectedPlaylist(); h.reply(async () => [playlist("b")]); await h.primary().fire("click"); assert.equal(h.state().selectedPlaylistId, "b"); assert.deepEqual(h.calls[2], { command: "delete_playlist", args: { id: "c" } });
-    h.library.deleteSelectedPlaylist(); h.reply(async () => []); await h.primary().fire("click"); assert.equal(h.state().selectedPlaylistId, "");
-  } finally { h.dispose(); }
-});
-test("library add chooser prevents duplicates and creates then adds a new playlist", async () => {
-  const h = await fixture(); try {
-    await seed(h); h.library.choosePlaylistAndAdd(track(1)); const choices = h.nodes.libraryModalBody.querySelectorAll(".playlist-choice"); await choices[0].fire("click"); assert.match(h.nodes.libraryModalStatus.textContent, /无需重复/); assert.equal(h.calls.length, 0);
-    h.library.choosePlaylistAndAdd(track(3)); h.input().value = "新建并加入";
-    h.reply(async command => command === "create_playlist" ? [playlist("a"), { ...playlist("c", []), name: "新建并加入" }] : [playlist("a"), { ...playlist("c", [track(3)]), name: "新建并加入" }]);
-    await h.primary().fire("click"); assert.deepEqual(h.calls.map(c => c.command), ["create_playlist", "add_to_playlist"]); assert.equal(h.calls[1].args.id, "c"); assert.equal(h.state().selectedPlaylistId, "c"); assert.equal(h.state().playlists[1].items[0].bvid, track(3).bvid); assert.equal(h.nodes.status.textContent, "已加入歌单“新建并加入”。");
-  } finally { h.dispose(); }
-});
-test("library modal preserves animation and existing focus behavior including loudness explanation", async () => {
-  const h = await fixture(); try {
-    const opener = h.doc.activeElement; h.library.createPlaylist(); const input = h.input(); assert.equal(h.doc.activeElement, input); assert.equal(h.nodes.libraryModal.hidden, false); await h.flush(); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), true);
-    h.library.closeLibraryModal(); assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "true"); assert.equal(h.doc.activeElement, input, "old close does not explicitly restore opener focus"); assert.notEqual(h.doc.activeElement, opener); assert.equal(h.nodes.libraryModal.hidden, false);
-    await h.nodes.libraryModal.fire("transitionend"); assert.equal(h.nodes.libraryModal.hidden, true);
-    h.core.showLoudnessNormalizationDialog(); assert.equal(h.nodes.libraryModalTitle.textContent, "响度归一化"); assert.equal(h.nodes.libraryModalBody.children.length, 5); assert.equal(h.doc.activeElement.textContent, "知道了"); await h.doc.activeElement.fire("click"); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), false);
-  } finally { h.dispose(); }
-});
 test("library playback failure marks unavailable and successful retry clears through existing playback", async () => {
   const h = await fixture(); try {
     await seed(h, [track(1)], []); h.reply(async command => { if (command === "prepare_audio") throw Error("failed with code 62002"); return command === "get_video_pages" ? [{ page: 1, cid: 1, part: "P1", durationSeconds: 60 }] : []; });
     h.core.playListItem("favorites", h.state().favorites, 0); await h.flush(); assert.equal(h.state().unavailableBvids.get(track(1).bvid.toLowerCase()), "该视频已被删除或设为私密"); assert.equal(h.calls.some(c => c.command === "mark_track_unavailable"), true);
     h.reply(async command => command === "prepare_audio" ? { audioUrl: "http://127.0.0.1/audio/fixture", title: "恢复", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 } : command === "get_video_pages" ? [{ page: 1, cid: 1, part: "P1", durationSeconds: 60 }] : []);
     h.core.playListItem("playlist", h.state().favorites, 0); await h.flush(); assert.equal(h.state().unavailableBvids.has(track(1).bvid.toLowerCase()), false, h.calls.map(c => c.command).join(",")); assert.equal(h.calls.some(c => c.command === "clear_track_unavailable"), true);
-  } finally { h.dispose(); }
-});
-test("library favorite import closes and reopens with request isolation and no partial saves", async () => {
-  const h = await fixture(); try {
-    const old = deferred(); h.reply(() => old.promise); h.library.importFavoritePlaylist(); h.input().value = "收藏夹一"; const pending = h.primary().fire("click"); await h.flush(); h.library.closeLibraryModal(); h.library.importFavoritePlaylist();
-    h.reply(async () => ({ title: "最新收藏夹", total: 1, items: [track(1)], skipped: 0, duplicates: 0, scanned: 1, hasMore: false, truncated: false })); h.input().value = "收藏夹二"; await h.primary().fire("click"); const current = h.nodes.libraryModalStatus.textContent;
-    old.resolve({ title: "旧收藏夹", total: 0, items: [], skipped: 0, duplicates: 0, scanned: 0, hasMore: false, truncated: false }); await pending; assert.equal(h.nodes.libraryModalStatus.textContent, current); assert.equal(h.calls.filter(c => c.command === "create_imported_playlist").length, 0);
-    h.reply(async (_c, args) => ({ id: "imported", name: args.name, items: args.tracks, createdAt: "2026-01-01" })); await h.primary().fire("click"); assert.equal(h.state().selectedPlaylistId, "imported"); assert.equal(h.state().playlists.length, 1);
   } finally { h.dispose(); }
 });
 for (const kind of ["favorites", "playlistItems", "playlists"] as const) for (const outcome of ["success", "failure"] as const) {

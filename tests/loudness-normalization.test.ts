@@ -24,7 +24,6 @@ const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
 const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "loudnessNormalizationToggle.addEventListener(\"change\"", "progressSlider.addEventListener(\"pointerdown\"");
-const loudnessDialogCode = sourceSlice(core, "ui/playback-core.ts", "function showLoudnessNormalizationDialog(", "function waitForAudioMetadata(");
 
 type Query = { command: string; args: Record<string, unknown>; resolve(value: unknown): void; reject(reason?: unknown): void };
 type Animation = { callbacks: Map<number, (timestamp: number) => void>; cancelled: number[]; nextId: number; now: number; runNext(now: number): number };
@@ -134,28 +133,6 @@ function setupLoudnessDialogToggle(checked: boolean) {
     toggle: loudnessNormalizationToggle,
     dispatchChange() {
       for (const listener of listeners) listener();
-    },
-  };
-}
-
-type FakeElement = { tagName: string; className: string; textContent: string; type: string; children: FakeElement[]; listeners: Record<string, (...args: unknown[]) => unknown>; focused: boolean; append(...children: FakeElement[]): void; addEventListener(type: string, listener: (...args: unknown[]) => unknown): void; focus(): void };
-function fakeElement(tagName: string): FakeElement {
-  return {
-    tagName,
-    className: "",
-    textContent: "",
-    type: "",
-    children: [],
-    listeners: {},
-    focused: false,
-    append(...children: FakeElement[]) {
-      this.children.push(...children);
-    },
-    addEventListener(type: string, listener: (...args: unknown[]) => unknown) {
-      this.listeners[type] = listener;
-    },
-    focus() {
-      this.focused = true;
     },
   };
 }
@@ -437,29 +414,4 @@ test("normalization gain still applies before the explanation is shown", () => {
   const disabled = setupLoudnessDialogToggle(false);
   disabled.dispatchChange();
   assert.deepEqual(disabled.calls, ["gain"]);
-});
-
-test("loudness explanation acknowledge button closes the shared dialog", () => {
-  const body = fakeElement("div");
-  const opens: { title: string; subtitle: string }[] = [];
-  let closes = 0;
-  const context = createQueueContext({
-    document: { createElement: fakeElement },
-    libraryModalBody: body,
-    openLibraryModal: (title: string, subtitle: string) => opens.push({ title, subtitle }),
-    closeLibraryModal: () => { closes += 1; },
-  });
-  vm.runInContext(sourceSlice(readFileSync(path.join(import.meta.dirname, "../ui/library-view.ts"), "utf8"), "ui/library-view.ts", "function renderLoudness(", "function renderPurge(") + loudnessDialogCode, context);
-  context.openLoudnessModal = () => { context.openLibraryModal("响度归一化", ""); context.renderLoudness({ closeModal: context.closeLibraryModal }); };
-  context.showLoudnessNormalizationDialog();
-
-  assert.equal(opens[0].title, "响度归一化");
-  assert.equal(body.children.length, 5);
-  assert.equal(body.children[1].children[0].textContent, "需要先测量。");
-  assert.equal(body.children[2].children[0].textContent, "只会调小，不会调大。");
-  const acknowledgeButton = body.children[4].children[0];
-  assert.equal(acknowledgeButton.textContent, "知道了");
-  assert.equal(acknowledgeButton.focused, true);
-  acknowledgeButton.listeners.click();
-  assert.equal(closes, 1);
 });
