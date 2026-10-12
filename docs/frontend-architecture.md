@@ -541,3 +541,9 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 - `tests/dom/library-modal-inputs-vue.dom.ts`：Git/LF `39606e62c92dfc2edb847ac2f3def71f0a4098da082231bce1d350d6c480eeb1`；检出/CRLF `4b22f621287f255a39a487ce4c63eb6896e14591aac0185cf854e87593efcba8`。
 - `tests/dom/library-modal-focus.dom.ts`：Git/LF `f2316fa53755bce930ca390c6a9f159b331bbb59359defb3d4f4dfe8770333ed`；检出/CRLF `f81cadb9ace7049f728034d02262b687f85eafa4566872faae003b72ce362e57`。
 - 阶段 A 最终内容与 generic 宿主测试 `tests/dom/library-modal-vue.dom.ts`：Git/LF `bf1b2783dfb3214f17e9d1b38b7ac8d4a65459847f308bdb4d9ac1d77503d08d`；检出/CRLF `313d9c1234375b4cfcc239d74c140246bc1d7a705417f335758afacaccb710cc`，后续作为冻结基线。
+
+### B1 首页与搜索真实 DOM 基线
+
+首页榜单、首页推荐、搜索列表先在旧 renderer 上建立真实 DOM 特征测试。原首页八项、搜索七项与恢复五项迁入安装后 jsdom，业务断言保持。分P与资料库冻结文件、共享 helper 不变。失效标记保持原投影时机：首页仅在内容提交/重绘时读取，搜索无标记。资料库阶段 A 用户已完成 Windows/Mac 手测并批准本地合并 fd1c4c4。
+
+B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF、检出/CRLF 哈希见 AGENTS.md 的 B1 节。原二十项 125 个断言位置的逐测试执行次数保持，三条变更仅为假 DOM 到真实 DOM 的等价读取。

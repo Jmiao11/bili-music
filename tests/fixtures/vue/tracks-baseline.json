@@ -1,0 +1,130 @@
+{
+  "baseline": "fd1c4c4",
+  "matrix": [
+    {
+      "source": "ranking",
+      "state": "empty",
+      "html": ""
+    },
+    {
+      "source": "ranking",
+      "state": "plain",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "cover",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><img src=\"https://example.invalid/cover.jpg\" alt=\"\"></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "duplicate",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li><li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"1\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">第二次出现</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "favorite",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button is-favorited\" data-favorite-bvid=\"BV0000000001\" title=\"取消收藏\" aria-label=\"取消收藏\">♥</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "unavailable",
+      "html": "<li class=\"track-row is-unavailable\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><span class=\"track-unavailable\" title=\"该视频已被删除或设为私密\" aria-label=\"该视频已被删除或设为私密\">!</span><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "badge",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"page-count-badge\" title=\"查看分P\" aria-label=\"查看 2 个分P\">2P</button><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "playing",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\" aria-current=\"true\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "empty",
+      "html": ""
+    },
+    {
+      "source": "recommendation",
+      "state": "plain",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "cover",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><img src=\"https://example.invalid/cover.jpg\" alt=\"\"></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "duplicate",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li><li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"1\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">第二次出现</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "favorite",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button is-favorited\" data-favorite-bvid=\"BV0000000001\" title=\"取消收藏\" aria-label=\"取消收藏\">♥</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "unavailable",
+      "html": "<li class=\"track-row is-unavailable\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><span class=\"track-unavailable\" title=\"该视频已被删除或设为私密\" aria-label=\"该视频已被删除或设为私密\">!</span><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "badge",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"page-count-badge\" title=\"查看分P\" aria-label=\"查看 2 个分P\">2P</button><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "recommendation",
+      "state": "playing",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-library-index=\"0\" data-bvid=\"BV0000000001\" aria-current=\"true\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "empty",
+      "html": ""
+    },
+    {
+      "source": "search",
+      "state": "plain",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "cover",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><img src=\"https://example.invalid/cover.jpg\" alt=\"\"></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "duplicate",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li><li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"1\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">第二次出现</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "favorite",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button is-favorited\" data-favorite-bvid=\"BV0000000001\" title=\"取消收藏\" aria-label=\"取消收藏\">♥</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "unavailable",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "badge",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"page-count-badge\" title=\"查看分P\" aria-label=\"查看 2 个分P\">2P</button><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "search",
+      "state": "playing",
+      "html": "<li class=\"track-row\"><button type=\"button\" class=\"track\" data-result-index=\"0\" data-bvid=\"BV0000000001\" aria-current=\"true\"><span class=\"eq\" aria-hidden=\"true\"><span></span><span></span><span></span></span><span class=\"track-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"track-meta\"><span class=\"track-title\">曲目1</span><span class=\"track-up\">作者</span></span><span class=\"track-play\">1</span><span class=\"track-pubdate\">1970-01-01</span><span class=\"track-duration\">1:00</span></button><span class=\"track-actions\"><button type=\"button\" class=\"track-action favorite-button\" data-favorite-bvid=\"BV0000000001\" title=\"收藏\" aria-label=\"收藏\">♡</button><button type=\"button\" class=\"track-action\" title=\"加入歌单\" aria-label=\"加入歌单\">+</button></span></li>"
+    },
+    {
+      "source": "ranking",
+      "state": "skeleton",
+      "html": "<li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li><li class=\"track-row skeleton-row\">\n      <span class=\"track skeleton-track\">\n        <span class=\"skeleton-cover\"></span>\n        <span class=\"skeleton-meta\">\n          <span></span>\n          <small></small>\n        </span>\n      </span>\n    </li>"
+    }
+  ]
+}

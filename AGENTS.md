@@ -99,7 +99,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 608、安装后 129（新增资料库输入类 Vue 接线 5、焦点与防重修复 11），以后重新实测；完整命令和 canary 判据见架构文档。
+- 当前实测安装前 588、安装后 173（B1 迁移原特征 20、新增曲目列表基线 24），以后重新实测；完整命令和 canary 判据见架构文档。
 
 ## Store 设计约定
 
@@ -213,7 +213,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 
 ## vue-5c 阶段 A 完成与焦点修复
 
-- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，Windows/Mac 用户完整手测与合并仍待批准，远程 Windows/macOS CI 待账号恢复后补验。
+- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，用户已于 2026-10-12 确认 Windows/Mac 完整手测通过，fd1c4c4 已本地 fast-forward 合并，远程 Windows/macOS CI 待账号恢复后补验。
 - ui/focus-trap.ts 为分P与资料库共用的 Tab 循环；仅在 is-open 时生效，包含 button/input/select/textarea/非 -1 tabindex，排除 disabled 及自身/祖先 hidden，aria-disabled 仍可聚焦。两个分P冻结文件逐字节不改。
 - 打开时记录当前焦点；关闭时仅向仍连接文档的触发元素以 preventScroll 返回焦点。choose 请求期间 submitChoose/createAndAdd 都忽略重复调用，主按钮 disabled，歌单按钮仍不设置原生 disabled。关闭取消未执行的 RAF，RAF 前 Escape 仍不关闭。
 - styles.css 的 settings-mask 使用 opacity/pointer-events，settings-panel 使用 transform（3896–3926 行），没有 visibility:hidden/display:none，因此初始 focus/select 保留 update 后、RAF 前的时机。
@@ -224,3 +224,16 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - `tests/dom/library-modal-inputs-vue.dom.ts`：Git/LF `39606e62c92dfc2edb847ac2f3def71f0a4098da082231bce1d350d6c480eeb1`；检出/CRLF `4b22f621287f255a39a487ce4c63eb6896e14591aac0185cf854e87593efcba8`。
 - `tests/dom/library-modal-focus.dom.ts`：Git/LF `f2316fa53755bce930ca390c6a9f159b331bbb59359defb3d4f4dfe8770333ed`；检出/CRLF `f81cadb9ace7049f728034d02262b687f85eafa4566872faae003b72ce362e57`。
 - 阶段 A 最终内容与 generic 宿主测试 `tests/dom/library-modal-vue.dom.ts`：Git/LF `bf1b2783dfb3214f17e9d1b38b7ac8d4a65459847f308bdb4d9ac1d77503d08d`；检出/CRLF `313d9c1234375b4cfcc239d74c140246bc1d7a705417f335758afacaccb710cc`，后续作为冻结基线。
+
+## B1 首页与搜索列表基线
+
+- B1 按 test → feat 迁移首页榜单、首页推荐与搜索列表；收藏与歌单留到 B2。本批新真实 DOM 基线 24 项，原首页 8、搜索 7、搜索恢复 5 项仅迁移测试环境，业务断言保持；等价 DOM 读取逐条记录在仓库外附录。
+- 用户 2026-10-12 确认失效标记保持旧时机：搜索不显示；首页只在原内容提交/重绘时采集原因，映射单独变化不更新现有标记。实时更新留给独立修复。
+
+B1 test 提交冻结文件（Git/LF；检出/CRLF）：
+- `tests/dom/tracks-fixture.ts`：`a2cadb3216d526a4beee8e302a5ba688e29fd4a0b5f6c8f7e8d9937c1db9e06e`；`ee8a6c2b1613cb1cf9d949994da4104c77d4da05d6236d786ac57736995a98bb`。
+- `tests/dom/tracks-baseline.dom.ts`：`644fd905f7391e1bf0d62b54ada08230a733c9ff20903aeaa256fed155eef671`；`b4330f419b171c2b6232fa033fe6f3661305442310dc23260e5bf6b1fe560b71`。
+- `tests/dom/home-characterization.dom.ts`：`45524baba48833becd5364b587f75aad755acfc2c51e177d9f47e83be94e0112`；`a59be3b9e8cbc09cbc994fad310975926b8b98246613e5fa69b2e492489e0a99`。
+- `tests/dom/search-characterization.dom.ts`：`ab88657d6f84220c3d98f2a7a66dd8712ce4582c585bb20f49603e24cd50f228`；`adee156a78bb7d5eff215637ec1565117187c903473f023a078e707c51e0a016`。
+- `tests/dom/search-restore-characterization.dom.ts`：`0c5990b0fcbb26aaca6ffe5c614fc3537d4761581b688a2c1fdd91d93da76f01`；`c5e870a98540f5da9221885e9519a7b81710574a6fd55b28985e4ceb90dc962c`。
+- `tests/fixtures/vue/tracks-baseline.json`：`8ed89c63cdd8c4ffaef13c1d8b2dd20caf01560283e8c9c05745f3d6c6a0bf43`；`564b4d72ad59cc5034941f69c845a6f2e31475df9596dbe306e4e421cee84dd1`。

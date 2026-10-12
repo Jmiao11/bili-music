@@ -1,104 +1,14 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { test } from "node:test";
-import { collectModuleGraph } from "./helpers/module-graph.ts";
-
-class HomeNode {
-  textContent = "";
-  hidden = false;
-  disabled = false;
-  value = "";
-  title = "";
-  className = "";
-  innerHTML = "";
-  children: HomeNode[] = [];
-  attributes = new Map<string, string>();
-  classes = new Set<string>();
-  dataset: Record<string, string> = {};
-  activate?: (index: number, selection?: unknown) => void;
-  classList = {
-    add: (name: string) => { this.classes.add(name); },
-    remove: (name: string) => { this.classes.delete(name); },
-    toggle: (name: string, force?: boolean) => { const on = force ?? !this.classes.has(name); if (on) this.classes.add(name); else this.classes.delete(name); return on; },
-  };
-  setAttribute(name: string, value: string) { this.attributes.set(name, value); }
-  replaceChildren(...nodes: HomeNode[]) { this.children = nodes; }
-  append(...nodes: HomeNode[]) { this.children.push(...nodes); }
-}
-
-function deferred() {
-  let resolve: (value: unknown) => void = () => {};
-  let reject: (error: unknown) => void = () => {};
-  const promise = new Promise<unknown>((yes, no) => { resolve = yes; reject = no; });
-  return { promise, resolve, reject };
-}
-
+import { fixture as realFixture, deferred } from "./tracks-fixture.ts";
 const track = { bvid: "BV1234567890", title: "曲目甲", uploader: "作者", thumbnailUrl: "", durationSeconds: 60, playCount: 0, pubdate: 0, addedAt: "" };
 
+type HomeRow = HTMLElement & { activate?: (index: number, selection?: unknown) => void };
 async function loadHomeFixture() {
-  const source = path.join(import.meta.dirname, "../ui");
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-home-characterization-"));
-  const names = ["homeCacheNote", "homeHintApply", "homeHintInput", "homeHintRow", "homeListLabel", "homePanel", "homeRankingError", "homeRankingList", "homeRankingStatus", "homeSetupHint", "homeSetupSub", "homeSetupTitle", "homeSourceLabel", "homeSubtitle", "homeTitle", "refreshRankingButton"];
-  const nodes: Record<string, HomeNode> = Object.fromEntries(names.map(name => [name, new HomeNode()]));
-  nodes.homeSetupHint.hidden = true;
-  nodes.homeHintApply.textContent = "生成推荐";
-  const tabs = ["recommendation", "ranking"].map(homeMode => { const node = new HomeNode(); node.dataset.homeMode = homeMode; return node; });
-  const calls: { command: string; args: unknown }[] = [];
-  const played: unknown[][] = [];
-  const timers = new Map<number, { callback: () => void; delay: number }>();
-  let timerId = 0;
-  let queueUpdates = 0;
-  let response: (command: string, args: unknown) => Promise<unknown> = async command => command === "get_ai_config" ? { hasKey: true } : [];
-  const environment = {
-    nodes, tabs,
-    invoke(command: string, args: unknown) { calls.push({ command, args }); return response(command, args); },
-    createTrackRow(_video: unknown, index: number, activate: (index: number, selection?: unknown) => void) { const row = new HomeNode(); row.activate = activate; row.value = String(index); return row; },
-    playListItem(...args: unknown[]) { played.push(args); },
-    updateQueueUi() { queueUpdates++; },
-  };
-  const globals = new Map<string, PropertyDescriptor | undefined>();
-  function install(name: string, value: unknown) { globals.set(name, Object.getOwnPropertyDescriptor(globalThis, name)); Object.defineProperty(globalThis, name, { value, configurable: true, writable: true }); }
-  install("__homeCharacterization", environment);
-  install("document", { createElement: () => new HomeNode() });
-  install("window", {
-    setTimeout(callback: () => void, delay: number) { const id = ++timerId; timers.set(id, { callback, delay }); return id; },
-    clearTimeout(id: number) { timers.delete(id); },
-  });
-  const savedWarn = console.warn;
-  const savedError = console.error;
-  console.warn = () => {};
-  console.error = () => {};
-  try {
-    for (const file of collectModuleGraph(source, ["home.ts"])) fs.copyFileSync(path.join(source, file), path.join(root, file));
-    fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "runtime-api.ts"), 'const invoke = globalThis.__homeCharacterization.invoke; export { invoke };');
-    fs.writeFileSync(path.join(root, "player-dom.ts"), `const { ${names.join(", ")} } = globalThis.__homeCharacterization.nodes; const homeModeTabs = globalThis.__homeCharacterization.tabs; export { ${[...names, "homeModeTabs"].join(", ")} };`);
-    fs.writeFileSync(path.join(root, "playback-core.ts"), 'const { createTrackRow, playListItem, updateQueueUi } = globalThis.__homeCharacterization; export { createTrackRow, playListItem, updateQueueUi };');
-    const module = await import(pathToFileURL(path.join(root, "home.ts")).href) as { getApplicationStore(): { getState(): { search: { userKeyword: string; requestVersion: number; results: unknown[] }; playbackQueue: { queue: readonly unknown[] } } }; updateHomeModeUi(): void; setHomeMode(mode: string): void; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; refreshAiKeyState(): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
-    const states = { ...await import(pathToFileURL(path.join(root, "player-state.ts")).href) } as { searchState: { userKeyword: string; requestVersion: number; results: unknown[] }; playerState: { queue: unknown[] } };
-    module.updateHomeModeUi();
-    states.searchState = module.getApplicationStore().getState().search;
-    states.playerState = { ...states.playerState, queue: [...module.getApplicationStore().getState().playbackQueue.queue] };
-    return {
-      module, nodes, calls, played, states, timers,
-      setResponse(next: typeof response) { response = next; },
-      queueUpdates: () => queueUpdates,
-      async flush() { for (let i = 0; i < 12; i++) await Promise.resolve(); },
-      dispose() {
-        console.warn = savedWarn; console.error = savedError;
-        for (const [name, descriptor] of globals) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
-        fs.rmSync(root, { recursive: true, force: true });
-      },
-    };
-  } catch (error) {
-    console.warn = savedWarn; console.error = savedError;
-    for (const [name, descriptor] of globals) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
-    fs.rmSync(root, { recursive: true, force: true });
-    throw error;
-  }
+  const h = await realFixture({ homeSpy: true });
+  const nodes = { ...h.nodes, homeRankingList: h.nodes.homeRankingList as HTMLUListElement & { children: HTMLCollectionOf<HomeRow> } };
+  const states = { searchState: h.store.getState().search as unknown as { userKeyword: string; requestVersion: number; results: unknown[] }, playerState: { queue: [...h.store.getState().playbackQueue.queue] } };
+  return { ...h, nodes, states, module: h.home, setResponse: h.reply, flush: h.microtasks };
 }
 
 test("home ranking caches nonempty results and force refresh preserves its request and busy UI", async () => {
@@ -116,7 +26,7 @@ test("home ranking caches nonempty results and force refresh preserves its reque
     assert.equal(h.nodes.refreshRankingButton.disabled, true);
     assert.equal(h.nodes.homeRankingStatus.textContent, "正在刷新音乐飙升榜…");
     assert.equal(h.nodes.homeRankingList.children.length, 8);
-    assert.ok(h.nodes.homeRankingList.children.every(node => node.className.includes("skeleton-row")));
+    assert.ok(Array.from(h.nodes.homeRankingList.children).every(node => node.className.includes("skeleton-row")));
     next.resolve([]); await pending;
     assert.equal(h.nodes.refreshRankingButton.disabled, false);
     assert.equal(h.nodes.homeRankingList.children.length, 0);
@@ -146,10 +56,10 @@ test("home without API key uses popular ranking and keeps its silent failure sem
     await h.module.refreshAiKeyState();
     assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking"]);
     assert.equal(h.nodes.homeTitle.textContent, "热门音乐");
-    assert.equal(h.nodes.homePanel.attributes.get("data-home-mode"), "popular");
+    assert.equal(h.nodes.homePanel?.getAttribute("data-home-mode"), "popular");
     assert.equal(h.nodes.homeHintRow.hidden, true);
     assert.equal(h.nodes.homeSetupTitle.textContent, "配置 API Key 后可生成专属推荐");
-    assert.equal(h.nodes.homeSetupHint.classes.has("is-inline"), true);
+    assert.equal(h.nodes.homeSetupHint.classList.contains("is-inline"), true);
     h.setResponse(async () => { throw new Error("ranking failed"); });
     await h.module.loadHomeRanking({ forceRefresh: true });
     assert.equal(h.nodes.homeRankingError.textContent, "");

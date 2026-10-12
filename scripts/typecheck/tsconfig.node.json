@@ -37,9 +37,7 @@
     "../../types/jsdom.d.ts",
     "../../tests/library-characterization.test.ts",
     "../../tests/search-actions.test.ts",
-    "../../tests/search-characterization.test.ts",
     "../../tests/home-actions.test.ts",
-    "../../tests/home-characterization.test.ts",
     "../../tests/state-store.test.ts",
     "../../tests/state-architecture.test.ts",
     "../../scripts/check-ui-syntax.ts",
@@ -162,6 +160,11 @@
     "../../tests/dom/pages-list.dom.ts",
     "../../tests/dom/pages-tab.dom.ts",
     "../../tests/dom/pages-toggle.dom.ts",
-    "../../tests/pages-vue-boundary.test.ts"
+    "../../tests/pages-vue-boundary.test.ts",
+    "../../tests/dom/home-characterization.dom.ts",
+    "../../tests/dom/search-characterization.dom.ts",
+    "../../tests/dom/search-restore-characterization.dom.ts",
+    "../../tests/dom/tracks-baseline.dom.ts",
+    "../../tests/dom/tracks-fixture.ts"
   ]
 }
