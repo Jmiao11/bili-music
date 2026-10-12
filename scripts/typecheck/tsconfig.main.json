@@ -39,6 +39,7 @@
     "../../ui/playback-policy.ts",
     "../../ui/library-ui.ts",
     "../../ui/library-view.ts",
+    "../../ui/focus-trap.ts",
     "../../ui/video-pages.ts",
     "../../ui/pages-view.ts",
     "../../ui/search.ts",

@@ -30,8 +30,8 @@ test("library add chooser prevents duplicates and creates then adds a new playli
 });
 test("library modal preserves animation and existing focus behavior including loudness explanation", async () => {
   const h = await fixture(); try {
-    const opener = h.doc.activeElement; h.library.createPlaylist(); const input = h.input(); assert.equal(h.doc.activeElement, input); assert.equal(h.nodes.libraryModal.hidden, false); await h.flush(); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), true);
-    h.library.closeLibraryModal(); assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "true"); assert.equal(h.doc.activeElement, input, "old close does not explicitly restore opener focus"); assert.notEqual(h.doc.activeElement, opener); assert.equal(h.nodes.libraryModal.hidden, false);
+    h.nodes.createPlaylistButton.focus(); const opener = h.doc.activeElement; h.library.createPlaylist(); const input = h.input(); assert.equal(h.doc.activeElement, input); assert.equal(h.nodes.libraryModal.hidden, false); await h.flush(); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), true);
+    h.library.closeLibraryModal(); assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "true"); assert.equal(h.doc.activeElement, opener, "close restores opener focus"); assert.notEqual(h.doc.activeElement, input); assert.equal(h.nodes.libraryModal.hidden, false);
     await h.nodes.libraryModal.fire("transitionend"); assert.equal(h.nodes.libraryModal.hidden, true);
     h.core.showLoudnessNormalizationDialog(); assert.equal(h.nodes.libraryModalTitle.textContent, "响度归一化"); assert.equal(h.nodes.libraryModalBody.children.length, 5); assert.equal(h.doc.activeElement.textContent, "知道了"); await h.doc.activeElement.fire("click"); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), false);
   } finally { h.dispose(); }

@@ -117,11 +117,15 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     catch (error) { modal({ ...(playlists && (read().session.version === version || !read().session.open) ? { busy: false } : {}), status: String(error).includes("歌曲已在歌单") ? `${error}` : `加入歌单失败：${error}` }); }
   }
   async function submitChoose(id: string): Promise<void> {
+    if (read().session.busy) return;
     const p = read().playlists.find(p => p.id === id), track = read().session.data.track; if (!p || !track) return;
     if (p.items.some(t => t.bvid.toLowerCase() === track.bvid.toLowerCase())) { modal({ status: `该歌曲已在歌单“${p.name}”中，无需重复加入。` }); return; }
-    await addTrack(p, track);
+    const version = read().session.version; modal({ busy: true });
+    try { await addTrack(p, track, undefined, version); }
+    finally { if (read().session.version === version || !read().session.open) modal({ busy: false }); }
   }
   async function createAndAdd(name: string): Promise<void> {
+    if (read().session.busy) return;
     const track = read().session.data.track; if (!track) return; const validation = validateModalName(name); if (!validation.ok) return;
     const version = read().session.version; modal({ busy: true, status: "正在创建…" });
     try { const known = new Set(read().playlists.map(p => p.id)); const playlists = await adapter.invoke("create_playlist", { name: validation.name }); const p = playlists.find(p => !known.has(p.id)) ?? playlists.at(-1); if (p) await addTrack(p, track, playlists, version); else update({ playlists, session: { ...read().session, busy: false } }); }

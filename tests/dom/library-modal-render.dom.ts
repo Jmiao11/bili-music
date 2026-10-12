@@ -76,14 +76,14 @@ for (const expected of structures) test("library " + expected.kind + " opens wit
   } finally { h.dispose(); }
 });
 
-for (const kind of structures.map(item => item.kind as Kind)) test("library " + kind + " Tab has no focus trap 按现状", async () => {
+for (const kind of structures.map(item => item.kind as Kind)) test("library " + kind + " Tab wraps within visible enabled controls", async () => {
   const h = await fixture(); try {
     await h.seed(); await open(h, kind); h.raf();
     h.nodes.closeLibraryModalButton.focus();
     const forward = await h.fire(h.nodes.closeLibraryModalButton, "keydown", { key: "Tab" });
-    assert.equal(forward.defaultPrevented, false); assert.equal(h.doc.activeElement, h.nodes.closeLibraryModalButton);
+    assert.equal(forward.defaultPrevented, kind === "generic"); assert.equal(h.doc.activeElement, h.nodes.closeLibraryModalButton);
     const backward = await h.fire(h.nodes.closeLibraryModalButton, "keydown", { key: "Tab", shiftKey: true });
-    assert.equal(backward.defaultPrevented, false); assert.equal(h.doc.activeElement, h.nodes.closeLibraryModalButton);
+    assert.equal(backward.defaultPrevented, true); assert.equal(h.doc.activeElement, kind === "generic" ? h.nodes.closeLibraryModalButton : h.primary());
     if (kind === "favoriteImport") {
       const inputs = [...h.nodes.libraryModalBody.querySelectorAll("input")];
       assert.equal(inputs.length, 2); assert.equal(inputs[1].closest("[hidden]")?.tagName, "LABEL");
@@ -92,7 +92,7 @@ for (const kind of structures.map(item => item.kind as Kind)) test("library " + 
   } finally { h.dispose(); }
 });
 
-for (const entry of ["Escape", "mask", "close", "cancel"]) test("library closes via " + entry + " and hides only on own transition; no return focus 按现状", async () => {
+for (const entry of ["Escape", "mask", "close", "cancel"]) test("library closes via " + entry + " and hides only on own transition and restores trigger focus", async () => {
   const h = await fixture(); try {
     await h.seed(); const trigger = await open(h, "name"); h.raf(); const input = h.input();
     await h.fire(input, "click"); assert.equal(h.state().session.open, true);
@@ -104,20 +104,20 @@ for (const entry of ["Escape", "mask", "close", "cancel"]) test("library closes 
     if (entry === "cancel") await h.click(h.nodes.libraryModalBody.querySelector<HTMLButtonElement>(".quiet")!);
     assert.equal(h.state().session.open, false); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), false);
     assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "true"); assert.equal(h.nodes.libraryModal.hidden, false);
-    assert.equal(h.doc.activeElement, input); assert.notEqual(h.doc.activeElement, trigger);
+    assert.equal(h.doc.activeElement, trigger); assert.notEqual(h.doc.activeElement, input);
     await h.fire(h.nodes.libraryModalBody, "transitionend"); assert.equal(h.nodes.libraryModal.hidden, false);
     await h.fire(h.nodes.libraryModal, "transitionend"); assert.equal(h.nodes.libraryModal.hidden, true);
-    assert.equal(h.doc.activeElement, input);
+    assert.equal(h.doc.activeElement, trigger);
   } finally { h.dispose(); }
 });
 
-test("library Escape before opening RAF is ignored and close before RAF reopens class 按现状", async () => {
+test("library Escape before opening RAF is ignored and closing cancels the opening frame", async () => {
   const h = await fixture(); try {
     await h.seed(); await open(h, "name");
     await h.fire(h.input(), "keydown", { key: "Escape" }); assert.equal(h.state().session.open, true);
     await h.click(h.nodes.closeLibraryModalButton); assert.equal(h.state().session.open, false);
-    h.raf(); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), true);
-    assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "false");
-    await h.fire(h.nodes.libraryModal, "transitionend"); assert.equal(h.nodes.libraryModal.hidden, false);
+    h.raf(); assert.equal(h.nodes.libraryModal.classList.contains("is-open"), false);
+    assert.equal(h.nodes.libraryModal.getAttribute("aria-hidden"), "true");
+    await h.fire(h.nodes.libraryModal, "transitionend"); assert.equal(h.nodes.libraryModal.hidden, true);
   } finally { h.dispose(); }
 });

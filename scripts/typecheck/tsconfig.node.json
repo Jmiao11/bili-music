@@ -24,6 +24,7 @@
     "../../tests/dom/library-characterization-fixture.ts",
     "../../tests/dom/library-modal-actions.dom.ts",
     "../../tests/dom/library-modal-input.dom.ts",
+    "../../tests/dom/library-modal-focus.dom.ts",
     "../../tests/dom/library-modal-inputs-vue.dom.ts",
     "../../tests/dom/library-modal-render.dom.ts",
     "../../tests/dom/library-modal-vue.dom.ts",

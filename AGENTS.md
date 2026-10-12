@@ -99,7 +99,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 608、安装后 118（新增资料库输入类 Vue 接线 5），以后重新实测；完整命令和 canary 判据见架构文档。
+- 当前实测安装前 608、安装后 129（新增资料库输入类 Vue 接线 5、焦点与防重修复 11），以后重新实测；完整命令和 canary 判据见架构文档。
 
 ## Store 设计约定
 
@@ -210,3 +210,17 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 初始 focus/select 与 focusName 由原 renderer 在 update 后用 .library-name-field:last-of-type input、.library-name-field:first-of-type input 常量选择器执行；组件无 focus、window、actions、invoke。choose 歌单名文本插值，is-added/aria-disabled 保持。
 - 获用户本批授权，把 vue-5b 两项双路径过渡测试改为全部 Vue 内容与 generic 宿主独占/惰性创建；其余冻结测试在 feat 中逐字节不改。原静态十状态保留，1b71b27 旧 renderer 七个输入类状态追加到 library-modal-baseline.json。
 - 本批两提交为 feat（行为不变）→ fix（四项预先获批修复），fix 后资料库阶段验收；本节不会提前授予合并权限。
+
+## vue-5c 阶段 A 完成与焦点修复
+
+- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，Windows/Mac 用户完整手测与合并仍待批准，远程 Windows/macOS CI 待账号恢复后补验。
+- ui/focus-trap.ts 为分P与资料库共用的 Tab 循环；仅在 is-open 时生效，包含 button/input/select/textarea/非 -1 tabindex，排除 disabled 及自身/祖先 hidden，aria-disabled 仍可聚焦。两个分P冻结文件逐字节不改。
+- 打开时记录当前焦点；关闭时仅向仍连接文档的触发元素以 preventScroll 返回焦点。choose 请求期间 submitChoose/createAndAdd 都忽略重复调用，主按钮 disabled，歌单按钮仍不设置原生 disabled。关闭取消未执行的 RAF，RAF 前 Escape 仍不关闭。
+- styles.css 的 settings-mask 使用 opacity/pointer-events，settings-panel 使用 transform（3896–3926 行），没有 visibility:hidden/display:none，因此初始 focus/select 保留 update 后、RAF 前的时机。
+- 用户预先批准修复 1–4 的冻结断言变化；另单项批准 library-characterization 的 opener 前聚焦 createPlaylistButton 接线。其余业务断言与冻结共享 helper 不变。旧 SHA 保留作为历史基线，以下是本批更新后的冻结基线：
+- `tests/dom/library-modal-actions.dom.ts`：Git/LF `f9e473b6a8da948023c5aa3b33797f9d832ec8d9786e895446b515c4827daf3e`；检出/CRLF `188bb1f29ea9fbda16d14cceca90dc6bd527b61c006259f47ab238352cf1caab`。
+- `tests/dom/library-modal-render.dom.ts`：Git/LF `263b469bd42c195af1581de547066f98f50021051f7fa0410d084efa36a1d473`；检出/CRLF `84f2d67ceca287585a3425929be70cc8198ef109ac7cf94ea9270310d7070ed5`。
+- `tests/dom/library-characterization.dom.ts`：Git/LF `823c62b8a8ce64e471f97b351bd78881d237851adc9b03ece073c09226f40a5e`；检出/CRLF `df0bc0a8a7c79b1964d5a0b0e091809f220635a5775fe9e78b950fe2ffc5618f`。
+- `tests/dom/library-modal-inputs-vue.dom.ts`：Git/LF `39606e62c92dfc2edb847ac2f3def71f0a4098da082231bce1d350d6c480eeb1`；检出/CRLF `4b22f621287f255a39a487ce4c63eb6896e14591aac0185cf854e87593efcba8`。
+- `tests/dom/library-modal-focus.dom.ts`：Git/LF `f2316fa53755bce930ca390c6a9f159b331bbb59359defb3d4f4dfe8770333ed`；检出/CRLF `f81cadb9ace7049f728034d02262b687f85eafa4566872faae003b72ce362e57`。
+- 阶段 A 最终内容与 generic 宿主测试 `tests/dom/library-modal-vue.dom.ts`：Git/LF `bf1b2783dfb3214f17e9d1b38b7ac8d4a65459847f308bdb4d9ac1d77503d08d`；检出/CRLF `313d9c1234375b4cfcc239d74c140246bc1d7a705417f335758afacaccb710cc`，后续作为冻结基线。

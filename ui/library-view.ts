@@ -3,6 +3,7 @@ import type { LibrarySnapshot } from "./library-state.ts";
 import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
 import LibraryModalBody from "./components/LibraryModalBody.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
+import { trapFocus } from "./focus-trap.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {
@@ -16,6 +17,8 @@ type LibraryBindings = {
 };
 let libraryModalRegion: ReturnType<typeof createSyncRegion> | null = null;
 let libraryModalRegionKey = 0;
+let libraryModalReturnFocus: HTMLElement | null = null;
+let libraryModalFrame: number | null = null;
 const libraryModalPrimarySelector = ".library-modal-actions > .secondary-button";
 const libraryModalNameSelector = ".library-name-field:last-of-type input";
 const libraryModalLinkSelector = ".library-name-field:first-of-type input";
@@ -141,6 +144,7 @@ function renderLibraryHighlights(libraryState: LibrarySnapshot, bindings: Librar
 
 function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot | null, bindings: LibraryBindings): boolean {
   let rendered = false;
+  if (state.session.open && !previous?.session.open) libraryModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   if (state.view.rowsVersion !== null && state.view.rowsVersion !== previous?.view.rowsVersion) { if (state.view.rowsKind === "all") renderFavorites(state, bindings); renderPlaylists(state, bindings); rendered = state.view.rowsKind === "all"; }
   const modal = state.session;
   if (modal.version !== previous?.session.version && modal.open) {
@@ -152,8 +156,14 @@ function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot
       libraryModalRegionKey = modal.version;
     }
     libraryModalStatus.textContent = ""; libraryModal.hidden = false;
-    requestAnimationFrame(() => { libraryModal.classList.add("is-open"); libraryModal.setAttribute("aria-hidden", "false"); });
-  } else if (previous?.session.open && !modal.open) { libraryModal.classList.remove("is-open"); libraryModal.setAttribute("aria-hidden", "true"); }
+    if (libraryModalFrame !== null) cancelAnimationFrame(libraryModalFrame);
+    libraryModalFrame = requestAnimationFrame(() => { libraryModalFrame = null; libraryModal.classList.add("is-open"); libraryModal.setAttribute("aria-hidden", "false"); });
+  } else if (previous?.session.open && !modal.open) {
+    if (libraryModalFrame !== null) { cancelAnimationFrame(libraryModalFrame); libraryModalFrame = null; }
+    libraryModal.classList.remove("is-open"); libraryModal.setAttribute("aria-hidden", "true");
+    if (libraryModalReturnFocus?.isConnected) libraryModalReturnFocus.focus({ preventScroll: true });
+    libraryModalReturnFocus = null;
+  }
   if (libraryModalRegion && modal.kind !== "generic") {
     libraryModalRegion.update({ key: libraryModalRegionKey, kind: modal.kind, busy: modal.busy, primaryLabel: modal.data.primaryLabel, data: modal.data,
       unavailable: modal.data.unavailable ?? [], locations: unavailableTrackLocations(modal.data.unavailable ?? [], state.favorites, state.playlists), favorites: state.favorites, playlists: state.playlists,
@@ -177,9 +187,10 @@ function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot
   if (state.view.purgeBusy !== null && state.view.purgeBusy !== previous?.view.purgeBusy) purgeUnavailableTracksButton.disabled = state.view.purgeBusy;
   return rendered;
 }
+function keepFocusInLibraryModal(event: KeyboardEvent): void { trapFocus(event, libraryModal); }
 function finishLibraryModalTransition(event: TransitionEvent): void {
   if (event.target === libraryModal && !libraryModal.classList.contains("is-open")) libraryModal.hidden = true;
 }
 
-export { finishLibraryModalTransition, renderLibraryHighlights, renderLibrarySnapshot };
+export { finishLibraryModalTransition, keepFocusInLibraryModal, renderLibraryHighlights, renderLibrarySnapshot };
 export type { LibraryBindings };

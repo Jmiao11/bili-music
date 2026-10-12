@@ -6,7 +6,7 @@ import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
 import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
 import { keepFocusInPagesModal } from "./pages-view.ts";
-import { finishLibraryModalTransition } from "./library-view.ts";
+import { finishLibraryModalTransition, keepFocusInLibraryModal } from "./library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "./library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "./video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setPendingSearchRestore, setSearchDivision, setSearchSort, takePendingSearchRestore, updateMusicTabs } from "./search.ts";
@@ -174,6 +174,7 @@ pagesModal?.addEventListener("transitionend", (event) => {
   }
 });
 window.addEventListener("keydown", (event) => {
+  keepFocusInLibraryModal(event);
   if (event.key === "Escape") {
     if (pagesModal?.classList.contains("is-open")) {
       closePagesModal();

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { maskCommentsAndStrings } from "../../tests/helpers/js-source.ts";
 
-const domTests = ["tests/dom/favorite-import.dom.ts", "tests/dom/library-characterization.dom.ts", "tests/dom/library-loudness.dom.ts", "tests/dom/library-modal-actions.dom.ts", "tests/dom/library-modal-input.dom.ts", "tests/dom/library-modal-inputs-vue.dom.ts", "tests/dom/library-modal-render.dom.ts", "tests/dom/library-modal-vue.dom.ts", "tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-tab.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"];
+const domTests = ["tests/dom/favorite-import.dom.ts", "tests/dom/library-characterization.dom.ts", "tests/dom/library-loudness.dom.ts", "tests/dom/library-modal-actions.dom.ts", "tests/dom/library-modal-focus.dom.ts", "tests/dom/library-modal-input.dom.ts", "tests/dom/library-modal-inputs-vue.dom.ts", "tests/dom/library-modal-render.dom.ts", "tests/dom/library-modal-vue.dom.ts", "tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-tab.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"];
 if (domTests.some(file => !file.startsWith("tests/dom/") || !file.endsWith(".dom.ts"))) throw new Error("DOM test registration must use tests/dom/*.dom.ts to avoid default Node discovery");
 function sourceImports(source: string) {
   const code = maskCommentsAndStrings(source);

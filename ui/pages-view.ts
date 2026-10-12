@@ -3,6 +3,7 @@ import type { LibrarySnapshot } from "./library-state.ts";
 import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
 import PagesList from "./components/PagesList.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
+import { trapFocus } from "./focus-trap.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
   playPage(page: Readonly<CommandContract.VideoPage>): void;
@@ -104,24 +105,7 @@ function renderPagesSnapshot(state: PagesSnapshot, library: LibrarySnapshot, pre
     if (focus instanceof HTMLElement && focus.isConnected) focus.focus({ preventScroll: true });
   }
 }
-function keepFocusInPagesModal(event: KeyboardEvent): void {
-  if (event.key !== "Tab" || !pagesModal.classList.contains("is-open")) {
-    return;
-  }
-  const focusable = [...pagesModal.querySelectorAll<HTMLButtonElement>("button:not([disabled])")].filter(button => !button.closest("[hidden]"));
-  if (focusable.length === 0) {
-    return;
-  }
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
+function keepFocusInPagesModal(event: KeyboardEvent): void { trapFocus(event, pagesModal); }
 
 export { keepFocusInPagesModal, preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge };
 export type { PagesBindings };

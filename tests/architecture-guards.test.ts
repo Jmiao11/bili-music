@@ -14,7 +14,7 @@ const expected = [
   "sidebar.js",
   "app.ts",
 ];
-const splitScripts = ["playback-messages-state.ts", "playback-messages-view.ts", "playback-messages.ts", "playback-mini-view.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-display-view.ts", "playback-settings-state.ts", "media-adapter.ts", "playback-settings-view.ts", "settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
+const splitScripts = ["playback-messages-state.ts", "playback-messages-view.ts", "playback-messages.ts", "playback-mini-view.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-display-view.ts", "playback-settings-state.ts", "media-adapter.ts", "playback-settings-view.ts", "settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "focus-trap.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
 
 test("main-window script list and files match the approved order", () => {
   const tags = [...html.matchAll(/<script\b[^>]*\ssrc=["'](?:\.\/)?([^"']+)["'][^>]*>/g)].map((match) => match[1]);
@@ -86,7 +86,7 @@ test("split scripts contain only top-level function declarations and comments", 
         "home.ts": new Set(["applicationStore"]),
         "playback-messages.ts": new Set(["mounted"]),
         "pages-view.ts": new Set(["pagesModalReturnFocus", "pagesListRegion", "pagesListRenderVersion"]),
-        "library-view.ts": new Set(["libraryModalRegion", "libraryModalRegionKey"]),
+        "library-view.ts": new Set(["libraryModalRegion", "libraryModalRegionKey", "libraryModalReturnFocus", "libraryModalFrame"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.ts": new Set(["libraryMounted", "favoriteDragElements", "playlistDragElements", "playlistListDragElements"]),
         "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMounted", "modalPlayCallback"]),

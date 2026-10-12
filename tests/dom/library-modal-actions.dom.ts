@@ -59,11 +59,11 @@ test("library choose duplicate is aria-disabled only and warns without a command
   } finally { h.dispose(); }
 });
 
-for (const success of [true, false]) test("library choose existing playlist " + (success ? "succeeds" : "fails open") + " without a busy lock 按现状", async () => {
+for (const success of [true, false]) test("library choose existing playlist " + (success ? "succeeds" : "fails open") + " with a busy lock", async () => {
   const h = await fixture(); try {
     await h.seed(); await open(h, "choose"); h.raf(); const button = h.nodes.libraryModalBody.querySelectorAll<HTMLButtonElement>(".playlist-choice")[1];
     const gate = deferred(); h.reply(() => gate.promise); await h.click(button);
-    assert.equal(h.state().session.busy, false); assert.equal(button.disabled, false);
+    assert.equal(h.state().session.busy, true); assert.equal(button.disabled, false);
     assert.equal(h.nodes.libraryModalStatus.textContent, "正在加入“歌单b”…");
     assert.deepEqual(h.calls, [{ command: "add_to_playlist", args: { id: "b", track: { bvid: track(1).bvid, title: "曲目1", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 } } }]);
     if (success) gate.resolve([playlist("a"), playlist("b")]); else gate.reject(Error("加入错误")); await h.microtasks();
@@ -160,7 +160,7 @@ test("library loudness acknowledgment is local and closes without an IPC command
     await h.seed(); await open(h, "loudness"); h.raf(); assert.equal(h.calls.length, 0);
     assert.equal(h.doc.activeElement, h.primary()); await h.click(h.primary());
     assert.equal(h.state().session.open, false); assert.equal(h.calls.length, 0);
-    assert.equal(h.doc.activeElement, h.primary());
+    assert.equal(h.doc.activeElement, h.doc.querySelector("#loudness-normalization-toggle"));
   } finally { h.dispose(); }
 });
 
@@ -178,12 +178,12 @@ for (const success of [true, false]) test("library import pagination " + (succes
   } finally { h.dispose(); }
 });
 
-test("library choose allows repeated pending clicks 按现状", async () => {
+test("library choose ignores repeated pending clicks", async () => {
   const h = await fixture(); try {
     await h.seed(); await open(h, "choose"); const button = h.nodes.libraryModalBody.querySelectorAll<HTMLButtonElement>(".playlist-choice")[1];
     const gate = deferred(); h.reply(() => gate.promise); await h.click(button); await h.click(button);
-    assert.equal(h.calls.length, 2); assert.equal(h.calls.every(call => call.command === "add_to_playlist"), true);
-    assert.equal(h.state().session.busy, false); assert.equal(button.disabled, false);
+    assert.equal(h.calls.length, 1); assert.equal(h.calls.every(call => call.command === "add_to_playlist"), true);
+    assert.equal(h.state().session.busy, true); assert.equal(button.disabled, false);
     gate.resolve([playlist("a"), playlist("b")]); await h.microtasks(); assert.equal(h.state().session.open, false);
   } finally { h.dispose(); }
 });
