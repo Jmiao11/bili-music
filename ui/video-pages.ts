@@ -234,14 +234,13 @@ async function loadVideoPagesForModal(video: CommandContract.TrackSnapshotInput,
   } finally { renderPagesTrigger(trigger, requestVersion, false); }
 }
 
-function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
+function createTrackActivationSession(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void) {
   let clickTimer: ReturnType<typeof window.setTimeout> | null = null;
   pageModalOpeners.set(playButton, (trigger: HTMLElement) => {
     void loadVideoPagesForModal(video, onPlay, trigger);
   });
   getPagesActions();
-  updatePageCountBadge(playButton, video.bvid, getPagesSnapshot(), pagesBindings());
-  playButton.addEventListener("click", (event) => {
+  const click = (event: MouseEvent) => {
     if (event.detail === 0) {
       onPlay();
       return;
@@ -249,12 +248,13 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
     if (clickTimer !== null) {
       window.clearTimeout(clickTimer);
     }
+    const delayedPlay = onPlay;
     clickTimer = window.setTimeout(() => {
       clickTimer = null;
-      onPlay();
+      delayedPlay();
     }, 250);
-  });
-  item.addEventListener("dblclick", (event: MouseEvent) => {
+  };
+  const doubleClick = (event: MouseEvent) => {
     if ((event.target as Element).closest(".track-actions")) {
       return;
     }
@@ -264,7 +264,24 @@ function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, v
       clickTimer = null;
     }
     pageModalOpeners.get(playButton)?.(playButton);
-  });
+  };
+  return { handleClick: click, doubleClick,
+    update(nextVideo: CommandContract.TrackSnapshotInput, nextPlay: (selection?: PageSelection) => void) { video = nextVideo; onPlay = nextPlay; },
+    badge(trigger: HTMLElement) { pageModalOpeners.get(playButton)?.(trigger); },
+  };
+}
+function observeTrackRow(item: HTMLElement, bvid: string): void { queueCachedVideoPagesLookup(item, bvid); }
+function unobserveTrackRow(item: HTMLElement): void {
+  pageCountObserver?.unobserve(item);
+  for (const targets of [pendingPageCacheTargets, observedPageCountTargets, visiblePageCountTargets]) {
+    for (const [bvid, elements] of targets) { elements.delete(item); if (elements.size === 0) targets.delete(bvid); }
+  }
+}
+function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
+  const activation = createTrackActivationSession(item, playButton, video, onPlay);
+  updatePageCountBadge(playButton, video.bvid, getPagesSnapshot(), pagesBindings());
+  playButton.addEventListener("click", activation.handleClick);
+  item.addEventListener("dblclick", activation.doubleClick);
   queueCachedVideoPagesLookup(item, video.bvid);
 }
 
@@ -304,4 +321,4 @@ function getPagesActions() {
   }
   return store.actions.pages;
 }
-export { bindTrackActivation, changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal };
+export { bindTrackActivation, changeDisabledPages, closePagesModal, createTrackActivationSession, getPagesSnapshot, observeTrackRow, openCurrentPagesModal, unobserveTrackRow };

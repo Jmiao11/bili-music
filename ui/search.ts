@@ -1,10 +1,10 @@
-import type { SearchPageCommit } from "./search-state.ts";
 import { searchKeyword } from "./player-dom.ts";
+import type { SearchPageCommit } from "./search-state.ts";
 import { LAST_SEARCH_KEY } from "./player-state.ts";
+import { refreshSearchRows, renderSearchRows } from "./track-list-ui.ts";
 import { getApplicationStore } from "./home.ts";
-import { bindTrackActivation } from "./video-pages.ts";
 import { renderSearchSnapshot } from "./search-view.ts";
-import { appendSearchResults, createTrackActions, playSearchResult, updateQueueUi } from "./playback-core.ts";
+import { appendSearchResults, playSearchResult, updateQueueUi } from "./playback-core.ts";
 
 let searchMounted = false;
 
@@ -31,7 +31,8 @@ function getSearchActions() {
     searchMounted = true;
     let previous: ReturnType<typeof getSearchSnapshot> | null = null;
     const render = (state: ReturnType<typeof store.getState>) => {
-      const rendered = renderSearchSnapshot(state.search, previous, { createActions: createTrackActions, bindActivation: bindTrackActivation, play: playSearchResult });
+      const rendered = renderSearchSnapshot(state.search, previous, { renderRows: search => renderSearchRows(state, search, playSearchResult) });
+      refreshSearchRows(state);
       previous = state.search;
       if (rendered) updateQueueUi();
     };

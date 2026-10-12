@@ -1,11 +1,12 @@
 import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
-import type { SearchPageCommit } from "./search-state.ts";
 import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, thumbnail, title, uploader } from "./player-dom.ts";
+import type { SearchPageCommit } from "./search-state.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
+import { isVueTrackRow } from "./track-row-ownership.ts";
 import { getApplicationStore, getHomeSnapshot } from "./home.ts";
 import { choosePlaylistAndAdd, clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
 import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
@@ -324,6 +325,7 @@ function updateQueueUi() {
   for (const queueButton of [
     ...searchResults.querySelectorAll<HTMLButtonElement>("button[data-result-index]"),
   ]) {
+    if (isVueTrackRow(queueButton.parentElement)) continue;
     const index = Number(queueButton.dataset.resultIndex);
     if (
       getQueueSnapshot().queueSearchVersion === getSearchSnapshot().requestVersion &&
@@ -336,6 +338,7 @@ function updateQueueUi() {
   }
   if (homeRankingList) {
     for (const rankingButton of homeRankingList.querySelectorAll<HTMLButtonElement>("button.track")) {
+      if (isVueTrackRow(rankingButton.parentElement)) continue;
       const index = Number(rankingButton.dataset.libraryIndex);
       const activeHomeSource =
         getHomeSnapshot().mode === "recommendation" ? "recommendation" : "ranking";
@@ -364,6 +367,7 @@ function setFavoriteButtonState(button: HTMLButtonElement, bvid: string) {
 
 function updateFavoriteButtons() {
   for (const button of document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { favoriteBvid: string } }>("[data-favorite-bvid]")) {
+    if (isVueTrackRow(button.parentElement?.parentElement)) continue;
     setFavoriteButtonState(button, button.dataset.favoriteBvid);
   }
   const current = currentPlayableTrack();
@@ -1225,4 +1229,4 @@ shuffleToggle.addEventListener("change", () => {
 }
 
 
-export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackActions, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };

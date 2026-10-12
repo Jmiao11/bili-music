@@ -2,28 +2,7 @@ import type { HomeSnapshot } from "./app-state.ts";
 import { isHomePopular } from "./app-state.ts";
 import { homeCacheNote, homeHintApply, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.ts";
 
-type HomeRowFactory = (video: HomeSnapshot["ranking"][number], index: number, source: string, options: { showPlayCount: boolean }) => HTMLElement;
-
-function renderRankingSkeleton(): void {
-  if (!homeRankingList) {
-    return;
-  }
-  homeRankingList.replaceChildren();
-  for (let index = 0; index < 8; index += 1) {
-    const item = document.createElement("li");
-    item.className = "track-row skeleton-row";
-    item.innerHTML = `
-      <span class="track skeleton-track">
-        <span class="skeleton-cover"></span>
-        <span class="skeleton-meta">
-          <span></span>
-          <small></small>
-        </span>
-      </span>
-    `;
-    homeRankingList.append(item);
-  }
-}
+type HomeRowsRenderer = (videos: HomeSnapshot["ranking"], source: string, skeleton: boolean) => void;
 
 function renderHomeMode(homeState: HomeSnapshot): void {
   const isRecommendation = homeState.mode === "recommendation";
@@ -65,19 +44,19 @@ function renderHomeMode(homeState: HomeSnapshot): void {
   }
 }
 
-function renderHomeRanking(homeState: HomeSnapshot, createRow: HomeRowFactory): boolean {
+function renderHomeRanking(homeState: HomeSnapshot, renderRows: HomeRowsRenderer): boolean {
   if (!homeRankingList) {
     return false;
   }
   renderHomeMode(homeState);
-  homeRankingList.replaceChildren();
+  renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", false);
   if (homeSetupHint) {
     homeSetupHint.hidden = true;
     homeSetupHint.classList.remove("is-inline");
   }
   homePanel?.classList.remove("needs-setup");
   if (homeState.loading) {
-    renderRankingSkeleton();
+    renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", true);
     return false;
   }
   if (homeState.error) {
@@ -85,16 +64,7 @@ function renderHomeRanking(homeState: HomeSnapshot, createRow: HomeRowFactory): 
     return false;
   }
   homeRankingError.textContent = "";
-  for (const [index, video] of homeState.ranking.entries()) {
-    homeRankingList.append(
-      createRow(
-        video,
-        index,
-        "ranking",
-        { showPlayCount: true },
-      ),
-    );
-  }
+  renderRows(homeState.ranking, "ranking", false);
   if (isHomePopular(homeState)) {
     showHomeNotice("配置 API Key 后可生成专属推荐", "", true);
   }
@@ -109,19 +79,19 @@ function showHomeNotice(title: string, sub: string, inline: boolean = false): vo
   homePanel?.classList.toggle("needs-setup", !inline);
 }
 
-function renderRecommendations(homeState: HomeSnapshot, createRow: HomeRowFactory): boolean {
+function renderRecommendations(homeState: HomeSnapshot, renderRows: HomeRowsRenderer): boolean {
   if (!homeRankingList) {
     return false;
   }
   renderHomeMode(homeState);
-  homeRankingList.replaceChildren();
+  renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", false);
   if (homeSetupHint) {
     homeSetupHint.hidden = true;
     homeSetupHint.classList.remove("is-inline");
   }
   homePanel?.classList.remove("needs-setup");
   if (homeState.recommendationLoading) {
-    renderRankingSkeleton();
+    renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", true);
     return false;
   }
   if (homeState.recommendationError) {
@@ -137,20 +107,11 @@ function renderRecommendations(homeState: HomeSnapshot, createRow: HomeRowFactor
     return false;
   }
   homeRankingError.textContent = "";
-  for (const [index, video] of homeState.recommendations.entries()) {
-    homeRankingList.append(
-      createRow(
-        video,
-        index,
-        "recommendation",
-        { showPlayCount: true },
-      ),
-    );
-  }
+  renderRows(homeState.recommendations, "recommendation", false);
   return true;
 }
 
-function renderHomeSnapshot(home: HomeSnapshot, previous: HomeSnapshot | null, createRow: HomeRowFactory): boolean {
+function renderHomeSnapshot(home: HomeSnapshot, previous: HomeSnapshot | null, renderRows: HomeRowsRenderer): boolean {
   const view = home.view;
   if (view.status !== null && view.status !== previous?.view.status) homeRankingStatus.textContent = view.status;
   if (view.rankingError !== null && view.rankingError !== previous?.view.rankingError) homeRankingError.textContent = view.rankingError.text;
@@ -158,8 +119,8 @@ function renderHomeSnapshot(home: HomeSnapshot, previous: HomeSnapshot | null, c
   if (view.hintText !== null && view.hintText !== previous?.view.hintText) homeHintApply.textContent = view.hintText;
   if (view.refreshDisabled !== null && view.refreshDisabled !== previous?.view.refreshDisabled) refreshRankingButton.disabled = view.refreshDisabled;
   if (view.content === previous?.view.content) return false;
-  if (view.content.kind === "ranking") return renderHomeRanking(home, createRow);
-  if (view.content.kind === "recommendations") return renderRecommendations(home, createRow);
+  if (view.content.kind === "ranking") return renderHomeRanking(home, renderRows);
+  if (view.content.kind === "recommendations") return renderRecommendations(home, renderRows);
   renderHomeMode(home);
   return false;
 }

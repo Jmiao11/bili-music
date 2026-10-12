@@ -1,8 +1,9 @@
+import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
 import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
 import PagesList from "./components/PagesList.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
+import { isVueTrackRow } from "./track-row-ownership.ts";
 import { trapFocus } from "./focus-trap.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
@@ -50,7 +51,7 @@ function updatePageCountBadge(playButton: HTMLButtonElement, bvid: string, state
 
 function refreshPageCountBadges(bvid: string, state: PagesSnapshot, bindings: PagesBindings): void {
   for (const playButton of document.querySelectorAll<HTMLButtonElement>("button.track[data-bvid]")) {
-    if (playButton.dataset.bvid === bvid) {
+    if (!isVueTrackRow(playButton.parentElement) && playButton.dataset.bvid === bvid) {
       updatePageCountBadge(playButton, bvid, state, bindings);
     }
   }

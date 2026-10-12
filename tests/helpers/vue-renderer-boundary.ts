@@ -6,6 +6,9 @@ import assert from "node:assert/strict";
 import { afterEach } from "node:test";
 
 const vueRendererImports = [
+  {"file":"components/TrackList.vue","specifier":"./TrackRow.vue","name":"TrackRow","declaration":"import TrackRow from \"./TrackRow.vue\";"},
+  { file: "track-list-view.ts", specifier: "./components/TrackList.vue", name: "TrackList", declaration: 'import TrackList from "./components/TrackList.vue";' },
+  { file: "track-list-view.ts", specifier: "./vue/sync-region.ts", name: "createSyncRegion", declaration: 'import { createSyncRegion } from "./vue/sync-region.ts";' },
   { file: "pages-view.ts", specifier: "./components/PagesList.vue", name: "PagesList", declaration: 'import PagesList from "./components/PagesList.vue";' },
   { file: "pages-view.ts", specifier: "./vue/sync-region.ts", name: "createSyncRegion", declaration: 'import { createSyncRegion } from "./vue/sync-region.ts";' },
   { file: "library-view.ts", specifier: "./components/LibraryModalBody.vue", name: "LibraryModalBody", declaration: 'import LibraryModalBody from "./components/LibraryModalBody.vue";' },

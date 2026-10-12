@@ -34,12 +34,14 @@
     "../../ui/pages-state.ts",
     "../../ui/state-store.ts",
     "../../ui/library-state.ts",
-    "../../ui/home-view.ts",
-    "../../ui/playback-core.ts",
-    "../../ui/playback-policy.ts",
+    "../../ui/track-list-ui.ts",
+    "../../ui/track-row-ownership.ts",
+    "../../ui/track-list-view.ts",
     "../../ui/library-ui.ts",
     "../../ui/library-view.ts",
     "../../ui/focus-trap.ts",
+    "../../ui/playback-core.ts",
+    "../../ui/playback-policy.ts",
     "../../ui/video-pages.ts",
     "../../ui/pages-view.ts",
     "../../ui/search.ts",
@@ -50,6 +52,7 @@
     "../../ui/settings-view.ts",
     "../../ui/playback-settings-view.ts",
     "../../ui/playback-display-view.ts",
+    "../../ui/home-view.ts",
     "../../ui/playback-messages-view.ts",
     "../../ui/playback-diagnostics.ts",
     "../../ui/lyrics.ts",
@@ -57,6 +60,9 @@
     "../../ui/playback-mini-view.ts",
     "../../ui/vue/use-app-state.ts",
     "../../ui/vue/sync-region.ts",
-    "../../ui/components/PagesList.vue"
+    "../../ui/components/PagesList.vue",
+    "../../ui/track-list-model.ts",
+    "../../ui/components/TrackList.vue",
+    "../../ui/components/TrackRow.vue"
   ]
 }

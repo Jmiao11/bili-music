@@ -8,6 +8,8 @@ import { checkVueInfrastructureFiles } from "./infra-guard.ts";
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const readerFixture = "tests/fixtures/vue/StoreReader.vue";
 const vueImports: Record<string, string[]> = {
+  "ui/components/TrackList.vue": ["vue"],
+  "ui/components/TrackRow.vue": ["vue"],
   "ui/components/LibraryModalBody.vue": ["vue"],
   "scripts/vue/check.ts": ["vue/compiler-sfc"],
   "tests/dom/vue-smoke.dom.ts": ["vue"],
@@ -16,7 +18,7 @@ const vueImports: Record<string, string[]> = {
   "ui/vue/use-app-state.ts": ["vue"],
   "ui/vue/sync-region.ts": ["vue"],
 };
-const sfcAdditionalForbidden: Record<string, string[]> = { "ui/components/LibraryModalBody.vue": ["focus"] };
+const sfcAdditionalForbidden: Record<string, string[]> = { "ui/components/TrackList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/components/TrackRow.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/components/LibraryModalBody.vue": ["focus"] };
 function inspect(source: string, file: string, visit: (node: ts.Node) => void) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   function walk(node: ts.Node) { visit(node); ts.forEachChild(node, walk); }
@@ -89,6 +91,9 @@ for (const expression of ["window.location", "window.__TAURI__", "invoke('x')", 
   assert.throws(() => checkSfc(`<template><button>{{ ${expression} }}</button></template>`, fixture), /forbidden component access/);
 }
 assert.throws(() => checkSfc('<script setup lang="ts">element.focus();</script><template><button /></template>', "ui/components/LibraryModalBody.vue"), /forbidden component access/);
+for (const file of ["ui/components/TrackList.vue", "ui/components/TrackRow.vue"]) for (const expression of ["element.focus()", "queueSource", "queueSearchVersion", "getApplicationStore()", "useAppState()", "actions.update()"]) {
+  assert.throws(() => checkSfc(`<script setup lang="ts">${expression};</script>`, file), /forbidden component access/);
+}
 checkRepository(path.resolve(import.meta.dirname, "../.."));
 checkVueInfrastructureFiles(path.resolve(import.meta.dirname, "../.."));
 console.log("PASS Vue import and SFC content guards");

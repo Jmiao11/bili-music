@@ -215,7 +215,7 @@ npm run typecheck -- --update
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 608、安装后 129（新增资料库输入类 Vue 接线 5、焦点与防重修复 11），以后重新实测；完整命令和 canary 判据见架构文档。
+- 当前实测安装前 588、安装后 206（B1 迁入原特征 20、新增真实 DOM 基线 24、Vue 合约 33），以后重新实测；完整命令和 canary 判据见架构文档。
 
 阶段验收全部 canary 的完整清单如下；合并验收只挑直接相关项。
 
@@ -530,7 +530,7 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 
 ## vue-5c 阶段 A 完成与焦点修复
 
-- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，Windows/Mac 用户完整手测与合并仍待批准，远程 Windows/macOS CI 待账号恢复后补验。
+- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，用户已于 2026-10-12 确认 Windows/Mac 完整手测通过，fd1c4c4 已本地 fast-forward 合并，远程 Windows/macOS CI 待账号恢复后补验。
 - ui/focus-trap.ts 为分P与资料库共用的 Tab 循环；仅在 is-open 时生效，包含 button/input/select/textarea/非 -1 tabindex，排除 disabled 及自身/祖先 hidden，aria-disabled 仍可聚焦。两个分P冻结文件逐字节不改。
 - 打开时记录当前焦点；关闭时仅向仍连接文档的触发元素以 preventScroll 返回焦点。choose 请求期间 submitChoose/createAndAdd 都忽略重复调用，主按钮 disabled，歌单按钮仍不设置原生 disabled。关闭取消未执行的 RAF，RAF 前 Escape 仍不关闭。
 - styles.css 的 settings-mask 使用 opacity/pointer-events，settings-panel 使用 transform（3896–3926 行），没有 visibility:hidden/display:none，因此初始 focus/select 保留 update 后、RAF 前的时机。
@@ -547,3 +547,17 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 首页榜单、首页推荐、搜索列表先在旧 renderer 上建立真实 DOM 特征测试。原首页八项、搜索七项与恢复五项迁入安装后 jsdom，业务断言保持。分P与资料库冻结文件、共享 helper 不变。失效标记保持原投影时机：首页仅在内容提交/重绘时读取，搜索无标记。资料库阶段 A 用户已完成 Windows/Mac 手测并批准本地合并 fd1c4c4。
 
 B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF、检出/CRLF 哈希见 AGENTS.md 的 B1 节。原二十项 125 个断言位置的逐测试执行次数保持，三条变更仅为假 DOM 到真实 DOM 的等价读取。
+
+## B1 首页与搜索 Vue 曲目列表
+
+- TrackList.vue + TrackRow.vue 负责首页榜单、首页推荐及搜索行的内容、角标、收藏态、高亮与失效标记。外壳状态文字/重试/分页状态仍由旧投影维护；共享样式不改。组件只读 props/回调，不读 store，不访问平台或聚焦。高亮由控制器按旧 queueSource/queueSearchVersion 条件计算。
+- 控制器显式同步 update，先比较已提交列表、高亮结果、角标、收藏及已采集失效映射；50 次无关资料库字段提交不调用列表 update。首次歌曲或骨架 li 才创建，空列表卸载并保留 :empty；G0 154/70 不变。
+- key 为已提交列表代号 + 精确 BV + 重复序号；新查询成功提交后更换代号，等待期间保留已显示行。元数据/高亮/角标原位修补。用户已批准搜索翻页保留已有行、焦点与观察状态，替代旧整列重建；其余行为不变。
+- bindTrackActivation 原接口与 Vue 回调共用 createTrackActivationSession；250ms、双击取消、detail=0 立即播放及真实按钮为 pageModalOpeners 键保持。Vue 不额外 addEventListener；已脱离行的已安排播放计时器不取消。IntersectionObserver observe/unobserve 由控制器经回调 ref 执行，dataset.pageCountBvid 属于控制器，修补不删除。
+- B1 引入的过渡机制：track-row-ownership.ts 用 WeakSet 登记 Vue li；旧全局角标、收藏和高亮写入跳过它们，收藏/歌单旧 DOM 继续使用原路径。B2 完成时删除此过渡机制。
+- 用户 2026-10-12 确认失效标记保持旧时机：搜索无标记；首页只在原内容提交/重绘时采集，失效映射单独变化不更新现有标记。实时更新留给独立修复。
+- vueRendererImports 精确登记 track-list-view.ts 的 TrackList.vue/sync-region.ts 与 TrackList.vue 内的 TrackRow.vue。后者使分P冻结 fixture 依现有登记完整复制子组件；冻结 helper 与发现算法不改。
+- 本批用户单项批准 library-modal-vue.dom.ts 惰性创建测试的四条统计断言仅按 libraryModalBody 宿主筛选，预期仍 0/1，执行次数 1、1、4、1 不变；其他业务断言不改。原阶段 A SHA 留作历史，新冻结基线如下。
+- 最终实测安装前 588、安装后 206；test 提交新增旧实现基线 24，迁入原特征 20；feat 新增 Vue 合约 33（含 25 状态 HTML 对比）。第一提交六个冻结文件在 feat 中逐字节不变。用户手测与本地合并待批准，远程 Windows/macOS CI 待账号恢复后补验。
+- `tests/dom/library-modal-vue.dom.ts`：Git/LF `af69af6553d774100d2bbef9b9605a8f1f10998a67c5c13a1e4c74182dc88b21`；检出/CRLF `8fc257ceee889ee80ae83ec5a1679feda238f97bd9710930b8741a130363e103`。
+- `tests/dom/tracks-vue.dom.ts`：Git/LF `25ca1c3597f2653caac4b59d4452db7d9716137a36a0bb5e3e4cc2abb19d2b81`；检出/CRLF `2b7db6c44e379e2c5d52d96829afe75ecdd3133ab3d87fd40227432bd3a60568`。

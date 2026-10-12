@@ -35,10 +35,10 @@ test("library Vue host switches Vue kinds and generic with exclusive ownership",
 
 test("library Vue region is lazy for startup and generic and reused by all content kinds", async () => {
   const h = await fixture(); try {
-    await h.seed(); assert.equal(h.regions.length, 0);
-    await open(h, "generic"); assert.equal(h.regions.length, 0);
-    for (const kind of ["name", "choose", "favoriteImport", "delete"] as const) { await open(h, kind); assert.equal(h.regions.filter(x => x.operation === "create").length, 1); }
-    h.store.actions.library.setModalName("无关字段"); assert.equal(h.regions.filter(x => x.operation === "create").length, 1);
+    await h.seed(); assert.equal(h.regions.filter(x => x.host === h.nodes.libraryModalBody).length, 0);
+    await open(h, "generic"); assert.equal(h.regions.filter(x => x.host === h.nodes.libraryModalBody).length, 0);
+    for (const kind of ["name", "choose", "favoriteImport", "delete"] as const) { await open(h, kind); assert.equal(h.regions.filter(x => x.host === h.nodes.libraryModalBody && x.operation === "create").length, 1); }
+    h.store.actions.library.setModalName("无关字段"); assert.equal(h.regions.filter(x => x.host === h.nodes.libraryModalBody && x.operation === "create").length, 1);
   } finally { h.dispose(); }
 });
 
