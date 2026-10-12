@@ -76,13 +76,15 @@ test("split scripts contain only top-level function declarations and comments", 
         position += text.length;
         continue;
       }
+      const librarySelector = /^const libraryModalPrimarySelector = "\.library-modal-actions > \.secondary-button";/.exec(remaining);
+      if (script === "library-view.ts" && librarySelector) { position += librarySelector[0].length; continue; }
       const allowedLets: Record<string, Set<string>> = {
         "playback-core.ts": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
         "search.ts": new Set(["searchMounted"]),
         "home.ts": new Set(["applicationStore"]),
         "playback-messages.ts": new Set(["mounted"]),
         "pages-view.ts": new Set(["pagesModalReturnFocus", "pagesListRegion", "pagesListRenderVersion"]),
-        "library-view.ts": new Set(["libraryModalControls"]),
+        "library-view.ts": new Set(["libraryModalControls", "libraryModalRegion", "libraryModalRegionKey"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.ts": new Set(["libraryMounted", "favoriteDragElements", "playlistDragElements", "playlistListDragElements"]),
         "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMounted", "modalPlayCallback"]),

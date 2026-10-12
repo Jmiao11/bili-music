@@ -8,6 +8,7 @@ import { checkVueInfrastructureFiles } from "./infra-guard.ts";
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const readerFixture = "tests/fixtures/vue/StoreReader.vue";
 const vueImports: Record<string, string[]> = {
+  "ui/components/LibraryModalBody.vue": ["vue"],
   "scripts/vue/check.ts": ["vue/compiler-sfc"],
   "tests/dom/vue-smoke.dom.ts": ["vue"],
   "tests/dom/pages-runtime.ts": ["vue"],
@@ -15,6 +16,7 @@ const vueImports: Record<string, string[]> = {
   "ui/vue/use-app-state.ts": ["vue"],
   "ui/vue/sync-region.ts": ["vue"],
 };
+const sfcAdditionalForbidden: Record<string, string[]> = { "ui/components/LibraryModalBody.vue": ["focus"] };
 function inspect(source: string, file: string, visit: (node: ts.Node) => void) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   function walk(node: ts.Node) { visit(node); ts.forEachChild(node, walk); }
@@ -44,6 +46,7 @@ function checkImports(source: string, file: string) {
 }
 
 function checkSfc(source: string, file: string) {
+  const forbidden = ["window", "__TAURI__", "invoke", "actions", ...(sfcAdditionalForbidden[file] ?? [])];
   const { descriptor, errors } = parse(source, { filename: file });
   assert.equal(errors.length, 0, `${file}: invalid SFC`);
   assert.equal(descriptor.script?.src, undefined, `${file}: external script forbidden`);
@@ -55,8 +58,8 @@ function checkSfc(source: string, file: string) {
     sources.push(template.code);
   }
   for (const source of sources) inspect(source, file, node => {
-    if (ts.isIdentifier(node)) assert.ok(!["window", "__TAURI__", "invoke", "actions"].includes(node.text), `${file}: forbidden component access: ${node.text}`);
-    if (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression)) assert.ok(!["window", "__TAURI__", "invoke", "actions"].includes(node.argumentExpression.text), `${file}: forbidden component access`);
+    if (ts.isIdentifier(node)) assert.ok(!forbidden.includes(node.text), `${file}: forbidden component access: ${node.text}`);
+    if (ts.isElementAccessExpression(node) && ts.isStringLiteral(node.argumentExpression)) assert.ok(!forbidden.includes(node.argumentExpression.text), `${file}: forbidden component access`);
   });
   for (const script of [descriptor.script, descriptor.scriptSetup]) if (script) checkImports(script.content, file);
 }
@@ -85,6 +88,7 @@ for (const expression of ["window.location", "window.__TAURI__", "invoke('x')", 
   assert.throws(() => checkSfc(`<script setup lang="ts">${expression};</script><template><button /></template>`, fixture), /forbidden component access/);
   assert.throws(() => checkSfc(`<template><button>{{ ${expression} }}</button></template>`, fixture), /forbidden component access/);
 }
+assert.throws(() => checkSfc('<script setup lang="ts">element.focus();</script><template><button /></template>', "ui/components/LibraryModalBody.vue"), /forbidden component access/);
 checkRepository(path.resolve(import.meta.dirname, "../.."));
 checkVueInfrastructureFiles(path.resolve(import.meta.dirname, "../.."));
 console.log("PASS Vue import and SFC content guards");

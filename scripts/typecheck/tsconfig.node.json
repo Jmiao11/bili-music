@@ -25,6 +25,8 @@
     "../../tests/dom/library-modal-actions.dom.ts",
     "../../tests/dom/library-modal-input.dom.ts",
     "../../tests/dom/library-modal-render.dom.ts",
+    "../../tests/dom/library-modal-vue.dom.ts",
+    "../../tests/dom/library-modal-vue-fixture.ts",
     "../../tests/dom/library-modal-fixture.ts",
     "../../tests/dom/library-modal-open.ts",
     "../../tests/dom/pages-fixture.ts",

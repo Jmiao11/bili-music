@@ -22,7 +22,7 @@ function readonlyLibrary(source: string, names: string[] = []): void {
 test("library renderer reads snapshots without actions platform imports or snapshot writes", () => {
   const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/library-view.ts"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(source), /\b(?:invoke|getLibraryActions|getApplicationStore)\b|\.\s*actions\b/);
-  for (const match of source.matchAll(/^import\b[^;]*?["']([^"']+)["']/gm)) assert.ok(["./track-utils.ts", "./library-state.ts", "./player-dom.ts"].includes(match[1]));
+  for (const match of source.matchAll(/^import\b[^;]*?["']([^"']+)["']/gm)) assert.ok(["./track-utils.ts", "./library-state.ts", "./player-dom.ts", "./components/LibraryModalBody.vue", "./vue/sync-region.ts"].includes(match[1]));
   readonlyLibrary(source, ["state", "libraryState"]);
 });
 

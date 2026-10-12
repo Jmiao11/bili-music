@@ -48,7 +48,7 @@ function collectBusinessScripts(root: string) {
       readFileSync(path.join(root, name), "utf8");
     }
   }
-  const rendererFiles = vueRendererImports.filter(entry => modules.includes(entry.file)).map(entry => path.posix.normalize(path.posix.join(path.posix.dirname(entry.file), entry.specifier)));
+  const rendererFiles = [...new Set(vueRendererImports.filter(entry => modules.includes(entry.file)).map(entry => path.posix.normalize(path.posix.join(path.posix.dirname(entry.file), entry.specifier))))];
   return rendererFiles.length ? { ordinary, entries, modules, files, rendererFiles } : { ordinary, entries, modules, files };
 }
 

@@ -1,6 +1,8 @@
-import { displayThumbnailUrl, escapeText, unavailableTrackLocations } from "./track-utils.ts";
+import { escapeText, unavailableTrackLocations } from "./track-utils.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
 import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
+import LibraryModalBody from "./components/LibraryModalBody.vue";
+import { createSyncRegion } from "./vue/sync-region.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {
@@ -14,6 +16,10 @@ type LibraryBindings = {
 };
 type ModalControls = { primary?: HTMLButtonElement; input?: HTMLInputElement; linkInput?: HTMLInputElement; nameField?: HTMLElement };
 let libraryModalControls: ModalControls | null = null;
+let libraryModalRegion: ReturnType<typeof createSyncRegion> | null = null;
+let libraryModalRegionKey = 0;
+const libraryModalPrimarySelector = ".library-modal-actions > .secondary-button";
+function isVueModal(kind: LibrarySnapshot["session"]["kind"]): kind is "delete" | "loudness" | "purge" { return kind === "delete" || kind === "loudness" || kind === "purge"; }
 
 function renderFavorites(libraryState: LibrarySnapshot, bindings: LibraryBindings): void {
   if (!favoritesList) {
@@ -165,121 +171,9 @@ function createLibraryButtons(primaryLabel: string, onPrimary: () => void, bindi
 }
 
 
-function renderLoudness(bindings: LibraryBindings) {
-
-  const intro = document.createElement("p");
-  intro.className = "library-confirm-copy";
-  intro.textContent =
-    "不同 UP 主上传的音源响度差别很大，切歌时忽大忽小。开启后，播放器会把音量补偿到接近的水平。";
-
-  const measurement = document.createElement("p");
-  measurement.className = "library-confirm-copy";
-  const measurementLead = document.createElement("strong");
-  measurementLead.textContent = "需要先测量。";
-  measurement.append(
-    measurementLead,
-    "每首歌播放约 30 秒后会自动在后台测量一次，测完才会生效，下次再听就是直接生效的。所以刚开启时你会觉得没什么变化，听一段时间后效果才明显。",
-  );
-
-  const attenuation = document.createElement("p");
-  attenuation.className = "library-confirm-copy";
-  const attenuationLead = document.createElement("strong");
-  attenuationLead.textContent = "只会调小，不会调大。";
-  attenuation.append(
-    attenuationLead,
-    "受浏览器限制只能衰减，整体音量会略低于原先，把系统音量推高一档即可。",
-  );
-
-  const traffic = document.createElement("p");
-  traffic.className = "library-confirm-copy";
-  traffic.textContent = "测量需要重新下载一遍音频，会消耗一些流量。";
-
-  const actions = document.createElement("div");
-  actions.className = "library-modal-actions";
-  const acknowledgeButton = document.createElement("button");
-  acknowledgeButton.type = "button";
-  acknowledgeButton.className = "secondary-button";
-  acknowledgeButton.textContent = "知道了";
-  acknowledgeButton.addEventListener("click", bindings.closeModal);
-  actions.append(acknowledgeButton);
-
-  libraryModalBody.append(intro, measurement, attenuation, traffic, actions);
-  acknowledgeButton.focus();
-  return acknowledgeButton;
-}
-
-
-function renderPurge(state: LibrarySnapshot, bindings: LibraryBindings): ModalControls {
-  const unavailable = state.session.data.unavailable ?? [];
-  if (unavailable.length === 0) {
-    const empty = document.createElement("p"); empty.className = "library-empty-copy"; empty.textContent = "没有失效曲目。"; libraryModalBody.append(empty); return {};
-  }
-  const locations = unavailableTrackLocations(
-    unavailable,
-    state.favorites,
-    state.playlists,
-  );
-  const snapshots = new Map();
-  for (const track of state.favorites) {
-    snapshots.set(track.bvid.toLowerCase(), track);
-  }
-  for (const playlist of state.playlists) {
-    for (const track of playlist.items ?? []) {
-      const key = track.bvid.toLowerCase();
-      if (!snapshots.has(key)) snapshots.set(key, track);
-    }
-  }
-
-  const list = document.createElement("div");
-  list.className = "unavailable-purge-list";
-  for (const item of unavailable) {
-    const key = item.bvid.toLowerCase();
-    const snapshot = snapshots.get(key);
-    const row = document.createElement("div");
-    const coverWrap = document.createElement("span");
-    const copy = document.createElement("span");
-    const title = document.createElement("strong");
-    const reason = document.createElement("span");
-    const location = document.createElement("span");
-    row.className = "unavailable-purge-item";
-    coverWrap.className = "unavailable-purge-cover";
-    copy.className = "unavailable-purge-copy";
-    title.textContent = snapshot?.title || item.bvid;
-    reason.className = "unavailable-purge-reason";
-    reason.textContent = item.reason;
-    location.className = "unavailable-purge-location";
-    location.textContent = locations.get(key) ?? null;
-
-    if (snapshot?.thumbnailUrl) {
-      const cover = document.createElement("img");
-      cover.src = displayThumbnailUrl(snapshot.thumbnailUrl);
-      cover.alt = "";
-      cover.loading = "lazy";
-      cover.referrerPolicy = "no-referrer";
-      coverWrap.append(cover);
-    } else {
-      const placeholder = document.createElement("span");
-      placeholder.className = "cover-placeholder";
-      coverWrap.append(placeholder);
-    }
-
-    copy.append(title, reason, location);
-    row.append(coverWrap, copy);
-    list.append(row);
-  }
-
-
-  const { actions, primaryButton } = createLibraryButtons("全部清理", bindings.submitPurge, bindings);
-  libraryModalBody.append(list, actions); primaryButton.focus(); return { primary: primaryButton };
-}
 function renderModalContent(state: LibrarySnapshot, bindings: LibraryBindings): ModalControls {
   const modal = state.session;
-  if (modal.kind === "loudness") return { primary: renderLoudness(bindings) };
-  if (modal.kind === "purge") return renderPurge(state, bindings);
-  if (modal.kind === "delete") {
-    const message = document.createElement("p"); message.className = "library-confirm-copy"; message.textContent = "这个操作会移除歌单和其中的条目，之后需要重新创建。";
-    const { actions, primaryButton } = createLibraryButtons("删除", bindings.submitDelete, bindings); primaryButton.classList.add("danger-action"); libraryModalBody.append(message, actions); return { primary: primaryButton };
-  }
+  if (isVueModal(modal.kind)) return {};
   if (modal.kind === "generic") return {};
   const { field, input } = createNameField(modal.data.name ?? "");
   input.addEventListener("input", () => bindings.setModalName(input.value));
@@ -316,10 +210,24 @@ function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot
   const modal = state.session;
   if (modal.version !== previous?.session.version && modal.open) {
     libraryModalTitle.textContent = modal.title; libraryModalSubtitle.textContent = modal.subtitle; libraryModalSubtitle.hidden = !modal.subtitle;
-    libraryModalBody.replaceChildren(); libraryModalStatus.textContent = ""; libraryModal.hidden = false;
+    if (!isVueModal(modal.kind) && libraryModalRegion) { libraryModalRegion.unmount(); libraryModalRegion = null; }
+    if (!libraryModalRegion) libraryModalBody.replaceChildren();
+    if (isVueModal(modal.kind)) {
+      libraryModalRegion ??= createSyncRegion(libraryModalBody, LibraryModalBody);
+      libraryModalRegionKey = modal.version;
+    }
+    libraryModalStatus.textContent = ""; libraryModal.hidden = false;
     requestAnimationFrame(() => { libraryModal.classList.add("is-open"); libraryModal.setAttribute("aria-hidden", "false"); });
     libraryModalControls = renderModalContent(state, bindings);
   } else if (previous?.session.open && !modal.open) { libraryModal.classList.remove("is-open"); libraryModal.setAttribute("aria-hidden", "true"); }
+  if (libraryModalRegion && isVueModal(modal.kind)) {
+    libraryModalRegion.update({ key: libraryModalRegionKey, kind: modal.kind, busy: modal.busy, primaryLabel: modal.data.primaryLabel,
+      unavailable: modal.data.unavailable ?? [], locations: unavailableTrackLocations(modal.data.unavailable ?? [], state.favorites, state.playlists), favorites: state.favorites, playlists: state.playlists,
+      onClose: bindings.closeModal, onSubmitDelete: bindings.submitDelete, onSubmitPurge: bindings.submitPurge });
+    if (modal.open && modal.version !== previous?.session.version && (modal.kind === "loudness" || modal.kind === "purge" && (modal.data.unavailable?.length ?? 0) > 0)) {
+      libraryModalBody.querySelector<HTMLButtonElement>(libraryModalPrimarySelector)?.focus();
+    }
+  }
   if (modal !== previous?.session) {
     if (modal.status !== previous?.session.status || modal.open && modal.version !== previous?.session.version) libraryModalStatus.textContent = modal.status;
     const controls = libraryModalControls ?? {};

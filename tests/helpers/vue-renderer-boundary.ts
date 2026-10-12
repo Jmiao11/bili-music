@@ -8,6 +8,8 @@ import { afterEach } from "node:test";
 const vueRendererImports = [
   { file: "pages-view.ts", specifier: "./components/PagesList.vue", name: "PagesList", declaration: 'import PagesList from "./components/PagesList.vue";' },
   { file: "pages-view.ts", specifier: "./vue/sync-region.ts", name: "createSyncRegion", declaration: 'import { createSyncRegion } from "./vue/sync-region.ts";' },
+  { file: "library-view.ts", specifier: "./components/LibraryModalBody.vue", name: "LibraryModalBody", declaration: 'import LibraryModalBody from "./components/LibraryModalBody.vue";' },
+  { file: "library-view.ts", specifier: "./vue/sync-region.ts", name: "createSyncRegion", declaration: 'import { createSyncRegion } from "./vue/sync-region.ts";' },
 ];
 let hooks: ReturnType<typeof registerHooks> | null = null;
 let coldBoundaryResolved = false;
@@ -35,14 +37,14 @@ function installColdRendererBoundary(): void {
       if (context.parentURL?.startsWith("file:")) {
         const file = fileURLToPath(context.parentURL);
         const temporary = path.relative(os.tmpdir(), file);
-        if (!temporary.startsWith("..") && !path.isAbsolute(temporary) && /^(?:bili-native-esm-|bili-library-characterization-|bili-search-characterization-|bili-settings-characterization-)/.test(temporary) && path.basename(file) === "pages-view.ts") {
-          const entry = vueRendererImports.find(entry => entry.specifier === specifier);
+        if (!temporary.startsWith("..") && !path.isAbsolute(temporary) && /^(?:bili-native-esm-|bili-library-characterization-|bili-search-characterization-|bili-settings-characterization-)/.test(temporary) && vueRendererImports.some(entry => entry.file === path.basename(file))) {
+          const entry = vueRendererImports.find(entry => entry.file === path.basename(file) && entry.specifier === specifier);
           if (entry) {
             if (!coldBoundaryResolved) counterBefore = Object.getOwnPropertyDescriptor(globalThis, "__coldVueRegionAttempts");
             coldBoundaryResolved = true;
-            resolved.add(entry.name);
+            resolved.add(entry.file + ":" + entry.specifier);
             if (resolved.size === vueRendererImports.length) disposeColdRendererBoundary();
-            const source = entry.name === "PagesList" ? "export default {};" : 'export function createSyncRegion() { globalThis.__coldVueRegionAttempts = (globalThis.__coldVueRegionAttempts ?? 0) + 1; throw new Error("Cold test attempted to create a Vue region; use test:dom"); }';
+            const source = entry.name !== "createSyncRegion" ? "export default {};" : 'export function createSyncRegion() { globalThis.__coldVueRegionAttempts = (globalThis.__coldVueRegionAttempts ?? 0) + 1; throw new Error("Cold test attempted to create a Vue region; use test:dom"); }';
             return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
           }
         }

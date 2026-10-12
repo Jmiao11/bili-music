@@ -1,0 +1,401 @@
+{
+  "source": "9a5505865e22617dfafd6ed83181c472cf277caf",
+  "cases": [
+    {
+      "kind": "delete",
+      "variant": "default",
+      "busy": false,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "playlist": {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      },
+      "innerHTML": "<p class=\"library-confirm-copy\">这个操作会移除歌单和其中的条目，之后需要重新创建。</p><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button danger-action\">删除</button></div>",
+      "images": []
+    },
+    {
+      "kind": "delete",
+      "variant": "default",
+      "busy": true,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "playlist": {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      },
+      "innerHTML": "<p class=\"library-confirm-copy\">这个操作会移除歌单和其中的条目，之后需要重新创建。</p><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button danger-action\" disabled=\"\">删除</button></div>",
+      "images": []
+    },
+    {
+      "kind": "loudness",
+      "variant": "default",
+      "busy": false,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {},
+      "innerHTML": "<p class=\"library-confirm-copy\">不同 UP 主上传的音源响度差别很大，切歌时忽大忽小。开启后，播放器会把音量补偿到接近的水平。</p><p class=\"library-confirm-copy\"><strong>需要先测量。</strong>每首歌播放约 30 秒后会自动在后台测量一次，测完才会生效，下次再听就是直接生效的。所以刚开启时你会觉得没什么变化，听一段时间后效果才明显。</p><p class=\"library-confirm-copy\"><strong>只会调小，不会调大。</strong>受浏览器限制只能衰减，整体音量会略低于原先，把系统音量推高一档即可。</p><p class=\"library-confirm-copy\">测量需要重新下载一遍音频，会消耗一些流量。</p><div class=\"library-modal-actions\"><button type=\"button\" class=\"secondary-button\">知道了</button></div>",
+      "images": []
+    },
+    {
+      "kind": "purge",
+      "variant": "empty",
+      "busy": false,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "unavailable": []
+      },
+      "innerHTML": "<p class=\"library-empty-copy\">没有失效曲目。</p>",
+      "images": []
+    },
+    {
+      "kind": "purge",
+      "variant": "no-cover",
+      "busy": false,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"unavailable-purge-copy\"><strong>曲目1</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">收藏、歌单《歌单a》</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">全部清理</button></div>",
+      "images": []
+    },
+    {
+      "kind": "purge",
+      "variant": "no-cover",
+      "busy": true,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"unavailable-purge-copy\"><strong>曲目1</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">收藏、歌单《歌单a》</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\" disabled=\"\">全部清理</button></div>",
+      "images": []
+    },
+    {
+      "kind": "purge",
+      "variant": "cover",
+      "busy": false,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "https://example.invalid/cover.jpg",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><img src=\"https://example.invalid/cover.jpg\" alt=\"\"></span><span class=\"unavailable-purge-copy\"><strong>曲目1</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">收藏、歌单《歌单a》</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">全部清理</button></div>",
+      "images": [
+        {
+          "src": "https://example.invalid/cover.jpg",
+          "loading": "lazy",
+          "referrerPolicy": "no-referrer",
+          "alt": ""
+        }
+      ]
+    },
+    {
+      "kind": "purge",
+      "variant": "cover",
+      "busy": true,
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "https://example.invalid/cover.jpg",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><img src=\"https://example.invalid/cover.jpg\" alt=\"\"></span><span class=\"unavailable-purge-copy\"><strong>曲目1</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">收藏、歌单《歌单a》</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\" disabled=\"\">全部清理</button></div>",
+      "images": [
+        {
+          "src": "https://example.invalid/cover.jpg",
+          "loading": "lazy",
+          "referrerPolicy": "no-referrer",
+          "alt": ""
+        }
+      ]
+    },
+    {
+      "kind": "purge",
+      "variant": "missing",
+      "busy": false,
+      "favorites": [],
+      "playlists": [],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"unavailable-purge-copy\"><strong>BV0000000001</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">不在收藏或歌单中</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">全部清理</button></div>",
+      "images": []
+    },
+    {
+      "kind": "purge",
+      "variant": "missing",
+      "busy": true,
+      "favorites": [],
+      "playlists": [],
+      "data": {
+        "unavailable": [
+          {
+            "bvid": "BV0000000001",
+            "reason": "该视频已被删除或设为私密",
+            "markedAt": 1760000000000
+          }
+        ]
+      },
+      "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"unavailable-purge-copy\"><strong>BV0000000001</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">不在收藏或歌单中</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\" disabled=\"\">全部清理</button></div>",
+      "images": []
+    }
+  ]
+}
