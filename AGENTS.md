@@ -99,7 +99,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 608、安装后 113（新增资料库 Vue 接线 6），以后重新实测；完整命令和 canary 判据见架构文档。
+- 当前实测安装前 608、安装后 118（新增资料库输入类 Vue 接线 5），以后重新实测；完整命令和 canary 判据见架构文档。
 
 ## Store 设计约定
 
@@ -202,3 +202,11 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 视觉改版在 E1 完成之后，用户逐区域决定；迁移期间外观完全一致，不改共享样式。
 - E1 删除失去用途的旧 renderer、DOM 依赖、过渡登记和迁移期临时守卫。可选将 home.ts 的 store 创建移到独立模块、把 getXxxActions() 隐含初始化改显式挂载、缩减 player-dom.ts 全局句柄；这些不强制，单独验证 G0，改变时按上述规则申请。
 - 仍被稳定业务使用或迁移风险大的部分可保留，不阻塞 Vue 化完成，但须在 AGENTS.md 登记“保留项”：位置、原因、建议后续处理。sidebar 与 head 首帧脚本在 E1 评估后由用户决定；E1 后 Windows/Mac 最终全量回归。
+
+## vue-5c 输入类内容迁移（feat）
+
+- LibraryModalBody.vue 渲染除 generic 外全部六种资料库内容；generic 先卸载并保持空宿主。旧 createNameField/createLibraryButtons/renderModalContent 删除，不保留两条 renderer 路径。每次投影公开 render 同步更新，session key 保持原契约。
+- 名称输入不用 v-model：mounted 初始化值，watch 仅在只读 props 的名称改变时同步比较并写 DOM value；input 包括组字中间事件逐次回调。链接不绑定 value，外部链接不投影。Enter 阻止默认后原生 click 主按钮；禁用时无效。
+- 初始 focus/select 与 focusName 由原 renderer 在 update 后用 .library-name-field:last-of-type input、.library-name-field:first-of-type input 常量选择器执行；组件无 focus、window、actions、invoke。choose 歌单名文本插值，is-added/aria-disabled 保持。
+- 获用户本批授权，把 vue-5b 两项双路径过渡测试改为全部 Vue 内容与 generic 宿主独占/惰性创建；其余冻结测试在 feat 中逐字节不改。原静态十状态保留，1b71b27 旧 renderer 七个输入类状态追加到 library-modal-baseline.json。
+- 本批两提交为 feat（行为不变）→ fix（四项预先获批修复），fix 后资料库阶段验收；本节不会提前授予合并权限。

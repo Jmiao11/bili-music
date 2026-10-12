@@ -396,6 +396,352 @@
       },
       "innerHTML": "<div class=\"unavailable-purge-list\"><div class=\"unavailable-purge-item\"><span class=\"unavailable-purge-cover\"><span class=\"cover-placeholder\"></span></span><span class=\"unavailable-purge-copy\"><strong>BV0000000001</strong><span class=\"unavailable-purge-reason\">该视频已被删除或设为私密</span><span class=\"unavailable-purge-location\">不在收藏或歌单中</span></span></div></div><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\" disabled=\"\">全部清理</button></div>",
       "images": []
+    },
+    {
+      "kind": "name",
+      "variant": "create",
+      "data": {
+        "name": ""
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "歌单b",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">创建</button></div>",
+      "images": []
+    },
+    {
+      "kind": "name",
+      "variant": "rename",
+      "data": {
+        "mode": "rename",
+        "playlist": {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        "name": "歌单a"
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "歌单b",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">保存</button></div>",
+      "images": []
+    },
+    {
+      "kind": "name",
+      "variant": "create-add",
+      "data": {
+        "name": "",
+        "track": {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "歌单b",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">新建并加入</button></div>",
+      "images": []
+    },
+    {
+      "kind": "choose",
+      "variant": "empty",
+      "data": {
+        "name": "",
+        "track": {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      },
+      "playlists": [],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<div class=\"playlist-picker\"><p class=\"library-empty-copy\">还没有歌单。先在下方新建一个，再把这首歌放进去。</p></div><div class=\"library-divider\">新建歌单</div><label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">新建并加入</button></div>",
+      "images": []
+    },
+    {
+      "kind": "choose",
+      "variant": "escaped-added",
+      "data": {
+        "name": "",
+        "track": {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "<歌单> & \"引用\"",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "新 & 歌单",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<div class=\"playlist-picker\"><button type=\"button\" class=\"playlist-choice is-added\" aria-disabled=\"true\"><span>&lt;歌单&gt; &amp; \"引用\"</span><small>已添加 · 1 首</small></button><button type=\"button\" class=\"playlist-choice\"><span>新 &amp; 歌单</span><small>0 首</small></button></div><div class=\"library-divider\">新建歌单</div><label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">新建并加入</button></div>",
+      "images": []
+    },
+    {
+      "kind": "favoriteImport",
+      "variant": "link",
+      "data": {
+        "name": "",
+        "nameVisible": false,
+        "linkDisabled": false,
+        "firstPage": null,
+        "primaryLabel": "读取收藏夹"
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "歌单b",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<label class=\"library-name-field\"><span>收藏夹链接</span><input type=\"text\" maxlength=\"4096\" placeholder=\"https://space.bilibili.com/…/favlist?fid=…\"></label><label class=\"library-name-field\" hidden=\"\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">读取收藏夹</button></div>",
+      "images": []
+    },
+    {
+      "kind": "favoriteImport",
+      "variant": "named",
+      "data": {
+        "name": "公开收藏夹",
+        "nameVisible": true,
+        "linkDisabled": true,
+        "firstPage": {
+          "mediaId": "123",
+          "title": "公开收藏夹",
+          "total": 1,
+          "items": [
+            {
+              "bvid": "BV0000000002",
+              "title": "曲目2",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "skipped": 0,
+          "duplicates": 0,
+          "scanned": 1,
+          "hasMore": false,
+          "truncated": false
+        },
+        "primaryLabel": "开始导入"
+      },
+      "playlists": [
+        {
+          "id": "a",
+          "name": "歌单a",
+          "items": [
+            {
+              "bvid": "BV0000000001",
+              "title": "曲目1",
+              "uploader": "作者",
+              "thumbnailUrl": "",
+              "durationSeconds": 60,
+              "addedAt": "1760000000000"
+            }
+          ],
+          "createdAt": "1760000000000"
+        },
+        {
+          "id": "b",
+          "name": "歌单b",
+          "items": [],
+          "createdAt": "1760000000000"
+        }
+      ],
+      "favorites": [
+        {
+          "bvid": "BV0000000001",
+          "title": "曲目1",
+          "uploader": "作者",
+          "thumbnailUrl": "",
+          "durationSeconds": 60,
+          "addedAt": "1760000000000"
+        }
+      ],
+      "busy": false,
+      "innerHTML": "<label class=\"library-name-field\"><span>收藏夹链接</span><input type=\"text\" maxlength=\"4096\" placeholder=\"https://space.bilibili.com/…/favlist?fid=…\" disabled=\"\"></label><label class=\"library-name-field\"><span>歌单名称</span><input type=\"text\" maxlength=\"40\" placeholder=\"输入歌单名称\"></label><div class=\"library-modal-actions\"><button type=\"button\" class=\"small-button quiet\">取消</button><button type=\"button\" class=\"secondary-button\">开始导入</button></div>",
+      "images": []
     }
   ]
 }

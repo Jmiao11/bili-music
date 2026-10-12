@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { fixture, deferred, playlist, track, unavailable } from "./library-modal-vue-fixture.ts";
 import { open } from "./library-modal-open.ts";
 
-test("library Vue host switches delete name purge generic loudness choose delete with exclusive ownership", async () => {
+test("library Vue host switches Vue kinds and generic with exclusive ownership", async () => {
   const h = await fixture(); try {
     await h.seed();
     const body = h.nodes.libraryModalBody;
@@ -19,10 +19,10 @@ test("library Vue host switches delete name purge generic loudness choose delete
       assert.equal(body.querySelectorAll(".unavailable-purge-list").length, kind === "purge" ? 1 : 0);
       assert.equal(body.querySelectorAll(".danger-action").length, kind === "delete" ? 1 : 0);
       if (kind === "generic") assert.equal(body.innerHTML, "");
-      if (kind === "name" || kind === "generic" || kind === "choose") {
+      if (kind === "generic") {
         assert.equal(h.regions.filter(x => x.operation === "create").length, h.regions.filter(x => x.operation === "unmount").length);
       }
-      detached = kind === "delete" || kind === "loudness" || kind === "purge" ? h.primary() : null;
+      detached = kind !== "generic" ? h.primary() : null;
       if (kind === "name") {
         h.input().value = "单次创建"; await h.fire(h.input(), "input");
         h.reply(async command => { assert.equal(command, "create_playlist"); return [playlist("c")]; });
@@ -33,11 +33,11 @@ test("library Vue host switches delete name purge generic loudness choose delete
   } finally { h.dispose(); }
 });
 
-test("library Vue region is lazy for startup and all DOM kinds and generic", async () => {
+test("library Vue region is lazy for startup and generic and reused by all content kinds", async () => {
   const h = await fixture(); try {
     await h.seed(); assert.equal(h.regions.length, 0);
-    for (const kind of ["name", "choose", "favoriteImport", "generic"] as const) { await open(h, kind); assert.equal(h.regions.length, 0); }
-    await open(h, "delete"); assert.equal(h.regions.filter(x => x.operation === "create").length, 1);
+    await open(h, "generic"); assert.equal(h.regions.length, 0);
+    for (const kind of ["name", "choose", "favoriteImport", "delete"] as const) { await open(h, kind); assert.equal(h.regions.filter(x => x.operation === "create").length, 1); }
     h.store.actions.library.setModalName("无关字段"); assert.equal(h.regions.filter(x => x.operation === "create").length, 1);
   } finally { h.dispose(); }
 });
@@ -73,7 +73,7 @@ test("library Vue reuses primary within session and replaces it on reopen before
 
 test("library Vue content matches every old renderer HTML baseline and only adds empty Fragment text anchors", async () => {
   const baseline = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, "../fixtures/vue/library-modal-baseline.json"), "utf8")) as { cases: { kind: "delete" | "loudness" | "purge"; variant: string; busy: boolean; favorites: ReturnType<typeof track>[]; playlists: ReturnType<typeof playlist>[]; data: { playlist?: ReturnType<typeof playlist>; unavailable?: typeof unavailable }; innerHTML: string; images: { src: string; alt: string; loading: string; referrerPolicy: string }[] }[] };
-  for (const entry of baseline.cases) {
+  for (const entry of baseline.cases.filter(entry => ["delete", "loudness", "purge"].includes(entry.kind))) {
     const h = await fixture(); try {
       await h.seed(entry.playlists, entry.favorites);
       h.store.actions.library.openModal(entry.kind, entry.kind, "", entry.data);

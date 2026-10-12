@@ -76,6 +76,8 @@ test("split scripts contain only top-level function declarations and comments", 
         position += text.length;
         continue;
       }
+      const libraryInputSelector = /^const libraryModal(?:Name|Link)Selector = "\.library-name-field:(?:last|first)-of-type input";/.exec(remaining);
+      if (script === "library-view.ts" && libraryInputSelector) { position += libraryInputSelector[0].length; continue; }
       const librarySelector = /^const libraryModalPrimarySelector = "\.library-modal-actions > \.secondary-button";/.exec(remaining);
       if (script === "library-view.ts" && librarySelector) { position += librarySelector[0].length; continue; }
       const allowedLets: Record<string, Set<string>> = {
@@ -84,7 +86,7 @@ test("split scripts contain only top-level function declarations and comments", 
         "home.ts": new Set(["applicationStore"]),
         "playback-messages.ts": new Set(["mounted"]),
         "pages-view.ts": new Set(["pagesModalReturnFocus", "pagesListRegion", "pagesListRenderVersion"]),
-        "library-view.ts": new Set(["libraryModalControls", "libraryModalRegion", "libraryModalRegionKey"]),
+        "library-view.ts": new Set(["libraryModalRegion", "libraryModalRegionKey"]),
         "playback-notice.ts": new Set(["playbackNoticeTimer"]),
         "library-ui.ts": new Set(["libraryMounted", "favoriteDragElements", "playlistDragElements", "playlistListDragElements"]),
         "video-pages.ts": new Set(["pageCountObserver", "activePageCountLookups", "lastPageCountLookupStartedAt", "pageCountLookupTimer", "pageCacheLookupScheduled", "pagesMounted", "modalPlayCallback"]),

@@ -8,7 +8,7 @@ import { sourceImports, testGroups } from "../scripts/tests/groups.ts";
 test("test groups cover every test and before-install imports use only built-ins or local modules", () => {
   const groups = testGroups(path.resolve(import.meta.dirname, ".."));
   assert.ok(groups.before.includes("tests/typecheck.test.ts"));
-  assert.deepEqual(groups.after, ["tests/dom/favorite-import.dom.ts", "tests/dom/library-characterization.dom.ts", "tests/dom/library-loudness.dom.ts", "tests/dom/library-modal-actions.dom.ts", "tests/dom/library-modal-input.dom.ts", "tests/dom/library-modal-render.dom.ts", "tests/dom/library-modal-vue.dom.ts", "tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-tab.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"]);
+  assert.deepEqual(groups.after, ["tests/dom/favorite-import.dom.ts", "tests/dom/library-characterization.dom.ts", "tests/dom/library-loudness.dom.ts", "tests/dom/library-modal-actions.dom.ts", "tests/dom/library-modal-input.dom.ts", "tests/dom/library-modal-inputs-vue.dom.ts", "tests/dom/library-modal-render.dom.ts", "tests/dom/library-modal-vue.dom.ts", "tests/dom/pages-characterization.dom.ts", "tests/dom/pages-list.dom.ts", "tests/dom/pages-null.dom.ts", "tests/dom/pages-real-dom.dom.ts", "tests/dom/pages-tab.dom.ts", "tests/dom/pages-toggle.dom.ts", "tests/dom/vue-infrastructure.dom.ts", "tests/dom/vue-smoke.dom.ts"]);
   assert.equal(new Set([...groups.before, ...groups.after]).size, groups.before.length + groups.after.length);
 });
 
@@ -26,6 +26,7 @@ test("test grouping rejects misplaced tests and transitive third-party imports",
     fs.writeFileSync(path.join(root, "tests/dom/vue-infrastructure.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/library-modal-actions.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/library-modal-input.dom.ts"), "");
+    fs.writeFileSync(path.join(root, "tests/dom/library-modal-inputs-vue.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/library-modal-render.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/library-characterization.dom.ts"), "");
     fs.writeFileSync(path.join(root, "tests/dom/favorite-import.dom.ts"), "");

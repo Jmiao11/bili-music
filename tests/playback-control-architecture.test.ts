@@ -14,21 +14,6 @@ const clickExceptions = [
     "file": "ui/main.ts",
     "line": "document.querySelector<HTMLButtonElement>(\"#open-settings-button\")?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "for (const node of [input, linkInput]) node.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
   }
 ] as const;
 const expected = [
@@ -41,21 +26,6 @@ const expected = [
     "file": "ui/main.ts",
     "line": "document.querySelector<HTMLButtonElement>(\"#open-settings-button\")?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "for (const node of [input, linkInput]) node.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
-  },
-  {
-    "file": "ui/library-view.ts",
-    "line": "input.addEventListener(\"keydown\", event => { if (event.key === \"Enter\") { event.preventDefault(); primaryButton.click(); } });",
-    "reason": "资料库弹窗回车提交，不属于播放控制"
   }
 ] as const;
 
