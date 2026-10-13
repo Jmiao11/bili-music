@@ -329,14 +329,6 @@ function isFavorited(bvid: string) {
   return getLibrarySnapshot().favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
 
-function setFavoriteButtonState(button: HTMLButtonElement, bvid: string) {
-  const favorited = isFavorited(bvid);
-  button.classList.toggle("is-favorited", favorited);
-  button.textContent = favorited ? "♥" : "♡";
-  button.title = favorited ? "取消收藏" : "收藏";
-  button.setAttribute("aria-label", favorited ? "取消收藏" : "收藏");
-}
-
 function updateFavoriteButtons() {
   const current = currentPlayableTrack();
   for (const button of [favoriteCurrentButton, immersiveFavoriteButton]) {

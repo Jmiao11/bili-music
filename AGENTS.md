@@ -22,7 +22,7 @@
 
 首页音乐飙升榜已完成并验收：后端在 `src-tauri/src/ranking.rs` 提供 `RankingClient`，并通过 Tauri command `get_music_ranking(forceRefresh)` 对外；主接口固定走 `ranking/v2?rid=3&type=all`，该接口游客可用、`duration` 已是秒、不需要 WBI；主接口失败后仅在后端内部兜底 `ranking/region?rid=3&day=3`，且需把 `duration` 从 `m:ss` 转秒；若两者都失败，前端仅显示“拉取失败，点击重试”，不退回搜索兜底以保持榜单语义；请求复用同一个 `Arc<GuestPlayurlClient>` 游客身份与同一套 `Referer` / `User-Agent`，不新建 `buvid`、不读 `cookies.txt`；缓存放在 `AppState` 内存中，同一运行期内非强制刷新直接复用，刷新按钮显式走 `forceRefresh`，不加定时任务；前端 `homeState` 与 `searchState` 严格隔离；点击榜单某首通过 `playListItem` 进入现有播放队列，`queueSource='ranking'`、`queueSearchVersion=null`，完全复用现有队列 / 切歌中断 / 失败跳过逻辑，不新建第二套队列；加载态显示骨架屏；这套首页榜单的数据来源、游客身份复用、内存缓存、队列接入与失败语义不要重写；
 
-搜索历史已完成并验收（本轮仅记录、可清空、暂不展示不使用）：`src-tauri/src/library.rs` 已新增 `record_search_history` / `get_search_history` / `clear_search_history`；`search-history.json` 复用 `.local-data/` / exe 同目录的既有路径策略与原子写入方案；记录结构固定为 `{ keyword, searchedAt, count }`；写入前做 `trim`，空串不记录，按大小写不敏感去重，重复搜索执行 `count += 1`，最新记录置前，总量上限 100；前端记录方式固定为 fire-and-forget：搜索发起后异步发射、不 `await`，失败仅 `console.warn`，绝不拖慢或中断搜索主流程；坏文件降级已定：`record_search_history` 遇到损坏文件返回错误且不写入、不覆盖坏文件，`clear_search_history` 允许直接写空；设置二级页已提供“清空搜索历史”入口，使用自定义浮层，不用浏览器原生 `confirm`；搜索历史数据仅为后续 LLM 策展预留；这套搜索历史的数据结构、路径策略、原子写入、前端 fire-and-forget 接入与坏文件降级逻辑不要重写；
+搜索历史已完成并验收（本轮仅记录、可清空、暂不展示不使用）：`src-tauri/src/library.rs` 已新增 `record_search_history` / `get_search_history` / `clear_search_history`；`search-history.json` 复用 `.local-data/` / exe 同目录的既有路径策略与原子写入方案；记录结构固定为 `{ keyword, searchedAt, count }`；写入前做 `trim`，空串不记录，按大小写不敏感去重，重复搜索执行 `count += 1`，最新记录置前，总量上限 100；前端记录方式固定为 fire-and-forget：搜索发起后异步发射、不 `await`，失败仅 `console.warn`，绝不拖慢或中断搜索主流程；坏文件降级已定：`record_search_history` 遇到损坏文件返回错误且不写入、不覆盖坏文件，`clear_search_history` 允许直接写空；设置二级页已提供“清空搜索历史”入口，按当前实现直接执行，不弹确认；搜索历史数据仅为后续 LLM 策展预留；这套搜索历史的数据结构、路径策略、原子写入、前端 fire-and-forget 接入与坏文件降级逻辑不要重写；
 
 收藏 / 歌单已完成并验收：数据层在 `src-tauri/src/library.rs`（独立模块，非 `appearance.rs`），通过 Tauri commands 提供收藏增删（`toggle_favorite` 按 `bvid` 去重）与歌单全套 CRUD（新建 / 改名 / 删除 / 加歌 / 移歌）；两套独立 JSON 文件 `favorites.json` / `playlists.json`，均带 `version` 字段（为迁移与导入导出预留），存快照 `{ bvid, title, uploader, thumbnailUrl, durationSeconds, addedAt }`；路径策略已固化：dev 下资料库文件放项目根的 `.local-data/` 子目录、不放项目根本身——因为 `cargo tauri dev` 会 watch 项目根，把项目根下的 `playlists.json` / `favorites.json` 写入误判为源码变更、触发反复 rebuild；release 下仍放 exe 同目录；`favorites.json` / `playlists.json` / `.local-data/` 均已加入 `.gitignore`；后续不要把这两个运行时数据文件改回项目根；写入安全已完成：原子写入（tmp + bak + rename，已处理 Windows rename 不能覆盖已存在文件的情况）；读文件降级已完成：文件不存在返回空列表，JSON 损坏 / 版本不支持时返回错误、前端显示错误空状态且绝不用空列表覆盖坏文件；播放接入已完成：收藏 / 歌单 / 搜索三者共用同一套 `playerState.queue`，点击收藏或歌单某首通过通用入口 `playListItem` 升级为播放队列并切歌，完全复用现有 `playSearchResult` / `loadCurrentTrack` / `prepare_audio` 链路；`queueSearchVersion` 仅搜索来源设值、收藏 / 歌单设 `null`，故搜索列表不错位高亮；收藏 / 歌单页用 `queueSource` 判自身高亮；未新建第二套队列、未碰切歌中断 / 失败跳过 / 随机循环；UI 已完成：收藏页 / 歌单页替换原占位入口，沿用「午夜黑胶」规范；所有歌单操作（加入歌单 / 新建 / 改名 / 删除确认）均为自定义玻璃浮层，不用浏览器原生 `prompt` / `confirm`；新建 / 改名做空名与重名校验；删除动作保持中性灰阶、不引入第二种强调色；本轮未做拖拽排序（押后）；相关文件：`src-tauri/src/library.rs`、`ui/index.html`、`ui/main.js`、`ui/appearance.js`、`ui/styles.css`；这套收藏 / 歌单的数据结构、路径策略、原子写入、播放接入与浮层交互不要重写；
 
@@ -60,7 +60,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - useAppState 只接收 getState/subscribe reader，返回 shallowReadonly(shallowRef)；选择器返回稳定引用或标量，继承 store 的 DeepReadonly，Object.is 未变化不写入，作用域释放取消订阅。它同步更新 ref，DOM 默认到 nextTick 才更新。vue-3 的分P同步投影必须显式调用 createSyncRegion.update(props)，不能以订阅响应式更新替代；render 后由原控制器同步处理焦点，Vue 不自动恢复替换节点的焦点。
 - createSyncRegion 只用公开 h/render，首个 update 才渲染，宿主独占，卸载后 update 报错。按用户 2026-10-11 补充批准，创建时要求并校验空宿主，首次 update 前卸载不创建渲染器；vue-3 由原控制器先清理旧区域再创建区域。卸载清空宿主并由组件 onUnmounted/onScopeDispose 清理 store 订阅和外部监听；Vue 保留在被外部持有的脱离节点上的原生监听必须如实刻画，不宣称全部移除。开发 render 异常会抛出，store 订阅边界仍按现有机制报告；生产默认 console.error。
 - 构建与组件测试统一将 __VUE_OPTIONS_API__、__VUE_PROD_DEVTOOLS__、__VUE_PROD_HYDRATION_MISMATCH_DETAILS__ 定义为 false。
-- vue-1b（音量测试切片例外）与 vue-1c（播放过渡 fixture）推迟到播放栏改为 Vue 时；本批不改历史切片登记、过渡 fixture、G0 或产品行为。迷你窗暂不迁移，主题、强调色、毛玻璃、透明度和暗化设置继续沿用现有逻辑。
+- vue-1b（音量测试切片例外）与 vue-1c（播放过渡 fixture）的债务在 E1 按需评估；播放栏不 Vue 化，当前仍有冻结调用方，保留历史切片登记与过渡 fixture，G0 和行为不变。迷你窗暂不迁移，主题、强调色、毛玻璃、透明度和暗化设置继续沿用现有逻辑。
 
 本节规定后续批次的工作纪律；上文项目安全与固化链路约束继续有效。当前 TS/ESM 架构与完整验收命令以 `docs/frontend-architecture.md` 为准，历史文件名不能作为改写固化链路的依据。
 
@@ -181,27 +181,49 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - `tests/dom/library-loudness.dom.ts`：Git/LF `6094849e56081cce07798e247b142b489db4dd10283c2304bbf62275ed766061`；检出/CRLF `d796cc416de89362975ca4a96d333602bd5835a103af5c8349e2192e676f3703`。
 - `tests/dom/favorite-import.dom.ts`：Git/LF `99b9fc0173a4dca8b7b8ff0ad8948e8541db9e70feef8db95baa4e3cb9870f54`；检出/CRLF `7ac1bf2671356fba761b3fdf206844e622ed86c65b45e147c9ab85d23254ae31`。
 
-## vue-5b 无输入框内容区边界
+## vue-5b 无输入框内容区边界（历史记录，已由 vue-5c 收口）
 
-- LibraryModalBody.vue 仅渲染 delete、loudness、purge，generic 空宿主，name/choose/favoriteImport 旧 DOM 内容路径保持；共享 CSS/外壳/action 不改。
+- vue-5b 当时仅将 delete/loudness/purge 迁入 LibraryModalBody.vue；vue-5c 已迁完其余三种并删除旧 DOM 路径，当前 generic 仍为空宿主，共享 CSS/外壳/action 不改。
 - library-view.ts 经精确编译边界使用 createSyncRegion，首次打开 Vue 种类才创建。旧 DOM 清空后创建；切回 DOM/generic 先卸载置空，再 replaceChildren；Vue 持有宿主时不清空。开启的新 session key=version，同 session busy patch，关闭保留当前 key/node，重新打开替换。
 - 每次投影显式同步 update。busy 只改 primary.disabled 与外壳“正在删除…”/“正在清理…”；按钮文案保持“删除”/“全部清理”。焦点仍由原 renderer 在 update 后、RAF 前用常量 .library-modal-actions > .secondary-button 处理；组件无 focus、window、invoke、actions。
 - 已卸载/被 session key 替换的 Vue 组件回调停用；保留脱离节点原生监听的 Vue 行为不宣称监听已移除。既有共享冻结 helper 不改，新增专用 Vue fixture 只记录真实 region 调用、平台调用与警告，不制造业务结果。
 - 9a55058 旧 renderer 十组 innerHTML 存 library-modal-baseline.json；新 innerHTML 完全相同，无注释，Fragment/v-for 的空文本锚点如实登记。组件引用只读 purge 数据/ReadonlyMap 和回调，不接 store 订阅路径。
-- vue-5c 后再完成资料库阶段验收；name、choose、favoriteImport 与旧问题本批不处理。
+- 资料库阶段验收及获批四项修复已在 vue-5c 完成；历史 vue-5b 不包含这些后续变更。
 
-## 剩余 Vue 迁移路线与收口（用户 2026-10-12 确认）
+## Vue 迁移收口与最终形态（E1，用户 2026-10-13 确认）
 
-- 共 5 阶段、约 9 批；B1 设计说明审阅后可按实际依赖调整。A 资料库：vue-5b 无输入框 4 种浮层（generic 仍为空宿主），vue-5c 有输入框 3 种并删除旧内容区渲染路径；按需 fix 修复焦点陷阱、关闭返回焦点、choose 忙碌锁、关闭取消 RAF，断言修改单独申请。完成后阶段验收。
-- B 曲目列表：B1 共用 TrackRow.vue，迁首页榜单与搜索结果；动手前提交设计说明，说明行节点归属、角标、IntersectionObserver、单击/双击计时、keyed diff 与滚动位置、冻结测试约束，停下等用户审阅，不另立批次。B2 收藏与歌单列表，含拖拽排序；完成后阶段验收。
-- C 页面控件与设置：C1 首页模式切换与提示区、搜索框与分区切换、歌单操作栏；C2 设置面板按严格模式；完成后阶段验收。
-- D 播放显示层按严格模式：D1 底部播放栏、状态条与失败提示，清理 appearance 两项 sourceSlice 历史例外及播放过渡 fixture；D2 沉浸页与歌词显示；完成后阶段验收。E 为 E1 收口。
-- 迁移对应区域时把 DOM 事件绑定移入组件，控制器只保留业务流程、计时、副作用；新代码的平台调用经 adapter，旧代码随区域迁移收口，不单独重写。不新增独立架构重构批次，不重写 Rust、播放状态机、store 或稳定业务，迷你窗不迁移。
-- G0 只有在挂载启动时可见区域且 Vue 挂载确实改变启动序列时才可申请重录。申请必须先停下，附完整新旧事件序列，逐条说明新增、删除、移位及原因；播放、请求、trackchange、媒体监听、跨窗同步的事件种类及相对顺序不变，只允许渲染记录变化。用户单项批准前不得修改 playback-startup-installation.json；批准后报告条数、首个 trackchange 索引、SHA256。其他批次保持当前基线，本批仍为 154/70。
-- 每批默认 1 个、最多 3 个提交，按需 test → feat → fix，不凑数；每个只做一件事。test 在旧实现通过，feat 保持行为，fix 改变行为，涉及业务或冻结断言仍须单独申请。本批按已有授权为 test → feat 两个提交。
-- 视觉改版在 E1 完成之后，用户逐区域决定；迁移期间外观完全一致，不改共享样式。
-- E1 删除失去用途的旧 renderer、DOM 依赖、过渡登记和迁移期临时守卫。可选将 home.ts 的 store 创建移到独立模块、把 getXxxActions() 隐含初始化改显式挂载、缩减 player-dom.ts 全局句柄；这些不强制，单独验证 G0，改变时按上述规则申请。
-- 仍被稳定业务使用或迁移风险大的部分可保留，不阻塞 Vue 化完成，但须在 AGENTS.md 登记“保留项”：位置、原因、建议后续处理。sidebar 与 head 首帧脚本在 E1 评估后由用户决定；E1 后 Windows/Mac 最终全量回归。
+- Vue 迁移阶段结束，最终形态为“Vue 岛”：动态区域使用 Vue，启动时可见的外壳保持静态 HTML 与 TS 投影。已 Vue 化：分P列表（PagesList.vue）；资料库浮层六种非 generic 内容（LibraryModalBody.vue，generic 仍为空宿主）；首页榜单与推荐、搜索结果、收藏、歌单曲目（TrackList.vue/TrackRow.vue）；歌单目录（PlaylistList.vue）。不继续强制把所有 UI 变成 Vue。
+- Vue 岛准入条件须同时满足：第一次使用才渲染且启动/隐藏期间不被投影；冻结测试/helper 不把区域当静态节点直接操作；控制器之外没有模块跨模块直接读写控件值；有实际动态内容与迁移收益。该条件约束以后新增的迁移，不改变已获批准的 B1/B2 隐藏列表投影契约。
+- C1 取消，C2 暂缓并入设置视觉改版，D2 沉浸页与歌词不迁移。D1 不再作为播放栏 Vue 化批次；appearance 两项 sourceSlice 历史例外与播放过渡 fixture 在 E1 按需评估，本次仍有测试使用，保留并登记如下。E1 仅做失效代码/登记收口与全面回归，不进行大范围架构重构。
+- 下一步为视觉改版，用户逐区域决定外观与是否组件化。当前不改共享样式，不重写 Rust、播放状态机、store 结构或业务逻辑，迷你窗不迁移。sidebar 与 head 首帧脚本保持现状。
+- B2 已由用户确认 Windows/Mac 阶段手测及 Mac 阶段命令通过，9e97368 已本地 fast-forward 合并，tree 为 7aeb54eab4ea6d6a5b2c31dfc71b946f4b39666a。远程 Windows/macOS CI 待账号恢复后补验。
+
+### 保留项
+
+| 区域/接口 | 位置 | 未迁移或保留原因 | 将来处理前需解决 |
+| --- | --- | --- | --- |
+| 首页模式与提示区 | ui/index.html #view-home[data-home-mode]/#home-hint-row，home.ts/home-view.ts/player-dom.ts | 静态把手、启动投影及冻结测试接线；C1 已取消 | 控件草稿读写接口、冻结 helper 适配、启动挂载与 G0、首帧 |
+| 搜索框与分区/排序 | ui/index.html #search-form/#music-tabs/#search-sort-modes，search.ts/search-view.ts/main.ts/player-dom.ts | 搜索草稿被跨模块直接读写，投影收益不足；C1 已取消 | 搜索草稿统一读写接口、BV/恢复/组字契约、冻结 helper、启动/G0/首帧 |
+| 歌单页操作栏 | ui/index.html #create-playlist-button/#import-playlist-button/#rename-playlist-button/#delete-playlist-button，main.ts/library-view.ts | 静态操作把手，现有控制器足够；C1 已取消 | 冻结 helper 接线、外壳节点归属、启动/G0/首帧 |
+| 设置面板 | ui/index.html #settings-modal，appearance.ts/settings-view.ts/playback-settings-view.ts | 启动时已投影；冻结资料库测试未打开设置便操作响度开关；C2 暂缓 | 分离全局启动主题应用与面板投影、冻结 helper 响度触发方式、G0、API Key 临时参数边界 |
+| 沉浸页与歌词 | ui/index.html #immersive-player/#lyrics-lines，appearance.ts/lyrics.ts/playback-display-view.ts/playback-core.ts | 内容在启动或隐藏期间投影；歌词虽显式初始化但隐藏时仍更新行/高亮/滚动；D2 不迁移 | 后台数据获取与可见投影分离、打开补投影/滚动契约、静态把手与冻结 helper、G0 |
+| 播放栏/状态条 | ui/index.html 底部 .player-bar 与 #status，appearance.ts/playback-*-view.ts/player-dom.ts | 首帧可见、媒体同步与静态冻结把手，不再安排 D1 迁移 | 首帧、媒体及跨窗顺序、双区域投影、冻结测试/helper、G0；两项切片与过渡 fixture 另见下文 |
+| 侧栏及 head 首帧脚本 | ui/index.html head 内联脚本与 sidebar.js，ui/sidebar.ts | 首帧外壳、导航/主题早期应用与独立脚本，保留静态路径 | 首帧/Fouc、脚本时机、导航把手、冻结启动测试及 G0 |
+| 标题栏 | ui/index.html .window-titlebar，ui/window-controls.ts | 首帧静态窗口控制与固化拖动/双击/resize 行为 | 首帧、平台控制与事件时序、静态把手、冻结启动测试及 G0 |
+| 应用 store 惰性 getter | ui/home.ts getApplicationStore | 创建同时安装首页订阅并首投影；冻结 pages/library/tracks helper 从 home.ts 读取该入口。本次不为可选整理增加模块与兼容转发 | 若以后搬移，保持懒创建/首次订阅顺序、保留冻结入口、登记模块并验证 G0；不得改成显式挂载 |
+| 兼容激活接口 | ui/video-pages.ts bindTrackActivation 及 legacyTrackButtons | 产品使用 createTrackActivationSession 回调路径；分P冻结测试仍使用原生按钮入口及角标同步 | 只有冻结调用方获授权退场时再删；不得恢复全 document 写入或取消脱离行计时器 |
+| appearance 两项 sourceSlice 例外 | tests/helpers/source-slice.ts 的 applyVolume→startAppearance、applyLoudnessNormalization→initializeLoudnessNormalization | playback-volume-characterization/loudness-normalization 冻结测试仍通过精确切片接线 | 获得冻结环境迁移/接线授权，保留全部业务断言与执行次数后再收口；不扩展例外 |
+| 播放过渡 fixture | tests/helpers/playback-control-fixture.ts 与 playback-session-fixture.ts/mini-host-fixture.ts | 播放控制及迷你窗冻结测试仍使用，当前不是失效代码 | 后续显式接线迁移须核对冻结 helper 范围、调用方及逐断言次数；本次保留 |
+
+设置旧行为更正：三个滑块每次 input 都保存（appearance.ts 的 setGlassBlur/setPanelAlpha/setBackgroundDim）；清空搜索历史直接调用命令，不弹确认；测试连接允许把未保存的 Key 作为临时 action 参数传出，禁止进入 props、store 快照、日志、错误文本或迷你窗消息。
+
+### 保留的守卫与 G0
+
+- 冷编译边界及 vueRendererImports：仍供安装前 Node 测试隔离 SFC 依赖，并供冻结 DOM fixture 编译真实组件；精确登记仍保护现有 Vue 岛，保留。冷边界收尾必须核对创建尝试为 0，不能只依靠抛错。
+- scripts/vue/check.ts 的 Vue 包导入、SFC 导入/文件清单及内容守卫；scripts/vue/infra-guard.ts；模块清单与导入/写入归属守卫：仍用于现有产品与测试，保留，不能当迁移临时项放宽。
+- ui/vue/sync-region.ts 的空宿主、重复创建、卸载后更新及同步 render 契约保留。SFC 不访问 actions/invoke/window、不聚焦，高亮由控制器计算；测试分组与安装前依赖隔离、生产 eval/new Function AST 检查均保留。
+- E1 不改变 getXxxActions 的隐含初始化、不拆 player-dom.ts、不改任何启动顺序或冻结文件。本批 G0 154/70 不重录。以后只有启动可见区域挂载确实改变序列时才可单项申请，附逐条新增/删除/移位原因；播放、请求、trackchange、媒体监听与跨窗同步事件种类及相对顺序必须不变，批准前不改 golden fixture。
+- E1 进行最终完整阶段验收；Windows/Mac 全应用手测须由用户执行并单独确认。纯本地流程、不推送不合并；远程 Windows/macOS CI 待账号恢复后补验。
 
 ## vue-5c 输入类内容迁移（feat）
 
@@ -268,7 +290,7 @@ B1 test 提交冻结文件（Git/LF；检出/CRLF）：
 
 ## B2 阶段 B 曲目列表迁移完成
 
-- 收藏与歌单曲目复用 TrackList.vue/TrackRow.vue，歌单目录由 PlaylistList.vue 渲染；操作栏留在 C1，共享样式、依赖、Rust 与持久化动作不改。阶段 B 自动验收完成，Windows/Mac 完整手测待执行；远程 Windows/macOS CI 待账号恢复后补验。
+- 收藏与歌单曲目复用 TrackList.vue/TrackRow.vue，歌单目录由 PlaylistList.vue 渲染；操作栏作为 C1 已取消后的保留项，共享样式、依赖、Rust 与持久化动作不改。阶段 B 自动验收完成，用户已于 2026-10-13 确认 Windows/Mac 完整手测及 Mac 阶段命令通过，9e97368 已本地 fast-forward 合并；远程 Windows/macOS CI 待账号恢复后补验。
 - 三个投影先比较相关输入，50 次无关提交 update 为 0；收藏 key 为精确 BV + 重复序号，歌单曲目 key 增加歌单 id，卡片 key 为歌单 id。拖拽顺序由 Vue 按 key 移动，业务计时、观察器与状态机仍在控制器。
 - 用户批准源/目标业务 key 与方向驱动拖拽 class，不跨投影保存拖拽行节点；保存中防重、失败保留原顺序、400ms suppressClickUntil、原内容刷新结束拖拽的规则不变。观察器 dataset.pageCountBvid 继续由控制器管理。
 - 删除 B1 的 WeakSet 过渡机制、旧行 factory、全 document 角标/收藏/高亮写入及孤立 escapeText。bindTrackActivation 仅供冻结测试与兼容的保留接口，产品不再调用；它与组件共用激活会话，兼容按钮仅按登记集合更新角标，不恢复全局查询。未取消已脱离行的播放计时器。
