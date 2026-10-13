@@ -35,7 +35,6 @@
     "../../tests/dom/pages-real-dom.dom.ts",
     "../../tests/dom/pages-characterization.dom.ts",
     "../../types/jsdom.d.ts",
-    "../../tests/library-characterization.test.ts",
     "../../tests/search-actions.test.ts",
     "../../tests/home-actions.test.ts",
     "../../tests/state-store.test.ts",
@@ -166,6 +165,10 @@
     "../../tests/dom/search-restore-characterization.dom.ts",
     "../../tests/dom/tracks-baseline.dom.ts",
     "../../tests/dom/tracks-fixture.ts",
-    "../../tests/dom/tracks-vue.dom.ts"
+    "../../tests/dom/tracks-vue.dom.ts",
+    "../../tests/dom/library-lists-fixture.ts",
+    "../../tests/dom/library-lists-characterization.dom.ts",
+    "../../tests/dom/library-drag-null.dom.ts",
+    "../../tests/dom/library-lists-baseline.dom.ts"
   ]
 }

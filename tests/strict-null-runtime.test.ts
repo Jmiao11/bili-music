@@ -48,47 +48,6 @@ test("restoring cache settings cancels the active timer and preserves the null t
   }
 });
 
-test("native list drag handlers preserve transfers and ignore unsupported null transfers", () => {
-  for (const [name, end, stateName, args] of [
-    ["bindFavoriteDrag", "function isPlaylistDragClickSuppressed(", "favoriteDragState", [4]],
-    ["bindPlaylistItemDrag", "function isPlaylistListDragClickSuppressed(", "playlistDragState", ["p", 4]],
-    ["bindPlaylistDrag", "function libraryBindings(", "playlistListDragState", [4]],
-  ] as [string, string, string, (string | number)[]][]) {
-    const handlers: Record<string, (event: object) => void> = {};
-    const row = { querySelectorAll: () => [], addEventListener: (name: string, fn: (event: object) => void) => { handlers[name] = fn; },
-      classList: { add() {}, remove() {} } };
-    const state: { saving: boolean; drag: { index: number } | null } = { saving: false, drag: null };
-    const kind = stateName === "favoriteDragState" ? "favorites" : stateName === "playlistDragState" ? "playlistItems" : "playlists";
-    const context = createQueueContext({ getLibrarySnapshot: () => ({ drags: { [kind]: state } }),
-      finishFavoriteDrag() {}, finishPlaylistDrag() {}, finishPlaylistListDrag() {},
-    });
-    vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/library-state.ts"), "utf8"), context);
-    vm.runInContext(`let library = initialLibraryState();
-      library.drags[kind] = state;
-      const actions = createLibraryActions(() => library, next => { library = next; Object.assign(state, next.drags[kind]); }, { invoke() {}, report() {} });
-      function getLibraryActions() { return actions; }
-      let favoriteDragElements = null, playlistDragElements = null, playlistListDragElements = null;
-    ` + slice("library-ui.ts", `function ${name}(`, end), Object.assign(context, { state, kind }));
-    context[name](row, ...args);
-    handlers.dragstart({ dataTransfer: null });
-    assert.equal(state.drag, null);
-    let prevented = 0;
-    handlers.dragover({ dataTransfer: null, preventDefault: () => { prevented++; } });
-    assert.equal(prevented, 0);
-    const written: unknown[][] = [];
-    const dataTransfer: { setData(...args: unknown[]): number; effectAllowed?: string; dropEffect?: string } = { setData: (...args) => written.push(args) };
-    handlers.dragstart({ dataTransfer });
-    assert.equal(dataTransfer.effectAllowed, "move");
-    assert.deepEqual(written, [["text/plain", "4"]]);
-    const drag = (state as { drag: { index: number } | null }).drag;
-    if (!drag) throw new Error("Drag state is missing");
-    assert.equal(drag.index, 4);
-    handlers.dragover({ dataTransfer, preventDefault: () => { prevented++; } });
-    assert.equal(dataTransfer.dropEffect, "move");
-    assert.equal(prevented, 1);
-  }
-});
-
 test("window control target handling keeps native element matches and ignores null targets", () => {
   const context = createQueueContext({});
   vm.runInContext(slice("window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);

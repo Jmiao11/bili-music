@@ -99,7 +99,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 588、安装后 206（B1 迁入原特征 20、新增真实 DOM 基线 24、Vue 合约 33），以后重新实测；完整命令和 canary 判据见架构文档。
+- 当前实测安装前 578、安装后 241（B2 迁入原特征 10、新增真实 DOM 基线 25），以后重新实测；完整命令和 canary 判据见架构文档。
 
 ## Store 设计约定
 
@@ -248,6 +248,21 @@ B1 test 提交冻结文件（Git/LF；检出/CRLF）：
 - 用户 2026-10-12 确认失效标记保持旧时机：搜索无标记；首页只在原内容提交/重绘时采集，失效映射单独变化不更新现有标记。实时更新留给独立修复。
 - vueRendererImports 精确登记 track-list-view.ts 的 TrackList.vue/sync-region.ts 与 TrackList.vue 内的 TrackRow.vue。后者使分P冻结 fixture 依现有登记完整复制子组件；冻结 helper 与发现算法不改。
 - 本批用户单项批准 library-modal-vue.dom.ts 惰性创建测试的四条统计断言仅按 libraryModalBody 宿主筛选，预期仍 0/1，执行次数 1、1、4、1 不变；其他业务断言不改。原阶段 A SHA 留作历史，新冻结基线如下。
-- 最终实测安装前 588、安装后 206；test 提交新增旧实现基线 24，迁入原特征 20；feat 新增 Vue 合约 33（含 25 状态 HTML 对比）。第一提交六个冻结文件在 feat 中逐字节不变。用户手测与本地合并待批准，远程 Windows/macOS CI 待账号恢复后补验。
+- 最终实测安装前 588、安装后 206；test 提交新增旧实现基线 24，迁入原特征 20；feat 新增 Vue 合约 33（含 25 状态 HTML 对比）。第一提交六个冻结文件在 feat 中逐字节不变。用户 2026-10-13 已确认 B1 手测与 Mac 验证通过，0b4a87e 已本地合并；远程 Windows/macOS CI 待账号恢复后补验。
 - `tests/dom/library-modal-vue.dom.ts`：Git/LF `af69af6553d774100d2bbef9b9605a8f1f10998a67c5c13a1e4c74182dc88b21`；检出/CRLF `8fc257ceee889ee80ae83ec5a1679feda238f97bd9710930b8741a130363e103`。
 - `tests/dom/tracks-vue.dom.ts`：Git/LF `25ca1c3597f2653caac4b59d4452db7d9716137a36a0bb5e3e4cc2abb19d2b81`；检出/CRLF `2b7db6c44e379e2c5d52d96829afe75ecdd3133ab3d87fd40227432bd3a60568`。
+
+## B2 收藏与歌单真实 DOM 基线
+
+- B1 已由用户 2026-10-13 确认 Windows 手测、Mac 验证及 Enter/翻页焦点补测通过；4047996、0b4a87e 已本地 fast-forward 合并，master tree 为 3cc5c5765fe172ecbf2866ec506000db283e8128。远程 Windows/macOS CI 待账号恢复后补验。
+- 用户批准拖拽方案 1：源/目标保存业务 key，视觉 class 由只读 props 同步投影；业务 drags/saving、400ms 抑制、保存成功提交与失败保留原顺序保持。不暂停区域投影，不改变交互。
+- test 提交旧实现新增三种列表真实 DOM 基线 25 项；原 library-characterization 九项整体迁入 library-lists-characterization.dom.ts，native list drag handlers 单项迁入 library-drag-null.dom.ts。所有断言原文/参数/次数保持；其他 strict-null-runtime 测试块原文不变。未改共享冻结 helper、不加 sourceSlice 历史例外。
+- 新 helper 编译真实跟踪 UI/Vue 源码，独立 jsdom/可控时钟/事件/RAF/观察器；平台桩只记录调用。拖拽命令桩按 favorites.rs:84–106、playlists.rs:35–57/157–185 的真实返回构造。21 个旧 HTML 状态保存为 library-lists-baseline.json，覆盖空、封面、标记、角标、高亮和文本转义。
+- test 当前实测安装前 578、安装后 241；阶段 B 迁移与完整阶段验收尚未完成。用户另单项批准 library-modal-vue.dom.ts 剩余一条 create/unmount 比较仅统计浮层宿主，将随 feat 修改并审计；此 test 提交不改该文件。
+- 下列文件为 B2 第一提交冻结基线（Git/LF；检出/CRLF），feat 中逐字节不改；分P、资料库与 B1 的冻结 helper/测试不改，单项授权例外另记。
+- `tests/dom/library-lists-fixture.ts`：`b0e86c829e9a8dd49a021dd67365f5d183e8f6774cf0b6fa66d29dc8a5a75457`；`e49b0d1b5797ba7eadf389ce3bfa982702626a9dc35060ec18b24b1f8914a3da`。
+- `tests/dom/library-lists-characterization.dom.ts`：`f312ba52ab0fadade06b518ed5de5f96357d03eeae718714c25d301d568d2f1b`；`10f36f125a4bc030712c587a007818485a47ca09f2083af55b0dd9ee1d853226`。
+- `tests/dom/library-drag-null.dom.ts`：`b7526c117d1d1f56272fbb3948dbf65e30f5b8bc30672142900345db69d50086`；`4878d7b70766426b78fe8b2331358e174a39d2b4b3a98db17c4cd79c838cf5e5`。
+- `tests/dom/library-lists-baseline.dom.ts`：`1eedf3a249373c8e4333475ac53d1e7dc91d7c6f002c44caed8f333534d2853d`；`657ffe1e188f0c64878ce0d83d91990cba6326e06c5d8ce403effeda1e3d5d82`。
+- `tests/fixtures/vue/library-lists-baseline.json`：`31fab98bdd6df99c805dcbdfc4e97d6da38a10636bfdd5b0600e2200b385c812`；`e4576a87414deb52de757cdbc5e9d44700eb49c2d6f8483f96eef2c91726a8dd`。
+- `tests/strict-null-runtime.test.ts`：`6c5ac7873844e6e0f43ddb75e320325e72a90bdade5414d060ebae031246485e`；`fdb4602a992a855e6125db0bcab1605645c394c9097cc9cdfd4f52a7582769bf`。
