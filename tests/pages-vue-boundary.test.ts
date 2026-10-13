@@ -10,12 +10,12 @@ import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.t
 import { installColdRendererBoundary, takeColdRendererAttempts, vueRendererImports } from "./helpers/vue-renderer-boundary.ts";
 
 test("pages renderer imports have two exact compiler boundaries without relaxing other module grammar", () => {
-  assert.deepEqual(vueRendererImports.map(entry => [entry.file, entry.specifier, entry.name]), [["components/TrackList.vue", "./TrackRow.vue", "TrackRow"], ["track-list-view.ts", "./components/TrackList.vue", "TrackList"], ["track-list-view.ts", "./vue/sync-region.ts", "createSyncRegion"], ["pages-view.ts", "./components/PagesList.vue", "PagesList"], ["pages-view.ts", "./vue/sync-region.ts", "createSyncRegion"], ["library-view.ts", "./components/LibraryModalBody.vue", "LibraryModalBody"], ["library-view.ts", "./vue/sync-region.ts", "createSyncRegion"]]);
+  assert.deepEqual(vueRendererImports.map(entry => [entry.file, entry.specifier, entry.name]), [["track-list-view.ts", "./components/PlaylistList.vue", "PlaylistList"], ["components/TrackList.vue", "./TrackRow.vue", "TrackRow"], ["track-list-view.ts", "./components/TrackList.vue", "TrackList"], ["track-list-view.ts", "./vue/sync-region.ts", "createSyncRegion"], ["pages-view.ts", "./components/PagesList.vue", "PagesList"], ["pages-view.ts", "./vue/sync-region.ts", "createSyncRegion"], ["library-view.ts", "./components/LibraryModalBody.vue", "LibraryModalBody"], ["library-view.ts", "./vue/sync-region.ts", "createSyncRegion"]]);
   const ui = path.join(import.meta.dirname, "../ui");
   const graph = collectBusinessScripts(ui);
-  assert.deepEqual(graph.rendererFiles, ["components/TrackList.vue", "vue/sync-region.ts", "components/PagesList.vue", "components/LibraryModalBody.vue"]);
+  assert.deepEqual(graph.rendererFiles, ["components/PlaylistList.vue", "components/TrackList.vue", "vue/sync-region.ts", "components/PagesList.vue", "components/LibraryModalBody.vue"]);
   for (const file of graph.rendererFiles ?? []) assert.ok(fs.existsSync(path.join(ui, file)));
-  assert.deepEqual(fs.readdirSync(path.join(import.meta.dirname, "../ui/components")), ["LibraryModalBody.vue", "PagesList.vue", "TrackList.vue", "TrackRow.vue"]);
+  assert.deepEqual(fs.readdirSync(path.join(import.meta.dirname, "../ui/components")), ["LibraryModalBody.vue", "PagesList.vue", "PlaylistList.vue", "TrackList.vue", "TrackRow.vue"]);
   const component = fs.readFileSync(path.join(ui, "components/PagesList.vue"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(component), /\b(?:window|__TAURI__|invoke|actions)\b/);
   for (const entry of vueRendererImports) {

@@ -20,7 +20,7 @@ test("library Vue host switches Vue kinds and generic with exclusive ownership",
       assert.equal(body.querySelectorAll(".danger-action").length, kind === "delete" ? 1 : 0);
       if (kind === "generic") assert.equal(body.innerHTML, "");
       if (kind === "generic") {
-        assert.equal(h.regions.filter(x => x.operation === "create").length, h.regions.filter(x => x.operation === "unmount").length);
+        assert.equal(h.regions.filter(x => x.host === body && x.operation === "create").length, h.regions.filter(x => x.host === body && x.operation === "unmount").length);
       }
       detached = kind !== "generic" ? h.primary() : null;
       if (kind === "name") {

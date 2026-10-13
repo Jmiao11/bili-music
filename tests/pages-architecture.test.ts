@@ -19,7 +19,7 @@ function readonlyPages(source: string, names: string[] = []) {
 test("pages renderer reads snapshots with callback bindings and no actions or platform commands", () => {
   const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/pages-view.ts"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(source), /\b(?:invoke|getPagesActions|getApplicationStore)\b|\.\s*actions\b/);
-  for (const match of source.matchAll(/^import\b[^;]*?["']([^"']+)["']/gm)) assert.ok(["./track-row-ownership.ts", "./focus-trap.ts", "./components/PagesList.vue", "./vue/sync-region.ts", "./pages-state.ts", "./library-state.ts", "./player-dom.ts"].includes(match[1]));
+  for (const match of source.matchAll(/^import\b[^;]*?["']([^"']+)["']/gm)) assert.ok(["./focus-trap.ts", "./components/PagesList.vue", "./vue/sync-region.ts", "./pages-state.ts", "./library-state.ts", "./player-dom.ts"].includes(match[1]));
   readonlyPages(source, ["state"]);
   for (const file of ["video-pages.ts", "main.ts"]) readonlyPages(fs.readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8"));
 });

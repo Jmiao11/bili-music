@@ -35,7 +35,6 @@
     "../../ui/state-store.ts",
     "../../ui/library-state.ts",
     "../../ui/track-list-ui.ts",
-    "../../ui/track-row-ownership.ts",
     "../../ui/track-list-view.ts",
     "../../ui/library-ui.ts",
     "../../ui/library-view.ts",
@@ -62,6 +61,7 @@
     "../../ui/vue/sync-region.ts",
     "../../ui/components/PagesList.vue",
     "../../ui/track-list-model.ts",
+    "../../ui/components/PlaylistList.vue",
     "../../ui/components/TrackList.vue",
     "../../ui/components/TrackRow.vue"
   ]

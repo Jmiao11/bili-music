@@ -16,6 +16,7 @@ let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
 let pageCountLookupTimer: ReturnType<typeof window.setTimeout> | null = null;
 let pageCacheLookupScheduled = false;
 let pagesMounted = false;
+let legacyTrackButtons: Map<string, Set<HTMLButtonElement>> | null = null;
 let modalPlayCallback: ((selection: Required<PageSelection>) => void) | null = null;
 
 function queueCachedVideoPagesLookup(item: HTMLElement, bvid: string): void {
@@ -277,8 +278,28 @@ function unobserveTrackRow(item: HTMLElement): void {
     for (const [bvid, elements] of targets) { elements.delete(item); if (elements.size === 0) targets.delete(bvid); }
   }
 }
+function registerLegacyTrackButton(button: HTMLButtonElement, bvid: string): void {
+  if (!legacyTrackButtons) {
+    legacyTrackButtons = new Map();
+    let previous = getPagesSnapshot().view.badges;
+    getApplicationStore().subscribe(state => {
+      const badge = state.pages.view.badges;
+      if (!badge || badge === previous) return;
+      previous = badge;
+      const buttons = legacyTrackButtons?.get(badge.bvid);
+      for (const target of buttons ?? []) {
+        if (target.isConnected) updatePageCountBadge(target, badge.bvid, state.pages, pagesBindings());
+        else buttons?.delete(target);
+      }
+    });
+  }
+  let buttons = legacyTrackButtons.get(bvid);
+  if (!buttons) { buttons = new Set(); legacyTrackButtons.set(bvid, buttons); }
+  buttons.add(button);
+}
 function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
   const activation = createTrackActivationSession(item, playButton, video, onPlay);
+  registerLegacyTrackButton(playButton, video.bvid);
   updatePageCountBadge(playButton, video.bvid, getPagesSnapshot(), pagesBindings());
   playButton.addEventListener("click", activation.handleClick);
   item.addEventListener("dblclick", activation.doubleClick);

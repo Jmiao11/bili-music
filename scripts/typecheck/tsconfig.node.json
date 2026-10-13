@@ -169,6 +169,7 @@
     "../../tests/dom/library-lists-fixture.ts",
     "../../tests/dom/library-lists-characterization.dom.ts",
     "../../tests/dom/library-drag-null.dom.ts",
-    "../../tests/dom/library-lists-baseline.dom.ts"
+    "../../tests/dom/library-lists-baseline.dom.ts",
+    "../../tests/dom/library-lists-vue.dom.ts"
   ]
 }

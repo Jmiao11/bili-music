@@ -1,17 +1,12 @@
-import { escapeText, unavailableTrackLocations } from "./track-utils.ts";
+import { unavailableTrackLocations } from "./track-utils.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
+import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
 import LibraryModalBody from "./components/LibraryModalBody.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
 import { trapFocus } from "./focus-trap.ts";
 
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {
-  createTrackRow(video: CommandContract.TrackSnapshotInput, index: number, play: (index: number, selection?: PageSelection) => void, options?: { playlistId?: string }): HTMLElement;
-  playListItem(source: string, items: readonly CommandContract.TrackSnapshotInput[], index: number, selection?: PageSelection & { playlistId?: string }): void;
-  readPlayer(): { queueSource: string; queuePlaylistId: string | null; currentIndex: number };
-  bindFavoriteDrag(row: HTMLElement, index: number): void; bindPlaylistItemDrag(row: HTMLElement, id: string, index: number): void; bindPlaylistDrag(row: HTMLElement, index: number): void;
-  isFavoriteDragClickSuppressed(): boolean; isPlaylistDragClickSuppressed(): boolean;
   choosePlaylist(id: string): void; closeModal(): void; submitName(name: string): Promise<void>; submitDelete(): Promise<void>; submitChoose(id: string): Promise<void>; createAndAdd(name: string): Promise<void>; submitImport(link: string, name: string): Promise<void>; submitPurge(): Promise<void>;
   setModalName(name: string): void; setModalLink(link: string): void;
 };
@@ -24,11 +19,10 @@ const libraryModalNameSelector = ".library-name-field:last-of-type input";
 const libraryModalLinkSelector = ".library-name-field:first-of-type input";
 
 
-function renderFavorites(libraryState: LibrarySnapshot, bindings: LibraryBindings): void {
+function renderFavorites(libraryState: LibrarySnapshot): void {
   if (!favoritesList) {
     return;
   }
-  favoritesList.replaceChildren();
   favoritesCount.textContent = `${libraryState.favorites.length} 首`;
   if (libraryState.loadError) {
     favoritesStatus.textContent = libraryState.loadError;
@@ -37,27 +31,13 @@ function renderFavorites(libraryState: LibrarySnapshot, bindings: LibraryBinding
   favoritesStatus.textContent = libraryState.favorites.length
     ? "点击歌曲即可从收藏开始播放。"
     : "收藏的歌曲会显示在这里。";
-  for (const [index, video] of libraryState.favorites.entries()) {
-    const row = bindings.createTrackRow(
-      video,
-      index,
-      (targetIndex, pageSelection) => {
-        // Guard the delayed single-click callback as well as the native click event.
-        if (!bindings.isFavoriteDragClickSuppressed()) {
-          bindings.playListItem("favorites", libraryState.favorites, targetIndex, pageSelection);
-        }
-      },
-    );
-    bindings.bindFavoriteDrag(row, index);
-    favoritesList.append(row);
-  }
+
 }
 
-function renderPlaylists(libraryState: LibrarySnapshot, bindings: LibraryBindings): void {
+function renderPlaylists(libraryState: LibrarySnapshot): void {
   if (!playlistsList) {
     return;
   }
-  playlistsList.replaceChildren();
   const selectedPlaylist =
     libraryState.playlists.find((playlist) => playlist.id === libraryState.selectedPlaylistId) ??
     libraryState.playlists[0] ??
@@ -67,23 +47,8 @@ function renderPlaylists(libraryState: LibrarySnapshot, bindings: LibraryBinding
     ? `${libraryState.playlists.length} 个歌单`
     : "还没有歌单。";
 
-  for (const [index, playlist] of libraryState.playlists.entries()) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "playlist-card";
-    button.classList.toggle("is-selected", playlist.id === libraryState.selectedPlaylistId);
-    button.dataset.playlistId = playlist.id;
-    button.innerHTML = `<span>${escapeText(playlist.name)}</span><small>${playlist.items.length} 首</small>`;
-    button.addEventListener("click", () => {
-      bindings.choosePlaylist(playlist.id);
-    });
-    item.append(button);
-    bindings.bindPlaylistDrag(item, index);
-    playlistsList.append(item);
-  }
 
-  playlistTracks.replaceChildren();
+
   playlistActions.hidden = !selectedPlaylist;
   if (!selectedPlaylist) {
     playlistTitle.textContent = "选择一个歌单";
@@ -93,59 +58,13 @@ function renderPlaylists(libraryState: LibrarySnapshot, bindings: LibraryBinding
 
   playlistTitle.textContent = selectedPlaylist.name;
   playlistMeta.textContent = `${selectedPlaylist.items.length} 首歌曲`;
-  for (const [index, video] of selectedPlaylist.items.entries()) {
-    const row = bindings.createTrackRow(
-      video,
-      index,
-      (targetIndex, pageSelection) => {
-        // Also guard the delayed single-click callback scheduled before a drag started.
-        if (!bindings.isPlaylistDragClickSuppressed()) {
-          bindings.playListItem("playlist", selectedPlaylist.items, targetIndex, {
-            playlistId: selectedPlaylist.id,
-            ...(pageSelection ?? {}),
-          });
-        }
-      },
-      { playlistId: selectedPlaylist.id },
-    );
-    bindings.bindPlaylistItemDrag(row, selectedPlaylist.id, index);
-    playlistTracks.append(row);
-  }
-}
 
-function renderLibraryHighlights(libraryState: LibrarySnapshot, bindings: LibraryBindings): void {
-  const playerState = bindings.readPlayer();
-  if (favoritesList) {
-    for (const button of favoritesList.querySelectorAll<HTMLButtonElement>("button.track")) {
-      const index = Number(button.dataset.libraryIndex);
-      if (playerState.queueSource === "favorites" && index === playerState.currentIndex) {
-        button.setAttribute("aria-current", "true");
-      } else {
-        button.removeAttribute("aria-current");
-      }
-    }
-  }
-  if (playlistTracks) {
-    for (const button of playlistTracks.querySelectorAll<HTMLButtonElement>("button.track")) {
-      const index = Number(button.dataset.libraryIndex);
-      if (
-        playerState.queueSource === "playlist" &&
-        playerState.queuePlaylistId === libraryState.selectedPlaylistId &&
-        index === playerState.currentIndex
-      ) {
-        button.setAttribute("aria-current", "true");
-      } else {
-        button.removeAttribute("aria-current");
-      }
-    }
-  }
 }
-
 
 function renderLibrarySnapshot(state: LibrarySnapshot, previous: LibrarySnapshot | null, bindings: LibraryBindings): boolean {
   let rendered = false;
   if (state.session.open && !previous?.session.open) libraryModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  if (state.view.rowsVersion !== null && state.view.rowsVersion !== previous?.view.rowsVersion) { if (state.view.rowsKind === "all") renderFavorites(state, bindings); renderPlaylists(state, bindings); rendered = state.view.rowsKind === "all"; }
+  if (state.view.rowsVersion !== null && state.view.rowsVersion !== previous?.view.rowsVersion) { if (state.view.rowsKind === "all") renderFavorites(state); renderPlaylists(state); rendered = state.view.rowsKind === "all"; }
   const modal = state.session;
   if (modal.version !== previous?.session.version && modal.open) {
     libraryModalTitle.textContent = modal.title; libraryModalSubtitle.textContent = modal.subtitle; libraryModalSubtitle.hidden = !modal.subtitle;
@@ -192,5 +111,5 @@ function finishLibraryModalTransition(event: TransitionEvent): void {
   if (event.target === libraryModal && !libraryModal.classList.contains("is-open")) libraryModal.hidden = true;
 }
 
-export { finishLibraryModalTransition, keepFocusInLibraryModal, renderLibraryHighlights, renderLibrarySnapshot };
+export { finishLibraryModalTransition, keepFocusInLibraryModal, renderLibrarySnapshot };
 export type { LibraryBindings };

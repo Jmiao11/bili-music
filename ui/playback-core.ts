@@ -1,15 +1,15 @@
 import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from "./page-selection.ts";
-import { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
+import { buildDisplayTrack, displayThumbnailUrl, formatDuration, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, duration, favoriteCurrentButton, homeRankingList, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, searchResults, shuffleToggle, thumbnail, title, uploader } from "./player-dom.ts";
+import { audio, duration, favoriteCurrentButton, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, shuffleToggle, thumbnail, title, uploader } from "./player-dom.ts";
+import type { PageSelection } from "./track-list-model.ts";
 import type { SearchPageCommit } from "./search-state.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
-import { isVueTrackRow } from "./track-row-ownership.ts";
-import { getApplicationStore, getHomeSnapshot } from "./home.ts";
-import { choosePlaylistAndAdd, clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, removeTrackFromPlaylist, renderLibraryViews, toggleFavorite, updateLibraryHighlights } from "./library-ui.ts";
-import { bindTrackActivation, openCurrentPagesModal } from "./video-pages.ts";
+import { getApplicationStore } from "./home.ts";
+import { clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, renderLibraryViews } from "./library-ui.ts";
+import { openCurrentPagesModal } from "./video-pages.ts";
 import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 import { setPlaybackStatus } from "./playback-messages.ts";
@@ -322,35 +322,7 @@ function updateQueueUi() {
   loopModeButton.classList.toggle("is-active", getQueueSnapshot().loopMode !== "sequence");
   shuffleToggle.checked = getQueueSnapshot().shuffle;
 
-  for (const queueButton of [
-    ...searchResults.querySelectorAll<HTMLButtonElement>("button[data-result-index]"),
-  ]) {
-    if (isVueTrackRow(queueButton.parentElement)) continue;
-    const index = Number(queueButton.dataset.resultIndex);
-    if (
-      getQueueSnapshot().queueSearchVersion === getSearchSnapshot().requestVersion &&
-      index === getQueueSnapshot().currentIndex
-    ) {
-      queueButton.setAttribute("aria-current", "true");
-    } else {
-      queueButton.removeAttribute("aria-current");
-    }
-  }
-  if (homeRankingList) {
-    for (const rankingButton of homeRankingList.querySelectorAll<HTMLButtonElement>("button.track")) {
-      if (isVueTrackRow(rankingButton.parentElement)) continue;
-      const index = Number(rankingButton.dataset.libraryIndex);
-      const activeHomeSource =
-        getHomeSnapshot().mode === "recommendation" ? "recommendation" : "ranking";
-      if (getQueueSnapshot().queueSource === activeHomeSource && index === getQueueSnapshot().currentIndex) {
-        rankingButton.setAttribute("aria-current", "true");
-      } else {
-        rankingButton.removeAttribute("aria-current");
-      }
-    }
-  }
   updateFavoriteButtons();
-  updateLibraryHighlights();
 }
 
 function isFavorited(bvid: string) {
@@ -366,10 +338,6 @@ function setFavoriteButtonState(button: HTMLButtonElement, bvid: string) {
 }
 
 function updateFavoriteButtons() {
-  for (const button of document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { favoriteBvid: string } }>("[data-favorite-bvid]")) {
-    if (isVueTrackRow(button.parentElement?.parentElement)) continue;
-    setFavoriteButtonState(button, button.dataset.favoriteBvid);
-  }
   const current = currentPlayableTrack();
   for (const button of [favoriteCurrentButton, immersiveFavoriteButton]) {
     if (!button) {
@@ -384,123 +352,6 @@ function updateFavoriteButtons() {
       : favorited ? "♥" : "♡";
     button.title = favorited ? "取消收藏当前歌曲" : "收藏当前歌曲";
   }
-}
-
-function createTrackActions(video: CommandContract.TrackSnapshotInput, { playlistId = "" } = {}) {
-  const actions = document.createElement("span");
-  actions.className = "track-actions";
-
-  const favoriteButton = document.createElement("button");
-  favoriteButton.type = "button";
-  favoriteButton.className = "track-action favorite-button";
-  favoriteButton.dataset.favoriteBvid = video.bvid;
-  setFavoriteButtonState(favoriteButton, video.bvid);
-  favoriteButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    toggleFavorite(video);
-  });
-  actions.append(favoriteButton);
-
-  if (playlistId) {
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "track-action";
-    removeButton.textContent = "−";
-    removeButton.title = "从歌单移除";
-    removeButton.setAttribute("aria-label", "从歌单移除");
-    removeButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      removeTrackFromPlaylist(playlistId, video.bvid);
-    });
-    actions.append(removeButton);
-  } else {
-    const addButton = document.createElement("button");
-    addButton.type = "button";
-    addButton.className = "track-action";
-    addButton.textContent = "+";
-    addButton.title = "加入歌单";
-    addButton.setAttribute("aria-label", "加入歌单");
-    addButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      choosePlaylistAndAdd(video);
-    });
-    actions.append(addButton);
-  }
-
-  return actions;
-}
-
-function createTrackRow(video: CommandContract.TrackSnapshotInput & { playCount?: number | null }, index: number, onPlay: (index: number, pageSelection?: Parameters<Parameters<typeof bindTrackActivation>[3]>[0]) => void, options: { showPlayCount?: boolean; playlistId?: string } = {}) {
-  const item = document.createElement("li");
-  item.className = "track-row";
-  const playButton = document.createElement("button");
-  const eq = document.createElement("span");
-  const coverWrap = document.createElement("span");
-  const meta = document.createElement("span");
-  const trackTitle = document.createElement("span");
-  const trackUp = document.createElement("span");
-  const trackPlay = document.createElement("span");
-  const trackDuration = document.createElement("span");
-
-  playButton.type = "button";
-  playButton.className = "track";
-  playButton.dataset.libraryIndex = String(index);
-
-  eq.className = "eq";
-  eq.setAttribute("aria-hidden", "true");
-  eq.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
-  playButton.append(eq);
-
-  coverWrap.className = "track-cover";
-  if (video.thumbnailUrl) {
-    const cover = document.createElement("img");
-    cover.src = displayThumbnailUrl(video.thumbnailUrl);
-    cover.alt = "";
-    cover.loading = "lazy";
-    cover.referrerPolicy = "no-referrer";
-    coverWrap.append(cover);
-  } else {
-    const coverPlaceholder = document.createElement("span");
-    coverPlaceholder.className = "cover-placeholder";
-    coverWrap.append(coverPlaceholder);
-  }
-  playButton.append(coverWrap);
-
-  meta.className = "track-meta";
-  trackTitle.className = "track-title";
-  trackTitle.textContent = video.title || video.bvid;
-  trackUp.className = "track-up";
-  trackUp.textContent = video.uploader || video.bvid;
-  meta.append(trackTitle, trackUp);
-  playButton.append(meta);
-
-  if (options.showPlayCount) {
-    trackPlay.className = "track-play";
-    trackPlay.textContent = formatPlayCount(video.playCount);
-    playButton.append(trackPlay);
-  }
-
-  trackDuration.className = "track-duration";
-  trackDuration.textContent = video.durationSeconds
-    ? formatDuration(video.durationSeconds)
-    : "0:00";
-  playButton.append(trackDuration);
-  const actions = createTrackActions(video, options);
-  const unavailableReason = getLibrarySnapshot().unavailableBvids.get(video.bvid.toLowerCase());
-  if (unavailableReason) {
-    item.classList.add("is-unavailable");
-    const unavailable = document.createElement("span");
-    unavailable.className = "track-unavailable";
-    unavailable.textContent = "!";
-    unavailable.title = unavailableReason;
-    unavailable.setAttribute("aria-label", unavailableReason);
-    actions.prepend(unavailable);
-  }
-  item.append(playButton, actions);
-  bindTrackActivation(item, playButton, video, (pageSelection) =>
-    onPlay(index, pageSelection));
-
-  return item;
 }
 
 function playCurrentVideoPage(page: CommandContract.VideoPage) {
@@ -937,7 +788,7 @@ function playBvId(bvId: string) {
   playQueueIndex(0);
 }
 
-function playSearchResult(index: number, pageSelection: Parameters<Parameters<typeof bindTrackActivation>[3]>[0] | null = null) {
+function playSearchResult(index: number, pageSelection: PageSelection | null = null) {
   if (index < 0 || index >= getSearchSnapshot().results.length) {
     return;
   }
@@ -1229,4 +1080,4 @@ shuffleToggle.addEventListener("change", () => {
 }
 
 
-export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, createTrackRow, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };

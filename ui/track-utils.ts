@@ -205,13 +205,4 @@ function formatPubdate(value: unknown): string {
   ).padStart(2, "0")}`;
 }
 
-function escapeText(value: unknown): string {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-
-export { buildDisplayTrack, displayThumbnailUrl, escapeText, formatDuration, formatPlayCount, formatPubdate, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, snapshotForLibrary, unavailableTrackLocations, unavailableTrackReason };
+export { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, snapshotForLibrary, unavailableTrackLocations, unavailableTrackReason };

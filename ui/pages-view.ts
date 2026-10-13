@@ -3,7 +3,6 @@ import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
 import PagesList from "./components/PagesList.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
-import { isVueTrackRow } from "./track-row-ownership.ts";
 import { trapFocus } from "./focus-trap.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
@@ -49,15 +48,6 @@ function updatePageCountBadge(playButton: HTMLButtonElement, bvid: string, state
   badge.setAttribute("aria-label", `查看 ${count} 个分P`);
 }
 
-function refreshPageCountBadges(bvid: string, state: PagesSnapshot, bindings: PagesBindings): void {
-  for (const playButton of document.querySelectorAll<HTMLButtonElement>("button.track[data-bvid]")) {
-    if (!isVueTrackRow(playButton.parentElement) && playButton.dataset.bvid === bvid) {
-      updatePageCountBadge(playButton, bvid, state, bindings);
-    }
-  }
-}
-
-
 function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindings: PagesBindings): void {
   if (!state.modal) return;
   const { video, videos } = state.modal;
@@ -89,7 +79,6 @@ function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindin
 
 
 function renderPagesSnapshot(state: PagesSnapshot, library: LibrarySnapshot, previous: { pages: PagesSnapshot; library: LibrarySnapshot } | undefined, bindings: PagesBindings): void {
-  if (state.view.badges && state.view.badges !== previous?.pages.view.badges) refreshPageCountBadges(state.view.badges.bvid, state, bindings);
   const prior = previous?.pages.modal;
   if (state.modal && (state.modal !== prior)) renderPagesModal(state, library, bindings);
   if (state.modal && (!prior || state.modal.version !== prior.version)) {
