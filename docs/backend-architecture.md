@@ -1,5 +1,7 @@
 # 后端播放模块
 
+F2a：main_window.rs 提供 main_window_ready 与 5000ms 一次性 watchdog。窗口无关 ReadyGate 共用成功门闩；show/焦点成功才完成，ready/超时重复到达不再改变窗口。主窗启动 visible:false，迷你窗及其 restore_main_window 保持原逻辑；无前端 show 权限。启动错误同时写 stderr、现有前端诊断（可用时）及 library_root()/startup-errors.log；只写固定启动原因与窗口操作错误，日志不含播放 URL、cookie 或前端异常原文。dev 仍 .local-data/，release 复用当前用户数据目录；记录日志失败也不阻止 watchdog 显示窗口。
+
 ## 组合与依赖
 
 `src-tauri/src/main.rs` 是组合根：声明模块、创建共享客户端与 AppState、绑定本机回环代理、setup 和注册 Tauri commands。播放命令按 `resolve::prepare_audio` / `resolve::cancel_prepare_audio` 等子模块路径注册；debug 本地流命令仍仅在 `debug_assertions` 下注册。main 保留去注释扫描器、错误契约测试及契约测试模块声明。

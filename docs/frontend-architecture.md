@@ -4,6 +4,8 @@
 
 主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化窗口控制与动态背景，再求值 main，最后按顺序调用 startAppearance、initializeLyrics、initializeMascot、startMiniPlayerHost。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
 
+F2a 在上述同步启动完成后调用 initializeMainWindowReady，追加 window 的一次性 DOMContentLoaded 回调；该回调在 sidebar 的 document 接线及原 main 的恢复监听之后发 main_window_ready，不等待网络/图片/歌词/AI 异步结果。head 原平台 inline 和 sidebar 标签保留；inline 最先记录未完成启动期间的未捕获同步 error，发生过错误就不发 ready，交给 Rust watchdog。主窗仅由 Rust 显示，不新增前端 show capability。
+
 | 文件 | 形式 | 职责 |
 | --- | --- | --- |
 | sidebar.ts | head 普通脚本 | 侧栏及宽度持久化。 |
@@ -11,6 +13,7 @@
 | dynamic-background.ts | ES Module | 导出显式初始化函数，封面配色与曲目事件响应。 |
 | startup-before-main.ts | ES Module 启动调度 | 在 main 顶层执行前初始化动态背景。 |
 | app.ts | ES Module 入口 | 固定的 main → startAppearance 启动顺序。 |
+| main-window-ready.ts | ES Module 启动握手 | 同步启动后登记一次 ready；发生启动 error 时不发，Rust 超时兜底。 |
 | page-selection.ts | ES Module | 分 P 可用性、随机轮次、合集偏好计算。 |
 | track-utils.ts | ES Module | 曲目规范化、格式化、播放错误分类。 |
 | runtime-api.ts | ES Module | 共享 Tauri invoke 引用。 |
@@ -201,7 +204,7 @@ npm run typecheck -- --update
 ## 每批验收口径
 
 - 开发自检：自行反复运行相关测试、typecheck、npm run build，不要求逐次报告。
-- 合并验收：每批默认依次运行 node --test（npm ci 之前）、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist。verify:dist 包含 G0 154/70、同机 windows/darwin 配置逐字节一致及 eval/new Function AST 计数均为 0；类型检查零诊断；本批 G0 不重录，后续例外按下文单项申请规则。
+- 合并验收：每批默认依次运行 node --test（npm ci 之前）、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist。verify:dist 包含当前获批 G0（历史 154/70）、同机 windows/darwin 配置逐字节一致及 eval/new Function AST 计数均为 0；类型检查零诊断；G0 仅按固定格式申请获批后重建。
 - Rust：只有本批改动 src-tauri/、src/、Cargo.toml、Cargo.lock 或 Rust 测试时，合并验收运行 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace（debug）；否则报告“未改 Rust,跳过”。src-tauri/Cargo.toml 的既有纯换行差异不算本批修改，永不提交。
 - 测试审计：用 git diff 证明已有测试哪些未改，冻结文件用 SHA256 证明未改；只对本批改过的已有测试文件列旧/新断言原文和逐测试执行次数，包含共享 helper。原测试名和重复次数保留；新增测试单列，数量重新实测。
 - 合并变异：选 3～5 个覆盖本批新接线及关键契约，在仓库外副本用全量 node --test 与 test:dom 判定；抓不到须说明是否等价，不改业务断言以通过验证。只运行与本批守卫、登记、helper 直接相关的 canary，每项恢复文件，不跑无关 canary。
@@ -210,8 +213,8 @@ npm run typecheck -- --update
 - 阶段 CRLF：core.autocrlf=true 本地克隆，只覆盖跟踪的候选并处理删除/改名；ui 清单与候选相同、全部 CRLF，lockfile 等文本也检查；依次 node --test、npm ci、test:dom、typecheck、verify:dist。阶段 CI 逐条跑 workflow run，Git Bash 用 --noprofile --norc -c，只说明并跳过 Windows 不适用的 Linux 系统依赖安装。
 - 严格模式：播放核心（取流、队列、请求版本、失败跳过、播放状态机）、Rust 后端、数据持久化（资料库文件、设置、备份导入导出）、安全隐私（cookie、API Key、诊断）、G0、依赖版本，以及基础设施逻辑改动，每批按阶段验收。
 - 常规登记不触发严格模式：新增测试文件；groups.ts、tsconfig.*.json、scripts/vue/check.ts 导入登记表、vueRendererImports、模块清单、架构守卫白名单追加条目，以及对应登记断言更新。仅运行直接相关 canary（新增编译边界跑冷入口 canary）。非冻结 helper 只新增能力、旧调用默认行为不变算常规。
-- 基础设施逻辑改动触发严格模式：测试发现/分组算法、helper 默认行为、守卫判定规则、verify-dist 构建验证逻辑、G0 采集/比较逻辑改变。冻结共享 helper（pages-fixture.ts、library-modal-fixture.ts、library-modal-open.ts 及以后登记项）任何改动均先附完整 diff 申请。
-- 冻结测试等价适配仅限环境变化且业务行为完全相同：安装前假 DOM 迁到安装后 jsdom；假 .focused 改为 document.activeElement 与节点比较；假 children 数组改为真实 children 或 childNodes 文本。可免申请，但逐条报告旧/新原文及次数。改变业务期望/预期值/比较语义、放宽比较、删除断言或次数变为 0，仍须停下附 diff 申请。
+- 基础设施逻辑改动触发严格模式：测试发现/分组算法、helper 默认行为、守卫判定规则、verify-dist 构建验证逻辑、G0 采集/比较逻辑改变。冻结共享 helper 的纯环境接线改动按全面 Vue 化规则预先授权；业务断言原文、预期值与次数必须不变。其他变化按单项停止条件处理。
+- 环境接线改动预先授权（含冻结 helper）：挂载真实 App、挂载后的 SFC 扫描等，只要业务断言原文、预期值、次数全部不变即可直接实施并登记。需要改变业务断言原文/含义、G0、未单项授权的 Tauri/Rust，或任何断言次数变0时停下申请。
 - 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
 - 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
 - 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
@@ -507,40 +510,37 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 - 9a55058 旧 renderer 十组 innerHTML 存 library-modal-baseline.json；新 innerHTML 完全相同，无注释，Fragment/v-for 的空文本锚点如实登记。组件引用只读 purge 数据/ReadonlyMap 和回调，不接 store 订阅路径。
 - 资料库阶段验收及获批四项修复已在 vue-5c 完成；历史 vue-5b 不包含这些后续变更。
 
-## Vue 迁移收口与最终形态（E1，用户 2026-10-13 确认）
+## 全面 Vue 化路线与同步根契约（用户 2026-10-14 批准）
 
-- Vue 迁移阶段结束，最终形态为“Vue 岛”：动态区域使用 Vue，启动时可见的外壳保持静态 HTML 与 TS 投影。已 Vue 化：分P列表（PagesList.vue）；资料库浮层六种非 generic 内容（LibraryModalBody.vue，generic 仍为空宿主）；首页榜单与推荐、搜索结果、收藏、歌单曲目（TrackList.vue/TrackRow.vue）；歌单目录（PlaylistList.vue）。不继续强制把所有 UI 变成 Vue。
-- Vue 岛准入条件须同时满足：第一次使用才渲染且启动/隐藏期间不被投影；冻结测试/helper 不把区域当静态节点直接操作；控制器之外没有模块跨模块直接读写控件值；有实际动态内容与迁移收益。该条件约束以后新增的迁移，不改变已获批准的 B1/B2 隐藏列表投影契约。
-- C1 取消，C2 暂缓并入设置视觉改版，D2 沉浸页与歌词不迁移。D1 不再作为播放栏 Vue 化批次；appearance 两项 sourceSlice 历史例外与播放过渡 fixture 在 E1 按需评估，本次仍有测试使用，保留并登记如下。E1 仅做失效代码/登记收口与全面回归，不进行大范围架构重构。
-- 下一步为视觉改版，用户逐区域决定外观与是否组件化。当前不改共享样式，不重写 Rust、播放状态机、store 结构或业务逻辑，迷你窗不迁移。sidebar 与 head 首帧脚本保持现状。
-- B2 已由用户确认 Windows/Mac 阶段手测及 Mac 阶段命令通过，9e97368 已本地 fast-forward 合并，tree 为 7aeb54eab4ea6d6a5b2c31dfc71b946f4b39666a。远程 Windows/macOS CI 待账号恢复后补验。
+E1 已在 master 94b6a6f 本地合并；全应用 Windows/Mac 回归为“发布前待执行”。F1 已审阅并采纳，spike/vue-root 仅保留本地参考、不合并。原“Vue 岛”为最终形态及新增区域必须“首次使用才挂载、隐藏时不投影”的准入结论作废，业务、安全、数据、依赖与本地 Git 闸门继续有效。
 
-### 保留项
+### 迁移对象与批次
 
-| 区域/接口 | 位置 | 未迁移或保留原因 | 将来处理前需解决 |
-| --- | --- | --- | --- |
-| 首页模式与提示区 | ui/index.html #view-home[data-home-mode]/#home-hint-row，home.ts/home-view.ts/player-dom.ts | 静态把手、启动投影及冻结测试接线；C1 已取消 | 控件草稿读写接口、冻结 helper 适配、启动挂载与 G0、首帧 |
-| 搜索框与分区/排序 | ui/index.html #search-form/#music-tabs/#search-sort-modes，search.ts/search-view.ts/main.ts/player-dom.ts | 搜索草稿被跨模块直接读写，投影收益不足；C1 已取消 | 搜索草稿统一读写接口、BV/恢复/组字契约、冻结 helper、启动/G0/首帧 |
-| 歌单页操作栏 | ui/index.html #create-playlist-button/#import-playlist-button/#rename-playlist-button/#delete-playlist-button，main.ts/library-view.ts | 静态操作把手，现有控制器足够；C1 已取消 | 冻结 helper 接线、外壳节点归属、启动/G0/首帧 |
-| 设置面板 | ui/index.html #settings-modal，appearance.ts/settings-view.ts/playback-settings-view.ts | 启动时已投影；冻结资料库测试未打开设置便操作响度开关；C2 暂缓 | 分离全局启动主题应用与面板投影、冻结 helper 响度触发方式、G0、API Key 临时参数边界 |
-| 沉浸页与歌词 | ui/index.html #immersive-player/#lyrics-lines，appearance.ts/lyrics.ts/playback-display-view.ts/playback-core.ts | 内容在启动或隐藏期间投影；歌词虽显式初始化但隐藏时仍更新行/高亮/滚动；D2 不迁移 | 后台数据获取与可见投影分离、打开补投影/滚动契约、静态把手与冻结 helper、G0 |
-| 播放栏/状态条 | ui/index.html 底部 .player-bar 与 #status，appearance.ts/playback-*-view.ts/player-dom.ts | 首帧可见、媒体同步与静态冻结把手，不再安排 D1 迁移 | 首帧、媒体及跨窗顺序、双区域投影、冻结测试/helper、G0；两项切片与过渡 fixture 另见下文 |
-| 侧栏及 head 首帧脚本 | ui/index.html head 内联脚本与 sidebar.js，ui/sidebar.ts | 首帧外壳、导航/主题早期应用与独立脚本，保留静态路径 | 首帧/Fouc、脚本时机、导航把手、冻结启动测试及 G0 |
-| 标题栏 | ui/index.html .window-titlebar，ui/window-controls.ts | 首帧静态窗口控制与固化拖动/双击/resize 行为 | 首帧、平台控制与事件时序、静态把手、冻结启动测试及 G0 |
-| 应用 store 惰性 getter | ui/home.ts getApplicationStore | 创建同时安装首页订阅并首投影；冻结 pages/library/tracks helper 从 home.ts 读取该入口。本次不为可选整理增加模块与兼容转发 | 若以后搬移，保持懒创建/首次订阅顺序、保留冻结入口、登记模块并验证 G0；不得改成显式挂载 |
-| 兼容激活接口 | ui/video-pages.ts bindTrackActivation 及 legacyTrackButtons | 产品使用 createTrackActivationSession 回调路径；分P冻结测试仍使用原生按钮入口及角标同步 | 只有冻结调用方获授权退场时再删；不得恢复全 document 写入或取消脱离行计时器 |
-| appearance 两项 sourceSlice 例外 | tests/helpers/source-slice.ts 的 applyVolume→startAppearance、applyLoudnessNormalization→initializeLoudnessNormalization | playback-volume-characterization/loudness-normalization 冻结测试仍通过精确切片接线 | 获得冻结环境迁移/接线授权，保留全部业务断言与执行次数后再收口；不扩展例外 |
-| 播放过渡 fixture | tests/helpers/playback-control-fixture.ts 与 playback-session-fixture.ts/mini-host-fixture.ts | 播放控制及迷你窗冻结测试仍使用，当前不是失效代码 | 后续显式接线迁移须核对冻结 helper 范围、调用方及逐断言次数；本次保留 |
+| 批次 | 迁移对象 | 必须保留的契约 |
+| --- | --- | --- |
+| F2a | 主窗 hidden 启动、Rust main_window_ready/watchdog；不动 Vue、不退役 head 脚本 | 其他窗口配置、迷你窗恢复、原启动阶段；G0 单项审批 |
+| F2b | App.vue 启动根、外壳/侧栏/标题栏、store 组合模块、head 脚本退役 | 先同步挂载再求值控制器；单一 store；根最先订阅；持久化、拖动/双击/resize |
+| F2c | 四种曲目列表与歌单目录并入树 | 结构共享、稳定模型/回调、激活/拖拽/计时器、列表投影版本 |
+| F3 | 播放栏与状态条 | 同一个 audio、媒体/请求/跨窗顺序；两项 appearance 切片与播放过渡 fixture 按环境接线流程收口 |
+| F4 | 页面控件、搜索/推荐草稿、歌单操作栏、设置 | 草稿回读/恢复/组字/分页；隐藏投影；API Key 临时参数边界 |
+| F5 | 沉浸页与歌词 | 同一播放状态、隐藏更新、行高亮/滚动/焦点、原匹配及 offset 行为 |
+| F6 | 分P/资料库内容并树，删除主窗 createSyncRegion 区域与过渡桥，最终 G0 | 强制替换与 session key、disabled、同步焦点、浮层动画、脱离节点回调清理 |
+| F7（可选） | 独立迷你窗 | 独立窗口生命周期与主窗同步；不阻塞主窗 F6 收口 |
 
-设置旧行为更正：三个滑块每次 input 都保存（appearance.ts 的 setGlassBlur/setPanelAlpha/setBackgroundDim）；清空搜索历史直接调用命令，不弹确认；测试连接允许把未保存的 Key 作为临时 action 参数传出，禁止进入 props、store 快照、日志、错误文本或迷你窗消息。
+### 十条实施规则
 
-### 保留的守卫与 G0
+1. 主窗最终为单一 App.vue，启动同步挂载；F2a 只准备隐藏启动。中间批次的旧区域桥须精确登记所有权与退场批次，F6 后主窗不再创建独立 createSyncRegion。迷你窗独立。
+2. 主更新只用公开 h/render；每次 store 提交以该次完整 DeepReadonly 快照和稳定控制器回调 props 同步 render 一次，action 返回前完成 DOM 投影。不得用 nextTick、watch 调度、微任务或 RAF 合批作为主更新；原动画和平台每帧合并保留原边界。
+3. 根订阅必须先于所有业务订阅安装，初始显式 getState 渲染；以嵌套提交反例证明旧外层快照不会最后覆盖新快照。store 算法、异常报告与 actions 不改，不建第二个业务 store。bootstrap 初始模型与唯一 store 接线须验证，不重复运行动作。
+4. 子组件只收必要切片、标量和固定回调；不向普通子组件传整个根快照，不在 render 中复制不变切片、重建 rows/回调或动态 slot。按原依赖/投影版本缓存，实测无关提交的 render 次数和节点身份。组件不访问 window/DOM 查询/Tauri/invoke/actions；必要节点经类型化 ref 回调交给控制器。
+5. audio 只创建一次，禁止条件卸载、随曲目变 key 或重绑媒体监听。业务事件种类、请求身份、trackchange 接收阶段、媒体监听、四项 IPC listen 与跨窗同步相对顺序保持；每区域一次性交接 DOM 与事件所有权，不保留双入口。
+6. 设置、沉浸页、歌词常驻，保留隐藏期间数据和 DOM 投影。hidden/is-open/aria-hidden/transitionend、焦点和滚动阶段保留，不统一改 v-if。草稿经领域读写端口，组字/BV/恢复/分页阶段不变；API Key 只为临时动作参数，不进入快照、日志、普通投影或跨窗 payload。
+7. G0 重建申请固定为：(a)播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command 四项 IPC listen、跨窗同步的受保护投影新旧逐条对比，必须完全相同；(b)其余新增/删除/移位逐条列出原因；(c)新条数、首个 trackchange 索引、SHA256；(d)旧 fixture 的 SHA 与原内容存档仓库外。投影不一致时不得申请，先报告原因；批准前不得修改 fixture。154/70 为历史基线，新基线只在批准后登记。
+8. 环境接线重建预先授权：fixture 改为挂载真实 App、静态 HTML 扫描改为扫描挂载的真实 SFC、冻结 helper 中仅涉及环境接线的修改，只要业务断言原文、预期值、执行次数全部不变，直接实施并用一张表登记文件、旧/新接线、受影响测试及次数。内部结构与登记断言按既有分类处理，不借此重录业务期望。必须停下申请的只有：业务断言原文或含义变化；G0 重建；Tauri 配置/capability/Rust 改动（任务已单项授权的除外）；任何保留断言次数变为 0。
+9. 新根模块/SFC/冷入口/类型项目按精确文件登记，不放宽 strict、类型擦除、组件边界和默认导入白名单。测试发现、helper 默认行为、守卫逻辑、verify-dist/G0 算法变化仍走严格模式完整阶段验收；普通登记按原规则跑相关 canary。环境授权不免除逐断言审计与阶段验证。
+10. hidden、Rust ready/watchdog、head 退役分批验证故障。F2a 已单项授权 main visible:false（含 macOS 同步）、main_window_ready 与约5秒一次性 watchdog、相关前端启动握手/契约登记；无前端 show 新权限，其他配置与业务不改，G0 仍单项申请。后续批次、业务断言、合并/发布不因此自动获权；每批最多3提交，验收→仓库外报告→用户手测并明确允许合并→核对后本地 fast-forward。
 
-- 冷编译边界及 vueRendererImports：仍供安装前 Node 测试隔离 SFC 依赖，并供冻结 DOM fixture 编译真实组件；精确登记仍保护现有 Vue 岛，保留。冷边界收尾必须核对创建尝试为 0，不能只依靠抛错。
-- scripts/vue/check.ts 的 Vue 包导入、SFC 导入/文件清单及内容守卫；scripts/vue/infra-guard.ts；模块清单与导入/写入归属守卫：仍用于现有产品与测试，保留，不能当迁移临时项放宽。
-- ui/vue/sync-region.ts 的空宿主、重复创建、卸载后更新及同步 render 契约保留。SFC 不访问 actions/invoke/window、不聚焦，高亮由控制器计算；测试分组与安装前依赖隔离、生产 eval/new Function AST 检查均保留。
-- E1 不改变 getXxxActions 的隐含初始化、不拆 player-dom.ts、不改任何启动顺序或冻结文件。本批 G0 154/70 不重录。以后只有启动可见区域挂载确实改变序列时才可单项申请，附逐条新增/删除/移位原因；播放、请求、trackchange、媒体监听与跨窗同步事件种类及相对顺序必须不变，批准前不改 golden fixture。
-- E1 进行最终完整阶段验收；Windows/Mac 全应用手测须由用户执行并单独确认。纯本地流程、不推送不合并；远程 Windows/macOS CI 待账号恢复后补验。
+原三个滑块每次 input 保存、清空搜索历史不确认、Key 临时参数等行为继续保留。已完成 B1/B2/资料库/分P的历史基线与 SHA 继续有效，不能因本路线自动删除。精确冷边界、Vue/模块/写入守卫、组件清理、测试分组、eval/new Function 为0、windows/darwin产物逐字节一致继续保护当前实现；按对应批次逐项替代区域登记。远程 Windows/macOS CI：待账号恢复后补验。
 
 ## vue-5c 输入类内容迁移（feat）
 
