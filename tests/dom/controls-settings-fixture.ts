@@ -16,8 +16,8 @@ async function settingsReply(command: string, args: Record<string, unknown> = {}
   if (command === "choose_background_image") return { path: "X:/test/背景.jpg", displayName: "背景.jpg", dataUrl: "data:image/jpeg;base64,/9j/2Q==", width: 2, height: 3 };
   return responses()(command);
 }
-async function controlsSettingsFixture() {
-  const h = await fixture({ playback: true });
+async function controlsSettingsFixture(options: {privacy?:boolean;displayCounters?:boolean;shortcutReply?:Promise<unknown>;normalizationFailure?:boolean} = {}) {
+  const h = await fixture({ playback: true, settingsPrivacy: options.privacy, displayCounters: options.displayCounters, shortcutReply:options.shortcutReply, normalizationFailure:options.normalizationFailure });
   const node = <T extends HTMLElement = HTMLElement>(id: string) => h.doc.getElementById(id) as T;
   h.reply(settingsReply);
   const input = async (id: string, value: string, event = "input") => { node<HTMLInputElement>(id).value = value; await h.fire(node(id), event); };

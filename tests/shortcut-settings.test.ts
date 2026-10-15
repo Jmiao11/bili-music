@@ -1,3 +1,4 @@
+import {shortcutDisplayLabel as projectShortcutLabel} from "../ui/settings-controls.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -17,6 +18,8 @@ const formatterContext = vm.createContext({
   document: { documentElement: { dataset: { platform: "windows" } } },
 });
 vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/settings-view.ts"), "utf8") + formatterSource, formatterContext);
+
+formatterContext.shortcutDisplayLabel = (binding: string | null) => projectShortcutLabel(binding, formatterContext.document.documentElement.dataset.platform);
 
 function format(event: Partial<KeyboardEvent>) {
   return formatterContext.shortcutFromKeyboardEvent({

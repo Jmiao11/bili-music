@@ -1,3 +1,4 @@
+import {attachSettingsControlPorts} from "./helpers/settings-controls-fixture.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -78,8 +79,12 @@ async function fixture(saved: [string, string][] = []) {
   try {
     for (const name of collectModuleGraph(source, ["appearance.ts"])) fs.copyFileSync(path.join(source, name), path.join(rootPath, name)); fs.writeFileSync(path.join(rootPath, "package.json"), '{"type":"module"}');
     for (const name of ["playback-core.ts", "library-ui.ts"]) { const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean); fs.writeFileSync(path.join(rootPath, name), exports.map(x => 'function '+x+'() {}').join("\n")+'\nexport { '+exports.join(", ")+' };'); }
+    const portContext = {document:doc,root:doc.documentElement,themeOptions:themes,accentColorOptions:accents,shortcutRecordButtons:records,shortcutClearButtons:clears,imageOnlyGroups:groups[".image-only"],autoSource:auto};
+    const renderControls = attachSettingsControlPorts(portContext);
+    install("__settingsFixtureRegister", Reflect.get(portContext,"installSettingsCallbacks"));
+    fs.appendFileSync(path.join(rootPath,"root-settings.ts"), '\nconst registerSettingsForFixture=installSettingsCallbacks; installSettingsCallbacks=function(next){registerSettingsForFixture(next);globalThis.__settingsFixtureRegister(next);};\n');
     const composition = await import(pathToFileURL(path.join(rootPath, "application-store.ts")).href);
-    composition.initializeApplicationStore({ invoke, setTimeout: setTimer, clearTimeout: (id: number) => timers.delete(id), report() {}, settings: (await import(pathToFileURL(path.join(rootPath, "settings-adapter.ts")).href)).createSettingsPlatform() }, () => {});
+    composition.initializeApplicationStore({ invoke, setTimeout: setTimer, clearTimeout: (id: number) => timers.delete(id), report() {}, settings: (await import(pathToFileURL(path.join(rootPath, "settings-adapter.ts")).href)).createSettingsPlatform() }, snapshot => renderControls(snapshot.settings));
     const appearance = await import(pathToFileURL(path.join(rootPath, "appearance.ts")).href) as { startAppearance(): void }; appearance.startAppearance();
     const policy = await import(pathToFileURL(path.join(rootPath, "playback-policy.ts")).href) as { readShuffleCollectionPrefs(): { order: string; limit: number } };
     const h = { node, doc, css, storage, writes, reads, calls, events, themes, accents, nav, records, clears, auto, policy, dispose,

@@ -1,9 +1,9 @@
+import { readHomeHintDraft } from "./draft-ports.ts";
 import { readApplicationStore } from "./application-store.ts";
 import type { createApplicationStore } from "./app-state.ts";
 import { homeHintInput } from "./player-dom.ts";
 import { renderHomeSnapshot } from "./home-view.ts";
 import { updateQueueUi } from "./playback-core.ts";
-
 let homeMounted = false;
 
 function getApplicationStore(): ReturnType<typeof createApplicationStore> {
@@ -27,7 +27,7 @@ function updateHomeModeUi(): void { getApplicationStore(); }
 function loadHomeRanking(options: { forceRefresh?: boolean } = {}): Promise<void> { return getApplicationStore().actions.loadHomeRanking(options); }
 function loadRecommendationHome(): Promise<void> { return getApplicationStore().actions.loadRecommendationHome(); }
 function loadRecommendations(options: { forceRefresh?: boolean } = {}): Promise<void> {
-  return getApplicationStore().actions.loadRecommendations({ ...options, userHint: homeHintInput ? homeHintInput.value : getHomeSnapshot().userHint });
+  return getApplicationStore().actions.loadRecommendations({ ...options, userHint: homeHintInput ? readHomeHintDraft() : getHomeSnapshot().userHint });
 }
 function refreshAiKeyState(): Promise<void> { return getApplicationStore().actions.refreshAiKeyState(); }
 function setHomeMode(mode: string): void { getApplicationStore().actions.setHomeMode(mode); }

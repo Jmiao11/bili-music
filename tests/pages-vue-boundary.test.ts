@@ -15,7 +15,7 @@ test("pages renderer imports have two exact compiler boundaries without relaxing
   const graph = collectBusinessScripts(ui);
   assert.deepEqual(graph.rendererFiles, ["components/App.vue", "components/PagesList.vue", "vue/sync-region.ts", "components/LibraryModalBody.vue"]);
   for (const file of graph.rendererFiles ?? []) assert.ok(fs.existsSync(path.join(ui, file)));
-  assert.deepEqual(fs.readdirSync(path.join(import.meta.dirname, "../ui/components")), ["App.vue","ImmersivePlayer.vue","LegacyShell.vue","LibraryModalBody.vue","ListHost.vue","LyricsDisplay.vue","PagesList.vue","PlaybackBar.vue","PlaybackNotice.vue","PlaylistList.vue","ResizeHotspots.vue","Sidebar.vue","TrackList.vue","TrackRow.vue","WindowTitlebar.vue"]);
+  assert.deepEqual(fs.readdirSync(path.join(import.meta.dirname, "../ui/components")), ["App.vue","HomeHint.vue","HomeSetupHint.vue","ImmersivePlayer.vue","LegacyShell.vue","LibraryModalBody.vue","ListHost.vue","LyricsDisplay.vue","PagesList.vue","PlaybackBar.vue","PlaybackNotice.vue","PlaylistActions.vue","PlaylistCreateActions.vue","PlaylistList.vue","ResizeHotspots.vue","SearchForm.vue","SearchTabs.vue","SettingsPanel.vue","Sidebar.vue","TrackList.vue","TrackRow.vue","WindowTitlebar.vue"]);
   const component = fs.readFileSync(path.join(ui, "components/PagesList.vue"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(component), /\b(?:window|__TAURI__|invoke|actions)\b/);
   for (const entry of vueRendererImports) {

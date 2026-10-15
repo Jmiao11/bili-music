@@ -1,7 +1,6 @@
 import type { HomeSnapshot } from "./app-state.ts";
 import { isHomePopular } from "./app-state.ts";
-import { homeCacheNote, homeHintApply, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.ts";
-
+import { homeCacheNote, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "./player-dom.ts";
 type HomeRowsRenderer = (videos: HomeSnapshot["ranking"], source: string, skeleton: boolean) => void;
 
 function renderHomeMode(homeState: HomeSnapshot): void {
@@ -29,9 +28,6 @@ function renderHomeMode(homeState: HomeSnapshot): void {
   if (homeCacheNote) {
     homeCacheNote.textContent = "";
   }
-  if (homeHintRow) {
-    homeHintRow.hidden = !isRecommendation || showPopular;
-  }
   refreshRankingButton.title = isRecommendation && !showPopular
     ? "本次会话缓存，手动刷新会重新生成推荐"
     : "游客榜单，本次运行缓存";
@@ -50,10 +46,7 @@ function renderHomeRanking(homeState: HomeSnapshot, renderRows: HomeRowsRenderer
   }
   renderHomeMode(homeState);
   renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", false);
-  if (homeSetupHint) {
-    homeSetupHint.hidden = true;
-    homeSetupHint.classList.remove("is-inline");
-  }
+
   homePanel?.classList.remove("needs-setup");
   if (homeState.loading) {
     renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", true);
@@ -72,10 +65,7 @@ function renderHomeRanking(homeState: HomeSnapshot, renderRows: HomeRowsRenderer
 }
 
 function showHomeNotice(title: string, sub: string, inline: boolean = false): void {
-  homeSetupTitle.textContent = title;
-  homeSetupSub.textContent = sub;
-  homeSetupHint.hidden = false;
-  homeSetupHint.classList.toggle("is-inline", inline);
+
   homePanel?.classList.toggle("needs-setup", !inline);
 }
 
@@ -85,10 +75,7 @@ function renderRecommendations(homeState: HomeSnapshot, renderRows: HomeRowsRend
   }
   renderHomeMode(homeState);
   renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", false);
-  if (homeSetupHint) {
-    homeSetupHint.hidden = true;
-    homeSetupHint.classList.remove("is-inline");
-  }
+
   homePanel?.classList.remove("needs-setup");
   if (homeState.recommendationLoading) {
     renderRows([], homeState.view.content.kind === "recommendations" ? "recommendation" : "ranking", true);
@@ -115,8 +102,6 @@ function renderHomeSnapshot(home: HomeSnapshot, previous: HomeSnapshot | null, r
   const view = home.view;
   if (view.status !== null && view.status !== previous?.view.status) homeRankingStatus.textContent = view.status;
   if (view.rankingError !== null && view.rankingError !== previous?.view.rankingError) homeRankingError.textContent = view.rankingError.text;
-  if (view.hintDisabled !== null && view.hintDisabled !== previous?.view.hintDisabled) homeHintApply.disabled = view.hintDisabled;
-  if (view.hintText !== null && view.hintText !== previous?.view.hintText) homeHintApply.textContent = view.hintText;
   if (view.refreshDisabled !== null && view.refreshDisabled !== previous?.view.refreshDisabled) refreshRankingButton.disabled = view.refreshDisabled;
   if (view.content === previous?.view.content) return false;
   if (view.content.kind === "ranking") return renderHomeRanking(home, renderRows);

@@ -233,7 +233,7 @@ F2b 合并前未运行远程 CI；feat/vue-root 从未有 PR 或 Actions 运行�
 - 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。每批不再要求用户在 Mac 手动运行命令，由最新功能分支的双平台 CI 代替；Mac 界面手测仅在跨平台阶段回归，或本批改变窗口、键盘、输入法、滚动等平台相关行为时进行。不把同机 darwin 配置构建当作 Mac 实测。
 - 未修改的冻结文件只用 git diff 证明，不再输出哈希清单；只有本批修改或新建的冻结文件报告 SHA。
 - 修改业务断言原文或含义仍须停下申请；环境接线重建（真实 App 挂载、挂载后 SFC 扫描、冻结 helper 的纯环境接线）已预先授权，业务断言原文、预期值、次数必须不变，只用一张短表登记。内部结构/模块登记按对应意图更新；不能删除业务覆盖或让断言空跑。不做常规全量断言执行次数统计。
-- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批184/102（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
+- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批193/140（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 - 变异取消固定数量；只对新写的异步竞态、启动可靠性、安全边界逻辑，每处1～2个，在仓库外副本实施并恢复，以对应行为测试抓到非等价变化。
 - canary 只在修改对应守卫、检查脚本或测试分组算法时运行该守卫的 canary，不随普通测试登记或组件迁移扩大范围。
 - 专项严格验证只针对启动可靠性（watchdog/隐藏启动/首帧）、Rust、播放状态机与取流、数据持久化、安全隐私（API Key/cookie/日志脱敏）的风险点本身；不扩大成全套阶段验收。普通测试登记、fixture 扩展、组件迁移不触发。
@@ -474,7 +474,7 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 
 仅 ui/pages-view.ts 的列表循环替换为 ui/components/PagesList.vue。首个打开投影先清空旧列表，再建立独占同步区域并公开 render；后续投影显式 update，使用递增 key 保留旧整批替换行为，随后在同一流程恢复关闭按钮焦点。打开 RAF、关闭/transitionend、Tab、查询、版本丢弃与偏好保存仍在旧模块。组件只接深只读 modal/集合、当前播放标识和两个控制器回调；复用 styles.css，无 scoped 样式。禁用页播放按钮仍可点击，控制器先关闭再播放。
 
-安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包G0继续核对当前获批基线184/102（真实 DOM 采集器；同采集器 F2a 为183/83；旧155/70仓库外存档）。原安装前其他领域测试不得被误写成 Vue 运行时验证。
+安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包G0继续核对当前获批基线193/140（真实 DOM 采集器；同采集器 F2a 为183/83；旧155/70仓库外存档）。原安装前其他领域测试不得被误写成 Vue 运行时验证。
 
 两个分P冻结测试 SHA256 保持 vue-2a 的值。用户单项批准原 strict-null-runtime 空上下文测试迁入安装后组：第一条 assert.deepEqual(list.children, ["unchanged"]) 适配为 assert.deepEqual(Array.from(list.childNodes, node => node.textContent), ["unchanged"])，其余四条原文、原测试名及五条各一次保持。授权来自 2026-10-11 本任务的用户回复；本批业务断言等价适配 1，删除 0，不能写成改变 0。
 
@@ -555,7 +555,7 @@ E1 已在 master 94b6a6f 本地合并；全应用Windows/Mac完整回归安排�
 4. 子组件只收必要切片、标量和固定回调；不向普通子组件传整个根快照，不在 render 中复制不变切片、重建 rows/回调或动态 slot。按原依赖/投影版本缓存，实测无关提交的 render 次数和节点身份。组件不访问 window/DOM 查询/Tauri/invoke/actions；必要节点经类型化 ref 回调交给控制器。
 5. audio 只创建一次，禁止条件卸载、随曲目变 key 或重绑媒体监听。业务事件种类、请求身份、trackchange 接收阶段、媒体监听、四项 IPC listen 与跨窗同步相对顺序保持；每区域一次性交接 DOM 与事件所有权，不保留双入口。
 6. 设置、沉浸页、歌词常驻，保留隐藏期间数据和 DOM 投影。hidden/is-open/aria-hidden/transitionend、焦点和滚动阶段保留，不统一改 v-if。草稿经领域读写端口，组字/BV/恢复/分页阶段不变；API Key 只为临时动作参数，不进入快照、日志、普通投影或跨窗 payload。
-7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前获批184/102（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
+7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前获批193/140（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 8. 环境接线重建预先授权：fixture挂载真实App、静态HTML扫描改为挂载后SFC扫描、冻结helper纯接线，只要业务断言原文/预期值/次数不变，直接实施并用短表登记文件、旧/新接线、受影响测试。不做常规次数统计；不能让断言空跑。业务断言变化、G0重建、未单项授权Tauri/capability/Rust及已发现断言变0仍停下申请。
 9. 新根模块/SFC/冷入口/类型项目精确登记，不放宽strict、类型擦除、组件边界和默认导入白名单。守卫/检查脚本/分组算法变更只跑对应canary；专项严格验证只覆盖实际风险点，普通登记、fixture扩展、组件迁移不触发。
 10. hidden、Rust ready/watchdog、head 退役分批验证故障。F2a 已单项授权 main visible:false（含 macOS 同步）、main_window_ready 与约5秒一次性 watchdog、相关前端启动握手/契约登记；无前端 show 新权限，其他配置与业务不改，G0 仍单项申请。后续批次、业务断言、合并/发布不因此自动获权；每批最多3提交，验收→仓库外报告→用户手测并明确允许合并→核对后本地 fast-forward。
@@ -634,7 +634,7 @@ B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF
 
 root-lists 保存稳定只读列表模型；main 在原初始化入口安装投影函数，根订阅每次先按快照计算列表再 render，home/search/library 的后置订阅不再驱动列表。track-list-ui 复用原依赖比较、激活会话与行 key；library-ui 保留拖拽、计时器和节点回调，拖拽视觉变化显式刷新根。ListHost 保留原 ul 的属性与空列表 :empty；有内容时才挂载 TrackList/PlaylistList。播放进度100次提交时三类列表组件实际render计数均为0。仅 pages-view 与 library-view 的 createSyncRegion 过渡桥保留到F6。
 
-G0 已获批重建为184/102，Git/LF SHA256 `6fa4bc7845c33f77a389f729f8bc9c5f9a981f6f7e1ba10e89d34195fb8136e8`。真实DOM采集器下F2a为183/83，旧155/70存档于仓库外；F2b批准差异为28条补录监听、onerror登记移位及2个observer目标名称；F3本次批准仅限27条监听前移至Vue首次挂载，受保护投影完全相同。主JS加载/解析失败时启动模块尚未运行，故障包由Rust约5秒watchdog显示窗口，startup-errors.log记录握手超时，不记录脚本错误。冷入口helper以真实临时目录路径匹配，覆盖macOS的/var与/private/var别名。
+G0 当前获批193/140，Git/LF SHA256 `c9858fc2d6c2d3b21764127c07cb1c3462e5e6738f91c1468c5340871cd24948`（F3历史基线为184/102；F4批准控件监听前移、10条快捷键按钮监听与归一化两条change合一）。真实DOM采集器下F2a为183/83，旧155/70存档于仓库外；F2b批准差异为28条补录监听、onerror登记移位及2个observer目标名称；F3本次批准仅限27条监听前移至Vue首次挂载，受保护投影完全相同。主JS加载/解析失败时启动模块尚未运行，故障包由Rust约5秒watchdog显示窗口，startup-errors.log记录握手超时，不记录脚本错误。冷入口helper以真实临时目录路径匹配，覆盖macOS的/var与/private/var别名。
 
 F3 长期约定：<audio id="audio"> 永久保留在 index.html 的 Vue 宿主之外，不能由组件创建、替换或重复登记媒体监听。
 
@@ -652,3 +652,14 @@ App 树常驻 PlaybackBar、PlaybackNotice、ImmersivePlayer 与 LyricsDisplay�
 列表行模型按既有 key 和显示字段复用，回调由行会话稳定转交；纯进度提交不渲染列表/行，高亮切换每个列表最多旧、新两行，收藏与分P元数据变化只渲染受影响行；内容或来源替换允许重新渲染。真实 DOM 测试按每次提交登记改变切片与行渲染次数。
 
 F3 用户已完成 Windows 手测并批准合并；03ae6e4、f279eb7 已于 2026-10-15 fast-forward 合入 master。master f279eb7 的 Windows/macOS CI 均通过：https://github.com/Jmiao11/bili-music/actions/runs/38732420842 。F4 从该 master 开始，先冻结页面控件与设置的真实 DOM 基线；本批 Mac 界面手测仅检查搜索框与 AI Key 输入框的中文组字和回车。
+
+## F4 页面控件与设置接线
+
+HomeHint、HomeSetupHint、SearchForm、SearchTabs、PlaylistCreateActions、PlaylistActions、SettingsPanel 常驻 App 树，隐藏期间照常投影。控制器在原阶段安装稳定转交回调；首页模式按钮仍为0、分区3个、排序2个。首页/搜索其余文字投影、页面导航及设置外壳的 hidden/is-open/RAF/transitionend/焦点与全局外观副作用保持原位。
+
+搜索与首页提示草稿仅经 draft-ports 读写，调用方保留原 trim、恢复、分页回读与组字时机；非受控 input 不绑定 value。AI Key 只经独立读取/清空端口传作临时动作参数，不进入快照、SettingsControls 或组件 props。settings-controls 复用原 view 版本，只有明确写值时增加字段版本；SettingsPanel 的公开 Vue 指令在同步 render 内写原生字段，属性/提示更新不覆盖草稿。归一化开关的重复版本提交也同步生效。
+
+设置面板内容由 Vue 独占输出；appearance/settings-view 保留主题与 CSS、设置外壳阶段、平台副作用及输入端口。桌宠选择通过显示数据和稳定回调；每次打开保留旧版重建选择节点的阶段。数据按钮忙态仅为显示状态；导入确认仍在控制器，清空历史不确认。13个 player-dom 只读控件句柄及 settingsDom 的历史输出句柄仅供冻结环境过渡，到F6随接线收口；不得恢复这些节点的旧写入。
+
+10项旧实现真实 DOM 基线的业务断言与 JSON 保持；冻结 helper 按预授权改为真实投影/回调端口，旧排序 fixture 编译真实 SFC 的登记变体，不再替换挂载后的静态按钮。Key props 与导出 api_key 两项变异在仓库外执行。Rust 产品文件、配置与持久化协议未改；F4 G0已获批193/140，仅控件监听前移、新增10条快捷键监听与归一化两条change合一，受保护投影保持相同。
+快捷键转交回调只在 loadShortcuts 完成（含失败降级）后安装，加载前10个按钮无效果；归一化回调以 try/finally 保留旧独立监听的异常隔离，第二段照常执行，第一段异常继续报告。settings-privacy 的新增真实 DOM 测试覆盖成功/失败加载及抛错路径。

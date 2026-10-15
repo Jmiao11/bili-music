@@ -8,6 +8,7 @@ import { checkVueInfrastructureFiles } from "./infra-guard.ts";
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const readerFixture = "tests/fixtures/vue/StoreReader.vue";
 const vueImports: Record<string, string[]> = {
+  "ui/components/SettingsPanel.vue": ["vue"],
   "ui/components/ListHost.vue": ["vue"],
   "ui/root-mount.ts": ["vue"],
   "ui/components/PlaylistList.vue": ["vue"],

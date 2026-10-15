@@ -1,24 +1,43 @@
-type ShortcutAction = keyof CommandContract.ShortcutBindings;
-type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
-
+import { installSettingsCallbacks } from "./root-settings.ts";
+import { clearAiKeyDraft, readAiKeyDraft } from "./draft-ports.ts";
 import { installPlaybackCallbacks } from "./root-playback.ts";
 import { getMascotApi } from "./mascot.ts";
 import { createPlaybackCommands } from "./playback-commands.ts";
 import { effectivePlaybackVolume } from "./playback-settings-state.ts";
 import { createMediaAdapter, createMediaSessionAdapter } from "./media-adapter.ts";
 import { normalizeSettingsAccent } from "./settings-state.ts";
+import type { SettingsSnapshot } from "./settings-state.ts";
 import { readSettingsPreference } from "./settings-adapter.ts";
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
 import { clearPlaybackNotice } from "./playback-notice.ts";
-import type { SettingsSnapshot } from "./settings-state.ts";
-
 import { getApplicationStore } from "./home.ts";
 import { choosePlaylistAndAdd } from "./library-ui.ts";
 import { advancePageWithinCurrentBv, clearPendingResume, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog } from "./playback-core.ts";
-import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
+import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsSnapshot } from "./settings-view.ts";
 import { renderPlaybackSettingsSnapshot } from "./playback-settings-view.ts";
 import { renderPlaybackMediaSession } from "./playback-display-view.ts";
 import { setPlaybackStatus } from "./playback-messages.ts";
+type ShortcutAction = keyof CommandContract.ShortcutBindings;
+type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
 
@@ -28,8 +47,6 @@ const VOLUME_KEY = "bilibili-music.volume";
 // 全局快捷键步长独立于滑块，方便 live 调整每次按键的幅度。
 const GLOBAL_SHORTCUT_VOLUME_STEP = 0.05;
 const LOUDNESS_NORMALIZATION_KEY = "bilibili-music.loudness-normalization";
-const SHUFFLE_COLLECTION_ORDER_KEY = "bilibili-music.shuffle-collection-order";
-const SHUFFLE_COLLECTION_LIMIT_KEY = "bilibili-music.shuffle-collection-limit";
 let playbackSettingsMounted = false;
 let playbackSettingsMedia: ReturnType<typeof createMediaAdapter> | null = null;
 let normalizationAnimationFrame: number | null = null;
@@ -49,7 +66,6 @@ const themeOptions = [...document.querySelectorAll<HTMLButtonElement & { dataset
 const accentColorOptions = [...document.querySelectorAll<HTMLInputElement & { nextElementSibling: HTMLElement }>("[data-accent-color]")];
 const mascotPicker = document.querySelector<HTMLDivElement>("#mascot-picker")!;
 const chooseBackgroundButton = document.querySelector<HTMLButtonElement>("#choose-background-button")!;
-const resetBackgroundButton = document.querySelector<HTMLButtonElement>("#reset-background-button")!;
 const backgroundName = document.querySelector<HTMLElement>("#background-name")!;
 const appearanceStatus = document.querySelector<HTMLParagraphElement>("#appearance-status")!;
 const imageOnlyGroups = [...document.querySelectorAll<HTMLElement>(".image-only")];
@@ -68,9 +84,6 @@ const shuffleCollectionLimit = document.querySelector<HTMLSelectElement>("#shuff
 const audioCacheUsage = document.querySelector<HTMLElement>("#audio-cache-usage")!;
 const audioCacheStatus = document.querySelector<HTMLElement>("#audio-cache-status")!;
 const clearAudioCacheButton = document.querySelector<HTMLButtonElement>("#clear-audio-cache-button")!;
-const clearSearchHistoryButton = document.querySelector<HTMLButtonElement>("#clear-search-history-button")!;
-const exportDataButton = document.querySelector<HTMLButtonElement>("#export-data-button")!;
-const importDataButton = document.querySelector<HTMLButtonElement>("#import-data-button")!;
 const aiApiFormatSelect = document.querySelector<HTMLSelectElement>("#ai-api-format-select")!;
 const aiBaseUrlInput = document.querySelector<HTMLInputElement>("#ai-base-url-input")!;
 const aiModelInput = document.querySelector<HTMLInputElement>("#ai-model-input")!;
@@ -79,7 +92,6 @@ const saveAiConfigButton = document.querySelector<HTMLButtonElement>("#save-ai-c
 const testAiConnectionButton = document.querySelector<HTMLButtonElement>("#test-ai-connection-button")!;
 const aiConfigStatus = document.querySelector<HTMLElement>("#ai-config-status")!;
 const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutAction: ShortcutAction } }>("[data-shortcut-action]")];
-const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutClear: ShortcutAction } }>("[data-shortcut-clear]")];
 
 const playerAudio = document.querySelector<HTMLAudioElement>("#audio")!;
 const openImmersiveButton = document.querySelector<HTMLButtonElement>("#open-immersive-button")!;
@@ -92,6 +104,7 @@ let playbackDisplayMounted = false;
 
 function settingsDom() { return { root, navItems, homeView, searchView, favoritesView, playlistsView, placeholderView, placeholderTitle, settingsModal, openSettingsButton, themeOptions, accentColorOptions, chooseBackgroundButton, backgroundName, appearanceStatus, imageOnlyGroups, glassBlurSlider, glassBlurValue, panelAlphaSlider, panelAlphaValue, backgroundDimSlider, backgroundDimValue, streamSourceSelect, streamSourceStatus, audioCacheEnabled, audioCacheCapacity, shuffleCollectionOrder, shuffleCollectionLimit, audioCacheUsage, audioCacheStatus, clearAudioCacheButton, aiApiFormatSelect, aiBaseUrlInput, aiModelInput, aiApiKeyInput, saveAiConfigButton, testAiConnectionButton, aiConfigStatus, shortcutRecordButtons }; }
 type SettingsDom = ReturnType<typeof settingsDom>;
+
 let settingsMounted = false;
 function getSettingsSnapshot() { return getApplicationStore().getState().settings; }
 function getSettingsActions() {
@@ -99,7 +112,7 @@ function getSettingsActions() {
   if (!settingsMounted) {
     settingsMounted = true;
     let previous: SettingsSnapshot | null = null;
-    const render = () => { const current = store.getState().settings; if (current === previous) return; renderSettingsSnapshot(current, previous, settingsDom()); previous = current; };
+    const render = () => { const current = store.getState().settings; if (current === previous) return; renderSettingsSnapshot(current, previous, settingsDom()); if (current.view.ai.clearKeyVersion && current.view.ai.clearKeyVersion !== previous?.view.ai.clearKeyVersion) clearAiKeyDraft(); previous = current; };
     store.subscribe(render);
     render();
   }
@@ -166,7 +179,6 @@ function shortcutButtonFor(action: ShortcutAction) {
   return shortcutRecordButtons.find((button) => button.dataset.shortcutAction === action);
 }
 
-function renderShortcutButton(action: ShortcutAction) { renderSettingsShortcut(getSettingsSnapshot(), action, settingsDom()); }
 
 function handleShortcutRecordingPointerDown(event: PointerEvent) {
   if (!(event.target as Element).closest?.("[data-shortcut-action]")) {
@@ -218,25 +230,11 @@ async function saveShortcutBinding(action: ShortcutAction, value: string | null)
 
 async function initializeShortcutSettings() {
   await getSettingsActions().loadShortcuts();
-  for (const button of shortcutRecordButtons) {
-    renderShortcutButton(button.dataset.shortcutAction);
-    button.addEventListener("click", () => startShortcutRecording(button.dataset.shortcutAction));
-  }
-  for (const button of shortcutClearButtons) {
-    button.addEventListener("click", () => {
-      cancelShortcutRecording();
-      void saveShortcutBinding(button.dataset.shortcutClear, null);
-    });
-  }
+  installSettingsCallbacks({
+    shortcut: action => startShortcutRecording(action),
+    clearShortcut: action => { cancelShortcutRecording(); void saveShortcutBinding(action, null); },
+  });
 }
-
-
-
-
-
-
-
-
 
 function getPlaybackDisplayActions() {
   const store = getApplicationStore();
@@ -472,65 +470,13 @@ function closeImmersive() {
 }
 
 function syncMascotPickerSelection() {
-  const activeId = getMascotApi()?.getActive?.();
-  for (const tile of mascotPicker?.querySelectorAll<HTMLButtonElement>(".mascot-tile") ?? []) {
-    const selected = tile.dataset.mascotId === activeId;
-    tile.classList.toggle("is-selected", selected);
-    tile.setAttribute("aria-pressed", String(selected));
-  }
+  if (mascotPicker) getSettingsActions().selectMascot(getMascotApi()?.getActive() ?? "");
 }
-
 function renderMascotPicker() {
-  const mascotApi = getMascotApi();
-  if (!mascotPicker || !mascotApi) {
-    return;
-  }
-  mascotPicker.textContent = "";
-  for (const mascot of mascotApi.list()) {
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = "mascot-tile";
-    tile.dataset.mascotId = mascot.id;
-    tile.setAttribute("aria-label", mascot.name);
-
-    const preview = document.createElement("span");
-    preview.className = "mascot-tile-preview";
-    preview.innerHTML = mascot.svg.replace(/\s+id="[^"]*"/g, "");
-
-    const label = document.createElement("span");
-    label.className = "mascot-tile-name";
-    label.textContent = mascot.name;
-
-    tile.append(preview, label);
-    tile.addEventListener("click", () => {
-      mascotApi.setActive(mascot.id);
-      syncMascotPickerSelection();
-    });
-    mascotPicker.append(tile);
-  }
-
-  const noneTile = document.createElement("button");
-  noneTile.type = "button";
-  noneTile.className = "mascot-tile mascot-tile-none";
-  noneTile.dataset.mascotId = "none";
-  noneTile.setAttribute("aria-label", "不显示桌宠");
-
-  const nonePreview = document.createElement("span");
-  nonePreview.className = "mascot-tile-preview";
-  nonePreview.textContent = "—";
-
-  const noneLabel = document.createElement("span");
-  noneLabel.className = "mascot-tile-name";
-  noneLabel.textContent = "不显示";
-
-  noneTile.append(nonePreview, noneLabel);
-  noneTile.addEventListener("click", () => {
-    mascotApi.setActive("none");
-    syncMascotPickerSelection();
-  });
-  mascotPicker.append(noneTile);
-
-  syncMascotPickerSelection();
+  const api = getMascotApi();
+  if (!mascotPicker || !api) return;
+  getSettingsActions().showMascots([...api.list().map(item => ({...item, svg:item.svg.replace(/\s+id="[^"]*"/g, "")})), {id:"none",name:"不显示",svg:"—"}],api.getActive());
+  installSettingsCallbacks({mascot:id=>{api.setActive(id);syncMascotPickerSelection();}});
 }
 
 function openSettings() {
@@ -569,9 +515,7 @@ function readAccentColor() {
 function applyAccentColor(value: unknown, persist = true) { getSettingsActions().setAccent(value, root.dataset.theme, persist); }
 
 function initializeAccentColor() {
-  for (const option of accentColorOptions) {
-    option.addEventListener("change", () => applyAccentColor(option.value));
-  }
+  installSettingsCallbacks({accent: value => applyAccentColor(value)});
   applyAccentColor(readAccentColor(), false);
   // data-theme 的变更在下一次绘制前同步变体，不改主题切换与动态背景逻辑。
   new MutationObserver(() => applyAccentColor(getSettingsSnapshot().accentColor, false))
@@ -608,13 +552,13 @@ async function restoreAiConfig() {
 
 async function saveAiConfig() {
   if (!aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput || !saveAiConfigButton || !aiConfigStatus) return;
-  const input = () => ({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: aiApiKeyInput.value });
+  const input = () => ({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: readAiKeyDraft() });
   await getSettingsActions().saveAi(input(), input, () => window.dispatchEvent(new Event("ai-config-updated")));
 }
 
 async function testAiConnection() {
   if (!testAiConnectionButton || !aiConfigStatus || !aiApiFormatSelect || !aiBaseUrlInput || !aiModelInput || !aiApiKeyInput) return;
-  await getSettingsActions().testAi({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: aiApiKeyInput.value });
+  await getSettingsActions().testAi({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: readAiKeyDraft() });
 }
 
 async function openCurrentBilibiliVideo() {
@@ -715,7 +659,7 @@ function getPlaybackSettingsActions() {
       renderPlaybackSettingsSnapshot(state, previous, {
         setMediaVolume: volume => updateEffectiveVolume(volume),
         setVolumeControl: () => {},
-        setNormalizationControl: enabled => { loudnessNormalizationToggle.checked = enabled; },
+        setNormalizationControl: () => {},
       });
       previous = state;
     };
@@ -748,40 +692,19 @@ settingsModal.addEventListener("click", (event) => {
   }
 });
 
-for (const option of themeOptions) {
-  option.addEventListener("click", () => applyTheme(option.dataset.themeOption));
-}
-
-glassBlurSlider.addEventListener("input", () => setGlassBlur(glassBlurSlider.value));
-panelAlphaSlider.addEventListener("input", () => setPanelAlpha(panelAlphaSlider.value));
-backgroundDimSlider.addEventListener("input", () => setBackgroundDim(backgroundDimSlider.value));
-
-chooseBackgroundButton.addEventListener("click", async () => { await getSettingsActions().chooseBackground(); });
-
-resetBackgroundButton.addEventListener("click", () => resetBackground());
-saveAiConfigButton?.addEventListener("click", saveAiConfig);
-testAiConnectionButton?.addEventListener("click", testAiConnection);
-aiApiFormatSelect?.addEventListener("change", updateAiBaseUrlPlaceholder);
-
-streamSourceSelect?.addEventListener("change", async () => { await getSettingsActions().changeSource(streamSourceSelect.value); });
-
-audioCacheEnabled?.addEventListener("change", saveAudioCacheSettings);
-audioCacheCapacity?.addEventListener("change", saveAudioCacheSettings);
-for (const [select, key] of [
-  [shuffleCollectionOrder, SHUFFLE_COLLECTION_ORDER_KEY],
-  [shuffleCollectionLimit, SHUFFLE_COLLECTION_LIMIT_KEY],
-] as [HTMLSelectElement, string][]) {
-  select.addEventListener("change", () => {
-    getSettingsActions().saveCollection(key === SHUFFLE_COLLECTION_ORDER_KEY ? "order" : "limit", select.value);
-  });
-}
-clearAudioCacheButton?.addEventListener("click", async () => { await getSettingsActions().clearCache(); });
+installSettingsCallbacks({
+  theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else if(kind === "alpha") setPanelAlpha(value); else setBackgroundDim(value); },
+  chooseBackground: async () => { await getSettingsActions().chooseBackground(); }, resetBackground: () => resetBackground(),
+  saveAi: saveAiConfig, testAi: testAiConnection, aiFormat: updateAiBaseUrlPlaceholder,
+  source: async value => { await getSettingsActions().changeSource(value); }, cache: saveAudioCacheSettings,
+  collection: (kind,value) => getSettingsActions().saveCollection(kind,value), clearCache: async () => { await getSettingsActions().clearCache(); },
+});
 window.addEventListener("bilibili-music-audio-cache-updated", () => {
   if (settingsModal.classList.contains("is-open")) refreshAudioCacheUsage();
 });
 
-clearSearchHistoryButton?.addEventListener("click", async () => {
-  clearSearchHistoryButton.disabled = true;
+installSettingsCallbacks({clearHistory: async () => {
+  getSettingsActions().setDataBusy("history", true);
   getSettingsActions().setNotice("正在清空搜索历史…");
   try {
     await invokeAppearance("clear_search_history");
@@ -789,26 +712,26 @@ clearSearchHistoryButton?.addEventListener("click", async () => {
   } catch (error) {
     getSettingsActions().setNotice(`清空搜索历史失败：${error}`);
   } finally {
-    clearSearchHistoryButton.disabled = false;
+    getSettingsActions().setDataBusy("history", false);
   }
-});
+}});
 
-exportDataButton.addEventListener("click", async () => {
-  exportDataButton.disabled = true;
+installSettingsCallbacks({exportData: async () => {
+  getSettingsActions().setDataBusy("backupExport", true);
   try {
     const saved = await invokeAppearance("export_data");
     getSettingsActions().setNotice(saved ? `已导出到：${saved}` : "");
   } catch (error) {
     getSettingsActions().setNotice(`导出失败：${error}`);
   } finally {
-    exportDataButton.disabled = false;
+    getSettingsActions().setDataBusy("backupExport", false);
   }
-});
+}});
 
-importDataButton.addEventListener("click", async () => {
+installSettingsCallbacks({importData: async () => {
   const ok = window.confirm("导入会用所选备份覆盖当前的收藏、歌单、听歌记录、AI 配置与背景，且不可撤销。确定继续？");
   if (!ok) return;
-  importDataButton.disabled = true;
+  getSettingsActions().setDataBusy("backupImport", true);
   try {
     const result = await invokeAppearance("import_data");
     if (result) {
@@ -821,8 +744,8 @@ importDataButton.addEventListener("click", async () => {
   } catch (error) {
     getSettingsActions().setNotice(String(error));
   }
-  importDataButton.disabled = false;
-});
+  getSettingsActions().setDataBusy("backupImport", false);
+}});
 
 installPlaybackCallbacks({
   openImmersive, closeImmersive,
@@ -864,12 +787,13 @@ installPlaybackCallbacks({
   preview: value => { getPlaybackDisplayActions().setSeeking(true); updateProgress(Number(value)); },
   seek: value => getPlaybackCommands().seekSlider(Number(value)),
 });
-loudnessNormalizationToggle.addEventListener("change", () => applyLoudnessNormalization(loudnessNormalizationToggle.checked));
-loudnessNormalizationToggle.addEventListener("change", () => {
-  if (loudnessNormalizationToggle.checked) {
-    showLoudnessNormalizationDialog();
+installSettingsCallbacks({normalization: enabled => {
+  try {
+    applyLoudnessNormalization(enabled);
+  } finally {
+    if (loudnessNormalizationToggle.checked) showLoudnessNormalizationDialog();
   }
-});
+}});
 
 getPlaybackMedia().subscribe("timeupdate", () => {
   if (!getPlaybackDisplaySnapshot().isSeeking) {

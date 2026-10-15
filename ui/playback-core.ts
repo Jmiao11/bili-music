@@ -1,20 +1,21 @@
+import { installPageCallbacks } from "./root-controls.ts";
+import { readSearchDraft } from "./draft-ports.ts";
 import { installPlaybackCallbacks } from "./root-playback.ts";
 import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
-import { invoke } from "./runtime-api.ts";
-import { audio, queueCount, result, resumePlayPauseButton, searchForm, searchKeyword } from "./player-dom.ts";
-import type { PageSelection } from "./track-list-model.ts";
 import type { SearchPageCommit } from "./search-state.ts";
+import { invoke } from "./runtime-api.ts";
+import { audio, queueCount, result, resumePlayPauseButton } from "./player-dom.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "./player-state.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
+import type { PageSelection } from "./track-list-model.ts";
 import { getApplicationStore } from "./home.ts";
 import { clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, renderLibraryViews } from "./library-ui.ts";
 import { openCurrentPagesModal } from "./video-pages.ts";
 import { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchPlaybackBusy } from "./search.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain } from "./appearance.ts";
 import { setPlaybackStatus } from "./playback-messages.ts";
-
 type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid"> & Pick<CommandContract.PlaybackState, "page" | "cid">>;
 
 let cacheRequestPromise: Promise<void> | null = null;
@@ -856,9 +857,9 @@ function playPrevious() {
 }
 
 function initPlaybackSearch() {
-searchForm.addEventListener("submit", async (event) => {
+installPageCallbacks({submit: async event => {
   event.preventDefault();
-  const query = searchKeyword.value.trim();
+  const query = readSearchDraft().trim();
   if (!query) {
     return;
   }
@@ -878,7 +879,7 @@ searchForm.addEventListener("submit", async (event) => {
 
   await runSearch({ userKeyword: query, recordHistory: true });
   return;
-});
+}});
 }
 
 function initPastedBvPages() {

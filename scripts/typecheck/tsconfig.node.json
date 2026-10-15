@@ -186,6 +186,8 @@
     "../../tests/dom/playback-tree.dom.ts",
     "../../tests/lyrics-display-state.test.ts",
     "../../tests/dom/controls-settings-fixture.ts",
-    "../../tests/dom/controls-settings-characterization.dom.ts"
+    "../../tests/dom/controls-settings-characterization.dom.ts",
+    "../../tests/helpers/settings-controls-fixture.ts",
+    "../../tests/dom/settings-privacy.dom.ts"
   ]
 }

@@ -1,10 +1,9 @@
-import { searchKeyword } from "./player-dom.ts";
+import { readSearchDraft } from "./draft-ports.ts";
 import type { SearchPageCommit } from "./search-state.ts";
 import { LAST_SEARCH_KEY } from "./player-state.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderSearchSnapshot } from "./search-view.ts";
 import { appendSearchResults, updateQueueUi } from "./playback-core.ts";
-
 let searchMounted = false;
 
 function readLastSearchKeyword(): string {
@@ -55,11 +54,11 @@ function fillSearchMetadata(index: number, version: number, metadata: Pick<Comma
 function appendSearchDisplay(videos: readonly CommandContract.SearchVideo[], beforeCommit: (unique: ReturnType<typeof getSearchSnapshot>["results"]) => void, page?: SearchPageCommit) {
   return getSearchActions().appendResults(videos, beforeCommit, page);
 }
-function runSearch({ userKeyword = searchKeyword.value.trim(), recordHistory = false, restored = false }: { userKeyword?: string; recordHistory?: boolean; restored?: boolean } = {}): Promise<void> {
+function runSearch({ userKeyword = readSearchDraft().trim(), recordHistory = false, restored = false }: { userKeyword?: string; recordHistory?: boolean; restored?: boolean } = {}): Promise<void> {
   return getSearchActions().runSearch({ userKeyword, recordHistory, restored, saveKeyword: saveLastSearchKeyword });
 }
 function loadMoreSearchResults(): Promise<void> {
-  return getSearchActions().loadMoreSearchResults(() => searchKeyword.value, (videos, page) => appendSearchResults(videos, page));
+  return getSearchActions().loadMoreSearchResults(() => readSearchDraft(), (videos, page) => appendSearchResults(videos, page));
 }
 
 export { appendSearchDisplay, fillSearchMetadata, getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setPendingSearchRestore, setSearchDivision, setSearchPlaybackBusy, setSearchSort, takePendingSearchRestore, updateMusicTabs };

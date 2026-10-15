@@ -1,10 +1,9 @@
 import { unavailableTrackLocations } from "./track-utils.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistActions, playlistMeta, playlistTitle, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
+import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistMeta, playlistTitle, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "./player-dom.ts";
 import LibraryModalBody from "./components/LibraryModalBody.vue";
 import { createSyncRegion } from "./vue/sync-region.ts";
 import { trapFocus } from "./focus-trap.ts";
-
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {
   choosePlaylist(id: string): void; closeModal(): void; submitName(name: string): Promise<void>; submitDelete(): Promise<void>; submitChoose(id: string): Promise<void>; createAndAdd(name: string): Promise<void>; submitImport(link: string, name: string): Promise<void>; submitPurge(): Promise<void>;
@@ -49,7 +48,7 @@ function renderPlaylists(libraryState: LibrarySnapshot): void {
 
 
 
-  playlistActions.hidden = !selectedPlaylist;
+
   if (!selectedPlaylist) {
     playlistTitle.textContent = "选择一个歌单";
     playlistMeta.textContent = "歌单里的歌曲会显示在这里。";

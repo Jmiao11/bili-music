@@ -1,3 +1,5 @@
+import {applySettingsField} from "../../ui/settings-controls.ts";
+import {attachSettingsControlPorts} from "./settings-controls-fixture.ts";
 import type vm from "node:vm";
 import type { createApplicationStore } from "../../ui/app-state.ts";
 import { projectPlaybackControls, projectPlaybackProgress } from "../../ui/playback-display-view.ts";
@@ -8,6 +10,12 @@ const legacyPlaybackNodeNames = ["duration", "favoriteCurrentButton", "immersive
 
 // Installation-before fixtures use native output ports; installed tests mount the real App.
 function mountPlaybackFixtureRoot(context: vm.Context, store: ReturnType<typeof createApplicationStore>): void {
+  const settingsPort=attachSettingsControlPorts(context);
+  store.subscribe(state=>settingsPort(state.settings));
+  context.readSearchDraft ??= () => context.searchKeyword?.value ?? "";
+  context.writeSearchDraft ??= (value: string) => { if(context.searchKeyword) context.searchKeyword.value=value; };
+  context.readHomeHintDraft ??= () => context.homeHintInput?.value ?? "";
+  context.installPageCallbacks ??= (callbacks: {submit?: (event: unknown)=>void}) => { if(callbacks.submit) context.searchForm?.addEventListener("submit",callbacks.submit); };
   const initialTrack = store.getState().playbackDisplay.renderedTrack;
   const rendered = new WeakMap<object, Map<string, unknown>>();
   const node = (binding: string, id: string) => context[binding] ?? context.document?.querySelector?.("#" + id);
@@ -22,12 +30,15 @@ function mountPlaybackFixtureRoot(context: vm.Context, store: ReturnType<typeof 
     else if (key === "progress") target.style?.setProperty("--progress", value);
     else target[key] = value;
   }
-  let rendering = false;
+  let rendering = false, normalizationVersion = 0;
   const render = () => {
     if (rendering) return;
     rendering = true;
     try {
     const state = store.getState(), display = state.playbackDisplay, messages = projectPlaybackMessages(state.playbackMessages);
+    const normalization = node("loudnessNormalizationToggle","loudness-normalization-toggle");
+    if(normalization) applySettingsField(normalization,{checked:state.playbackSettings.normalizationEnabled,checkedVersion:state.playbackSettings.view.enabledVersion},{checkedVersion:normalizationVersion});
+    normalizationVersion = state.playbackSettings.view.enabledVersion;
     if (state.playbackMessages.statusVersion) write(context.status, "textContent", messages.status);
     if (state.playbackMessages.notice.version && context.playbackNotice) {
       const notice = context.playbackNotice;

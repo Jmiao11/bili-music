@@ -17,7 +17,7 @@ const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appeara
 const html = mountedApplicationHtml;
 const source = readFileSync(path.join(import.meta.dirname, "../../ui/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + sourceSlice(appearance, "ui/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
-  + sourceSlice(appearance, "ui/appearance.ts", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
+  + "installSettingsCallbacks({" + sourceSlice(appearance, "ui/appearance.ts", "collection: (kind,value)", ", clearCache:") + "});";
 
 function setup(stored = new Map()) {
   const handlers: Record<string, () => void> = {};

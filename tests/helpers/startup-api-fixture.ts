@@ -1,3 +1,4 @@
+import {attachSettingsVm} from "./settings-vm.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -9,7 +10,7 @@ type FixtureElement = {
   children: FixtureElement[];
   classList: { add(name: string): Set<string>; remove(name: string): boolean; contains(name: string): boolean; toggle(name: string, force: boolean): Set<string> | boolean };
   addEventListener(name: string, callback: () => void): Map<string, () => void>;
-  setAttribute(): void; append(...children: FixtureElement[]): void; querySelectorAll(): FixtureElement[]; click(): void;
+  setAttribute(): void; replaceChildren(...children:FixtureElement[]):void; append(...children: FixtureElement[]): void; querySelectorAll(): FixtureElement[]; click(): void;
 };
 function createMascotFixture(saved: string | null = null) {
   function element(): FixtureElement {
@@ -19,7 +20,7 @@ function createMascotFixture(saved: string | null = null) {
       classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name),
         toggle: (name: string, force: boolean) => force ? classes.add(name) : classes.delete(name) },
       addEventListener: (name: string, callback: () => void) => listeners.set(name, callback),
-      setAttribute() {}, append(...children: ReturnType<typeof element>[]) { this.children.push(...children); },
+      setAttribute() {}, replaceChildren(...children:ReturnType<typeof element>[]) {this.children=children;}, append(...children: ReturnType<typeof element>[]) { this.children.push(...children); },
       querySelectorAll() { return this.children; }, click: () => listeners.get("click")?.() };
   }
   const stage = element(), slot = element(), bubble = element(), picker = element();
@@ -30,6 +31,7 @@ function createMascotFixture(saved: string | null = null) {
   const read = (name: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
   const api: MascotApi | undefined = vm.runInContext(read("mascot.ts") + "\ninitializeMascot(); getMascotApi();", context);
   if (!api) throw Error("Mascot API is missing");
+  attachSettingsVm(context);
   const appearance = read("appearance.ts");
   vm.runInContext(appearance.slice(appearance.indexOf("function syncMascotPickerSelection("), appearance.indexOf("function openSettings(")), context);
   return { api, writes, stage, slot, picker, renderPicker: () => vm.runInContext("renderMascotPicker()", context) };

@@ -24,7 +24,7 @@ const endedHandlerCode = sourceSlice(main, "ui/main.ts", "audio.addEventListener
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
 const applyNormalizationCode = "let playbackSettingsMounted = false, playbackSettingsMedia = null;\n" + sourceSlice(appearance, "ui/appearance.ts", "function getPlaybackSettingsActions(", "function startAppearance()") + sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
-const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "loudnessNormalizationToggle.addEventListener(\"change\"", "getPlaybackMedia().subscribe(\"timeupdate\"");
+const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "installSettingsCallbacks({normalization:", "getPlaybackMedia().subscribe(\"timeupdate\"");
 
 type Query = { command: string; args: Record<string, unknown>; resolve(value: unknown): void; reject(reason?: unknown): void };
 type Animation = { callbacks: Map<number, (timestamp: number) => void>; cancelled: number[]; nextId: number; now: number; runNext(now: number): number };

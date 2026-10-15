@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 102,
+  "firstTrackchange": 140,
   "sequence": [
     {
       "action": "window-set",
@@ -13,6 +13,84 @@
       "options": {
         "once": true
       }
+    },
+    {
+      "action": "listen",
+      "target": "#home-hint-input",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-hint-apply",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-setup-settings",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#search-form",
+      "type": "submit",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#import-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#create-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#rename-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#delete-playlist-button",
+      "type": "click",
+      "options": null
     },
     {
       "action": "listen",
@@ -178,6 +256,240 @@
     },
     {
       "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#choose-background-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#reset-background-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#glass-blur-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#panel-alpha-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#background-dim-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#stream-source-select",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#loudness-normalization-toggle",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio-cache-enabled",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#clear-audio-cache-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#audio-cache-capacity",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-collection-order",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-collection-limit",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#ai-api-format-select",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#save-ai-config-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#test-ai-connection-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#export-data-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#import-data-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#clear-search-history-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#purge-unavailable-tracks-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "#window-minimize-button",
       "type": "click",
       "options": null
@@ -309,12 +621,6 @@
       "action": "observe",
       "id": 2,
       "target": "#result",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#search-form",
-      "type": "submit",
       "options": null
     },
     {
@@ -457,79 +763,7 @@
     },
     {
       "action": "listen",
-      "target": "#create-playlist-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#import-playlist-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#rename-playlist-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#delete-playlist-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "#refresh-ranking-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#home-hint-apply",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#home-hint-input",
-      "type": "keydown",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#home-setup-settings",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
       "type": "click",
       "options": null
     },
@@ -542,12 +776,6 @@
     {
       "action": "listen",
       "target": "#close-library-modal-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#purge-unavailable-tracks-button",
       "type": "click",
       "options": null
     },
@@ -680,134 +908,8 @@
     },
     {
       "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#glass-blur-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#panel-alpha-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#background-dim-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#choose-background-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#reset-background-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#save-ai-config-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#test-ai-connection-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#ai-api-format-select",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#stream-source-select",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#audio-cache-enabled",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#audio-cache-capacity",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#shuffle-collection-order",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#shuffle-collection-limit",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#clear-audio-cache-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "window",
       "type": "bilibili-music-audio-cache-updated",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#clear-search-history-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#export-data-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#import-data-button",
-      "type": "click",
       "options": null
     },
     {
@@ -820,18 +922,6 @@
       "action": "listen",
       "target": "window",
       "type": "bilibili-music-trackchange",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#loudness-normalization-toggle",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#loudness-normalization-toggle",
-      "type": "change",
       "options": null
     },
     {
@@ -874,42 +964,6 @@
       "action": "listen",
       "target": "#audio",
       "type": "emptied",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "input",
-      "type": "change",
       "options": null
     },
     {

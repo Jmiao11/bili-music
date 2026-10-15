@@ -73,10 +73,11 @@ function runtimeElement(): RuntimeElement {
 
 test("mascot picker callbacks use the initialized API for selection and hiding", () => {
   const selected: string[] = [], picker = runtimeElement();
-  const api = { list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id: string) => selected.push(id) };
+  const api = { getActive: () => "kuro", list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id: string) => selected.push(id) };
   const context = createQueueContext({ mascotPicker: picker, getMascotApi: () => api,
     document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
   });
+  attachSettingsVm(context);
   vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
   context.renderMascotPicker();
   assert.equal(picker.children.length, 2);

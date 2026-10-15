@@ -29,10 +29,12 @@ type Modules = {
   nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean } = {}) {
+async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
+  if(options.displayCounters) for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel"]) renderCounts[name]=0;
+  const ipcListeners = new Map<string,(event:{payload?:unknown})=>void>(), emissions: {label:string;name:string;payload:unknown}[]=[];
   const rowRenders: { list: string | null; bvid: string }[] = [];
   const regions: { operation: string; host: Element }[] = [], warnings: unknown[][] = [];
   const savedWarn = console.warn;
@@ -41,6 +43,15 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   for (const file of tracked) {
     const target = path.join(root, file.slice(3)); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.copyFileSync(path.join(project, file), target);
   }
+  if(options.legacySortTabs) {
+    const file=path.join(root,"components/SearchTabs.vue");
+    const source=fs.readFileSync(file,"utf8");
+    const start=source.indexOf('<div id="search-sort-modes"'),end=source.indexOf('</div>',start);
+    if(start<0||end<0) throw Error("Missing real sort component fixture");
+    const opening=source.indexOf('>',start)+1;
+    const buttons=["all","title","description"].map(mode=>'<button class="music-tab" type="button" role="tab" data-sort-mode="'+mode+'" :aria-selected="sort === \''+mode+'\'" :class="{ \'is-active\':sort === \''+mode+'\' }" @click="callbacks.sort(\''+mode+'\')">'+mode+'</button>').join('');
+    fs.writeFileSync(file,source.slice(0,opening)+buttons+source.slice(end));
+  }
   for (const name of [".local-data", "cookies.txt", "tools"]) if (fs.existsSync(path.join(root, name))) throw Error("Runtime data in library fixture: " + name);
   const dom = new JSDOM(fs.readFileSync(path.join(source, "index.html"), "utf8"), { url: "http://127.0.0.1/" });
   const window = dom.window as typeof dom.window & { CompositionEvent: typeof CompositionEvent; InputEvent: typeof InputEvent; CustomEvent: typeof CustomEvent; MutationObserver: typeof MutationObserver };
@@ -48,12 +59,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   if (options.saved) window.localStorage.setItem("bilibili-music.last-search", options.saved);
   const prepareRootInputs = () => {
   (window.document.querySelector("#search-keyword") as HTMLInputElement).value = options.draft ?? "";
-  if (options.legacySortTabs) {
-    const tabs = [...window.document.querySelectorAll("[data-sort-mode]")];
-    const parent = tabs[0].parentElement!;
-    for (const tab of tabs) tab.remove();
-    for (const sortMode of ["all", "title", "description"]) { const tab = window.document.createElement("button"); tab.className = "music-tab"; tab.dataset.sortMode = sortMode; parent.append(tab); }
-  }
+
   };
   const doc = window.document, frames = new Map<number, FrameRequestCallback>(), timers = new Map<number, { callback: () => void; delay: number; at: number }>();
   const platform: { operation: string; target?: EventTarget; detail?: unknown }[] = [], calls: { command: string; args: Record<string, unknown> }[] = [];
@@ -72,7 +78,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
     if (["list_favorites", "list_playlists", "list_unavailable_tracks"].includes(command)) return [];
     if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
     if (command === "get_ai_config") return new Promise(() => {});
-    if (command === "get_shortcuts") return { version: 1, bindings: { previous: null, playPause: null, next: null, volumeUp: null, volumeDown: null } };
+    if (command === "get_shortcuts") return options.shortcutReply ?? { version: 1, bindings: { previous: null, playPause: null, next: null, volumeUp: null, volumeDown: null } };
     if (command === "get_audio_cache_settings") return { enabled: false, maxBytes: 1073741824 };
     if (command === "get_audio_cache_usage") return { bytes: 0, items: 0 };
     if (command === "get_yt_dlp_availability") return { available: true };
@@ -101,7 +107,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
     disconnect() { observed.clear(); platform.push({ operation: "disconnect" }); }
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
-  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); return reply(command, args); } }, event: { async listen(name: string) { platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); } } } });
+  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); return reply(command, args); } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
   for (const [name, value] of Object.entries({ __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & InputEventInit & CompositionEventInit = {}) => {
@@ -121,11 +127,12 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts";' + (options.homeSpy ? 'import { initializeRootLists } from "./track-list-ui.ts"; initializeRootLists();' : 'import "./main.ts";') + 'export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();' + 'export * as appearance from "./appearance.ts"; export * as notice from "./playback-notice.ts";' + (options.playback ? 'import { startAppearance } from "./appearance.ts"; startAppearance();' : '') + (options.lyrics ? 'import { initializeLyrics } from "./lyrics.ts"; initializeLyrics();' : ''));
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts";' + (options.homeSpy ? 'import { initializeRootLists } from "./track-list-ui.ts"; initializeRootLists();' : 'import "./main.ts";') + 'export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();' + 'export * as appearance from "./appearance.ts"; export * as notice from "./playback-notice.ts";' + (options.playback ? 'import { startAppearance } from "./appearance.ts"; startAppearance();' : '') + (options.lyrics ? 'import { initializeLyrics } from "./lyrics.ts"; initializeLyrics();' : '') + (options.settingsPrivacy ? 'import {startMiniPlayerHost} from "./mini-player-host.ts"; startMiniPlayerHost(); import {initializeMainWindowReady} from "./main-window-ready.ts"; initializeMainWindowReady();' : ''));
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
-      const component = /\/components\/(TrackList|TrackRow|PlaylistList)\.vue/.exec(file)?.[1];
-      if (component) return instrumentComponentRender(code, component);
+      if(options.normalizationFailure && file.endsWith("/appearance.ts")) return code.replace(/function applyLoudnessNormalization[^{]+\{/, match => match + ' if(enabled === true) throw Error("normalization test failure");');
+      const component = /\/components\/(TrackList|TrackRow|PlaylistList|PlaybackBar|PlaybackNotice|ImmersivePlayer|LyricsDisplay|SettingsPanel)\.vue/.exec(file)?.[1];
+      if (component && (options.displayCounters || ["TrackList","TrackRow","PlaylistList"].includes(component))) return instrumentComponentRender(code, component);
       if (file.includes("/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
         const hooks = "function rootListHooks(id) { const host = () => document.getElementById(String(id)); return { onVnodeMounted: () => globalThis.__tracksVueRecords.push({operation: 'create', host: host()}), onVnodeUpdated: () => globalThis.__tracksVueRecords.push({operation: 'update', host: host()}), onVnodeBeforeUnmount: () => globalThis.__tracksVueRecords.push({operation: 'unmount', host: host()}) }; }\n";
         return hooks + code.replace(/h\(TrackList,\s*\{/g, "h(TrackList, { ...rootListHooks(attrs.id),").replace(/h\(PlaylistList,\s*\{/g, "h(PlaylistList, { ...rootListHooks(attrs.id),");
@@ -146,7 +153,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
         .replace(/unmount\(\)(?:: void)? \{/, match => match + " globalThis.__tracksVueRecords.push({ operation: 'unmount', host });");    } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, renderCounts, rowRenders, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
+    return { ...modules, renderCounts, rowRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
       visible(target: Element) { intersection([{ target, isIntersecting: true }]); },
       async advance(milliseconds: number) {
         const end = now + milliseconds;

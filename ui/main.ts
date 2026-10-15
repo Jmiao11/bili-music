@@ -1,7 +1,10 @@
+import { installPageCallbacks } from "./root-controls.ts";
+import { installSettingsCallbacks } from "./root-settings.ts";
+import { readHomeHintDraft, readSearchDraft, writeSearchDraft } from "./draft-ports.ts";
 import { installPlaybackCallbacks } from "./root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, libraryModal, musicTabs, pagesModal, pagesModalClose, pagesModalRestoreAll, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, sortModeTabs } from "./player-dom.ts";
+import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "./player-dom.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
@@ -14,7 +17,6 @@ import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPage
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setPendingSearchRestore, setSearchDivision, setSearchSort, takePendingSearchRestore, updateMusicTabs } from "./search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "./appearance.ts";
-
 initializeRootLists();
 initPlaybackDiagnostics();
 initPlaybackNotice();
@@ -84,10 +86,10 @@ window.addEventListener("beforeunload", savePlaybackState);
 initPlaybackModes();
 
 installPlaybackCallbacks({ favorite: () => { toggleFavorite(); }, addPlaylistImmersive: () => { choosePlaylistAndAdd(); } });
-createPlaylistButton?.addEventListener("click", createPlaylist);
-document.querySelector<HTMLButtonElement>("#import-playlist-button")?.addEventListener("click", importFavoritePlaylist);
-renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);
-deletePlaylistButton?.addEventListener("click", deleteSelectedPlaylist);
+
+
+
+
 refreshRankingButton?.addEventListener("click", () => {
   if (getHomeSnapshot().mode === "recommendation") {
     if (getHomeSnapshot().aiHasKey === false) {
@@ -99,52 +101,47 @@ refreshRankingButton?.addEventListener("click", () => {
     loadHomeRanking({ forceRefresh: true });
   }
 });
-homeHintApply?.addEventListener("click", () => {
-  setHomeHint(homeHintInput.value);
+installPageCallbacks({
+  createPlaylist, renamePlaylist: renameSelectedPlaylist, deletePlaylist: deleteSelectedPlaylist, importPlaylist: importFavoritePlaylist,
+  hint: () => {
+  setHomeHint(readHomeHintDraft());
   loadRecommendations({ forceRefresh: true });
-});
-homeHintInput?.addEventListener("keydown", (event) => {
+  },
+  hintKey: event => {
   if (event.key !== "Enter") {
     return;
   }
   event.preventDefault();
   homeHintApply?.click();
-});
-homeSetupSettings?.addEventListener("click", () => {
+  },
+  setup: () => {
   document.querySelector<HTMLButtonElement>("#open-settings-button")?.click();
   const ai = document.querySelector<HTMLDetailsElement>(".ai-settings");
   if (ai) {
     ai.setAttribute("open", "");
     ai.scrollIntoView({ block: "center" });
   }
+  },
 });
 for (const tab of homeModeTabs) {
   tab.addEventListener("click", () => setHomeMode(tab.dataset.homeMode));
 }
-for (const tab of musicTabs) {
-  tab.addEventListener("click", () => {
-    const tids = Number(tab.dataset.tids) || DEFAULT_MUSIC_TIDS;
-    if (getSearchSnapshot().tids === tids && getSearchSnapshot().results.length > 0) {
-      return;
-    }
+installPageCallbacks({
+  division: value => {
+    const tids = Number(value) || DEFAULT_MUSIC_TIDS;
+    if (getSearchSnapshot().tids === tids && getSearchSnapshot().results.length > 0) return;
     setSearchDivision(tids);
-    runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
-  });
-}
-for (const tab of sortModeTabs) {
-  tab.addEventListener("click", () => {
-    const sortMode = tab.dataset.sortMode;
-    setSearchSort(sortMode);
-    runSearch({ userKeyword: searchKeyword.value.trim(), recordHistory: false });
-  });
-}
+    runSearch({ userKeyword: readSearchDraft().trim(), recordHistory: false });
+  },
+  sort: mode => { setSearchSort(mode); runSearch({ userKeyword: readSearchDraft().trim(), recordHistory: false }); },
+});
 homeRankingError?.addEventListener("click", () => {
   if (getHomeSnapshot().error) {
     loadHomeRanking({ forceRefresh: true });
   }
 });
 closeLibraryModalButton?.addEventListener("click", closeLibraryModal);
-purgeUnavailableTracksButton?.addEventListener("click", openPurgeUnavailableTracksModal);
+installSettingsCallbacks({purge:openPurgeUnavailableTracksModal});
 libraryModal?.addEventListener("click", (event) => {
   if (event.target === libraryModal) {
     closeLibraryModal();
@@ -194,7 +191,7 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
   }
   if (event.detail?.view === "search" && getSearchSnapshot().pendingSearchRestore) {
     const keyword = takePendingSearchRestore();
-    if (keyword !== null && !getSearchSnapshot().results.length && searchKeyword.value.trim() === keyword) {
+    if (keyword !== null && !getSearchSnapshot().results.length && readSearchDraft().trim() === keyword) {
       // 自动恢复不算用户搜索，不计入搜索历史。
       runSearch({ userKeyword: keyword, recordHistory: false, restored: true });
     }
@@ -206,8 +203,8 @@ updateHomeModeUi();
 refreshAiKeyState();
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
 const restoreKeyword = readLastSearchKeyword();
-if (restoreKeyword && !searchKeyword.value.trim()) {
-  searchKeyword.value = restoreKeyword;
+if (restoreKeyword && !readSearchDraft().trim()) {
+  writeSearchDraft(restoreKeyword);
   setPendingSearchRestore(restoreKeyword);
 }
 loadLibrary();

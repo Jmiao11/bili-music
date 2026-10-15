@@ -8,7 +8,7 @@ import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 import { vueRendererImports } from "./helpers/vue-renderer-boundary.ts";
 
-const moduleOrder = ["root-mount.ts", "components/App.vue", "root-playback.ts", "vue", "sidebar.ts", "startup-platform.ts", "application-store.ts", "root-lists.ts","window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "mascot.ts", "lyrics-display-state.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","components/PagesList.vue","components/LibraryModalBody.vue", "components/PlaylistList.vue", "components/TrackList.vue", "components/TrackRow.vue","vue/sync-region.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","track-list-model.ts", "track-list-ui.ts", "home-view.ts","home.ts","focus-trap.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "lyrics.ts", "mini-player-host.ts", "main-window-ready.ts", "playback-messages-view.ts", "playback-messages.ts"];
+const moduleOrder = ["root-mount.ts", "root-controls.ts", "root-settings.ts", "settings-controls.ts", "draft-ports.ts", "components/App.vue", "root-playback.ts", "vue", "sidebar.ts", "startup-platform.ts", "application-store.ts", "root-lists.ts","window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "mascot.ts", "lyrics-display-state.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","components/PagesList.vue","components/LibraryModalBody.vue", "components/PlaylistList.vue", "components/TrackList.vue", "components/TrackRow.vue","vue/sync-region.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","track-list-model.ts", "track-list-ui.ts", "home-view.ts","home.ts","focus-trap.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "lyrics.ts", "mini-player-host.ts", "main-window-ready.ts", "playback-messages-view.ts", "playback-messages.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
@@ -24,7 +24,7 @@ const localCollisions = new Map([
   ["application-store.ts:renderRoot", "injected root render callback"],
   ["home.ts:applicationStore", "shared composition store read inside the home getter"],
   ["mini-player-host.ts:audio", "local media event target in host controller"],
-  ["appearance.ts:mascotApi", "local initialized mascot API in picker renderer"],
+
   ["mascot.ts:audio", "local media node inside mascot initializer"],
   ["lyrics.ts:formatDuration", "local lyrics duration formatter inside initializer"],
   ["lyrics.ts:status", "local lyrics resolution status inside initializer"],
@@ -78,6 +78,10 @@ test("modules import every cross-module binding and have no unused imports", () 
     const exports = declarations.filter((item) => item.kind === "export");
     const consumers = [...sources].flatMap(([otherFile, other]) => moduleDeclarations(other, "source.js", "ui/" + otherFile)
       .filter((item) => item.kind === "import" && item.specifier === `./${file}`).flatMap((item) => item.names));
+    // Read-only handles retained for frozen native fixtures until F6.
+    if (file === "player-dom.ts") consumers.push("createPlaylistButton","deletePlaylistButton","homeHintRow","homeSetupHint","homeSetupSettings","homeSetupSub","homeSetupTitle","musicTabs","playlistActions","renamePlaylistButton","searchButton","searchForm","sortModeTabs");
+    if (file === "draft-ports.ts") consumers.push("writeHomeHintDraft");
+    if (file === "settings-controls.ts") consumers.push("applySettingsField", "shortcutDisplayLabel");
     if (file === "video-pages.ts") consumers.push("bindTrackActivation");
     if (file === "application-store.ts") consumers.push("createRootStore");
     if (file === "playback-display-view.ts") consumers.push("projectPlaybackProgress");
