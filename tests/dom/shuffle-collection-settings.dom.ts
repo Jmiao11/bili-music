@@ -11,7 +11,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const main = readFileSync(path.join(import.meta.dirname, "../../ui/main.ts"), "utf8");
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(import.meta.dirname, "../../ui/page-selection.ts"), "utf8");
 const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
 const html = mountedApplicationHtml;

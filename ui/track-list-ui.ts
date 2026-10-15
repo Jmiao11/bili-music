@@ -1,11 +1,14 @@
+import { installRootListProjection, setRootTrackList } from "./root-lists.ts";
+import type { TrackListTarget } from "./root-lists.ts";
 import type { createApplicationStore } from "./app-state.ts";
-import type { SearchSnapshot } from "./search-state.ts";
-import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
 import { formatPlayCount, formatPubdate } from "./track-utils.ts";
-import { homeRankingList, searchResults } from "./player-dom.ts";
-import { renderTrackList } from "./track-list-view.ts";
-import { choosePlaylistAndAdd, removeTrackFromPlaylist, toggleFavorite } from "./library-ui.ts";
+import type { SearchSnapshot } from "./search-state.ts";
+import { homeRankingList } from "./player-dom.ts";
+import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
+import { getHomeSnapshot } from "./home.ts";
+import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite } from "./library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "./video-pages.ts";
+import { playListItem, playSearchResult } from "./playback-core.ts";
 
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
@@ -17,11 +20,13 @@ let searchProjection: Projection | null = null;
 let favoritesProjection: Projection | null = null;
 let playlistProjection: Projection | null = null;
 let committedSearchVersion: number | null = null;
+let projectedHomeContent: Snapshot["home"]["view"]["content"] | null = null;
+let projectedSearchRows: number | null = null;
 
 function createProjection(state: Snapshot, source: string, play: Play): Projection {
   return { inputs: [], generation: 0, videos: [], source, skeleton: false, unavailable: state.library.unavailableBvids, play, sessions: new Map() };
 }
-function projectRows(host: HTMLElement, projection: Projection, state: Snapshot, search: boolean): void {
+function projectRows(target: TrackListTarget, projection: Projection, state: Snapshot, search: boolean): void {
   const queue = state.playbackQueue;
   const activeIndex = search
     ? queue.queueSearchVersion === state.search.requestVersion ? queue.currentIndex : -1
@@ -76,7 +81,7 @@ function projectRows(host: HTMLElement, projection: Projection, state: Snapshot,
       favorited: state.library.favoriteBvids.has(video.bvid.toLowerCase()),
       unavailableReason: search ? "" : projection.unavailable.get(video.bvid.toLowerCase()) ?? "", ...session.callbacks };
   });
-  renderTrackList(host, rows, projection.skeleton);
+  setRootTrackList(target, rows, projection.skeleton);
 }
 function renderHomeRows(state: Snapshot, videos: Videos, source: string, skeleton: boolean, play: Play): void {
   if (!homeRankingList) return;
@@ -84,21 +89,47 @@ function renderHomeRows(state: Snapshot, videos: Videos, source: string, skeleto
   if (videos !== homeProjection.videos || source !== homeProjection.source) homeProjection.generation++;
   homeProjection.videos = videos; homeProjection.source = source; homeProjection.skeleton = skeleton;
   homeProjection.unavailable = state.library.unavailableBvids; homeProjection.play = play;
-  projectRows(homeRankingList, homeProjection, state, false);
+  projectRows("home", homeProjection, state, false);
 }
-function refreshHomeRows(state: Snapshot): void { if (homeRankingList && homeProjection) projectRows(homeRankingList, homeProjection, state, false); }
+function refreshHomeRows(state: Snapshot): void { if (homeRankingList && homeProjection) projectRows("home", homeProjection, state, false); }
 function renderSearchRows(state: Snapshot, search: SearchSnapshot, play: Play): void {
   searchProjection ??= createProjection(state, "search", play);
   if (!search.searchBusy && search.page === 1 && search.results !== searchProjection.videos && search.requestVersion !== committedSearchVersion) {
     searchProjection.generation++; committedSearchVersion = search.requestVersion;
   }
   searchProjection.videos = search.results; searchProjection.play = play;
-  projectRows(searchResults, searchProjection, state, true);
+  projectRows("search", searchProjection, state, true);
 }
-function refreshSearchRows(state: Snapshot): void { if (searchProjection) projectRows(searchResults, searchProjection, state, true); }
-function renderLibraryTrackRows(host: HTMLElement, state: Snapshot, videos: Videos, source: "favorites" | "playlist", playlistId: string, unavailable: Snapshot["library"]["unavailableBvids"], visual: LibraryDragVisual | null, handlers: LibraryDragHandlers, play: Play): void {
+function refreshSearchRows(state: Snapshot): void { if (searchProjection) projectRows("search", searchProjection, state, true); }
+function renderLibraryTrackRows(_host: HTMLElement, state: Snapshot, videos: Videos, source: "favorites" | "playlist", playlistId: string, unavailable: Snapshot["library"]["unavailableBvids"], visual: LibraryDragVisual | null, handlers: LibraryDragHandlers, play: Play): void {
   const projection = source === "favorites" ? favoritesProjection ??= createProjection(state, source, play) : playlistProjection ??= createProjection(state, source, play);
   projection.videos = videos; projection.unavailable = unavailable; projection.play = play; projection.library = { playlistId, visual, handlers };
-  projectRows(host, projection, state, false);
+  projectRows(source === "favorites" ? "favorites" : "playlist", projection, state, false);
 }
-export { refreshHomeRows, refreshSearchRows, renderHomeRows, renderLibraryTrackRows, renderSearchRows };
+function projectApplicationLists(state: Snapshot): void {
+  const home = state.home;
+  if (home.view.content !== projectedHomeContent) {
+    projectedHomeContent = home.view.content;
+    const kind = home.view.content.kind;
+    if (kind === "ranking" || kind === "recommendations") {
+      const source = kind === "ranking" ? "ranking" : "recommendation";
+      const skeleton = kind === "ranking" ? home.loading : home.recommendationLoading;
+      const error = kind === "ranking" ? home.error : home.recommendationError;
+      const videos = skeleton || error ? [] : kind === "ranking" ? home.ranking : home.recommendations;
+      renderHomeRows(state, videos, source, skeleton, (index, selection) => {
+        const current = getHomeSnapshot();
+        playListItem(source, source === "ranking" ? current.ranking : current.recommendations, index, selection);
+      });
+    }
+  }
+  refreshHomeRows(state);
+  if (state.search.view.rowsVersion !== null && state.search.view.rowsVersion !== projectedSearchRows) {
+    projectedSearchRows = state.search.view.rowsVersion;
+    renderSearchRows(state, state.search, playSearchResult);
+  }
+  refreshSearchRows(state);
+  projectLibraryLists(state);
+}
+function initializeRootLists(): void { installRootListProjection(projectApplicationLists); }
+
+export { initializeRootLists, renderLibraryTrackRows };

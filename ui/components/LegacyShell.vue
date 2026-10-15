@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import ListHost from "./ListHost.vue";
+import type { RootLists } from "../root-lists.ts";
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
+defineProps<{ lists: RootLists }>();
 </script>
 <template>
     <div class="dynamic-background" aria-hidden="true">
@@ -49,7 +52,7 @@ import Sidebar from "./Sidebar.vue";
                 <p class="home-setup-sub" id="home-setup-sub">在「设置 → AI 推荐」填入 API Key，即可根据你的收藏、歌单与听歌记录生成推荐。不配置也能正常搜索与播放。</p>
                 <button id="home-setup-settings" class="primary-cta" type="button">去设置</button>
               </div>
-              <ul id="home-ranking-list" class="tracklist ranking-list" aria-label="推荐列表"></ul>
+              <ListHost id="home-ranking-list" class="tracklist ranking-list" aria-label="推荐列表" :model="lists.home" />
             </section>
           </div>
         </section>
@@ -98,7 +101,7 @@ import Sidebar from "./Sidebar.vue";
                 <span id="queue-count" class="queue-count">0 首</span>
               </header>
 
-              <ul id="search-results" class="tracklist" aria-label="搜索结果和播放队列"></ul>
+              <ListHost id="search-results" class="tracklist" aria-label="搜索结果和播放队列" :model="lists.search" />
             </section>
           </div>
         </section>
@@ -111,7 +114,7 @@ import Sidebar from "./Sidebar.vue";
             </div>
             <span id="favorites-count" class="queue-count">0 首</span>
           </header>
-          <ul id="favorites-list" class="tracklist library-list" aria-label="我的收藏"></ul>
+          <ListHost id="favorites-list" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
         </section>
 
         <section id="view-playlists" class="view library-view" hidden>
@@ -126,7 +129,7 @@ import Sidebar from "./Sidebar.vue";
             </div>
           </header>
           <div class="playlist-layout">
-            <ul id="playlists-list" class="playlist-list" aria-label="歌单列表"></ul>
+            <ListHost id="playlists-list" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             <section class="playlist-detail" aria-label="歌单内容">
               <header class="playlist-detail-head">
                 <div>
@@ -138,7 +141,7 @@ import Sidebar from "./Sidebar.vue";
                   <button id="delete-playlist-button" class="small-button quiet danger" type="button">删除</button>
                 </div>
               </header>
-              <ul id="playlist-tracks" class="tracklist library-list" aria-label="歌单歌曲"></ul>
+              <ListHost id="playlist-tracks" class="tracklist library-list" aria-label="歌单歌曲" :model="lists.playlist" />
             </section>
           </div>
         </section>
@@ -295,7 +298,7 @@ import Sidebar from "./Sidebar.vue";
       </div>
 
       <p id="status" class="player-status" role="status"></p>
-      
+
     </footer>
 
     <div id="mascot-stage" aria-label="小黑咪">

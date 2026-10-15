@@ -1,13 +1,13 @@
+import { refreshRootLists, setRootPlaylistList } from "./root-lists.ts";
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
-import { favoritesList, playlistTracks, playlistsList } from "./player-dom.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { renderPlaylistList } from "./track-list-view.ts";
-import { renderLibraryTrackRows } from "./track-list-ui.ts";
+import { favoritesList, playlistTracks, playlistsList } from "./player-dom.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PlaylistRowModel } from "./track-list-model.ts";
+import { renderLibraryTrackRows } from "./track-list-ui.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderLibrarySnapshot } from "./library-view.ts";
-import { currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
 import type { LibraryBindings } from "./library-view.ts";
+import { currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
 import { getPlaybackMessagesActions } from "./playback-messages.ts";
 
 let libraryMounted = false;
@@ -46,11 +46,11 @@ function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandle
       if (!libraryDragVisuals?.has(kind) || !drag.drag || drag.saving || kind === "playlistItems" && drag.drag.playlistId !== playlistId) return;
       event.preventDefault(); event.dataTransfer.dropEffect = "move";
       setLibraryDragVisual(kind, { targetKey: index === drag.drag.index ? null : key, direction: index < drag.drag.index ? "before" : "after" });
-      renderLibraryLists(getApplicationStore().getState());
+      refreshRootLists();
     },
     leave(event, key) {
       if (libraryDragVisuals?.get(kind)?.targetKey === key && !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) {
-        setLibraryDragVisual(kind, { targetKey: null, direction: null }); renderLibraryLists(getApplicationStore().getState());
+        setLibraryDragVisual(kind, { targetKey: null, direction: null }); refreshRootLists();
       }
     },
     async drop(event, index) {
@@ -69,7 +69,7 @@ function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandle
     end() { finishLibraryDrag(kind); },
   };
 }
-function renderLibraryLists(state: ReturnType<ReturnType<typeof getApplicationStore>["getState"]>): void {
+function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationStore>["getState"]>): void {
   const library = state.library;
   if (library.view.rowsVersion !== libraryRowsVersion) {
     libraryRowsVersion = library.view.rowsVersion;
@@ -91,7 +91,7 @@ function renderLibraryLists(state: ReturnType<ReturnType<typeof getApplicationSt
   const handlers = libraryDragHandlers("playlists");
   const rows: PlaylistRowModel[] = library.playlists.map((playlist, index) => ({ key: playlist.id, name: playlist.name, count: playlist.items.length, selected: playlist.id === library.selectedPlaylistId, index, handlers, onChoose: () => getLibraryActions().choosePlaylist(playlist.id),
     dragClass: visual?.sourceKey === playlist.id ? "is-dragging" : visual?.targetKey === playlist.id ? "is-drop-" + visual.direction : visual?.touched.has(playlist.id) ? "" : undefined }));
-  renderPlaylistList(playlistsList, rows);
+  setRootPlaylistList(rows);
 }
 
 function libraryBindings(): LibraryBindings {
@@ -112,7 +112,6 @@ function getLibraryActions() {
       }
       const bindings = libraryBindings();
       if (renderLibrarySnapshot(state.library, before, bindings)) updateFavoriteButtons();
-      renderLibraryLists(store.getState());
     };
     store.subscribe(render); render(store.getState());
   }
@@ -146,4 +145,4 @@ function markLibraryUnavailable(bvid: string, reason: string): void { getLibrary
 function clearLibraryUnavailable(bvid: string): boolean { return getLibraryActions().clearUnavailable(bvid); }
 function openLoudnessModal(): void { getLibraryActions().openModal("loudness", "响度归一化", ""); }
 
-export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleCurrentFavorite, toggleFavorite };
+export { choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, projectLibraryLists, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleCurrentFavorite, toggleFavorite };

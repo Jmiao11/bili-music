@@ -1,9 +1,8 @@
 import { readApplicationStore } from "./application-store.ts";
 import type { createApplicationStore } from "./app-state.ts";
 import { homeHintInput } from "./player-dom.ts";
-import { refreshHomeRows, renderHomeRows } from "./track-list-ui.ts";
 import { renderHomeSnapshot } from "./home-view.ts";
-import { playListItem, updateQueueUi } from "./playback-core.ts";
+import { updateQueueUi } from "./playback-core.ts";
 
 let homeMounted = false;
 
@@ -13,12 +12,7 @@ function getApplicationStore(): ReturnType<typeof createApplicationStore> {
     homeMounted = true;
     let previous: ReturnType<typeof getHomeSnapshot> | null = null;
     const render = (state: ReturnType<ReturnType<typeof createApplicationStore>["getState"]>) => {
-      const refreshQueue = renderHomeSnapshot(state.home, previous, (videos, source, skeleton) =>
-        renderHomeRows(state, videos, source, skeleton, (targetIndex, pageSelection) => {
-          const current = getHomeSnapshot();
-          playListItem(source, source === "ranking" ? current.ranking : current.recommendations, targetIndex, pageSelection);
-        }));
-      refreshHomeRows(state);
+      const refreshQueue = renderHomeSnapshot(state.home, previous, () => {});
       previous = state.home;
       if (refreshQueue) updateQueueUi();
     };

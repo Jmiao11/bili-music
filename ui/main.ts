@@ -4,6 +4,7 @@ import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistBut
 import { LOAD_MORE_THRESHOLD_PX } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
+import { initializeRootLists } from "./track-list-ui.ts";
 import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "./home.ts";
 import { keepFocusInPagesModal } from "./pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "./library-view.ts";
@@ -13,6 +14,7 @@ import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSea
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "./playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "./appearance.ts";
 
+initializeRootLists();
 initPlaybackDiagnostics();
 initPlaybackNotice();
 

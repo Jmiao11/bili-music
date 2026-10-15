@@ -175,6 +175,8 @@
     "../../tests/dom/root-shell.dom.ts",
     "../vue/shell-html.ts",
     "../vue/startup-probe.ts",
-    "./dom-assertion-cli.ts"
+    "./dom-assertion-cli.ts",
+    "../../tests/dom/root-lists.dom.ts",
+    "../../tests/dom/render-counter.ts"
   ]
 }

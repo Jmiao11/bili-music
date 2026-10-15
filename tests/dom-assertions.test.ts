@@ -6,6 +6,24 @@ import path from "node:path";
 import { htmlIds, checkDomAssertions, checkRepository } from "../scripts/typecheck/dom-assertions.ts";
 const html = '<input id="field"><div id="panel"></div>';
 
+test("mounted main HTML supplements the guard without changing mini HTML or its default", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mounted-dom-guard-"));
+  try {
+    fs.mkdirSync(path.join(root, "ui"));
+    fs.writeFileSync(path.join(root, "ui/index.html"), '<div id="app"></div>');
+    fs.writeFileSync(path.join(root, "ui/mini.html"), '<div id="mini"></div>');
+    fs.writeFileSync(path.join(root, "ui/main.ts"), 'const element = document.getElementById("field")!;');
+    fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = document.getElementById("mini")!;');
+    assert.throws(() => checkRepository(root), /id does not exist.*field/);
+    assert.equal(checkRepository(root, html).length, 2);
+    fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = document.getElementById("field")!;');
+    assert.throws(() => checkRepository(root, html), /id does not exist.*field/);
+  } finally {
+    if (path.dirname(root) !== os.tmpdir()) throw new Error("Unsafe temporary guard cleanup");
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("DOM assertion guard accepts literal declarations and CRLF without dependencies", () => {
   for (const source of [
     'const input = document.querySelector<HTMLInputElement>("#field")!;',

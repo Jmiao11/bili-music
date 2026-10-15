@@ -12,7 +12,7 @@ import { vueFeatureFlags } from "./features.ts";
 
 type RecordedEvent = { action: string; stack?: string; [key: string]: unknown };
 
-async function loadMountedApplication(sourceRoot: string, _files: string[] = [], entry = "app.ts", scripts = [{ file: entry, module: true }]) {
+async function loadMountedApplication(sourceRoot: string, _files: string[] = [], entry = "app.ts", scripts = [{ file: entry, module: true }], options: { completeStartup?: boolean; recordIpc?: boolean } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mounted-startup-"));
   const html = fs.readFileSync(path.join(sourceRoot, "index.html"), "utf8");
   const dom = new JSDOM(html, { url: "http://localhost/" });
@@ -24,6 +24,8 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
     session.post(method, params, (error, result) => error ? reject(error) : resolve(result as T));
   });
   const labels = new WeakMap<object, string>();
+  const ipcHandlers = new Map<string, (event: { payload: null }) => void>();
+  let initialTrackEvent: Event | null = null;
   const label = (target: object): string => {
     if (target === dom.window) return "window";
     if (target === dom.window.document) return "document";
@@ -66,10 +68,23 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
     const nativeDispatch = win.EventTarget.prototype.dispatchEvent;
     win.EventTarget.prototype.dispatchEvent = function(event) {
       record({ action: "dispatch", target: label(this), type: event.type });
+      if (event.type === "bilibili-music-trackchange" && initialTrackEvent === null) initialTrackEvent = event;
       return nativeDispatch.call(this, event);
     };
     const proxy = new Proxy(win, { set(target, key, value) { record({ action: "window-set", property: String(key), valueType: typeof value }); return Reflect.set(target, key, value); } });
-    Object.defineProperty(win, "__TAURI__", { value: { core: { invoke: pending }, event: { listen: pending, emit: pending, emitTo: pending } } });
+    labels.set(proxy, "window");
+    Object.defineProperty(win, "__TAURI__", { value: { core: { invoke: (command: string, args: unknown) => {
+      if (options.recordIpc) record({ action: "invoke", command, args: args ?? null });
+      return command === "main_window_ready" ? Promise.resolve(null) : pending();
+    } }, event: {
+      listen: (type: string, handler: (event: { payload: null }) => void) => {
+        if (!options.recordIpc) return pending();
+        record({ action: "ipc-listen", type }); ipcHandlers.set(type, handler); return Promise.resolve(() => {});
+      }, emit: pending, emitTo: (target: string, type: string, payload: unknown) => {
+        if (options.recordIpc) record({ action: "ipc-emitTo", target, type, payload });
+        return pending();
+      },
+    } } });
     Object.defineProperty(win, "matchMedia", { value: (query: string) => ({ matches: false, addEventListener: (type: string, _handler: unknown, options?: unknown) => record({ action: "listen", target: "matchMedia:" + query, type, options: options ?? null }), removeEventListener() {} }) });
     win.HTMLElement.prototype.scrollIntoView = () => {};
     for (const method of ["play", "pause", "load"] as const) Object.defineProperty(win.HTMLMediaElement.prototype, method, { value: method === "play" ? async () => {} : () => {} });
@@ -90,6 +105,13 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
         vm.runInThisContext(file.endsWith(".ts") ? stripTypeScriptTypes(source) : source, { filename: file });
       }
     }
+    if (options.completeStartup) {
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      win.document.dispatchEvent(new win.Event("DOMContentLoaded", { bubbles: true }));
+      ipcHandlers.get("mini-player-ready")?.({ payload: null });
+      for (let i = 0; i < 8; i++) await Promise.resolve();
+      if (initialTrackEvent) win.dispatchEvent(initialTrackEvent);
+    }
     const { result } = await post<import("node:inspector").Profiler.TakePreciseCoverageReturnType>("Profiler.takePreciseCoverage");
     const coverage = result.filter(script => script.url === pathToFileURL(bundle).href);
     const mapped = findSourceMap(bundle);
@@ -107,6 +129,7 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
     dom.window.close();
     for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
     process.setSourceMapsEnabled(oldSourceMaps);
+    if (path.dirname(root) !== os.tmpdir()) throw new Error("Unsafe temporary runtime cleanup");
     fs.rmSync(root, { recursive: true, force: true });
   }
 }

@@ -22,18 +22,19 @@ test("root mounts before all player DOM queries and preserves controller writes 
     }
     Object.defineProperty(dom.window, "__TAURI__", { value: { core: { invoke: () => new Promise(() => {}) } } });
     const entry = path.join(output, "entry.ts");
-    fs.writeFileSync(entry, `import ${JSON.stringify(project + "/ui/root-mount.ts")}; export * as nodes from ${JSON.stringify(project + "/ui/player-dom.ts")}; export { readApplicationStore } from ${JSON.stringify(project + "/ui/application-store.ts")};`);
+    fs.writeFileSync(entry, `import ${JSON.stringify(project + "/ui/root-mount.ts")}; export * as nodes from ${JSON.stringify(project + "/ui/player-dom.ts")}; export { readApplicationStore } from ${JSON.stringify(project + "/ui/application-store.ts")}; export { setRootPlaylistList } from ${JSON.stringify(project + "/ui/root-lists.ts")};`);
     await build({ configFile: false, root: project, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(output, "compiled"), minify: false, lib: { entry, formats: ["es"], fileName: "root" } },
     });
-    const loaded = await import(pathToFileURL(path.join(output, "compiled/root.js")).href) as { nodes: Record<string, Element | Element[] | NodeListOf<Element> | null>; readApplicationStore(): ApplicationStore };
+    const loaded = await import(pathToFileURL(path.join(output, "compiled/root.js")).href) as { nodes: Record<string, Element | Element[] | NodeListOf<Element> | null>; readApplicationStore(): ApplicationStore; setRootPlaylistList(rows: readonly never[]): void };
     for (const [name, node] of Object.entries(loaded.nodes)) assert.ok(node !== null, "Missing early DOM handle: " + name);
     const doc = dom.window.document, title = doc.querySelector<HTMLElement>("#title")!, input = doc.querySelector<HTMLInputElement>("#search-keyword")!, host = doc.querySelector<HTMLElement>("#library-modal-body")!;
     title.classList.add("controller-class"); title.setAttribute("data-controller", "kept"); title.textContent = "控制器内容";
     const child = doc.createElement("button"); child.textContent = "控制器子节点"; host.append(child); input.value = "搜索草稿未提交";
     const store = loaded.readApplicationStore();
     for (let i = 0; i < 1000; i++) {
+      loaded.setRootPlaylistList([]);
       store.actions.library.setModalName("unrelated" + i);
       assert.equal(doc.querySelector("#title"), title);
       assert.equal(title.textContent, "控制器内容");
@@ -47,6 +48,7 @@ test("root mounts before all player DOM queries and preserves controller writes 
   } finally {
     dom.window.close();
     for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
+    if (path.dirname(output) !== os.tmpdir()) throw new Error("Unsafe temporary runtime cleanup");
     fs.rmSync(output, { recursive: true, force: true });
   }
 });

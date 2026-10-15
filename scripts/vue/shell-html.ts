@@ -28,6 +28,7 @@ async function renderApplicationHtml(root: string): Promise<string> {
   } finally {
     dom.window.close();
     for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
+    if (path.dirname(output) !== os.tmpdir()) throw new Error("Unsafe temporary runtime cleanup");
     fs.rmSync(output, { recursive: true, force: true });
   }
 }

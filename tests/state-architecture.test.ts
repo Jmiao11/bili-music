@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const stateModuleFiles = ["playback-messages-state.ts", "playback-mini-view.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-settings-state.ts", "settings-state.ts", "page-selection.ts", "state-store.ts", "app-state.ts", "search-state.ts", "library-state.ts", "pages-state.ts", "track-utils.ts"];
+const stateModuleFiles = ["application-store.ts","playback-messages-state.ts", "playback-mini-view.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-settings-state.ts", "settings-state.ts", "page-selection.ts", "state-store.ts", "app-state.ts", "search-state.ts", "library-state.ts", "pages-state.ts", "track-utils.ts"];
 
 function assertStateModule(source: string, file: string): void {
   const code = maskCommentsAndStrings(source);
