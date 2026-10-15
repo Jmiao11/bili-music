@@ -206,16 +206,20 @@ npm run typecheck -- --update
 
 安装前 Node 测试只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript 或 Vite。安装后 DOM 组使用 Vue、Vite 与 jsdom。CI 在 Windows、macOS 的 npm ci 后新增 npm run test:dom，其余 run 步骤保持原样。TypeScript 6 使用官方 JavaScript CLI；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。
 
+测试启动探针统一以 realpath 识别本机路径与 file URL；源入口编译为独占临时目录中的 startup.mjs，并使用独占 Vite cache。来源断言读取结构化调用位置和直接加载的 Source Map；真实 Inspector 调用次数保留，不依赖错误堆栈文本或 Node Source Map 缓存。
+
 ## Git 与 GitHub 工作流
+
+F2b 合并前未运行远程 CI；feat/vue-root 从未有 PR 或 Actions 运行。master 3d62278 的 run 38693837939（第一次尝试）为 F2b 首次远程 CI；此前“Draft PR 双平台通过”为授权模板误填，已更正。
 
 - 本地 Git 用终端；Codex 可以本地提交、推送定稿功能分支、获合并授权并完成本地 fast-forward 后推送 master、删除自己推送且已合并进 master 的远程功能分支。只读查询自己推送提交的 CI（gh run list / gh run view），调用尽量少。02436a5 的首次远程 CI 查询由用户单项授权。
 - 创建、编辑、关闭、合并 PR，以及 Issue、Release、tag、重新运行 CI job、仓库设置与凭证只由用户执行。
 - 永不使用 --force、--force-with-lease 或其他改写远程历史的方式；不删除、不改写 master，不推送 tag。不修改 remote 地址、凭证或 git 配置；命令输出与报告不得出现 token 或凭证。
 - 每次推送前先 git fetch，确认远程目标分支是本地分支祖先，只做 fast-forward；分叉立即停止，不 rebase、不 merge 远程。新功能分支确认远程同名分支不存在后才首次推送。
-- 功能分支只在本批提交定稿、本地验收通过后推送；推送后不再改写这些提交，修改用追加提交。
+- 功能分支只在本批提交定稿、本地验收通过后推送；推送任何分支都会自动运行 CI，同一 workflow/ref 的新推送取消旧运行，pull_request 触发保留。Codex 自行查询该分支最新提交的 windows-latest 与 macos-latest 结果并提供运行链接；双平台均通过前不能接受“手测通过，允许合并”授权，不依赖用户开 PR 触发 CI。推送后不再改写这些提交，修改用追加提交。
 - master 只在用户明确回复“手测通过，允许合并”、核对指定提交/工作区/祖先关系并完成本地 fast-forward 后推送；推送前再次核对 master 只领先 origin/master 本批提交。不能 fast-forward 或有非预期差异立即停止。
-- 顺序：本地验收 → 推送功能分支（用户可自行开 PR 看 CI）→ 用户手测与合并授权 → 本地 fast-forward → 推送 master → 查询该提交 windows-latest/macos-latest CI 并报告 → 删除自己推送且已合并的远程功能分支。
-- 报告写实际 CI 结果或“CI 运行中”；功能分支未推送/工作流未触发时如实登记，不声称通过。CI 失败报告 job、步骤和脱敏日志摘要；与改动有关时下一批先修复，修复前不开始新迁移；疑似偶发说明理由，由用户决定是否重跑。基线 CI 失败期间暂停 F2b 合并准备，开发可继续。
+- 顺序：本地验收 → 推送功能分支 → Codex 查询该分支最新提交的双平台 CI 并在报告附运行链接 → 双平台均通过后用户手测与合并授权 → 本地 fast-forward → 推送 master → 查询该提交 windows-latest/macos-latest CI 并报告 → 删除自己推送且已合并的远程功能分支。
+- 报告写实际 CI 结果或“CI 运行中”；功能分支未推送/工作流未触发时如实登记，不声称通过。CI 失败报告 job、步骤和脱敏日志摘要；与改动有关时下一批先修复，修复前不开始新迁移；疑似偶发说明理由，由用户决定是否重跑。CI 失败先修复，修复前不开始新的迁移实现。
 - 正式发布前，最新 master 远程 CI 与发布前全应用回归必须都通过。用户明确合并授权前，不合并、不推送 master，不开始下一批迁移。
 
 ## 每批验收口径

@@ -44,3 +44,10 @@ run: |
     assert.throws(() => assertRepositoryPaths(root, "missing-path counterexample", command), /missing repository path .*\.cjs/);
   }
 });
+
+test("CI runs every branch and cancels superseded runs only for the same workflow and ref", () => {
+  const workflow = fs.readFileSync(path.join(import.meta.dirname, "../.github/workflows/ci.yml"), "utf8");
+  assert.match(workflow, /push:\r?\n\s+branches: \["\*\*"\]/);
+  assert.match(workflow, /  pull_request:/);
+  assert.match(workflow, /concurrency:\r?\n  group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}\r?\n  cancel-in-progress: true/);
+});

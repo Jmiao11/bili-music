@@ -2,22 +2,31 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import vm from "node:vm";
-import { pathToFileURL } from "node:url";
-import { stripTypeScriptTypes, findSourceMap } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { getCallSites } from "node:util";
+import { stripTypeScriptTypes, SourceMap } from "node:module";
 import { Session } from "node:inspector";
 import { JSDOM } from "jsdom";
 import { build } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { vueFeatureFlags } from "./features.ts";
 
+type SourceFrame = { file: string; functionName: string; line: number; column: number };
+function sourceFile(value: string): string | null {
+  const file = value.startsWith("file:") ? fileURLToPath(value) : value;
+  return path.isAbsolute(file) && fs.existsSync(file) ? fs.realpathSync(file) : null;
+}
+
 type RecordedEvent = { action: string; stack?: string; [key: string]: unknown };
 
 async function loadMountedApplication(sourceRoot: string, _files: string[] = [], entry = "app.ts", scripts = [{ file: entry, module: true }], options: { completeStartup?: boolean; recordIpc?: boolean } = {}) {
-  const project = path.resolve(import.meta.dirname, "../.."), root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mounted-startup-"));
+  const project = path.resolve(import.meta.dirname, "../.."), tempParent = fs.realpathSync(os.tmpdir()), root = fs.mkdtempSync(path.join(tempParent, "bili-mounted-startup-"));
   const html = fs.readFileSync(path.join(sourceRoot, "index.html"), "utf8");
   const dom = new JSDOM(html, { url: "http://localhost/" });
   const events: RecordedEvent[] = [], descriptors = new Map<string, PropertyDescriptor | undefined>();
   const session = new Session();
+  const origins = new Map<RecordedEvent, SourceFrame[]>();
+  let bundle = path.join(sourceRoot, entry), mapped: SourceMap | undefined;
   const oldSourceMaps = process.sourceMapsEnabled;
   process.setSourceMapsEnabled(true);
   const post = <T>(method: string, params: Record<string, unknown> = {}) => new Promise<T>((resolve, reject) => {
@@ -38,8 +47,20 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
     Object.defineProperty(globalThis, name, { value, configurable: true, writable: true });
   };
   const record = (event: RecordedEvent) => {
-    const stack = new Error().stack?.replace(/([A-Za-z]:\\[^\n()]+?\.ts:\d+:\d+)/g, value => "file:///" + value.replaceAll("\\", "/")).replace(/at Object\.<anonymous> \(file:(.*?)\)/g, "at file:$1");
-    events.push({ ...event, stack });
+    const frames = getCallSites(100, { sourceMap: false }).flatMap(site => {
+      let file = sourceFile(site.scriptName), line = site.lineNumber, column = site.columnNumber;
+      if (!file) return [];
+      if (file === sourceFile(bundle) && mapped) {
+        const original = mapped.findEntry(line - 1, column - 1);
+        if ("originalSource" in original && original.originalSource) {
+          file = sourceFile(original.originalSource);
+          line = original.originalLine + 1; column = original.originalColumn + 1;
+        }
+      }
+      return file ? [{ file, functionName: site.functionName, line, column }] : [];
+    });
+    const recorded = { ...event, stack: frames.map(frame => "at " + (frame.functionName ? frame.functionName + " " : "") + pathToFileURL(frame.file).href + ":" + frame.line + ":" + frame.column).join("\n") };
+    events.push(recorded); origins.set(recorded, frames);
   };
   let observerId = 0;
   const observer = (name: string) => class {
@@ -49,13 +70,17 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
     unobserve() {} disconnect() {}
   };
   try {
-    let bundle = path.join(sourceRoot, entry);
     if (entry.endsWith(".ts")) {
-      await build({ configFile: false, root: sourceRoot, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags,
+      await build({ configFile: false, root: sourceRoot, cacheDir: path.join(root, "vite-cache"), logLevel: "silent", plugins: [vue()], define: vueFeatureFlags,
         resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
-        build: { outDir: path.join(root, "compiled"), minify: false, sourcemap: true, lib: { entry: bundle, formats: ["es"], fileName: "startup" } },
+        build: { outDir: path.join(root, "compiled"), minify: false, sourcemap: true, lib: { entry: bundle, formats: ["es"], fileName: () => "startup.mjs" } },
       });
-      bundle = path.join(root, "compiled/startup.js");
+      bundle = path.join(root, "compiled/startup.mjs");
+    }
+    const mapFile = bundle + ".map";
+    if (fs.existsSync(mapFile)) {
+      const payload = JSON.parse(fs.readFileSync(mapFile, "utf8"));
+      mapped = new SourceMap({ ...payload, sources: payload.sources.map((source: string) => path.isAbsolute(source) ? pathToFileURL(source).href : new URL(source, pathToFileURL(mapFile)).href) });
     }
     const win = dom.window as typeof dom.window & { Document: typeof Document; CustomEvent: typeof CustomEvent; Image: typeof Image };
     const query = win.Document.prototype.querySelector;
@@ -113,8 +138,7 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
       if (initialTrackEvent) win.dispatchEvent(initialTrackEvent);
     }
     const { result } = await post<import("node:inspector").Profiler.TakePreciseCoverageReturnType>("Profiler.takePreciseCoverage");
-    const coverage = result.filter(script => script.url === pathToFileURL(bundle).href);
-    const mapped = findSourceMap(bundle);
+    const coverage = result.filter(script => sourceFile(script.url) === sourceFile(bundle));
     if (mapped) {
       const code = fs.readFileSync(bundle, "utf8");
       for (const script of [...coverage]) for (const fn of script.functions.filter(fn => fn.functionName === "startAppearance")) {
@@ -123,13 +147,13 @@ async function loadMountedApplication(sourceRoot: string, _files: string[] = [],
         if ("originalSource" in original && original.originalSource) coverage.push({ ...script, url: original.originalSource, functions: [fn] });
       }
     }
-    return { namespace, events, coverage };
+    return { namespace, events, coverage, origins };
   } finally {
     session.disconnect();
     dom.window.close();
     for (const [name, descriptor] of descriptors) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
     process.setSourceMapsEnabled(oldSourceMaps);
-    if (path.dirname(root) !== os.tmpdir()) throw new Error("Unsafe temporary runtime cleanup");
+    if (path.dirname(root) !== tempParent) throw new Error("Unsafe temporary runtime cleanup");
     fs.rmSync(root, { recursive: true, force: true });
   }
 }

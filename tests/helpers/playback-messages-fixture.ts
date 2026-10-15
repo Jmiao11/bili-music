@@ -1,8 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import assert from "node:assert/strict";
+import { afterEach } from "node:test";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
+
+const fixtureErrors: unknown[] = [];
+afterEach(() => assert.deepEqual(fixtureErrors.splice(0), [], "Message fixture reported an unexpected error"));
 
 function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApplicationStore>) => void) {
   const classes = new Set<string>(), timers = new Map<number, { callback: () => void; delay: number }>();
@@ -12,8 +17,8 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
   const status = { textContent: "准备就绪。" };
   const playbackNotice = { textContent: "", dataset: {} as Record<string, string>, style: { setProperty() {} },
     classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name) } };
-  const store = createApplicationStore({ invoke: async () => { throw Error("Unexpected fixture command"); }, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
-  const context = vm.createContext({ status, playbackNotice, Event, result: {}, ResizeObserver: class { observe() {} },
+  const store = createApplicationStore({ invoke: async () => { throw Error("Unexpected fixture command"); }, setTimeout: () => 0, clearTimeout() {}, report(level, message, error) { fixtureErrors.push({ level, message, error }); } }, { freeze: true, onSubscriberError: error => fixtureErrors.push(error) });
+  const context = vm.createContext({ console: { ...console, error: (...args: unknown[]) => fixtureErrors.push(args), warn: (...args: unknown[]) => fixtureErrors.push(args) }, status, playbackNotice, Event, result: {}, ResizeObserver: class { observe() {} },
     resumePlayPauseButton: { getBoundingClientRect: () => ({ left: 100, width: 40 }) },
     getApplicationStore: () => store,
     clearTimeout: (id: number) => timers.delete(id),
@@ -29,18 +34,6 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
   beforeMount?.(store);
   context.getPlaybackMessagesActions();
   vm.runInContext(read("playback-notice.ts"), context);
-  vm.runInContext(read("library-view.ts"), context);
-  vm.runInContext(read("pages-view.ts"), context);
-  context.renderPagesModal = () => {};
-  context.refreshPageCountBadges = () => {};
-  context.pagesModal = { hidden: true, classList: { add() {}, remove() {} }, setAttribute() {} };
-  context.requestAnimationFrame = () => 0;
-  let previous = store.getState();
-  store.subscribe(state => {
-    context.renderLibrarySnapshot(state.library, previous.library, {});
-    context.renderPagesSnapshot(state.pages, state.library, { pages: previous.pages, library: previous.library }, {});
-    previous = state;
-  });
   const core = read("playback-core.ts"), begin = core.indexOf('window.addEventListener("bilibili-music-notice-change"');
   vm.runInContext(core.slice(begin, core.indexOf("\n});", begin) + 4), context);
   return { context, status, playbackNotice, store, timers, events, handlers,

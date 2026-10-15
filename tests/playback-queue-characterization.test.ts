@@ -3,9 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { pathToFileURL } from "node:url";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
+import { wirePlaybackMessagesContext } from "./helpers/playback-messages-fixture.ts";
 import { createApplicationStore } from "../ui/app-state.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.ts";
+
+const fixtureErrors: unknown[] = [];
+afterEach(() => assert.deepEqual(fixtureErrors.splice(0), [], "Queue fixture reported an unexpected error"));
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, addedAt: "" });
 const normalized = (n: number) => ({ ...track(n), playCount: null, pubdate: null });
@@ -28,7 +32,7 @@ async function fixture() {
   const calls: { command: string; args: Record<string, unknown> }[] = [], loads: unknown[] = [], notices: string[] = [];
   let saved: unknown = null;
   const invoke = async (command: string, args: Record<string, unknown> = {}) => { calls.push({ command, args: plain(args) }); return command === "get_playback_state" ? saved : []; };
-  const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report() {} });
+  const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report(level, message, error) { fixtureErrors.push({ level, message, error }); } }, { onSubscriberError: error => fixtureErrors.push(error) });
   const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "player-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean);
   const nodes = Object.fromEntries(names.map(name => [name, new QueueNode()]));
   const audio = { paused: true, currentSrc: "", currentTime: 0, play: async () => { audio.paused = false; }, pause() {}, load() {} };
@@ -37,10 +41,11 @@ async function fixture() {
     getSearchSnapshot: () => search, getHomeSnapshot: () => ({ mode: "ranking" }), getLibrarySnapshot: () => store.getState().library,
     appendSearchDisplay(videos: ReturnType<typeof track>[], onAppend: (values: ReturnType<typeof track>[]) => void) { const unique = videos.filter(v => !search.results.some(old => old.bvid === v.bvid)); search.results.push(...unique); onAppend(unique); return unique; },
     document: { querySelectorAll: () => [] }, window: { dispatchEvent() {}, recordPlaybackDiag() {} }, CustomEvent: class { constructor(_type: string, _options: unknown) {} },
-    Date: { now: () => 1700000000123 }, localStorage: { getItem: () => null }, console,
+    Date: { now: () => 1700000000123 }, localStorage: { getItem: () => null }, console: { ...console, error: (...args: unknown[]) => fixtureErrors.push(args), warn: (...args: unknown[]) => fixtureErrors.push(args) },
     clearPlaybackNotice() {}, showPlaybackNotice: (text: string) => notices.push(text), renderLibraryViews() {}, updateLibraryHighlights() {},
     isLoudnessNormalizationEnabled: () => false, setNormalizationGain() {},
   });
+  wirePlaybackMessagesContext(context);
   // Load actual pure dependencies; new queue modules are picked up through the real core imports.
   for (const declaration of moduleDeclarations(source, "ui/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) {
     Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
