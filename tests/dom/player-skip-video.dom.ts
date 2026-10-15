@@ -1,14 +1,17 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
-import { sourceSlice } from "./helpers/source-slice.ts";
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
+import { createSessionContext as createQueueContext } from "../helpers/playback-session-fixture.ts";
+import { sourceSlice } from "../helpers/source-slice.ts";
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const html = readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/main.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../../ui/playback-core.ts"), "utf8");
+const html = mountedApplicationHtml;
 
 test("the skip button follows the unchanged page badge inside one hidden group", () => {
   const group = html.match(/<span class="player-pages-group" hidden>([\s\S]*?)<\/span>/)?.[1];

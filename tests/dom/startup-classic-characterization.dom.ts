@@ -3,13 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { test } from "node:test";
-import { collectBusinessScripts } from "./helpers/module-graph.ts";
-import { loadNativeModules } from "./helpers/native-module-loader.ts";
-import { createMascotFixture, wireMiniHostApi } from "./helpers/startup-api-fixture.ts";
-import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
+import { collectBusinessScripts } from "../helpers/module-graph.ts";
+import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
+import { createMascotFixture, wireMiniHostApi } from "../helpers/startup-api-fixture.ts";
+import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 
 test("startup five deferred controllers retain their phases and first trackchange reaches only dynamic background", async () => {
-  const ui = path.join(import.meta.dirname, "../ui"), html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
+  const ui = path.join(import.meta.dirname, "../../ui"), html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
   const scripts = [...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)].flatMap(tag => {
     const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag[1]);
     return src ? [{ file: src[1].replace(/^\.\//, ""), module: /\btype\s*=\s*["']module["']/i.test(tag[1]) }] : [];

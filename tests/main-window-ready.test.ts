@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 
 const ui = path.resolve(import.meta.dirname, "../ui");
-const inline = /<script>([\s\S]*?)<\/script>/.exec(fs.readFileSync(path.join(ui, "index.html"), "utf8"))![1];
+const inline = readFileSync(path.join(ui, "startup-platform.ts"), "utf8") + "\ninitializeStartupPlatform();";
 
 function startup({ failure = "", platform = "Windows" } = {}) {
   type Handler = { callback: () => void; once: boolean };
@@ -27,6 +27,7 @@ function startup({ failure = "", platform = "Windows" } = {}) {
       try { handler.callback(); } catch { if (type !== "error") fire("error"); }
     }
   };
+  context.initializeSidebar = () => {};
   vm.runInContext(inline, context);
   vm.runInContext(readFileSync(path.join(ui, "main-window-ready.ts"), "utf8"), context);
   for (const name of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "initializeMascot", "startMiniPlayerHost"]) {

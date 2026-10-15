@@ -1,3 +1,4 @@
+import { disposeColdRendererBoundary } from "../helpers/vue-renderer-boundary.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,8 +8,6 @@ import { JSDOM } from "jsdom";
 import { build } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { vueFeatureFlags } from "../../scripts/vue/features.ts";
-import { vueRendererImports, disposeColdRendererBoundary } from "../helpers/vue-renderer-boundary.ts";
-import { collectModuleGraph } from "../helpers/module-graph.ts";
 
 const track = (i: number) => ({ bvid: "BV" + String(i).padStart(10, "0"), title: "曲目" + i, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, addedAt: "2026-01-01" });
 // get_video_meta: commands/media.rs:13; disabled commands: library/disabled_pages.rs:66,95,106.
@@ -97,9 +96,11 @@ async function fixture() {
   Object.defineProperty(window.HTMLElement.prototype, "fire", { value(this: HTMLElement, type: string, fields?: EventFields) { return fire(this, type, fields); }, configurable: true });
   try {
     if (!tracked.has("ui/index.html")) throw Error("Untracked fixture HTML");
-    for (const name of collectModuleGraph(source, ["main.ts"])) {
-      if (!tracked.has("ui/" + name)) throw Error(`Untracked source: ${name}`);
-      fs.copyFileSync(path.join(source, name), path.join(root, name));
+    for (const file of tracked) {
+      if (!file.startsWith("ui/")) continue;
+      const name = file.slice(3), target = path.join(root, name);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(path.join(source, name), target);
     }
     for (const name of [".local-data", "cookies.txt", "tools"]) if (fs.existsSync(path.join(root, name))) throw Error(`Runtime file in fixture: ${name}`);
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
@@ -109,18 +110,12 @@ async function fixture() {
       const bodies: Record<string, string> = { currentPlayableTrack: 'return globalThis.__pagesFixture.current;', currentVideoPage: 'return globalThis.__pagesFixture.pages[0];', hasMultipleCurrentPages: 'return globalThis.__pagesFixture.pages.length > 1;', playCurrentVideoPage: 'globalThis.__pagesFixture.onPlay(arguments[0]);', isLoudnessNormalizationEnabled: 'return false;' };
       fs.writeFileSync(path.join(root, name), exports.map(x => 'function '+x+'() {'+(bodies[x] ?? '')+'}').join("\n")+'\nexport { '+exports.join(", ")+' };');
     }
-    for (const entry of vueRendererImports) {
-      const name = path.posix.normalize(path.posix.join(path.posix.dirname(entry.file), entry.specifier));
-      if (!tracked.has("ui/" + name)) throw Error(`Untracked renderer source: ${name}`);
-      fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
-      fs.copyFileSync(path.join(source, name), path.join(root, name));
-    }
     const syncFile = path.join(root, "vue/sync-region.ts");
     const syncSource = fs.readFileSync(syncFile, "utf8");
     const signature = /function createSyncRegion[^\n]+\{/;
     if (!signature.test(syncSource)) throw Error("Missing real region constructor for call tracing");
     fs.writeFileSync(syncFile, syncSource.replace(signature, "$& globalThis.__pagesFixture.regionCreated();"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./main.ts"; export * as nodes from "./player-dom.ts"; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; export * as nodes from "./player-dom.ts"; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
     await build({ configFile: false, root, plugins: [vue()], logLevel: "silent", define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } },

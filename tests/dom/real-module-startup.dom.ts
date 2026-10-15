@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
-import { collectBusinessScripts } from "./helpers/module-graph.ts";
-import { loadNativeModules } from "./helpers/native-module-loader.ts";
+import { collectBusinessScripts } from "../helpers/module-graph.ts";
+import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
 
 test("real module graph dispatches once during main before appearance starts once", async () => {
-  const ui = path.join(import.meta.dirname, "../ui");
+  const ui = path.join(import.meta.dirname, "../../ui");
   const { modules } = collectBusinessScripts(ui);
-  assert.equal(modules.length, 51);
+  assert.equal(modules.length, 55);
   const loaded = await loadNativeModules(ui, modules, "app.ts");
   const changes = loaded.events.filter((event) => event.type === "bilibili-music-trackchange");
   const dispatches = changes.filter((event) => event.action === "dispatch");

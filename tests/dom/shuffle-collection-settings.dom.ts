@@ -1,18 +1,21 @@
-import { attachSettingsVm } from "./helpers/settings-vm.ts";
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
+import { attachSettingsVm } from "../helpers/settings-vm.ts";
 import nodePath from "node:path";
-import { sourceSlice } from "./helpers/source-slice.ts";
+import { sourceSlice } from "../helpers/source-slice.ts";
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const main = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
+const main = readFileSync(path.join(import.meta.dirname, "../../ui/main.ts"), "utf8");
 const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
-const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const html = readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
-const source = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+const pageSelection = readFileSync(path.join(import.meta.dirname, "../../ui/page-selection.ts"), "utf8");
+const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
+const html = mountedApplicationHtml;
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + sourceSlice(appearance, "ui/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
   + sourceSlice(appearance, "ui/appearance.ts", "for (const [select, key] of [", "clearAudioCacheButton?.addEventListener(\"click\"");
 

@@ -8,10 +8,21 @@ import { topLevelNames, references } from "./helpers/module-bindings.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 import { vueRendererImports } from "./helpers/vue-renderer-boundary.ts";
 
-const moduleOrder = ["window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "mascot.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","components/PagesList.vue","components/LibraryModalBody.vue", "components/PlaylistList.vue", "components/TrackList.vue", "components/TrackRow.vue","vue/sync-region.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","track-list-model.ts", "track-list-view.ts", "track-list-ui.ts", "home-view.ts","home.ts","focus-trap.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "lyrics.ts", "mini-player-host.ts", "main-window-ready.ts", "playback-messages-view.ts", "playback-messages.ts"];
+const moduleOrder = ["root-mount.ts", "components/App.vue", "vue", "sidebar.ts", "startup-platform.ts", "application-store.ts","window-controls.ts", "dynamic-background.ts", "startup-before-main.ts", "mascot.ts", "playback-messages-state.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts","playback-settings-state.ts","media-adapter.ts","settings-state.ts","settings-adapter.ts","pages-state.ts","state-store.ts","app-state.ts","page-selection.ts","track-utils.ts","search-state.ts","library-state.ts","runtime-api.ts","player-dom.ts","components/PagesList.vue","components/LibraryModalBody.vue", "components/PlaylistList.vue", "components/TrackList.vue", "components/TrackRow.vue","vue/sync-region.ts","player-state.ts","playback-policy.ts","playback-notice.ts","playback-diagnostics.ts","track-list-model.ts", "track-list-view.ts", "track-list-ui.ts", "home-view.ts","home.ts","focus-trap.ts","pages-view.ts","library-view.ts","library-ui.ts","video-pages.ts","search-view.ts","search.ts","playback-core.ts","main.ts","settings-view.ts","playback-settings-view.ts","playback-display-view.ts","appearance.ts", "playback-mini-view.ts", "lyrics.ts", "mini-player-host.ts", "main-window-ready.ts", "playback-messages-view.ts", "playback-messages.ts"];
 
 // Every collision was inspected: all occurrences resolve to these local bindings.
 const localCollisions = new Map([
+  ["home.ts:render", "local legacy subscriber or display renderer"],
+  ["search.ts:render", "local legacy subscriber or display renderer"],
+  ["library-ui.ts:render", "local legacy subscriber or display renderer"],
+  ["video-pages.ts:render", "local legacy subscriber or display renderer"],
+  ["appearance.ts:render", "local legacy subscriber or display renderer"],
+  ["lyrics.ts:render", "local legacy subscriber or display renderer"],
+
+  ["sidebar.ts:root", "document root local to sidebar initialization"],
+  ["sidebar.ts:render", "sidebar geometry projection local to initialization"],
+  ["application-store.ts:renderRoot", "injected root render callback"],
+  ["home.ts:applicationStore", "shared composition store read inside the home getter"],
   ["mini-player-host.ts:audio", "local media event target in host controller"],
   ["appearance.ts:mascotApi", "local initialized mascot API in picker renderer"],
   ["mascot.ts:audio", "local media node inside mascot initializer"],
@@ -39,7 +50,7 @@ test("modules import every cross-module binding and have no unused imports", () 
   const ui = path.join(import.meta.dirname, "../ui");
   const { modules } = collectBusinessScripts(ui);
   const sources = new Map(modules.map((file) => [file, fs.readFileSync(path.join(ui, file), "utf8")]));
-  const owners = new Map(vueRendererImports.map(entry => [entry.name, entry.specifier.slice(2)]));
+  const owners = new Map(vueRendererImports.flatMap(entry => entry.name.split(",").map(name => [name.trim(), entry.specifier.startsWith("./") ? entry.specifier.slice(2) : entry.specifier])));
   for (const [file, source] of sources) {
     for (const name of topLevelNames(source, "source.js", "ui/" + file)) {
       assert.ok(!owners.has(name), `duplicate ${name}`);
@@ -49,7 +60,7 @@ test("modules import every cross-module binding and have no unused imports", () 
   for (const [file, source] of sources) {
     const declarations = moduleDeclarations(source, "source.js", "ui/" + file);
     const imports = declarations.filter((item) => item.kind === "import");
-    const providers = imports.map((item) => moduleOrder.indexOf(item.specifier.slice(2)));
+    const providers = imports.map((item) => moduleOrder.indexOf((item.specifier.startsWith("./") ? item.specifier.slice(2) : item.specifier)));
     assert.ok(providers.every((index) => index >= 0), `${file}: known relative provider`);
     assert.deepEqual(providers, [...providers].sort((a, b) => a - b), `${file}: original script import order`);
     const imported = new Set(imports.flatMap((item) => item.names));
@@ -61,7 +72,7 @@ test("modules import every cross-module binding and have no unused imports", () 
     for (const item of imports) {
       assert.deepEqual(item.names, [...item.names].sort(), `${file}: sorted import names`);
       for (const name of item.names) {
-        assert.equal(owners.get(name), item.specifier.slice(2), `${file}: owner of ${name}`);
+        assert.equal(owners.get(name), (item.specifier.startsWith("./") ? item.specifier.slice(2) : item.specifier), `${file}: owner of ${name}`);
         assert.ok(used.has(name), `${file}: unused import ${name}`);
       }
     }
@@ -69,6 +80,7 @@ test("modules import every cross-module binding and have no unused imports", () 
     const consumers = [...sources].flatMap(([otherFile, other]) => moduleDeclarations(other, "source.js", "ui/" + otherFile)
       .filter((item) => item.kind === "import" && item.specifier === `./${file}`).flatMap((item) => item.names));
     if (file === "video-pages.ts") consumers.push("bindTrackActivation");
+    if (file === "application-store.ts") consumers.push("createRootStore");
     if (file !== "app.ts") {
       assert.equal(exports.length, 1, `${file}: sole export list`);
       assert.deepEqual(exports[0].names, [...new Set(consumers)].sort(), `${file}: export only used names`);

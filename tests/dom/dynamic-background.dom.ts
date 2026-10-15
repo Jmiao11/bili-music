@@ -1,12 +1,15 @@
-import { attachSettingsVm } from "./helpers/settings-vm.ts";
-import { sourceSlice } from "./helpers/source-slice.ts";
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
+import { attachSettingsVm } from "../helpers/settings-vm.ts";
+import { sourceSlice } from "../helpers/source-slice.ts";
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/dynamic-background.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/dynamic-background.ts"), "utf8");
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
 const pixels = (rgb: number[]) => new Uint8ClampedArray(Array.from({ length: 1024 }, () => [...rgb, 255]).flat());
 
@@ -220,7 +223,7 @@ test("crossfade keeps only latest pending palette; reduced motion removes fade w
 });
 
 test("dynamic texture stays fixed; image retains three controls and ignores legacy content settings", async (t) => {
-  const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
+  const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
   const code = sourceSlice(appearance, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
     + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
     + sourceSlice(appearance, "ui/appearance.ts", "function applyTheme(", "function resetBackground(");
@@ -272,7 +275,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   assert.ok(context.imageOnlyGroups[0].classList.disabled);
   assert.ok(context.imageOnlyGroups[1].classList.disabled);
   const defaults = { "--glass-blur": "0px", "--panel-alpha": "0.2", "--background-dim": "0", "--content-panel-alpha": "0" };
-  const css = readFileSync(path.join(import.meta.dirname, "../ui/styles.css"), "utf8");
+  const css = readFileSync(path.join(import.meta.dirname, "../../ui/styles.css"), "utf8");
   const styleMatch1 = css.match(/:root\[data-theme="dynamic"\] \{([^}]+)\}/);
   if (!styleMatch1) throw new Error("Expected stylesheet rule is missing");
   const dynamicRule = styleMatch1[1];
@@ -358,7 +361,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   }
 
   await t.test("content backgrounds stay transparent and obsolete controls and storage code are removed", () => {
-    const html = readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
+    const html = mountedApplicationHtml;
     assert.doesNotMatch(html, /content-alpha-(?:slider|value)/);
     assert.doesNotMatch(appearance, /CONTENT_ALPHA_KEY|contentAlpha|setContentAlpha|textureStorageKey|\.dynamic/);
     assert.doesNotMatch(appearance, /--content-panel-alpha|bilibili-music\.content-alpha/);

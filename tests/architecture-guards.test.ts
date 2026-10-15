@@ -11,7 +11,6 @@ const ui = path.join(import.meta.dirname, "../ui");
 const html = readFileSync(path.join(ui, "index.html"), "utf8");
 const { files: scripts } = collectBusinessScripts(ui);
 const expected = [
-  "sidebar.js",
   "app.ts",
 ];
 const splitScripts = ["playback-messages-state.ts", "playback-messages-view.ts", "playback-messages.ts", "playback-mini-view.ts", "playback-commands.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-display-view.ts", "playback-settings-state.ts", "media-adapter.ts", "playback-settings-view.ts", "settings-state.ts", "settings-adapter.ts", "settings-view.ts","state-store.ts", "app-state.ts", "search-state.ts", "search-view.ts", "library-state.ts", "focus-trap.ts", "library-view.ts", "pages-state.ts", "pages-view.ts", "track-list-model.ts", "track-list-view.ts", "track-list-ui.ts", "home-view.ts", "page-selection.ts", "track-utils.ts", "runtime-api.ts", "player-dom.ts", "player-state.ts", "playback-policy.ts", "playback-notice.ts", "playback-diagnostics.ts", "playback-core.ts", "home.ts", "library-ui.ts", "video-pages.ts", "search.ts"];
@@ -85,7 +84,7 @@ test("split scripts contain only top-level function declarations and comments", 
         "track-list-ui.ts": new Set(["homeProjection", "searchProjection", "favoritesProjection", "playlistProjection", "committedSearchVersion"]),
         "playback-core.ts": new Set(["randomPageRound","playRecordedForCurrentTrack","cacheRequestedForCurrentTrack","cacheRequestPromise","pendingResume","resumeInProgress","lastPlaybackStateSavedAt","recoveryPromise","recoveryVersion","recoveryAttempts","playingAudioVersion","playbackIntended","pendingPastedBvPages","loudnessQueryVersion","loudnessAnalyzedForCurrentTrack"]),
         "search.ts": new Set(["searchMounted"]),
-        "home.ts": new Set(["applicationStore"]),
+        "home.ts": new Set(["homeMounted"]),
         "playback-messages.ts": new Set(["mounted"]),
         "pages-view.ts": new Set(["pagesModalReturnFocus", "pagesListRegion", "pagesListRenderVersion"]),
         "library-view.ts": new Set(["libraryModalRegion", "libraryModalRegionKey", "libraryModalReturnFocus", "libraryModalFrame"]),

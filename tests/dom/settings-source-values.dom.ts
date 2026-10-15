@@ -1,11 +1,14 @@
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import vm from "node:vm";
 import { test } from "node:test";
-import { attachSettingsVm } from "./helpers/settings-vm.ts";
-const root = path.join(import.meta.dirname, ".."), html = fs.readFileSync(path.join(root, "ui/index.html"), "utf8");
+import { attachSettingsVm } from "../helpers/settings-vm.ts";
+const root = path.join(import.meta.dirname, "../.."), html = mountedApplicationHtml;
 function options(id: string): string[] {
   const select = html.match(new RegExp('<select[^>]*id="' + id + '"[^>]*>([\\s\\S]*?)</select>'));
   if (!select) throw Error("Missing select: " + id);

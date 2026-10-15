@@ -26,5 +26,5 @@ test("startup ESM guard rejects direct effects and platform initializers", () =>
 test("main HTML keeps one ESM entry and only sidebar remains classic", () => {
   const html = fs.readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
   const tags = [...html.matchAll(/<script\b([^>]*)>/g)].filter(tag => /\bsrc=/.test(tag[1]));
-  assert.deepEqual(tags.map(tag => tag[1].trim()), ['src="./sidebar.js"', 'type="module" src="app.ts"']);
+  assert.deepEqual(tags.map(tag => tag[1].trim()), ['type="module" src="app.ts"']);
 });

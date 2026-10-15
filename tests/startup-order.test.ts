@@ -51,17 +51,15 @@ test("document lifecycle dependencies retain their current file inventory", () =
 });
 
 test("the sole inline script stays in head and only sets the platform", () => {
-  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter((match) => !/\bsrc\s*=/.test(match[1]));
-  assert.equal(inline.length, 1);
-  assert.ok(inline[0].index < html.indexOf("</head>"));
-  assert.equal(inline[0][2].trim(), "document.documentElement.dataset.platform = /Macintosh|Mac OS X/i.test(navigator.userAgent) ? \"macos\" : \"windows\";\r\n      window.onerror = () => {\r\n        document.documentElement.dataset.startupFailed = \"true\";\r\n      };");
+  const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter(match => !/\bsrc\s*=/.test(match[1]));
+  assert.equal(inline.length, 0);
+  assert.match(read("startup-platform.ts"), /dataset\.platform/);
 });
 
 test("bottom classic scripts defer and the sole module entry keeps its position", () => {
   const head = html.slice(0, html.indexOf("</head>"));
   const sidebar = /<script\b([^>]*\bsrc=["']\.\/sidebar\.js["'][^>]*)>/.exec(head);
-  assert.ok(sidebar);
-  assert.doesNotMatch(sidebar[1], /\bdefer\b/);
+  assert.equal(sidebar, null);
   const body = html.slice(html.indexOf("<body"));
   const bodyScripts = [...body.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)];
   assert.equal(bodyScripts.length, 1);

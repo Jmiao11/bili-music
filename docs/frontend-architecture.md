@@ -2,13 +2,18 @@
 
 ## 入口与文件边界
 
-主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化窗口控制与动态背景，再求值 main，最后按顺序调用 startAppearance、initializeLyrics、initializeMascot、startMiniPlayerHost。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
+F2b 根挂载阶段：app.ts首个静态导入root-mount.ts。它先由startup-platform.ts原样设置平台、启动错误标志及侧栏宽度/DOMContentLoaded接线，再用公开h/render同步挂载App.vue，之后控制器与player-dom.ts才求值。App→LegacyShell包含静态WindowTitlebar/Sidebar/ResizeHotspots；audio独留index.html宿主外，player-dom.ts查询不改。未交接节点无动态绑定，控制器写入在1000次根提交后保持身份和值。
 
-F2a 在上述同步启动完成后调用 initializeMainWindowReady，追加 window 的一次性 DOMContentLoaded 回调；该回调在 sidebar 的 document 接线及原 main 的恢复监听之后发 main_window_ready，不等待网络/图片/歌词/AI 异步结果。head 原平台 inline 和 sidebar 标签保留；inline 最先记录未完成启动期间的未捕获同步 error，发生过错误就不发ready，交给Rust watchdog。head的window.onerror只置布尔标志，不读取/序列化事件或error对象；前端确认启动完成后立即置null移除，不传日志或IPC。主窗仅由 Rust 显示，不新增前端 show capability。
+application-store.ts只依赖纯app-state，创建唯一store并立即安装根订阅与首投影，再交给控制器。home getter仍在首次调用时安装首页订阅并首投影；嵌套提交反例保护根最先订阅。head inline与sidebar普通脚本退役，产品产物目标6个；保留分P/资料库内容静态宿主到F6。G0已批准184/84（真实DOM采集器；同采集器F2a为183/83；旧155/70仓库外存档）。静态HTML扫描改为挂载真实SFC后扫描，真实模块启动采集也使用真实DOM与构建模块；不以假SFC替代成功渲染。
+
+
+主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先同步挂载根，再导入 startup-before-main 初始化窗口控制与动态背景，再求值 main，最后按顺序调用 startAppearance、initializeLyrics、initializeMascot、startMiniPlayerHost。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
+
+上述同步启动完成后调用 initializeMainWindowReady，追加 window 的一次性 DOMContentLoaded 回调；该回调在 sidebar 的 document 接线及原 main 的恢复监听之后发 main_window_ready，不等待网络/图片/歌词/AI 异步结果。平台与侧栏 head 脚本在 F2b 退役，startup-platform 在挂载前记录未完成启动期间的未捕获同步 error，发生过错误就不发ready，交给Rust watchdog。window.onerror只置布尔标志，不读取/序列化事件或error对象；前端确认启动完成后立即置null移除，不传日志或IPC。主窗仅由 Rust 显示，不新增前端 show capability。
 
 | 文件 | 形式 | 职责 |
 | --- | --- | --- |
-| sidebar.ts | head 普通脚本 | 侧栏及宽度持久化。 |
+| sidebar.ts | ES Module | 挂载前由 startup-platform 调用；侧栏宽度及原 DOMContentLoaded 接线。 |
 | window-controls.ts | ES Module | 导出显式初始化函数，窗口按钮、拖动与缩放。 |
 | dynamic-background.ts | ES Module | 导出显式初始化函数，封面配色与曲目事件响应。 |
 | startup-before-main.ts | ES Module 启动调度 | 在 main 顶层执行前初始化动态背景。 |
@@ -45,7 +50,7 @@ F2a 在上述同步启动完成后调用 initializeMainWindowReady，追加 wind
 | mascot.ts | ES Module | startAppearance 后显式初始化，模块 API 供外观设置使用。 |
 | mini-player-host.ts | ES Module | startAppearance、歌词、吉祥物之后显式初始化；直接调用命令、快照投影、主题订阅与提示动作。 |
 
-head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html、mini.ts 不属于主窗口模块图。
+平台与侧栏启动逻辑由startup-platform原位调度；独立窗口mini.html、mini.ts不属于主窗口模块图。
 
 ## 构建与开发流水线
 
@@ -55,11 +60,11 @@ head 的平台内联脚本和 sidebar 保持原位；独立窗口的 mini.html�
 
 scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段：收集两份源 HTML 引用的普通脚本（HTML URL 含 mini.js，对应源码 mini.ts），通过 Node 原生类型擦除后输出到 dist 的原 .js 路径；从 Vite 输出取得模块入口 src 与 CSS href，再从源 HTML 重建页面。这样 head 的内联平台脚本、sidebar、全部 defer 标签及 mini 标签原样保留（普通脚本 URL 保持 .js，插件映射到同名 .ts 源码），动态背景由模块入口内部先于 main 初始化，body 仅保留一个 app ESM 标签。没有 public/ 源码副本。当前页面静态资源只有这些脚本与样式；增加图片等构建资源时需扩展映射并审查产物。
 
-开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`./sidebar.js` → `/sidebar.js`、`app.ts` → `/app.ts`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
+开发服务器保留 HTML 中普通脚本的 .js URL，插件将请求映射到同名 .ts 源码并做类型擦除，不改写这些业务标签。实际 HTTP 请求中，两个页面的 head 都增加一个 `/@vite/client` 模块标签及其缩进/换行。请求 /index.html 时，Vite 8.3.2 还会把以下 URL 规范化为根路径：`./styles.css` → `/styles.css`、`app.ts` → `/app.ts`。/mini.html 的业务 URL 不变。这些差异逐项检查、逐项输出；业务标签位置、类型、defer、其他属性与内联内容保持原样。
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 
-检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比当前获批G0的155条启动记录及首个trackchange索引70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+检查使用 startup-probe 在真实 jsdom 中执行构建模块，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比获批G0的184条启动记录及首个trackchange索引84；采集器改为真实DOM，同一采集器下F2a为183/83，旧155/70仓库外存档。真实 DOM 会登记旧假 DOM 未覆盖的 querySelectorAll 按钮与热区监听；受保护事件另按同一采集器比较旧/新源码。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
 
 源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
 
@@ -201,6 +206,18 @@ npm run typecheck -- --update
 
 安装前 Node 测试只使用内置模块和构造的编译器输出，不依赖已安装 TypeScript 或 Vite。安装后 DOM 组使用 Vue、Vite 与 jsdom。CI 在 Windows、macOS 的 npm ci 后新增 npm run test:dom，其余 run 步骤保持原样。TypeScript 6 使用官方 JavaScript CLI；本地 Windows 验证不代替 macOS 安装验证，也不代替真实 WebView 手测。
 
+## Git 与 GitHub 工作流
+
+- 本地 Git 用终端；Codex 可以本地提交、推送定稿功能分支、获合并授权并完成本地 fast-forward 后推送 master、删除自己推送且已合并进 master 的远程功能分支。只读查询自己推送提交的 CI（gh run list / gh run view），调用尽量少。02436a5 的首次远程 CI 查询由用户单项授权。
+- 创建、编辑、关闭、合并 PR，以及 Issue、Release、tag、重新运行 CI job、仓库设置与凭证只由用户执行。
+- 永不使用 --force、--force-with-lease 或其他改写远程历史的方式；不删除、不改写 master，不推送 tag。不修改 remote 地址、凭证或 git 配置；命令输出与报告不得出现 token 或凭证。
+- 每次推送前先 git fetch，确认远程目标分支是本地分支祖先，只做 fast-forward；分叉立即停止，不 rebase、不 merge 远程。新功能分支确认远程同名分支不存在后才首次推送。
+- 功能分支只在本批提交定稿、本地验收通过后推送；推送后不再改写这些提交，修改用追加提交。
+- master 只在用户明确回复“手测通过，允许合并”、核对指定提交/工作区/祖先关系并完成本地 fast-forward 后推送；推送前再次核对 master 只领先 origin/master 本批提交。不能 fast-forward 或有非预期差异立即停止。
+- 顺序：本地验收 → 推送功能分支（用户可自行开 PR 看 CI）→ 用户手测与合并授权 → 本地 fast-forward → 推送 master → 查询该提交 windows-latest/macos-latest CI 并报告 → 删除自己推送且已合并的远程功能分支。
+- 报告写实际 CI 结果或“CI 运行中”；功能分支未推送/工作流未触发时如实登记，不声称通过。CI 失败报告 job、步骤和脱敏日志摘要；与改动有关时下一批先修复，修复前不开始新迁移；疑似偶发说明理由，由用户决定是否重跑。基线 CI 失败期间暂停 F2b 合并准备，开发可继续。
+- 正式发布前，最新 master 远程 CI 与发布前全应用回归必须都通过。用户明确合并授权前，不合并、不推送 master，不开始下一批迁移。
+
 ## 每批验收口径
 
 - 每批合并前依次运行全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist（含获批 G0、windows/darwin 产物逐字节一致及 eval/new Function AST 各为0）；类型检查零诊断。改了 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；src-tauri/Cargo.toml 的既有纯换行状态不算修改且永不提交。
@@ -208,12 +225,12 @@ npm run typecheck -- --update
 - 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。专项需要 Mac 手测时明确登记，不把同机 darwin 配置构建当作 Mac 实测。
 - 未修改的冻结文件只用 git diff 证明，不再输出哈希清单；只有本批修改或新建的冻结文件报告 SHA。
 - 修改业务断言原文或含义仍须停下申请；环境接线重建（真实 App 挂载、挂载后 SFC 扫描、冻结 helper 的纯环境接线）已预先授权，业务断言原文、预期值、次数必须不变，只用一张短表登记。内部结构/模块登记按对应意图更新；不能删除业务覆盖或让断言空跑。不做常规全量断言执行次数统计。
-- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批155/70。
+- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批184/84（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 - 变异取消固定数量；只对新写的异步竞态、启动可靠性、安全边界逻辑，每处1～2个，在仓库外副本实施并恢复，以对应行为测试抓到非等价变化。
 - canary 只在修改对应守卫、检查脚本或测试分组算法时运行该守卫的 canary，不随普通测试登记或组件迁移扩大范围。
 - 专项严格验证只针对启动可靠性（watchdog/隐藏启动/首帧）、Rust、播放状态机与取流、数据持久化、安全隐私（API Key/cookie/日志脱敏）的风险点本身；不扩大成全套阶段验收。普通测试登记、fixture 扩展、组件迁移不触发。
 - 跨平台完整回归仅在 F2b 完成后、F6 完成后各一次，发布前另一次并配合远程 CI 补验：Node22.18.0与22.23.3两组测试、CRLF检查、完整canary、Windows/Mac全应用手测、Mac完整命令（npm ci、node --test、test:dom、typecheck、verify:dist，涉及Rust加fmt/build/test）。不再逐批双Node、CRLF、CI步骤对等或完整canary。
-- 报告在仓库外，正文一页以内：改了什么、验收结果表、需要用户决定的事、手测清单。不生成大量附录，除非用户要求或用于审批。远程 CI 标注“待账号恢复后补验”。
+- 报告在仓库外，正文一页以内：改了什么、验收结果表、需要用户决定的事、手测清单。不生成大量附录，除非用户要求或用于审批。远程 CI 报告实际结果或“CI 运行中”。
 - 相关且低风险的组件尽量同批，每批最多3提交，按 test → feat → fix 按需使用，一轮手测；不做一次性大规模重构。
 - F2a 专项：全量Node/DOM、typecheck、verify:dist；Rust fmt与debug/release build/test各一次（故障包使用release），含ReadyGate单测与日志隐私/启动监听清理验证。Windows/Mac各按不超过8项清单手测，不运行本批完整canary、双Node、CRLF、CI步骤对等或断言审计。
 
@@ -409,12 +426,12 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 
 本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，新增项纳入完整canary清单，按本节验收口径选择执行时机。
 
-GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 分别验证响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 通过同步投影和原控制器保持 action 返回前的旧 DOM、disabled 与焦点契约，按用户 2026-10-11 补充决定，vue-3 及后续批次按纯本地流程开展，远程 CI 待账号恢复后补验。
+GitHub 流程以本文件与 AGENTS.md 的当前工作流为准。
 
 
 ## vue-2b 读取与同步渲染基础设施
 
-本批从本地 master 872a8a4 建立 feat/vue-render-infra；不访问 GitHub，不接入产品入口。新增 ui/vue/use-app-state.ts、ui/vue/sync-region.ts，由 scripts/vue/check.ts 精确允许 vue 导入，scripts/vue/infra-guard.ts 核对模块清单、只读依赖与求值规则。原模块图、其他模块的语法与导入守卫保持原规则；main 类型项目只增加这两个明确文件，Node 项目登记新增脚本与测试。两个基础设施模块只声明函数及内部 WeakSet，不创建渲染器；冷导入和创建区域时 __VUE__ 均无写入，第一次 update 才出现 Vue 的渲染器信号。
+本批从本地 master 872a8a4 建立 feat/vue-render-infra，不接入产品入口。新增 ui/vue/use-app-state.ts、ui/vue/sync-region.ts，由 scripts/vue/check.ts 精确允许 vue 导入，scripts/vue/infra-guard.ts 核对模块清单、只读依赖与求值规则。原模块图、其他模块的语法与导入守卫保持原规则；main 类型项目只增加这两个明确文件，Node 项目登记新增脚本与测试。两个基础设施模块只声明函数及内部 WeakSet，不创建渲染器；冷导入和创建区域时 __VUE__ 均无写入，第一次 update 才出现 Vue 的渲染器信号。
 
 useAppState(reader, selector) 的 reader 类型为应用 store 的 getState/subscribe Pick；调用方实际传入仅含这两个方法的对象，不将完整 store 或 actions 作为 props。首屏显式 getState，选择器使用应用的深只读快照。shallowRef 与 shallowReadonly 保留原快照引用，不做 deep reactive、复制或序列化；稳定选择器结果由 Object.is 比较，onScopeDispose 取消订阅。生产不冻结快照，shallowReadonly 仅保护 ref.value 的写入，深层保护依靠原 DeepReadonly 类型及归属纪律，不能声称阻止强转后的所有运行时写入。
 
@@ -441,15 +458,15 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 | 写 selected.value.requestVersion / selected.value | npm run typecheck 的 vue-tsc 产生 TS2540 |
 | 修改只读 Map / reader.actions | npm run typecheck 的 vue-tsc 产生 TS2339 |
 
-验收按每批口径与指定里程碑执行；远程CI待账号恢复后补验。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，历史批次的推进上限由用户 2026-10-11 补充决定取消，后续批次按纯本地流程开展。
+验收按每批口径与指定里程碑执行；远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，历史批次的推进上限由用户 2026-10-11 补充决定取消，后续批次按当前 GitHub 工作流开展。
 
 ## vue-3 分P列表渲染
 
-用户 2026-10-11 明确授权本批按纯本地流程执行，覆盖此前停在 vue-2b 的推进上限；不访问 GitHub。本批一个提交，等待新的手测与本地 fast-forward 授权。远程 Windows/macOS CI 待账号恢复后补验；真实 macOS 环境由用户运行测试及 WebView 手测，不能用同机平台配置构建代替。
+历史本地批次已完成，后续按当前 GitHub 工作流执行；真实 macOS 命令与 WebView 手测不能由同机平台配置构建替代。
 
 仅 ui/pages-view.ts 的列表循环替换为 ui/components/PagesList.vue。首个打开投影先清空旧列表，再建立独占同步区域并公开 render；后续投影显式 update，使用递增 key 保留旧整批替换行为，随后在同一流程恢复关闭按钮焦点。打开 RAF、关闭/transitionend、Tab、查询、版本丢弃与偏好保存仍在旧模块。组件只接深只读 modal/集合、当前播放标识和两个控制器回调；复用 styles.css，无 scoped 样式。禁用页播放按钮仍可点击，控制器先关闭再播放。
 
-安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包G0继续核对当前获批基线155/70。原安装前其他领域测试不得被误写成 Vue 运行时验证。
+安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包G0继续核对当前获批基线184/84（真实 DOM 采集器；同采集器 F2a 为183/83；旧155/70仓库外存档）。原安装前其他领域测试不得被误写成 Vue 运行时验证。
 
 两个分P冻结测试 SHA256 保持 vue-2a 的值。用户单项批准原 strict-null-runtime 空上下文测试迁入安装后组：第一条 assert.deepEqual(list.children, ["unchanged"]) 适配为 assert.deepEqual(Array.from(list.childNodes, node => node.textContent), ["unchanged"])，其余四条原文、原测试名及五条各一次保持。授权来自 2026-10-11 本任务的用户回复；本批业务断言等价适配 1，删除 0，不能写成改变 0。
 
@@ -463,11 +480,11 @@ vue-3 补充验收：tests/dom/pages-toggle.dom.ts 以原生 click 验证第 1P 
 
 补充变异均在仓库外副本运行全量 node --test 和 test:dom：禁用布尔取反错误、cid 改为 page.page、双重 onToggle、删除 @click、删除组件 key 递增、焦点来源读取移到 render 后、清理宿主移到 createSyncRegion 后、删除 .stop；所有要求的非等价变异必须被业务行为测试抓到。冷入口 canary 让现有安装前测试打开弹窗，必须使 node --test 非零退出；恢复后全部通过。
 
-用户 2026-10-11 已取消等待远程 CI 才能推进下一批的阻塞。GitHub 暂停期间后续批次均走本地流程，验收标准不降低；每批Windows手测及指定里程碑跨平台完整回归按验收口径执行。远程 Windows/macOS CI 待账号恢复后补验；此决定不自动授予手测、合并或发布权限。隐藏的“全部恢复”按钮 Tab 行为另开批次处理，本批保留 keepFocusInPagesModal 及冻结真实 DOM 测试第 69、74 行。
+后续按当前 GitHub 工作流执行；手测、合并与发布仍分别需要授权。
 
 ## fix(pages) Tab 隐藏按钮边界
 
-Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hidden 属性的元素；不读取布局。恢复按钮隐藏、可用、保存中、空列表、关闭及隐藏祖先均由独立 jsdom fixture 验证。用户本批批准两个冻结文件各一条焦点期望和一处起点索引适配；原始 DOM 查询、按钮清单、其他断言、名称与执行次数保留，新 Git/LF 与检出/CRLF 冻结 SHA 及逐断言审计记录在仓库外报告。jsdom 不执行默认 Tab 导航，中间按钮仅验证未拦截且 activeElement 不变；真实 Windows/macOS WebView 手测另行验证前进顺序。远程 Windows/macOS CI 待账号恢复后补验。
+Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hidden 属性的元素；不读取布局。恢复按钮隐藏、可用、保存中、空列表、关闭及隐藏祖先均由独立 jsdom fixture 验证。用户本批批准两个冻结文件各一条焦点期望和一处起点索引适配；原始 DOM 查询、按钮清单、其他断言、名称与执行次数保留，新 Git/LF 与检出/CRLF 冻结 SHA 及逐断言审计记录在仓库外报告。jsdom 不执行默认 Tab 导航，中间按钮仅验证未拦截且 activeElement 不变；真实 Windows/macOS WebView 手测另行验证前进顺序。远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 
 ## vue-5a/5b 资料库浮层基线
 
@@ -530,12 +547,12 @@ E1 已在 master 94b6a6f 本地合并；全应用Windows/Mac完整回归安排�
 4. 子组件只收必要切片、标量和固定回调；不向普通子组件传整个根快照，不在 render 中复制不变切片、重建 rows/回调或动态 slot。按原依赖/投影版本缓存，实测无关提交的 render 次数和节点身份。组件不访问 window/DOM 查询/Tauri/invoke/actions；必要节点经类型化 ref 回调交给控制器。
 5. audio 只创建一次，禁止条件卸载、随曲目变 key 或重绑媒体监听。业务事件种类、请求身份、trackchange 接收阶段、媒体监听、四项 IPC listen 与跨窗同步相对顺序保持；每区域一次性交接 DOM 与事件所有权，不保留双入口。
 6. 设置、沉浸页、歌词常驻，保留隐藏期间数据和 DOM 投影。hidden/is-open/aria-hidden/transitionend、焦点和滚动阶段保留，不统一改 v-if。草稿经领域读写端口，组字/BV/恢复/分页阶段不变；API Key 只为临时动作参数，不进入快照、日志、普通投影或跨窗 payload。
-7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前155/70。
+7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前获批184/84（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 8. 环境接线重建预先授权：fixture挂载真实App、静态HTML扫描改为挂载后SFC扫描、冻结helper纯接线，只要业务断言原文/预期值/次数不变，直接实施并用短表登记文件、旧/新接线、受影响测试。不做常规次数统计；不能让断言空跑。业务断言变化、G0重建、未单项授权Tauri/capability/Rust及已发现断言变0仍停下申请。
 9. 新根模块/SFC/冷入口/类型项目精确登记，不放宽strict、类型擦除、组件边界和默认导入白名单。守卫/检查脚本/分组算法变更只跑对应canary；专项严格验证只覆盖实际风险点，普通登记、fixture扩展、组件迁移不触发。
 10. hidden、Rust ready/watchdog、head 退役分批验证故障。F2a 已单项授权 main visible:false（含 macOS 同步）、main_window_ready 与约5秒一次性 watchdog、相关前端启动握手/契约登记；无前端 show 新权限，其他配置与业务不改，G0 仍单项申请。后续批次、业务断言、合并/发布不因此自动获权；每批最多3提交，验收→仓库外报告→用户手测并明确允许合并→核对后本地 fast-forward。
 
-原三个滑块每次 input 保存、清空搜索历史不确认、Key 临时参数等行为继续保留。已完成 B1/B2/资料库/分P的历史基线与 SHA 继续有效，不能因本路线自动删除。精确冷边界、Vue/模块/写入守卫、组件清理、测试分组、eval/new Function 为0、windows/darwin产物逐字节一致继续保护当前实现；按对应批次逐项替代区域登记。远程 Windows/macOS CI：待账号恢复后补验。
+原三个滑块每次 input 保存、清空搜索历史不确认、Key 临时参数等行为继续保留。已完成 B1/B2/资料库/分P的历史基线与 SHA 继续有效，不能因本路线自动删除。精确冷边界、Vue/模块/写入守卫、组件清理、测试分组、eval/new Function 为0、windows/darwin产物逐字节一致继续保护当前实现；按对应批次逐项替代区域登记。远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 
 ## vue-5c 输入类内容迁移（feat）
 
@@ -547,7 +564,7 @@ E1 已在 master 94b6a6f 本地合并；全应用Windows/Mac完整回归安排�
 
 ## vue-5c 阶段 A 完成与焦点修复
 
-- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，用户已于 2026-10-12 确认 Windows/Mac 完整手测通过，fd1c4c4 已本地 fast-forward 合并，远程 Windows/macOS CI 待账号恢复后补验。
+- 资料库六种非 generic 内容已由 Vue 同步渲染，generic 保持空宿主；阶段 A 自动验收完成，用户已于 2026-10-12 确认 Windows/Mac 完整手测通过，fd1c4c4 已本地 fast-forward 合并，远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 - ui/focus-trap.ts 为分P与资料库共用的 Tab 循环；仅在 is-open 时生效，包含 button/input/select/textarea/非 -1 tabindex，排除 disabled 及自身/祖先 hidden，aria-disabled 仍可聚焦。两个分P冻结文件逐字节不改。
 - 打开时记录当前焦点；关闭时仅向仍连接文档的触发元素以 preventScroll 返回焦点。choose 请求期间 submitChoose/createAndAdd 都忽略重复调用，主按钮 disabled，歌单按钮仍不设置原生 disabled。关闭取消未执行的 RAF，RAF 前 Escape 仍不关闭。
 - styles.css 的 settings-mask 使用 opacity/pointer-events，settings-panel 使用 transform（3896–3926 行），没有 visibility:hidden/display:none，因此初始 focus/select 保留 update 后、RAF 前的时机。
@@ -574,13 +591,13 @@ B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF
 - 用户 2026-10-12 确认失效标记保持旧时机：搜索无标记；首页只在原内容提交/重绘时采集，失效映射单独变化不更新现有标记。实时更新留给独立修复。
 - vueRendererImports 精确登记 track-list-view.ts 的 TrackList.vue/sync-region.ts 与 TrackList.vue 内的 TrackRow.vue。后者使分P冻结 fixture 依现有登记完整复制子组件；冻结 helper 与发现算法不改。
 - 本批用户单项批准 library-modal-vue.dom.ts 惰性创建测试的四条统计断言仅按 libraryModalBody 宿主筛选，预期仍 0/1，执行次数 1、1、4、1 不变；其他业务断言不改。原阶段 A SHA 留作历史，新冻结基线如下。
-- 最终实测安装前 588、安装后 206；test 提交新增旧实现基线 24，迁入原特征 20；feat 新增 Vue 合约 33（含 25 状态 HTML 对比）。第一提交六个冻结文件在 feat 中逐字节不变。用户 2026-10-13 已确认 B1 手测与 Mac 验证通过，0b4a87e 已本地合并；远程 Windows/macOS CI 待账号恢复后补验。
+- 最终实测安装前 588、安装后 206；test 提交新增旧实现基线 24，迁入原特征 20；feat 新增 Vue 合约 33（含 25 状态 HTML 对比）。第一提交六个冻结文件在 feat 中逐字节不变。用户 2026-10-13 已确认 B1 手测与 Mac 验证通过，0b4a87e 已本地合并；远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 - `tests/dom/library-modal-vue.dom.ts`：Git/LF `af69af6553d774100d2bbef9b9605a8f1f10998a67c5c13a1e4c74182dc88b21`；检出/CRLF `8fc257ceee889ee80ae83ec5a1679feda238f97bd9710930b8741a130363e103`。
 - `tests/dom/tracks-vue.dom.ts`：Git/LF `25ca1c3597f2653caac4b59d4452db7d9716137a36a0bb5e3e4cc2abb19d2b81`；检出/CRLF `2b7db6c44e379e2c5d52d96829afe75ecdd3133ab3d87fd40227432bd3a60568`。
 
 ## B2 收藏与歌单真实 DOM 基线
 
-- B1 已由用户 2026-10-13 确认 Windows 手测、Mac 验证及 Enter/翻页焦点补测通过；4047996、0b4a87e 已本地 fast-forward 合并，master tree 为 3cc5c5765fe172ecbf2866ec506000db283e8128。远程 Windows/macOS CI 待账号恢复后补验。
+- B1 已由用户 2026-10-13 确认 Windows 手测、Mac 验证及 Enter/翻页焦点补测通过；4047996、0b4a87e 已本地 fast-forward 合并，master tree 为 3cc5c5765fe172ecbf2866ec506000db283e8128。远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 - 用户批准拖拽方案 1：源/目标保存业务 key，视觉 class 由只读 props 同步投影；业务 drags/saving、400ms 抑制、保存成功提交与失败保留原顺序保持。不暂停区域投影，不改变交互。
 - test 提交旧实现新增三种列表真实 DOM 基线 25 项；原 library-characterization 九项整体迁入 library-lists-characterization.dom.ts，native list drag handlers 单项迁入 library-drag-null.dom.ts。所有断言原文/参数/次数保持；其他 strict-null-runtime 测试块原文不变。未改共享冻结 helper、不加 sourceSlice 历史例外。
 - 新 helper 编译真实跟踪 UI/Vue 源码，独立 jsdom/可控时钟/事件/RAF/观察器；平台桩只记录调用。拖拽命令桩按 favorites.rs:84–106、playlists.rs:35–57/157–185 的真实返回构造。21 个旧 HTML 状态保存为 library-lists-baseline.json，覆盖空、封面、标记、角标、高亮和文本转义。
@@ -595,7 +612,7 @@ B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF
 
 ## B2 阶段 B 曲目列表迁移完成
 
-- 收藏与歌单曲目复用 TrackList.vue/TrackRow.vue，歌单目录由 PlaylistList.vue 渲染；操作栏作为 C1 已取消后的保留项，共享样式、依赖、Rust 与持久化动作不改。阶段 B 自动验收完成，用户已于 2026-10-13 确认 Windows/Mac 完整手测及 Mac 阶段命令通过，9e97368 已本地 fast-forward 合并；远程 Windows/macOS CI 待账号恢复后补验。
+- 收藏与歌单曲目复用 TrackList.vue/TrackRow.vue，歌单目录由 PlaylistList.vue 渲染；操作栏作为 C1 已取消后的保留项，共享样式、依赖、Rust 与持久化动作不改。阶段 B 自动验收完成，用户已于 2026-10-13 确认 Windows/Mac 完整手测及 Mac 阶段命令通过，9e97368 已本地 fast-forward 合并；远程 CI：02436a5 的 windows-latest 通过、macos-latest 的 Node 测试失败（临时目录真实路径与 CRLF 测试接线）；后续提交按实际 CI 结果登记。
 - 三个投影先比较相关输入，50 次无关提交 update 为 0；收藏 key 为精确 BV + 重复序号，歌单曲目 key 增加歌单 id，卡片 key 为歌单 id。拖拽顺序由 Vue 按 key 移动，业务计时、观察器与状态机仍在控制器。
 - 用户批准源/目标业务 key 与方向驱动拖拽 class，不跨投影保存拖拽行节点；保存中防重、失败保留原顺序、400ms suppressClickUntil、原内容刷新结束拖拽的规则不变。观察器 dataset.pageCountBvid 继续由控制器管理。
 - 删除 B1 的 WeakSet 过渡机制、旧行 factory、全 document 角标/收藏/高亮写入及孤立 escapeText。bindTrackActivation 仅供冻结测试与兼容的保留接口，产品不再调用；它与组件共用激活会话，兼容按钮仅按登记集合更新角标，不恢复全局查询。未取消已脱离行的播放计时器。
@@ -604,3 +621,9 @@ B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF
 - 用户单项批准 library-modal-vue.dom.ts 剩余一条 create/unmount 断言两侧都限定 libraryModalBody；相等语义与 assert 数量不变，旧/新各执行 1 次；其余冻结业务断言不改。以下为新增或获批更新的冻结基线（Git/LF；检出/CRLF）：
 - `tests/dom/library-lists-vue.dom.ts`：`4ba5e29a6a26d8986ff91766a20282dc9162a0d5fc5f6e556a5e15a35c0b2223`；`8209c762fefe973bd91d28f39d3299cccc8404677e19c625fd5d024767a37b4f`。
 - `tests/dom/library-modal-vue.dom.ts`：`06a0f7b4bca551d11eaa9925caa8e6d01061eddfb8b32d54f14173d6185e690b`；`8fa4b4f26548e48a456f8151984bc34290c3748e79abc76488cfffceae9d5083`。
+
+## F2b 列表并入根树
+
+root-lists 保存稳定只读列表模型；main 在原初始化入口安装投影函数，根订阅每次先按快照计算列表再 render，home/search/library 的后置订阅不再驱动列表。track-list-ui 复用原依赖比较、激活会话与行 key；library-ui 保留拖拽、计时器和节点回调，拖拽视觉变化显式刷新根。ListHost 保留原 ul 的属性与空列表 :empty；有内容时才挂载 TrackList/PlaylistList。播放进度100次提交时三类列表组件实际render计数均为0。仅 pages-view 与 library-view 的 createSyncRegion 过渡桥保留到F6。
+
+G0 已获批重建为184/84，Git/LF SHA256 `e216131b2ffb7c3c12d8a7d01b810f32ff576767b842f44ec225b3e286df349a`。真实DOM采集器下F2a为183/83，旧155/70存档于仓库外；批准差异限28条补录监听、onerror登记移位及2个observer目标名称。主JS加载/解析失败时启动模块尚未运行，故障包由Rust约5秒watchdog显示窗口，startup-errors.log记录握手超时，不记录脚本错误。冷入口helper以真实临时目录路径匹配，覆盖macOS的/var与/private/var别名。

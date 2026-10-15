@@ -1,3 +1,4 @@
+import "./root-mount.ts";
 import "./startup-before-main.ts";
 import { initializeMascot } from "./mascot.ts";
 import "./main.ts";

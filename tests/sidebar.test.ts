@@ -112,7 +112,7 @@ function setup(saved?: string | null, faults: { access?: boolean; read?: boolean
       },
     };
   } });
-  vm.runInNewContext(source, { document, window, console: { warn: (...args: unknown[]) => warnings.push(args) } });
+  vm.runInNewContext(source + "\ninitializeSidebar();", { document, window, console: { warn: (...args: unknown[]) => warnings.push(args) } });
   const beforeMount = { width: root.style["--sidebar-width"], collapsed: root.dataset.sidebarCollapsed };
   document.emit("DOMContentLoaded");
   return { root, toggle, handle, window, stored, writes, warnings, beforeMount };

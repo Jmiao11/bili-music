@@ -1,19 +1,16 @@
-import { createSettingsPlatform } from "./settings-adapter.ts";
-import { createApplicationStore } from "./app-state.ts";
-import { invoke } from "./runtime-api.ts";
+import { readApplicationStore } from "./application-store.ts";
+import type { createApplicationStore } from "./app-state.ts";
 import { homeHintInput } from "./player-dom.ts";
 import { refreshHomeRows, renderHomeRows } from "./track-list-ui.ts";
 import { renderHomeSnapshot } from "./home-view.ts";
 import { playListItem, updateQueueUi } from "./playback-core.ts";
 
-let applicationStore: ReturnType<typeof createApplicationStore> | null = null;
+let homeMounted = false;
 
 function getApplicationStore(): ReturnType<typeof createApplicationStore> {
-  if (!applicationStore) {
-    applicationStore = createApplicationStore({
-      settings: createSettingsPlatform(), invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
-      clearTimeout: id => window.clearTimeout(id), report: (level, message, error) => console[level](message, error),
-    });
+  const applicationStore = readApplicationStore();
+  if (!homeMounted) {
+    homeMounted = true;
     let previous: ReturnType<typeof getHomeSnapshot> | null = null;
     const render = (state: ReturnType<ReturnType<typeof createApplicationStore>["getState"]>) => {
       const refreshQueue = renderHomeSnapshot(state.home, previous, (videos, source, skeleton) =>

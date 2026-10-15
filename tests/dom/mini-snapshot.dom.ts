@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { collectBusinessScripts } from "./helpers/module-graph.ts";
-import { loadNativeModules } from "./helpers/native-module-loader.ts";
-import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
+import { collectBusinessScripts } from "../helpers/module-graph.ts";
+import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
+import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import { selectMiniPlayerSnapshot } from "../ui/playback-mini-view.ts";
+import { createApplicationStore } from "../../ui/app-state.ts";
+import { selectMiniPlayerSnapshot } from "../../ui/playback-mini-view.ts";
 
 const create = () => createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
 test("mini snapshot projection preserves displayed track independently of pending queue and media observations", () => {
@@ -45,7 +45,7 @@ test("mini snapshot uses applied accent variant and exposes only approved non-se
 test("mini bridge exposes exactly seven frozen functions backed by actual commands and snapshot projection", async () => {
   const h = await createMiniHostFixture(); h.setTrack();
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../../ui/mini-player-host.ts"), "utf8");
   const ports = vm.runInContext("({ getMiniPlayerHostSnapshot, subscribeMiniPlayerTheme })", h.context);
   const commands = h.context.getPlaybackCommands();
   assert.deepEqual(Object.keys(ports).sort(), ["getMiniPlayerHostSnapshot", "subscribeMiniPlayerTheme"]);
@@ -81,7 +81,7 @@ test("mini default host reports an early command error and uses the bridge after
 });
 
 test("mini host actual classic execution follows the registered bridge and appearance startup", async () => {
-  const ui = path.join(import.meta.dirname, "../ui"), html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
+  const ui = path.join(import.meta.dirname, "../../ui"), html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
   const scripts = [...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)].flatMap(tag => {
     const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag[1]);
     return src ? [{ file: src[1].replace(/^\.\//, ""), module: /\btype\s*=\s*["']module["']/i.test(tag[1]) }] : [];

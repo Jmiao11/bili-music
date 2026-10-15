@@ -158,13 +158,13 @@ function checkDomAssertions(source: string, file: string, html: string) {
   return { assertions, errors };
 }
 
-function checkRepository(root: string) {
+function checkRepository(root: string, mountedHtml?: string) {
   const all: (Assertion & { html: string })[] = [];
   const errors: string[] = [];
   for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => /\.(?:js|ts)$/.test(name))) {
     const file = `ui/${name}`;
     const html = /^mini\.(?:js|ts)$/.test(name) ? "ui/mini.html" : "ui/index.html";
-    const result = checkDomAssertions(fs.readFileSync(path.join(root, file), "utf8"), file, fs.readFileSync(path.join(root, html), "utf8"));
+    const result = checkDomAssertions(fs.readFileSync(path.join(root, file), "utf8"), file, mountedHtml !== undefined && html === "ui/index.html" ? mountedHtml : fs.readFileSync(path.join(root, html), "utf8"));
     all.push(...result.assertions.map((assertion) => ({ ...assertion, html })));
     errors.push(...result.errors);
   }

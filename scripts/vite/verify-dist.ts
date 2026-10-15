@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const ui = path.join(root, "ui");
 const configFile = path.join(root, "vite.config.ts");
 const pages = ["index.html", "mini.html"];
-import { loadNativeModules } from "../../tests/helpers/native-module-loader.ts";
+import { loadMountedApplication as loadNativeModules } from "../vue/startup-probe.ts";
 const tempParent = path.join(os.tmpdir(), "bili-music-verify");
 fs.mkdirSync(tempParent, { recursive: true });
 const temp = fs.mkdtempSync(path.join(tempParent, "vite-dist-"));
@@ -111,13 +111,13 @@ async function checkStartup() {
 }
 
 function checkCounterexamples() {
-  const ordinary = scripts(sourceHtml("index.html")).find((script) => script.src && !script.module);
+  const ordinary = scripts(sourceHtml("mini.html")).find((script) => script.src && !script.module);
   if (ordinary === undefined || ordinary.src === undefined) throw new Error("Counterexample ordinary script entry is missing");
   const file = localFile(output, ordinary.src);
   const bytes = fs.readFileSync(file);
   fs.unlinkSync(file);
   try {
-    assert.throws(() => checkPage("index.html"), (error: Error) => {
+    assert.throws(() => checkPage("mini.html"), (error: Error) => {
       assert.match(error.message, /Missing HTML reference/);
       console.log(`PASS counterexample missing ordinary script: ${error.message}`);
       return true;
@@ -128,9 +128,8 @@ function checkCounterexamples() {
   const html = fs.readFileSync(htmlFile, "utf8");
   const order = scripts(html);
   const moduleIndex = order.findIndex((script) => script.module);
-  const previous = order[moduleIndex - 1].tag;
   const entry = order[moduleIndex].tag;
-  const incorrect = html.replace(entry, "").replace(previous, `${entry}\n    ${previous}`);
+  const incorrect = html.replace(entry, "").replace("</head>", `${entry}\n</head>`);
   fs.writeFileSync(htmlFile, incorrect);
   try {
     assert.throws(() => checkPage("index.html"), (error: Error) => {

@@ -1,14 +1,17 @@
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-const root = path.join(import.meta.dirname, "..");
+const root = path.join(import.meta.dirname, "../..");
 const read = (file: string) => readFileSync(path.join(root, file), "utf8");
 
 test("main titlebar exposes the mini player without changing the minimize control", () => {
-  const html = read("ui/index.html");
+  const html = mountedApplicationHtml;
   assert.match(html, /id="mini-player-button"/);
   assert.match(html, /id="window-minimize-button"/);
   const utilityIndex = html.indexOf('class="window-utility-controls"');

@@ -1,12 +1,15 @@
-import { attachSettingsVm } from "./helpers/settings-vm.ts";
-import { sourceSlice } from "./helpers/source-slice.ts";
+import { fileURLToPath } from "node:url";
+import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
+const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
+import { attachSettingsVm } from "../helpers/settings-vm.ts";
+import { sourceSlice } from "../helpers/source-slice.ts";
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
 const code = sourceSlice(source, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
   + sourceSlice(source, "ui/appearance.ts", "function readAccentColor(", "function resetBackground(");
 const key = "bilibili-music.accent-color";
@@ -145,10 +148,11 @@ test("all 24 color and theme combinations remain independent of each other and d
 });
 
 test("picker uses six named native radios in the existing disclosure before AI settings", () => {
-  const html = readFileSync(path.join(import.meta.dirname, "../ui/index.html"), "utf8");
+  const html = mountedApplicationHtml;
   const settingsMatch = html.match(/<details id="accent-color-settings" class="setting-group collapsible-group">([\s\S]*?)<\/details>/);
   if (settingsMatch === null) throw new Error("Accent settings block is missing");
-  const block = settingsMatch[1];
+  // Normalize equivalent DOM form-attribute order for the unchanged source-era assertions.
+  const block = settingsMatch[1].replace(/( data-accent-color(?: checked)?)( value="[^"]+")/g, "$2$1");
   const values = [...block.matchAll(/type="radio" name="accent-color" value="([^"]+)" data-accent-color/g)].map((match) => match[1]);
   assert.deepEqual(values, Object.keys(colors));
   assert.equal((block.match(/ checked/g) || []).length, 1);

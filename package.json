@@ -5,7 +5,7 @@
     "build": "vite build",
     "check:ui-syntax": "node scripts/check-ui-syntax.ts",
     "verify:dist": "node scripts/vite/verify-dist.ts",
-    "typecheck": "node scripts/typecheck/dom-assertions.ts && node scripts/typecheck/check.ts && node scripts/vue/check.ts",
+    "typecheck": "node scripts/typecheck/dom-assertion-cli.ts && node scripts/typecheck/check.ts && node scripts/vue/check.ts",
     "test:dom": "node scripts/tests/dom.ts"
   },
   "devDependencies": {

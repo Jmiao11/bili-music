@@ -92,7 +92,7 @@ function initializeSidebar() {
     save();
   }
 
-  // This script runs in <head> so saved geometry is applied before the shell paints.
+  // Saved geometry is applied before the root shell mounts.
   render();
   document.addEventListener("DOMContentLoaded", () => {
     const sidebar = (document.querySelector("#sidebar") as HTMLElement);
@@ -147,4 +147,4 @@ function initializeSidebar() {
   }, { once: true });
 }
 
-if (typeof document !== "undefined") initializeSidebar();
+export { initializeSidebar };
