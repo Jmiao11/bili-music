@@ -116,7 +116,7 @@ function navigationContext(disabledCids: Iterable<number>, loopMode = "sequence"
 
 test("manual next and previous skip consecutive disabled pages", () => {
   const { context, state, loads, handlers } = navigationContext([2, 3]);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), context);
   handlers.next();
   assert.equal(state.currentPageIndex, 3);
   handlers.previous();
@@ -350,7 +350,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   context.randomPageRound = { bvid, remaining: [1] };
   context.shuffleToggle = { checked: true, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { change = handler; } };
   context.resetRandomRemaining = () => {};
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "shuffleToggle.addEventListener(\"change\"", "\n}\n", { endAfterStart: true }) + "\n\n", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function initPlaybackModes() {", "\n}\n", { endAfterStart: true, includeEnd: true }) + "\ninitPlaybackModes();" + "\n\n", context);
   if (!change) throw new Error("Shuffle change handler is missing");
   change();
   assert.equal(context.randomPageRound, null);

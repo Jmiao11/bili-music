@@ -1,3 +1,5 @@
+import { installPlaybackCallbacks } from "./root-playback.ts";
+import { getApplicationStore } from "./home.ts";
 function initializeLyrics() {
   "use strict";
 
@@ -40,6 +42,8 @@ function initializeLyrics() {
   let lastTrackKey = "";
   let matchIdleTimer = 0;
   let matchCanIdle = false;
+  const display = getApplicationStore().actions.lyricsDisplay;
+  const manualDraft = { read: () => manualInputElement?.value ?? "", write: (value: string) => { if (manualInputElement) manualInputElement.value = value; } };
 
   function parseLrc(text: unknown) {
     if (typeof text !== "string") return [];
@@ -69,8 +73,7 @@ function initializeLyrics() {
     lines = [];
     lineElements = [];
     lastActiveIndex = -1;
-    linesElement?.replaceChildren();
-    container?.classList.remove("has-lyrics");
+    display.clearLines();
   }
 
   function render(nextLines: LyricsLine[]) {
@@ -79,20 +82,11 @@ function initializeLyrics() {
       return;
     }
 
-    const fragment = document.createDocumentFragment();
-    lineElements = nextLines.map((line, index) => {
-      const element = document.createElement("p");
-      element.className = "lyrics-line";
-      element.dataset.index = String(index);
-      element.textContent = line.text;
-      fragment.append(element);
-      return element;
-    });
     lines = nextLines;
     lastActiveIndex = -1;
-    linesElement.replaceChildren(fragment);
+    display.showLines(nextLines);
+    lineElements = [...linesElement.querySelectorAll<HTMLParagraphElement>(".lyrics-line")];
     linesElement.scrollTop = 0;
-    container.classList.add("has-lyrics");
     updateActiveLine();
   }
 
@@ -115,15 +109,11 @@ function initializeLyrics() {
   function updateOffsetValue() {
     if (!offsetValueElement) return;
     const seconds = currentOffsetMs / 1000;
-    offsetValueElement.textContent = `${seconds > 0 ? "+" : ""}${seconds.toFixed(1)}s`;
+    display.setOffset(`${seconds > 0 ? "+" : ""}${seconds.toFixed(1)}s`);
   }
 
   function updateModeUi() {
-    const isFull = displayMode === "full";
-    linesElement?.classList.toggle("mode-full", isFull);
-    if (modeToggleButton) {
-      modeToggleButton.textContent = isFull ? "同步" : "全文";
-    }
+    display.setMode(displayMode === "full");
   }
 
   function clampOffset(offsetMs: number) {
@@ -180,12 +170,11 @@ function initializeLyrics() {
     const index = activeIndexAt(effective);
     if (index === lastActiveIndex) return;
 
-    lineElements[lastActiveIndex]?.classList.remove("is-active");
     lastActiveIndex = index;
+    display.setActive(index);
     const activeLine = lineElements[index];
     if (!activeLine || !linesElement) return;
 
-    activeLine.classList.add("is-active");
     scrollActiveIntoCenter(linesElement, activeLine);
   }
 
@@ -200,9 +189,7 @@ function initializeLyrics() {
     displayMode = displayMode === "synced" ? "full" : "synced";
     updateModeUi();
     if (displayMode === "full") {
-      lineElements.forEach((element) =>
-        element.classList.remove("is-active"),
-      );
+      display.setActive(-1);
       lastActiveIndex = -1;
       return;
     }
@@ -210,20 +197,19 @@ function initializeLyrics() {
   }
 
   function setPlaceholder(message: string) {
-    if (placeholderElement) placeholderElement.textContent = message;
+    if (placeholderElement) display.setPlaceholder(message);
     showPlaceholder();
   }
 
   function setMatchHint(message: string) {
     if (!matchHintElement) return;
-    matchHintElement.textContent = message;
-    matchHintElement.hidden = !message;
+    display.setHint(message);
   }
 
   function keepMatchVisible() {
     window.clearTimeout(matchIdleTimer);
     matchIdleTimer = 0;
-    matchElement?.classList.remove("is-idle");
+    display.setIdle(false);
   }
 
   function disableMatchIdle() {
@@ -258,41 +244,37 @@ function initializeLyrics() {
         manualRowElement?.hidden &&
         !isMatchInteractionActive()
       ) {
-        matchElement.classList.add("is-idle");
+        display.setIdle(true);
       }
     }, delayMs);
   }
 
   function resetManualSearchUi() {
-    if (manualRowElement) manualRowElement.hidden = true;
-    if (manualInputElement) manualInputElement.value = "";
+    if (manualRowElement) display.setManualHidden(true);
+    manualDraft.write("");
     if (manualResultsElement) {
-      manualResultsElement.hidden = true;
-      manualResultsElement.replaceChildren();
+      display.clearResults();
     }
     if (manualSearchButton) {
-      manualSearchButton.disabled = false;
-      manualSearchButton.textContent = "搜索";
+      display.setManualBusy(false);
     }
   }
 
   function resetMatchUi() {
     disableMatchIdle();
-    if (matchElement) matchElement.hidden = true;
+    if (matchElement) display.setMatchHidden(true);
     setMatchHint("");
     if (candidatesElement) {
-      candidatesElement.hidden = true;
-      candidatesElement.replaceChildren();
+      display.clearCandidates();
     }
     resetManualSearchUi();
   }
 
   function showMatchActions(message: string) {
-    if (matchElement) matchElement.hidden = false;
+    if (matchElement) display.setMatchHidden(false);
     setMatchHint(message);
     if (candidatesElement) {
-      candidatesElement.hidden = true;
-      candidatesElement.replaceChildren();
+      display.clearCandidates();
     }
     resetManualSearchUi();
   }
@@ -324,8 +306,7 @@ function initializeLyrics() {
       return;
     }
 
-    matchElement.hidden = false;
-    candidatesElement.hidden = false;
+    display.setMatchHidden(false);
     const usedKeyword = String(
       result?.usedKeyword ?? result?.used_keyword ?? "",
     ).trim();
@@ -335,34 +316,7 @@ function initializeLyrics() {
         : "请选择匹配的歌词版本",
     );
 
-    const fragment = document.createDocumentFragment();
-    for (const scored of candidates) {
-      const candidate = candidateDetails(scored);
-      if (!candidate.songId || !candidate.name) continue;
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "lyrics-candidate";
-      button.textContent = candidate.singer
-        ? `${candidate.name} - ${candidate.singer}`
-        : candidate.name;
-      button.addEventListener("click", () => {
-        void bindSong(candidate);
-      });
-      fragment.append(button);
-    }
-
-    const rejectButton = document.createElement("button");
-    rejectButton.type = "button";
-    rejectButton.className = "lyrics-candidate lyrics-candidate-none";
-    rejectButton.textContent = "都不是";
-    rejectButton.addEventListener("click", () => {
-      candidatesElement.hidden = true;
-      candidatesElement.replaceChildren();
-      setMatchHint("");
-      setPlaceholder("未自动匹配到歌词");
-    });
-    fragment.append(rejectButton);
-    candidatesElement.replaceChildren(fragment);
+    display.showCandidates(candidates.map(candidateDetails).filter(candidate => candidate.songId && candidate.name));
   }
 
   function showResolvedActions(result: LyricsOutcome | null | undefined) {
@@ -485,11 +439,7 @@ function initializeLyrics() {
 
   function showManualMessage(message: string) {
     if (!manualResultsElement) return;
-    const element = document.createElement("p");
-    element.className = "lyrics-manual-empty";
-    element.textContent = message;
-    manualResultsElement.replaceChildren(element);
-    manualResultsElement.hidden = false;
+    display.showResultMessage(message);
   }
 
   function formatDuration(duration: number) {
@@ -509,44 +459,16 @@ function initializeLyrics() {
       return;
     }
 
-    const fragment = document.createDocumentFragment();
-    for (const candidate of candidates) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "lyrics-manual-result";
-
-      const name = document.createElement("span");
-      name.textContent = candidate.name;
-      button.append(name);
-
+    display.showResults(candidates.map(candidate => {
       const duration = formatDuration(candidate.duration);
-      const details = [
-        candidate.singer ? `- ${candidate.singer}` : "",
-        duration ? `· ${duration}` : "",
-      ].filter(Boolean);
-      if (details.length) {
-        const meta = document.createElement("span");
-        meta.className = "lyrics-manual-result-meta";
-        meta.textContent = details.join(" ");
-        button.append(meta);
-      }
-
-      button.addEventListener("click", () => {
-        if (!currentBvid || currentCid <= 0) {
-          showManualMessage("当前没有可绑定的播放曲目");
-          return;
-        }
-        void bindSong(candidate);
-      });
-      fragment.append(button);
-    }
-    manualResultsElement.replaceChildren(fragment);
-    manualResultsElement.hidden = false;
+      const details = [candidate.singer ? `- ${candidate.singer}` : "", duration ? `· ${duration}` : ""].filter(Boolean);
+      return { ...candidate, metadata: details.join(" ") };
+    }));
   }
 
   async function searchManualSongs() {
     if (manualSearchButton?.disabled) return;
-    const keyword = manualInputElement?.value.trim() ?? "";
+    const keyword = manualDraft.read().trim();
     if (!keyword) {
       showManualMessage("请输入歌名或歌手");
       manualInputElement?.focus();
@@ -562,12 +484,10 @@ function initializeLyrics() {
     const bvid = currentBvid;
     const cid = currentCid;
     if (manualSearchButton) {
-      manualSearchButton.disabled = true;
-      manualSearchButton.textContent = "搜索中…";
+      display.setManualBusy(true);
     }
     if (manualResultsElement) {
-      manualResultsElement.hidden = true;
-      manualResultsElement.replaceChildren();
+      display.clearResults();
     }
     try {
       const result = await invoke("search_lyrics_songs", { keyword });
@@ -579,8 +499,7 @@ function initializeLyrics() {
       showManualMessage("搜索失败，请稍后重试");
     } finally {
       if (isCurrentRequest(version, bvid, cid) && manualSearchButton) {
-        manualSearchButton.disabled = false;
-        manualSearchButton.textContent = "搜索";
+        display.setManualBusy(false);
       }
     }
   }
@@ -604,6 +523,15 @@ function initializeLyrics() {
     }
   }
 
+  installPlaybackCallbacks({
+    bindLyrics: candidate => { void bindSong(candidate); },
+    rejectLyrics: () => { display.clearCandidates(); setMatchHint(""); setPlaceholder("未自动匹配到歌词"); },
+    bindManualLyrics: candidate => {
+      if (!currentBvid || currentCid <= 0) { showManualMessage("当前没有可绑定的播放曲目"); return; }
+      void bindSong(candidate);
+    },
+  });
+
   audio?.addEventListener("timeupdate", updateActiveLine);
   offsetMinusButton?.addEventListener("click", () => adjustOffset(-500));
   offsetPlusButton?.addEventListener("click", () => adjustOffset(500));
@@ -618,14 +546,14 @@ function initializeLyrics() {
       resetManualSearchUi();
       return;
     }
-    manualRowElement.hidden = false;
+    display.setManualHidden(false);
     if (manualInputElement) {
-      manualInputElement.value = String(
+      manualDraft.write(String(
         immersiveTitleElement?.textContent ?? "",
       )
         .replace(/【[^】]*】|\[[^\]]*\]/g, " ")
         .replace(/\s+/g, " ")
-        .trim();
+        .trim());
       manualInputElement.focus();
       manualInputElement.select();
     }

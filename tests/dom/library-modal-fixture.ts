@@ -21,7 +21,7 @@ function deferred() {
 }
 type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown>;
 type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
-type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: typeof import("../../ui/player-dom.ts"); store: Store };
+type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store };
 
 async function fixture() {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
@@ -92,7 +92,7 @@ async function fixture() {
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; export * as nodes from "./player-dom.ts"; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); raf(); await microtasks(); calls.length = 0; platform.length = 0;

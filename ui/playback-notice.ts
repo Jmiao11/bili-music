@@ -1,4 +1,4 @@
-import { playbackNotice, result, resumePlayPauseButton } from "./player-dom.ts";
+import { result, resumePlayPauseButton } from "./player-dom.ts";
 import { getPlaybackMessages, getPlaybackMessagesActions } from "./playback-messages.ts";
 
 const SKIP_NOTICE_DURATION_MS: number = 3200;
@@ -16,7 +16,7 @@ function clearPlaybackNotice(): void {
 
 function positionPlaybackNotice(): void {
   const pauseButton = resumePlayPauseButton.getBoundingClientRect();
-  playbackNotice.style.setProperty("--playback-notice-x", `${pauseButton.left + pauseButton.width / 2}px`);
+  getPlaybackMessagesActions().positionNotice(pauseButton.left + pauseButton.width / 2);
 }
 
 function initPlaybackNotice(): void {

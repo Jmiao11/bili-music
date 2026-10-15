@@ -10,8 +10,6 @@ const sortModeTabs = [...document.querySelectorAll<HTMLButtonElement & { dataset
 
 const searchStatus = document.querySelector<HTMLParagraphElement>("#search-status")!;
 
-const playbackNotice = document.querySelector<HTMLParagraphElement>("#playback-notice")!;
-
 const searchResults = document.querySelector<HTMLUListElement>("#search-results")!;
 
 const homePanel = document.querySelector<HTMLElement>("#view-home")!;
@@ -52,47 +50,13 @@ const homeHintApply = document.querySelector<HTMLButtonElement>("#home-hint-appl
 
 const queueCount = document.querySelector<HTMLSpanElement>("#queue-count")!;
 
-const status = document.querySelector<HTMLParagraphElement>("#status")!;
-
 const result = document.querySelector<HTMLElement>("#result")!;
 
-const thumbnail = document.querySelector<HTMLImageElement>("#thumbnail")!;
-
-const title = document.querySelector<HTMLElement>("#title")!;
-
-const uploader = document.querySelector<HTMLSpanElement>("#uploader")!;
-
-const duration = document.querySelector<HTMLSpanElement>("#duration")!;
-
-const queuePosition = document.querySelector<HTMLSpanElement>("#queue-position")!;
-
 const playerPagesButton = document.querySelector<HTMLButtonElement>("#player-pages-button")!;
-
-const playerPagesGroup = document.querySelector<HTMLSpanElement>(".player-pages-group");
-
-const skipVideoButton = document.querySelector<HTMLButtonElement>("#skip-video-button")!;
-
-const previousButton = document.querySelector<HTMLButtonElement>("#previous-button")!;
-
-const nextButton = document.querySelector<HTMLButtonElement>("#next-button")!;
-
-const loopModeButton = document.querySelector<HTMLButtonElement>("#loop-mode-button")!;
-
-const shuffleToggle = document.querySelector<HTMLInputElement>("#shuffle-toggle")!;
 
 const audio = document.querySelector<HTMLAudioElement>("#audio")!;
 
 const resumePlayPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button")!;
-
-const resumeProgressSlider = document.querySelector<HTMLInputElement>("#progress-slider")!;
-
-const resumeCurrentTimeLabel = document.querySelector<HTMLSpanElement>("#current-time")!;
-
-const immersiveResumeProgressSlider = document.querySelector<HTMLInputElement>("#immersive-progress-slider")!;
-
-const immersiveResumeCurrentTimeLabel = document.querySelector<HTMLSpanElement>("#immersive-current-time")!;
-
-const immersiveResumeDurationLabel = document.querySelector<HTMLSpanElement>("#immersive-duration")!;
 
 const favoritesStatus = document.querySelector<HTMLParagraphElement>("#favorites-status")!;
 
@@ -117,10 +81,6 @@ const createPlaylistButton = document.querySelector<HTMLButtonElement>("#create-
 const renamePlaylistButton = document.querySelector<HTMLButtonElement>("#rename-playlist-button")!;
 
 const deletePlaylistButton = document.querySelector<HTMLButtonElement>("#delete-playlist-button")!;
-
-const favoriteCurrentButton = document.querySelector<HTMLButtonElement>("#favorite-current-button")!;
-
-const immersiveFavoriteButton = document.querySelector<HTMLButtonElement>("#immersive-favorite-button")!;
 
 const libraryModal = document.querySelector<HTMLDivElement>("#library-modal")!;
 
@@ -152,4 +112,4 @@ const pagesModalList = document.querySelector<HTMLUListElement>("#pages-modal-li
 
 const pagesModalClose = document.querySelector<HTMLButtonElement>("#pages-modal-close")!;
 
-export { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, duration, favoriteCurrentButton, favoritesCount, favoritesList, favoritesStatus, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSettings, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, loopModeButton, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playbackNotice, playerPagesButton, playerPagesGroup, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, previousButton, purgeAppearanceStatus, purgeUnavailableTracksButton, queueCount, queuePosition, refreshRankingButton, renamePlaylistButton, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchButton, searchForm, searchKeyword, searchResults, searchStatus, shuffleToggle, skipVideoButton, sortModeTabs, status, thumbnail, title, uploader };
+export { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoritesCount, favoritesList, favoritesStatus, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSettings, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, musicTabs, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, queueCount, refreshRankingButton, renamePlaylistButton, result, resumePlayPauseButton, searchButton, searchForm, searchKeyword, searchResults, searchStatus, sortModeTabs };

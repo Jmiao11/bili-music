@@ -179,6 +179,11 @@
     "../../tests/dom/root-lists.dom.ts",
     "../../tests/dom/render-counter.ts",
     "../../tests/dom/playback-ui-characterization.dom.ts",
-    "../../tests/dom/playback-ui-fixture.ts"
+    "../../tests/dom/playback-ui-fixture.ts",
+    "../../tests/helpers/playback-display-fixture.ts",
+    "../../tests/helpers/playback-root-fixture.ts",
+    "../../tests/helpers/playback-volume-fixture.ts",
+    "../../tests/dom/playback-tree.dom.ts",
+    "../../tests/lyrics-display-state.test.ts"
   ]
 }

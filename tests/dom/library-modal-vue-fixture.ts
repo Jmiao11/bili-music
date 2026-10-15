@@ -21,7 +21,7 @@ function deferred() {
 }
 type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown>;
 type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
-type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: typeof import("../../ui/player-dom.ts"); store: Store };
+type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store };
 
 async function fixture() {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
@@ -96,7 +96,7 @@ async function fixture() {
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; export * as nodes from "./player-dom.ts"; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       if (!id.replaceAll("\\", "/").endsWith("/vue/sync-region.ts")) return;
       return code.replace(/function createSyncRegion[^{]+\{/, match => match + " globalThis.__libraryVueRecords.push({ operation: 'create', host });")

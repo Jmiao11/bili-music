@@ -26,7 +26,7 @@ type Modules = {
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
   core: { updateQueueUi(): void; playListItem(source: string, items: readonly CommandContract.TrackSnapshotInput[], index: number): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
-  nodes: typeof import("../../ui/player-dom.ts"); store: Store;
+  nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store;
 };
 
 async function fixture() {
@@ -116,7 +116,7 @@ async function fixture() {
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts";' + 'export * as library from "./library-ui.ts"; export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; export * as nodes from "./player-dom.ts"; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts";' + 'export * as library from "./library-ui.ts"; export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
       if (file.includes("/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {

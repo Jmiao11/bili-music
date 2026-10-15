@@ -115,7 +115,7 @@ async function fixture() {
     const signature = /function createSyncRegion[^\n]+\{/;
     if (!signature.test(syncSource)) throw Error("Missing real region constructor for call tracing");
     fs.writeFileSync(syncFile, syncSource.replace(signature, "$& globalThis.__pagesFixture.regionCreated();"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; export * as nodes from "./player-dom.ts"; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
     await build({ configFile: false, root, plugins: [vue()], logLevel: "silent", define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } },

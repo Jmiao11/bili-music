@@ -183,7 +183,7 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
       searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
       updateFavoriteButtons() {}, updateLibraryHighlights() {},
     });
-    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function isFavorited("), context);
+    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function updateFavoriteButtons("), context);
     context.updateQueueUi();
     const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
     assert.equal(button.title, expected);

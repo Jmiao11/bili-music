@@ -1,10 +1,27 @@
+import { mountPlaybackFixtureRoot } from "./playback-root-fixture.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 import { afterEach } from "node:test";
+import { projectPlaybackMessages } from "../../ui/playback-messages-view.ts";
 import { createApplicationStore } from "../../ui/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
+
+function mountMessagePort(context: vm.Context, store: ReturnType<typeof createApplicationStore>): void {
+  let previous = store.getState().playbackMessages;
+  store.subscribe(() => {
+    const state = store.getState().playbackMessages, model = projectPlaybackMessages(state);
+    if (state.statusVersion > previous.statusVersion) context.status.textContent = model.status;
+    if (state.notice.version > previous.notice.version) {
+      if (model.kind !== null) context.playbackNotice.dataset.kind = model.kind;
+      context.playbackNotice.textContent = model.notice;
+      context.playbackNotice.classList[model.visible ? "add" : "remove"]("is-visible");
+    }
+    if (model.x !== null) context.playbackNotice.style?.setProperty("--playback-notice-x", `${model.x}px`);
+    previous = state;
+  });
+}
 
 const fixtureErrors: unknown[] = [];
 afterEach(() => assert.deepEqual(fixtureErrors.splice(0), [], "Message fixture reported an unexpected error"));
@@ -29,8 +46,8 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
     getRequestSnapshot: () => store.getState().playbackRequest,
   });
   const read = (file: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file);
-  vm.runInContext(read("playback-messages-view.ts"), context);
   vm.runInContext(read("playback-messages.ts"), context);
+  mountMessagePort(context, store);
   beforeMount?.(store);
   context.getPlaybackMessagesActions();
   vm.runInContext(read("playback-notice.ts"), context);
@@ -45,7 +62,9 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
 function wirePlaybackMessagesContext(context: vm.Context): void {
   context.status ??= context.playbackStatus ?? context.document?.querySelector?.("#status");
   context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
-  for (const file of ["playback-messages-view.ts", "playback-messages.ts"]) {
+  const store = context.getApplicationStore();
+  if (!context.__renderFixtureRoot) mountPlaybackFixtureRoot(context, store);
+  for (const file of ["playback-messages.ts"]) {
     vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file), context);
   }
 }

@@ -1,7 +1,8 @@
+import { installPlaybackCallbacks } from "./root-playback.ts";
 import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from "./page-selection.ts";
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "./track-utils.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, duration, favoriteCurrentButton, immersiveFavoriteButton, immersiveResumeCurrentTimeLabel, immersiveResumeDurationLabel, immersiveResumeProgressSlider, loopModeButton, nextButton, playerPagesButton, playerPagesGroup, previousButton, queueCount, queuePosition, result, resumeCurrentTimeLabel, resumePlayPauseButton, resumeProgressSlider, searchForm, searchKeyword, shuffleToggle, thumbnail, title, uploader } from "./player-dom.ts";
+import { audio, queueCount, result, resumePlayPauseButton, searchForm, searchKeyword } from "./player-dom.ts";
 import type { PageSelection } from "./track-list-model.ts";
 import type { SearchPageCommit } from "./search-state.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "./player-state.ts";
@@ -89,21 +90,7 @@ function currentAudioCacheCid() {
 }
 
 function updatePlayerPagesButton() {
-  const pageCount = getSessionSnapshot().currentPages.length;
-  const hasCurrent =
-    getQueueSnapshot().currentIndex >= 0 &&
-    getQueueSnapshot().currentIndex < getQueueSnapshot().queue.length;
-  playerPagesButton.hidden = !hasCurrent || pageCount <= 1;
-  if (!playerPagesButton.hidden) {
-    const currentPage = Math.min(getQueueSnapshot().currentPageIndex + 1, pageCount);
-    playerPagesButton.textContent = `P${currentPage}/${pageCount}`;
-    playerPagesButton.title = "查看分P";
-    playerPagesButton.setAttribute(
-      "aria-label",
-      `查看分P，当前第 ${currentPage} 个，共 ${pageCount} 个`,
-    );
-  }
-  if (playerPagesGroup) playerPagesGroup.hidden = playerPagesButton.hidden;
+  // shortcut: retain legacy fixture entry points until their F6 replacement; the root owns DOM projection.
 }
 
 async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInput, requestVersion: number) {
@@ -212,26 +199,8 @@ function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, pos
     Math.min(Number(positionSeconds) || 0, totalSeconds || Number(positionSeconds) || 0),
   );
   const sliderMax = Math.max(totalSeconds, safePosition);
-  const progress = `${sliderMax > 0 ? (safePosition / sliderMax) * 100 : 0}%`;
-
-  thumbnail.src = displayThumbnailUrl(track.thumbnailUrl);
   getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: track.title, uploader: track.uploader, thumbnailUrl: displayThumbnailUrl(track.thumbnailUrl) });
-  title.textContent = track.title;
-  uploader.textContent = track.uploader;
-  duration.textContent = formatDuration(totalSeconds);
-  for (const slider of [resumeProgressSlider, immersiveResumeProgressSlider]) {
-    if (!slider) continue;
-    slider.max = String(sliderMax);
-    slider.value = String(safePosition);
-    slider.style.setProperty("--progress", progress);
-  }
-  if (resumeCurrentTimeLabel) resumeCurrentTimeLabel.textContent = formatDuration(safePosition);
-  if (immersiveResumeCurrentTimeLabel) {
-    immersiveResumeCurrentTimeLabel.textContent = formatDuration(safePosition);
-  }
-  if (immersiveResumeDurationLabel) {
-    immersiveResumeDurationLabel.textContent = formatDuration(totalSeconds);
-  }
+  getApplicationStore().actions.playbackDisplay.restoreProgress(safePosition, sliderMax, formatDuration(totalSeconds));
   setPlaybackStatus("已恢复上次播放，点击播放继续。");
 }
 
@@ -302,48 +271,11 @@ function appendSearchResults(videos: readonly CommandContract.SearchVideo[], pag
 }
 
 function updateQueueUi() {
-  const hasCurrent =
-    getQueueSnapshot().currentIndex >= 0 &&
-    getQueueSnapshot().currentIndex < getQueueSnapshot().queue.length;
   queueCount.textContent = `${getSearchSnapshot().results.length} 首`;
-  queuePosition.textContent = hasCurrent
-    ? `♪${getQueueSnapshot().currentIndex + 1}/${getQueueSnapshot().queue.length}`
-    : `♪0/${getQueueSnapshot().queue.length}`;
-  previousButton.disabled = false;
-  nextButton.disabled = false;
-
-  const loopMode = LOOP_MODES.find(
-    (candidate) => candidate.id === getQueueSnapshot().loopMode,
-  );
-  loopModeButton.dataset.loopMode = getQueueSnapshot().loopMode;
-  if (!loopMode) return;
-  loopModeButton.title = getQueueSnapshot().loopMode === "sequence" ? "关闭循环" : loopMode.label;
-  loopModeButton.setAttribute("aria-label", loopModeButton.title);
-  loopModeButton.classList.toggle("is-active", getQueueSnapshot().loopMode !== "sequence");
-  shuffleToggle.checked = getQueueSnapshot().shuffle;
-
-  updateFavoriteButtons();
-}
-
-function isFavorited(bvid: string) {
-  return getLibrarySnapshot().favoriteBvids.has(String(bvid ?? "").toLowerCase());
 }
 
 function updateFavoriteButtons() {
-  const current = currentPlayableTrack();
-  for (const button of [favoriteCurrentButton, immersiveFavoriteButton]) {
-    if (!button) {
-      continue;
-    }
-    button.disabled = !current;
-    button.dataset.favoriteBvid = current?.bvid ?? "";
-    const favorited = current ? isFavorited(current.bvid) : false;
-    button.classList.toggle("is-favorited", favorited);
-    button.textContent = button === immersiveFavoriteButton
-      ? `${favorited ? "♥" : "♡"} ${favorited ? "已收藏" : "收藏"}`
-      : favorited ? "♥" : "♡";
-    button.title = favorited ? "取消收藏当前歌曲" : "收藏当前歌曲";
-  }
+  // shortcut: retain the legacy projection trigger until F6; the root owns favorite controls.
 }
 
 function playCurrentVideoPage(page: CommandContract.VideoPage) {
@@ -641,11 +573,8 @@ async function loadCurrentTrack({
       thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
       durationSeconds: info.durationSeconds,
     };
-    thumbnail.src = displayThumbnailUrl(visibleTrack.thumbnailUrl);
     getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: visibleTrack.title, uploader: visibleTrack.uploader, thumbnailUrl: displayThumbnailUrl(visibleTrack.thumbnailUrl) });
-    title.textContent = visibleTrack.title;
-    uploader.textContent = visibleTrack.uploader;
-    duration.textContent = formatDuration(visibleTrack.durationSeconds);
+    getApplicationStore().actions.playbackDisplay.setTrackDuration(formatDuration(visibleTrack.durationSeconds));
     emitCurrentTrackChanged();
     (page?.cid ?? getSessionSnapshot().currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? getSessionSnapshot().currentPages[0].cid } }));
     refreshTrackLoudness();
@@ -1060,14 +989,9 @@ audio.addEventListener("playing", () => {
 }
 
 function initPlaybackModes() {
-loopModeButton.addEventListener("click", () => {
-  getQueueActions().cycleLoop(LOOP_MODES);
-  updateQueueUi();
-});
-
-shuffleToggle.addEventListener("change", () => {
-  getQueueActions().changeShuffle(shuffleToggle.checked, Math.random);
-  updateQueueUi();
+installPlaybackCallbacks({
+  loop: () => { getQueueActions().cycleLoop(LOOP_MODES); updateQueueUi(); },
+  shuffle: checked => { getQueueActions().changeShuffle(checked, Math.random); updateQueueUi(); },
 });
 }
 

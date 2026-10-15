@@ -1,3 +1,4 @@
+import { mountPlaybackFixtureRoot } from "./playback-root-fixture.ts";
 import vm from "node:vm";
 import fs from "node:fs";
 import path from "node:path";
@@ -44,6 +45,7 @@ function createSessionContext(seed: vm.Context, options?: vm.CreateContextOption
       else { context.__sessionValue = value; vm.runInContext(field + " = __sessionValue", context); delete context.__sessionValue; }
       observed.set(field, signature(value));
     }
+    context.__renderFixtureRoot?.();
   }
   for (const field of fields) if (field !== "currentPages" && field !== "lastEmittedTrackIdentity" && !(field in seed)) seed[field] = structuredClone(store.getState().playbackSession[field]);
   function boundary(original: Function): Function {
@@ -93,7 +95,7 @@ function createSessionContext(seed: vm.Context, options?: vm.CreateContextOption
   if (typeof seed.getApplicationStore !== "function") seed.getApplicationStore = () => store;
   context = createRequestContext(new Proxy(seed, { defineProperty(target, key, descriptor) {
     if (descriptor.value && typeof descriptor.value === "object") observeTarget(descriptor.value);
-    if (typeof descriptor.value === "function" && !/^get(?:Queue|Request|Session)(?:Snapshot|Actions)$/.test(String(key))) descriptor.value = boundary(descriptor.value);
+    if (typeof descriptor.value === "function" && key !== "__renderFixtureRoot" && !/^get(?:Queue|Request|Session)(?:Snapshot|Actions)$/.test(String(key))) descriptor.value = boundary(descriptor.value);
     return Reflect.defineProperty(target, key, descriptor);
   } }), options);
   // Explicit VM ports use the actual controller factory; no button click is fabricated.
@@ -116,7 +118,7 @@ function createSessionContext(seed: vm.Context, options?: vm.CreateContextOption
   // Explicit controller wiring: legacy nodes are output only; message writes use real actions.
   context.status ??= context.playbackStatus ?? context.document?.querySelector?.("#status");
   context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
-  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/playback-messages-view.ts"), "utf8"), "ui/playback-messages-view.ts"), context);
+  mountPlaybackFixtureRoot(context, store);
   vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/playback-messages.ts"), "utf8"), "ui/playback-messages.ts"), context);
   return context;
 }

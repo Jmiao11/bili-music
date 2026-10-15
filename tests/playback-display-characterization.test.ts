@@ -55,7 +55,7 @@ async function fixture() {
   context.resumePlayPauseButton = node("#play-pause-button"); context.initPlaybackResume();
   context.previousButton = node("#previous-button"); context.nextButton = node("#next-button");
   const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
-  vm.runInContext(main.slice(main.indexOf('previousButton.addEventListener("click"'), main.indexOf("initPlaybackResume();")), context);
+  vm.runInContext(main.slice(main.indexOf('installPlaybackCallbacks({'), main.indexOf("initPlaybackResume();")), context);
   vm.runInContext(erased.slice(erased.indexOf('window.addEventListener("bilibili-music-trackchange", (event) => {', erased.indexOf("function startAppearance()")), erased.indexOf("initializeAccentColor();", erased.indexOf("function startAppearance()"))), context);
   vm.runInContext("updateProgress(0); updatePlayPauseButton(); registerMediaSessionActionHandlers();", context);
   const audio = node("#audio"), flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };

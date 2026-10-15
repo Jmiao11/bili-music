@@ -6,7 +6,7 @@ import { createApplicationStore } from "../ui/app-state.ts";
 import { createPlaybackDisplayActions, initialPlaybackDisplayState } from "../ui/playback-display-state.ts";
 import { createStateStore } from "../ui/state-store.ts";
 import { createMediaAdapter, createMediaSessionAdapter } from "../ui/media-adapter.ts";
-import { renderPlaybackDisplaySnapshot } from "../ui/playback-display-view.ts";
+import { renderPlaybackDisplaySnapshot } from "./helpers/playback-display-fixture.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
 const media = { currentTime: 12.5, duration: 100, paused: false, ended: false, playbackRate: 1 };

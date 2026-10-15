@@ -41,7 +41,7 @@ async function createMiniHostFixture() {
   vm.runInContext(favorite.slice(favorite.indexOf("async function toggleFavorite("), favorite.indexOf("function closeLibraryModal(")), h.context);
   const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
   h.context.favoriteCurrentButton = h.node("#favorite-current-button");
-  const favoriteLine = main.split(/\r?\n/).find(line => line.startsWith('favoriteCurrentButton?.addEventListener("click"'));
+  const favoriteLine = main.split(/\r?\n/).find(line => line.startsWith('installPlaybackCallbacks({ favorite:'));
   if (!favoriteLine) throw Error("Favorite handler is missing");
   vm.runInContext(favoriteLine, h.context);
   const root = h.context.document.documentElement, channels = new Map([['--accent-r', '251'], ['--accent-g', '114'], ['--accent-b', '153']]);

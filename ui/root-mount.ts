@@ -1,4 +1,5 @@
 import App from "./components/App.vue";
+import { playbackCallbacks, projectRootPlayback } from "./root-playback.ts";
 import { h, render } from "vue";
 import { initializeStartupPlatform } from "./startup-platform.ts";
 import { initializeApplicationStore, readApplicationStore } from "./application-store.ts";
@@ -7,13 +8,13 @@ import { installRootRefresh, projectRootLists } from "./root-lists.ts";
 import { createSettingsPlatform } from "./settings-adapter.ts";
 import { invoke } from "./runtime-api.ts";
 
-const rootCallbacks = Object.freeze({});
+
 
 function renderRoot(snapshot: ApplicationSnapshot): void {
   const host = document.querySelector("#app");
   if (!host) throw new Error("Application root host is missing");
   const lists = projectRootLists(snapshot);
-  render(h(App, { snapshot, callbacks: rootCallbacks, lists }), host);
+  render(h(App, { snapshot, callbacks: playbackCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
 }
 function mountApplication(): void {
   initializeStartupPlatform();

@@ -87,7 +87,7 @@ UI impeccable 系统级视觉重构已完成并验收：首页、搜索页、收
 - 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。每批不再要求用户在 Mac 手动运行命令，由最新功能分支的双平台 CI 代替；Mac 界面手测仅在跨平台阶段回归，或本批改变窗口、键盘、输入法、滚动等平台相关行为时进行。不把同机 darwin 配置构建当作 Mac 实测。
 - 未修改的冻结文件只用 git diff 证明，不再输出哈希清单；只有本批修改或新建的冻结文件报告 SHA。
 - 修改业务断言原文或含义仍须停下申请；环境接线重建（真实 App 挂载、挂载后 SFC 扫描、冻结 helper 的纯环境接线）已预先授权，业务断言原文、预期值、次数必须不变，只用一张短表登记。内部结构/模块登记按对应意图更新；不能删除业务覆盖或让断言空跑。不做常规全量断言执行次数统计。
-- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批184/84（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
+- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批184/102（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 - 变异取消固定数量；只对新写的异步竞态、启动可靠性、安全边界逻辑，每处1～2个，在仓库外副本实施并恢复，以对应行为测试抓到非等价变化。
 - canary 只在修改对应守卫、检查脚本或测试分组算法时运行该守卫的 canary，不随普通测试登记或组件迁移扩大范围。
 - 专项严格验证只针对启动可靠性（watchdog/隐藏启动/首帧）、Rust、播放状态机与取流、数据持久化、安全隐私（API Key/cookie/日志脱敏）的风险点本身；不扩大成全套阶段验收。普通测试登记、fixture 扩展、组件迁移不触发。
@@ -215,7 +215,7 @@ E1 已在 master 94b6a6f 本地合并；全应用Windows/Mac完整回归安排�
 4. 子组件只收必要切片、标量和固定回调；不向普通子组件传整个根快照，不在 render 中复制不变切片、重建 rows/回调或动态 slot。按原依赖/投影版本缓存，实测无关提交的 render 次数和节点身份。组件不访问 window/DOM 查询/Tauri/invoke/actions；必要节点经类型化 ref 回调交给控制器。
 5. audio 只创建一次，禁止条件卸载、随曲目变 key 或重绑媒体监听。业务事件种类、请求身份、trackchange 接收阶段、媒体监听、四项 IPC listen 与跨窗同步相对顺序保持；每区域一次性交接 DOM 与事件所有权，不保留双入口。
 6. 设置、沉浸页、歌词常驻，保留隐藏期间数据和 DOM 投影。hidden/is-open/aria-hidden/transitionend、焦点和滚动阶段保留，不统一改 v-if。草稿经领域读写端口，组字/BV/恢复/分页阶段不变；API Key 只为临时动作参数，不进入快照、日志、普通投影或跨窗 payload。
-7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前获批184/84（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
+7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前获批184/102（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 8. 环境接线重建预先授权：fixture挂载真实App、静态HTML扫描改为挂载后SFC扫描、冻结helper纯接线，只要业务断言原文/预期值/次数不变，直接实施并用短表登记文件、旧/新接线、受影响测试。不做常规次数统计；不能让断言空跑。业务断言变化、G0重建、未单项授权Tauri/capability/Rust及已发现断言变0仍停下申请。
 9. 新根模块/SFC/冷入口/类型项目精确登记，不放宽strict、类型擦除、组件边界和默认导入白名单。守卫/检查脚本/分组算法变更只跑对应canary；专项严格验证只覆盖实际风险点，普通登记、fixture扩展、组件迁移不触发。
 10. hidden、Rust ready/watchdog、head 退役分批验证故障。F2a 已单项授权 main visible:false（含 macOS 同步）、main_window_ready 与约5秒一次性 watchdog、相关前端启动握手/契约登记；无前端 show 新权限，其他配置与业务不改，G0 仍单项申请。后续批次、业务断言、合并/发布不因此自动获权；每批最多3提交，验收→仓库外报告→用户手测并明确允许合并→核对后本地 fast-forward。
@@ -301,10 +301,23 @@ B1 test 提交冻结文件（Git/LF；检出/CRLF）：
 
 - app首个导入root-mount，同步h/render App后才允许player-dom和控制器求值；该挂载模块是精确登记的启动副作用入口。startup-platform在挂载前原样应用平台/侧栏状态；head inline和sidebar普通标签已退役。
 - 唯一store由无DOM的application-store组合模块创建，立即安装根订阅；home首次getter只安装首页订阅及首投影。audio在index.html宿主外，分P列表和资料库内容保持静态宿主到F6。
-- App/LegacyShell中的旧控制器节点保持无动态绑定，静态外壳组件不另建事件监听。环境fixture允许挂载真实根，业务断言保持；当前G0获批184/84，采集器改为真实DOM；同采集器F2a为183/83，旧155/70仓库外存档。
+- App/LegacyShell中的旧控制器节点保持无动态绑定，静态外壳组件不另建事件监听。环境fixture允许挂载真实根，业务断言保持；当前G0获批184/102，采集器改为真实DOM；同采集器F2a为183/83，旧155/70仓库外存档。
 
 ## F2b 列表所有权
 
 首页榜单/推荐、搜索、收藏、歌单曲目及歌单目录由 App → LegacyShell → ListHost → TrackList/PlaylistList 渲染；TrackRow 子树保留原激活会话、ref 与观察器契约。root-lists 的稳定模型在根 render 前同步计算，后置业务订阅不再更新列表；依赖比较继续复用 track-list-ui。拖拽视觉通过同步根刷新保持旧时机。track-list-view 的独立区域删除，只有 pages-view 与 library-view 的内容桥保留到F6；本节替代历史B1/B2的独立区域接线描述，业务冻结基线不变。
 
 F3 长期约定：<audio id="audio"> 永久保留在 index.html 的 Vue 宿主之外，不能由组件创建、替换或重复登记媒体监听。
+
+
+## F3 播放显示所有权
+
+App 树常驻 PlaybackBar、PlaybackNotice、ImmersivePlayer 与 LyricsDisplay；根订阅先投影稳定的播放控件模型，再以公开 render 同步更新。组件仅收显示快照与稳定控制器回调，不订阅 store，不接触 audio、IPC 或播放命令。root-playback 只转交回调，控制器仍在原初始化阶段安装业务处理；原生 capture 恢复播放拦截保持。播放控件不再由旧 renderer 写入；playback-display-view 只提供纯显示投影与 Media Session 委托，playback-messages-view 只提供纯消息投影。
+
+播放栏/沉浸页的进度、按钮、音量、元数据、收藏/分P状态与消息由 Vue 独占写入。媒体播放、暂停、seek、音量及 Media Session 副作用仍由现有 adapter/commands 和控制器执行。沉浸页始终挂载，hidden、is-open、aria-hidden、RAF、transitionend 与关闭焦点阶段保持；audio 永久在 index.html 的 Vue 宿主外，不得重建或重复登记监听。
+
+歌词新增 lyricsDisplay 显示切片；获取、匹配、候选选择、请求版本、偏移计算与保存仍在 lyrics.ts。控制器提交显示后同步读取真实歌词行的几何信息并滚动，保留隐藏期间的投影和相同行不重复滚动的规则。手动搜索输入不绑定 value，以 manualDraft 端口读写，焦点/select 与 scrollTop/scrollTo 仍属控制器。
+
+两项 appearance sourceSlice 自动模块注入例外已由显式 VM 接线替代，登记清空；冻结业务断言保持。安装前 fixture 的原生输出端口复用组件的纯投影，安装后基线挂载真实 App。F3 的 10 项旧实现真实 DOM 基线及 playback-ui-baseline.json 保持；受影响 helper 的环境接线按预先授权登记。旧切片测试仍需的 updatePlayerPagesButton/updateFavoriteButtons 保留为无 DOM 写入的兼容触发入口，F6 随 fixture 收口删除。仅分P列表、资料库内容仍使用 createSyncRegion，F6 收口；迷你窗保持既有命令与同步路径。F3 G0 已获批184/102，仅27条监听前移至Vue首次挂载；受保护投影完全相同。
+
+列表行模型按既有 key 和显示字段复用，回调由行会话稳定转交；纯进度提交不渲染列表/行，高亮切换每个列表最多旧、新两行，收藏与分P元数据变化只渲染受影响行；内容或来源替换允许重新渲染。真实 DOM 测试按每次提交登记改变切片与行渲染次数。

@@ -1,3 +1,4 @@
+import { attachPlaybackVolumeVm } from "./helpers/playback-volume-fixture.ts";
 import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -29,6 +30,7 @@ function fixture(saved: [string, string][] = []) {
     invoke: (_command: string, args: { key: string }) => new Promise<number | null>((resolve, reject) => queries.push({ resolve, reject, key: args.key })),
     requestAnimationFrame(callback: (time: number) => void) { frames.set(++serial, callback); return serial; }, cancelAnimationFrame(id: number) { cancelled.push(id); frames.delete(id); },
   });
+  attachPlaybackVolumeVm(context);
   vm.runInContext(code + startup, context);
   return { context, audio, playerState, stored, writes, frames, cancelled, queries,
     frame(time: number) { const next = frames.entries().next().value; if (!next) throw Error("Missing frame"); frames.delete(next[0]); next[1](time); },

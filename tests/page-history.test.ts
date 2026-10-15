@@ -12,7 +12,7 @@ const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "ut
 const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
 const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
 const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const slice = (start: string, end: string, options?: Parameters<typeof sourceSlice>[4]) => sourceSlice(start.startsWith("function") || start.startsWith("shuffleToggle") ? core : source, start.startsWith("function") || start.startsWith("shuffleToggle") ? "ui/playback-core.ts" : "ui/main.ts", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
+const slice = (start: string, end: string, options?: Parameters<typeof sourceSlice>[4]) => sourceSlice(start.startsWith("function") || start === "function initPlaybackModes() {" ? core : source, start.startsWith("function") || start === "function initPlaybackModes() {" ? "ui/playback-core.ts" : "ui/main.ts", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
 
 test("queue switches remember the departed cid and pass a history cid to track loading", () => {
   const loads: { startPage: { cid: number }; randomStartPage?: boolean }[] = [];
@@ -113,7 +113,7 @@ test("random previous skips page retreat while sequential previous keeps it", ()
     playPrevious: () => calls.push("history"),
     clearPendingResume() {}, clearPlaybackNotice() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"'), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice('installPlaybackCallbacks({', 'initPlaybackResume();'), context);
   handlers.previous();
   assert.deepEqual(calls, ["history"]);
   state.shuffle = false;
@@ -145,8 +145,9 @@ test("turning shuffle off removes page history and previous no longer jumps forw
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "function initPlaybackSearch(")
-    + slice('previousButton.addEventListener("click"', 'nextButton.addEventListener("click"')
-    + slice('shuffleToggle.addEventListener("change"', "\n}\n", { endAfterStart: true }), context);
+    + slice('installPlaybackCallbacks({', 'initPlaybackResume();')
+    + slice('function initPlaybackModes() {', "\n}\n", { endAfterStart: true, includeEnd: true }) + '\ninitPlaybackModes();', context);
+  context.shuffleToggle.checked = false;
   handlers.shuffle();
   assert.equal(state.shuffle, false);
   assert.equal(state.history.length, 2);

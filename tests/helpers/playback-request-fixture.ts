@@ -63,7 +63,7 @@ function createRequestContext(seed: vm.Context, options?: vm.CreateContextOption
   seed.getRequestSnapshot = () => store.getState().playbackRequest;
   seed.getRequestActions = () => store.actions.playbackRequest;
   context = createQueueContext(new Proxy(seed, { defineProperty(target, key, descriptor) {
-    if (typeof descriptor.value === "function" && !/^get(?:Queue|Request)(?:Snapshot|Actions)$/.test(String(key))) descriptor.value = boundary(descriptor.value);
+    if (typeof descriptor.value === "function" && key !== "__renderFixtureRoot" && !/^get(?:Queue|Request)(?:Snapshot|Actions)$/.test(String(key))) descriptor.value = boundary(descriptor.value);
     return Reflect.defineProperty(target, key, descriptor);
   } }), options);
   return context;

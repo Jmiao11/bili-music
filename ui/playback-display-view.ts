@@ -1,31 +1,37 @@
 import type { PlaybackDisplaySnapshot, PlaybackSessionTrack } from "./playback-display-state.ts";
+import { formatPlaybackTime } from "./playback-display-state.ts";
+import type { PlaybackQueueSnapshot } from "./playback-queue-state.ts";
+import type { PlaybackSessionState } from "./playback-session-state.ts";
+import type { DeepReadonly } from "./state-store.ts";
 
-type PlaybackDisplayDom = { progressSlider: HTMLInputElement; immersiveProgressSlider: HTMLInputElement;
-  currentTimeLabel: HTMLElement; durationLabel: HTMLElement; immersiveCurrentTimeLabel: HTMLElement; immersiveDurationLabel: HTMLElement;
-  playPauseButton: HTMLButtonElement; immersivePlayPauseButton: HTMLButtonElement };
-function renderPlaybackDisplaySnapshot(state: PlaybackDisplaySnapshot, previous: PlaybackDisplaySnapshot | null, dom: PlaybackDisplayDom, bindings: {
-  formatTime(value: number): string;
+function projectPlaybackControls(queue: PlaybackQueueSnapshot, session: DeepReadonly<PlaybackSessionState>, favorites: ReadonlySet<string>) {
+  const current = queue.queue[queue.currentIndex], bvid = current?.bvid ?? "";
+  const favorited = favorites.has(bvid.toLowerCase());
+  const pageCount = session.currentPages.length, page = Math.min(queue.currentPageIndex + 1, pageCount);
+  const pagesHidden = !current || pageCount <= 1;
+  const loopLabel = queue.loopMode === "sequence" ? "关闭循环" : queue.loopMode === "list" ? "列表循环" : queue.loopMode === "single" ? "单曲循环" : null;
+  return { bvid, hasCurrent: Boolean(current), favorited, favoriteDisabled: !bvid, favoriteTitle: favorited ? "取消收藏当前歌曲" : "收藏当前歌曲",
+    favoriteText: favorited ? "♥" : "♡", immersiveFavoriteText: favorited ? "♥ 已收藏" : "♡ 收藏",
+    queuePosition: `♪${current ? queue.currentIndex + 1 : 0}/${queue.queue.length}`, pagesHidden,
+    pagesText: pagesHidden ? "" : `P${page}/${pageCount}`, pagesLabel: pagesHidden ? "查看分P" : `查看分P，当前第 ${page} 个，共 ${pageCount} 个`,
+    loopLabel, loopMode: queue.loopMode, loopActive: queue.loopMode !== "sequence", shuffle: queue.shuffle };
+}
+
+function projectPlaybackProgress(state: PlaybackDisplaySnapshot) {
+  const position = state.presentation.restoredPosition ?? state.progress.position;
+  const max = state.presentation.restoredPosition !== null ? state.presentation.restoredMax : state.view.progressVersion ? state.progress.duration : 100;
+  return { max, value: position, progress: `${max > 0 ? position / max * 100 : 0}%`,
+    styled: state.view.progressVersion > 0 || state.presentation.restoredPosition !== null,
+    currentTime: formatPlaybackTime(position), duration: state.presentation.duration };
+}
+
+function renderPlaybackMediaSession(state: PlaybackDisplaySnapshot, previous: PlaybackDisplaySnapshot | null, bindings: {
   setTrack(track: PlaybackSessionTrack | null): void;
   setPlaybackState(state: "none" | "paused" | "playing"): void;
   setPosition(position: NonNullable<PlaybackDisplaySnapshot["position"]>): void;
 }): void {
-  if (state.view.progressVersion && state.view.progressVersion !== previous?.view.progressVersion) {
-    const { position, duration: mediaDuration } = state.progress;
-    const progress = `${mediaDuration > 0 ? (position / mediaDuration) * 100 : 0}%`;
-    for (const slider of [dom.progressSlider, dom.immersiveProgressSlider]) {
-      slider.max = String(mediaDuration || 0); slider.value = String(position); slider.style.setProperty("--progress", progress);
-    }
-    dom.currentTimeLabel.textContent = bindings.formatTime(position); dom.durationLabel.textContent = bindings.formatTime(mediaDuration);
-    dom.immersiveCurrentTimeLabel.textContent = bindings.formatTime(position); dom.immersiveDurationLabel.textContent = bindings.formatTime(mediaDuration);
-  }
-  if (state.view.buttonVersion && state.view.buttonVersion !== previous?.view.buttonVersion) {
-    for (const button of [dom.playPauseButton, dom.immersivePlayPauseButton]) {
-      button.dataset.playing = String(state.isPlaying); button.setAttribute("aria-label", state.isPlaying ? "暂停" : "播放");
-    }
-  }
   if (state.view.trackVersion && state.view.trackVersion !== previous?.view.trackVersion) bindings.setTrack(state.track);
   if (state.view.sessionVersion && state.view.sessionVersion !== previous?.view.sessionVersion) bindings.setPlaybackState(state.sessionState);
   if (state.view.positionVersion && state.view.positionVersion !== previous?.view.positionVersion && state.position) bindings.setPosition(state.position);
 }
-export { renderPlaybackDisplaySnapshot };
-export type { PlaybackDisplayDom };
+export { projectPlaybackControls, projectPlaybackProgress, renderPlaybackMediaSession };

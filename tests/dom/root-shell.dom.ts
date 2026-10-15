@@ -29,14 +29,14 @@ test("root mounts before all player DOM queries and preserves controller writes 
     });
     const loaded = await import(pathToFileURL(path.join(output, "compiled/root.js")).href) as { nodes: Record<string, Element | Element[] | NodeListOf<Element> | null>; readApplicationStore(): ApplicationStore; setRootPlaylistList(rows: readonly never[]): void };
     for (const [name, node] of Object.entries(loaded.nodes)) assert.ok(node !== null, "Missing early DOM handle: " + name);
-    const doc = dom.window.document, title = doc.querySelector<HTMLElement>("#title")!, input = doc.querySelector<HTMLInputElement>("#search-keyword")!, host = doc.querySelector<HTMLElement>("#library-modal-body")!;
+    const doc = dom.window.document, title = doc.querySelector<HTMLElement>("#placeholder-title")!, input = doc.querySelector<HTMLInputElement>("#search-keyword")!, host = doc.querySelector<HTMLElement>("#library-modal-body")!;
     title.classList.add("controller-class"); title.setAttribute("data-controller", "kept"); title.textContent = "控制器内容";
     const child = doc.createElement("button"); child.textContent = "控制器子节点"; host.append(child); input.value = "搜索草稿未提交";
     const store = loaded.readApplicationStore();
     for (let i = 0; i < 1000; i++) {
       loaded.setRootPlaylistList([]);
       store.actions.library.setModalName("unrelated" + i);
-      assert.equal(doc.querySelector("#title"), title);
+      assert.equal(doc.querySelector("#placeholder-title"), title);
       assert.equal(title.textContent, "控制器内容");
       assert.equal(title.classList.contains("controller-class"), true);
       assert.equal(title.getAttribute("data-controller"), "kept");

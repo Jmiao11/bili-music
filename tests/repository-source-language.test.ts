@@ -50,3 +50,16 @@ test("source language guard rejects js/cjs/mjs and excludes only generated direc
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("ESM guard rejects new createRequire bridges and the retired source slice position", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-require-canary-"));
+  try {
+    const helper = path.join(root, "tests/helpers/source-slice.ts"); fs.mkdirSync(path.dirname(helper), { recursive: true });
+    fs.writeFileSync(helper, fs.readFileSync(path.join(import.meta.dirname, "helpers/source-slice.ts")));
+    assert.doesNotThrow(() => checkEsmSources(root));
+    fs.writeFileSync(helper, "\n".repeat(15) + "const oldBridge = createRequire(import.meta.url);\n");
+    assert.throws(() => checkEsmSources(root), /Unregistered createRequire: tests\/helpers\/source-slice\.ts:16/);
+    fs.writeFileSync(helper, ""); fs.writeFileSync(path.join(root, "extra.ts"), 'import { createRequire } from "node:module";');
+    assert.throws(() => checkEsmSources(root), /Unregistered createRequire: extra\.ts:1/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

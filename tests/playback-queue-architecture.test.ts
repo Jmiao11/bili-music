@@ -36,7 +36,7 @@ test("queue ownership removes migrated request-state fields and rejects direct a
 test("queue state obtains randomness and preferences from arguments and queue renderer remains readonly", () => {
   const root = path.join(import.meta.dirname, "../ui"), state = maskCommentsAndStrings(fs.readFileSync(path.join(root, "playback-queue-state.ts"), "utf8"));
   assert.doesNotMatch(state, /\bMath\s*\.\s*random\b|\bDate\b|\bperformance\b|\blocalStorage\b/);
-  const core = fs.readFileSync(path.join(root, "playback-core.ts"), "utf8"), render = core.slice(core.indexOf("function updateQueueUi()"), core.indexOf("function isFavorited("));
+  const core = fs.readFileSync(path.join(root, "playback-core.ts"), "utf8"), render = core.slice(core.indexOf("function updateQueueUi()"), core.indexOf("function updateFavoriteButtons("));
   assert.doesNotMatch(maskCommentsAndStrings(render), /\b(?:getQueueActions|invoke)\b|\.actions\b/);
   assertQueueSnapshotReads(render);
 });

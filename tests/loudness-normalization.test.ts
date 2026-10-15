@@ -1,3 +1,4 @@
+import { attachPlaybackVolumeVm } from "./helpers/playback-volume-fixture.ts";
 import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -22,8 +23,8 @@ const cacheListenerCode = sourceSlice(core, "ui/playback-core.ts", "audio.addEve
 const endedHandlerCode = sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
-const applyNormalizationCode = sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
-const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "loudnessNormalizationToggle.addEventListener(\"change\"", "progressSlider.addEventListener(\"pointerdown\"");
+const applyNormalizationCode = "let playbackSettingsMounted = false, playbackSettingsMedia = null;\n" + sourceSlice(appearance, "ui/appearance.ts", "function getPlaybackSettingsActions(", "function startAppearance()") + sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
+const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "loudnessNormalizationToggle.addEventListener(\"change\"", "getPlaybackMedia().subscribe(\"timeupdate\"");
 
 type Query = { command: string; args: Record<string, unknown>; resolve(value: unknown): void; reject(reason?: unknown): void };
 type Animation = { callbacks: Map<number, (timestamp: number) => void>; cancelled: number[]; nextId: number; now: number; runNext(now: number): number };
@@ -90,6 +91,7 @@ function setup(stored = new Map(), { controlledAnimation = false } = {}) {
     invoke: (command: string, args: Record<string, unknown>) => new Promise<unknown>((resolve, reject) => queries.push({ command, args, resolve, reject })),
     requestAnimationFrame, cancelAnimationFrame,
   });
+  attachPlaybackVolumeVm(context);
   vm.runInContext(code, context);
   vm.runInContext(cacheListenerCode, context);
   vm.runInContext(endedHandlerCode, context);
@@ -124,6 +126,7 @@ function setupLoudnessDialogToggle(checked: boolean) {
     console: { warn() {} },
     showLoudnessNormalizationDialog: () => calls.push("dialog"),
   });
+  attachPlaybackVolumeVm(context);
   vm.runInContext(
     `let loudnessNormalizationEnabled = false;\n${applyNormalizationCode}\n${loudnessToggleListeners}`,
     context,

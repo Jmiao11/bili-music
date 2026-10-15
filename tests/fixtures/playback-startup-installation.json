@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 84,
+  "firstTrackchange": 102,
   "sequence": [
     {
       "action": "window-set",
@@ -13,6 +13,168 @@
       "options": {
         "once": true
       }
+    },
+    {
+      "action": "listen",
+      "target": "#close-immersive-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-previous-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-play-pause-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-next-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-bilibili-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-favorite-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-add-playlist-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-player",
+      "type": "transitionend",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-player",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-immersive-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#loop-mode-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#previous-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#play-pause-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#next-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#shuffle-toggle",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#player-pages-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#skip-video-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-bilibili-bar-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#favorite-current-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#add-playlist-current-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#volume-slider",
+      "type": "input",
+      "options": null
     },
     {
       "action": "listen",
@@ -181,30 +343,6 @@
     },
     {
       "action": "listen",
-      "target": "#player-pages-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#skip-video-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#previous-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#next-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "#play-pause-button",
       "type": "click",
       "options": true
@@ -315,36 +453,6 @@
       "action": "listen",
       "target": "window",
       "type": "beforeunload",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#loop-mode-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#shuffle-toggle",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#favorite-current-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-favorite-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-add-playlist-button",
-      "type": "click",
       "options": null
     },
     {
@@ -704,30 +812,6 @@
     },
     {
       "action": "listen",
-      "target": "#open-immersive-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#close-immersive-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-player",
-      "type": "transitionend",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-player",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "window",
       "type": "keydown",
       "options": null
@@ -740,54 +824,6 @@
     },
     {
       "action": "listen",
-      "target": "#play-pause-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-play-pause-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-previous-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-next-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#open-bilibili-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#open-bilibili-bar-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#add-playlist-current-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#volume-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "#loudness-normalization-toggle",
       "type": "change",
       "options": null
@@ -795,42 +831,6 @@
     {
       "action": "listen",
       "target": "#loudness-normalization-toggle",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#progress-slider",
-      "type": "pointerdown",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-progress-slider",
-      "type": "pointerdown",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#progress-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-progress-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#progress-slider",
-      "type": "change",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#immersive-progress-slider",
       "type": "change",
       "options": null
     },

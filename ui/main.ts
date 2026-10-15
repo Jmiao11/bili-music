@@ -1,6 +1,7 @@
+import { installPlaybackCallbacks } from "./root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "./search-state.ts";
 import { invoke } from "./runtime-api.ts";
-import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoriteCurrentButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, immersiveFavoriteButton, libraryModal, musicTabs, nextButton, pagesModal, pagesModalClose, pagesModalRestoreAll, playerPagesButton, previousButton, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, skipVideoButton, sortModeTabs } from "./player-dom.ts";
+import { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, homeHintApply, homeHintInput, homeModeTabs, homeRankingError, homeSetupSettings, libraryModal, musicTabs, pagesModal, pagesModalClose, pagesModalRestoreAll, purgeUnavailableTracksButton, refreshRankingButton, renamePlaylistButton, searchKeyword, searchResults, sortModeTabs } from "./player-dom.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "./player-state.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "./playback-notice.ts";
 import { initPlaybackDiagnostics } from "./playback-diagnostics.ts";
@@ -30,15 +31,11 @@ searchResults.addEventListener("scroll", () => {
 
 initPastedBvPages();
 
-playerPagesButton?.addEventListener("click", openCurrentPagesModal);
-skipVideoButton.addEventListener("click", () => {
-  if (playNext()) {
-    clearPendingResume();
-    clearPlaybackNotice();
-  }
+installPlaybackCallbacks({
+  pages: () => openCurrentPagesModal(),
+  skip: () => { if (playNext()) { clearPendingResume(); clearPlaybackNotice(); } },
+  previous: () => { getPlaybackCommands().previous(); }, next: () => { getPlaybackCommands().next(); },
 });
-previousButton.addEventListener("click", () => { getPlaybackCommands().previous(); });
-nextButton.addEventListener("click", () => { getPlaybackCommands().next(); });
 initPlaybackResume();
 
 audio.addEventListener("ended", (event) => {
@@ -86,9 +83,7 @@ window.addEventListener("beforeunload", savePlaybackState);
 
 initPlaybackModes();
 
-favoriteCurrentButton?.addEventListener("click", () => toggleFavorite());
-immersiveFavoriteButton?.addEventListener("click", () => toggleFavorite());
-document.querySelector<HTMLButtonElement>("#immersive-add-playlist-button")?.addEventListener("click", () => choosePlaylistAndAdd());
+installPlaybackCallbacks({ favorite: () => { toggleFavorite(); }, addPlaylistImmersive: () => { choosePlaylistAndAdd(); } });
 createPlaylistButton?.addEventListener("click", createPlaylist);
 document.querySelector<HTMLButtonElement>("#import-playlist-button")?.addEventListener("click", importFavoritePlaylist);
 renamePlaylistButton?.addEventListener("click", renameSelectedPlaylist);

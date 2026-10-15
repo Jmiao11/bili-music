@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import PlaybackBar from "./PlaybackBar.vue";
+import ImmersivePlayer from "./ImmersivePlayer.vue";
+import PlaybackNotice from "./PlaybackNotice.vue";
+import type { ApplicationSnapshot } from "../application-store.ts";
+import type { PlaybackCallbacks, PlaybackControls } from "../root-playback.ts";
 import ListHost from "./ListHost.vue";
 import type { RootLists } from "../root-lists.ts";
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
-defineProps<{ lists: RootLists }>();
+defineProps<{ lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
     <div class="dynamic-background" aria-hidden="true">
@@ -156,150 +161,9 @@ defineProps<{ lists: RootLists }>();
       </main>
     </div>
 
-    <section id="immersive-player" class="immersive-player" aria-label="沉浸播放页" aria-hidden="true" hidden>
-      <div class="immersive-backdrop" data-close-immersive="true"></div>
-      <div class="immersive-sheet panel" role="dialog" aria-modal="true" aria-labelledby="immersive-title">
-        <header class="immersive-header">
-          <span>正在播放</span>
-          <button id="close-immersive-button" class="small-button quiet" type="button">收起</button>
-        </header>
-
-        <div class="immersive-content">
-          <div class="immersive-art">
-            <img id="immersive-cover" alt="当前歌曲封面" referrerpolicy="no-referrer" />
-            <img id="immersive-reflection" alt="" aria-hidden="true" referrerpolicy="no-referrer" />
-          </div>
-
-          <div class="immersive-track">
-            <h2 id="immersive-title">尚未播放</h2>
-            <p id="immersive-uploader">—</p>
-          </div>
-
-          <div class="lyrics-pane">
-            <div id="lyrics-match" class="lyrics-match" hidden>
-              <p id="lyrics-match-hint" class="lyrics-match-hint"></p>
-              <div id="lyrics-candidates" class="lyrics-candidates"></div>
-              <div class="lyrics-match-actions">
-                <button id="lyrics-match-manual" class="small-button quiet" type="button">手动匹配</button>
-                <button id="lyrics-match-rematch" class="small-button quiet" type="button">重新匹配</button>
-              </div>
-              <div id="lyrics-manual-row" class="lyrics-manual-row" hidden>
-                <input id="lyrics-manual-input" type="text" placeholder="搜索歌名手动匹配，如：晴天 周杰伦" />
-                <button id="lyrics-manual-search" class="small-button" type="button">搜索</button>
-              </div>
-              <div id="lyrics-manual-results" class="lyrics-manual-results" hidden></div>
-            </div>
-
-            <div class="immersive-lyrics" aria-label="歌词">
-              <div id="lyrics-lines" class="lyrics-lines"></div>
-              <p id="lyrics-placeholder" class="lyrics-placeholder">暂无歌词</p>
-            </div>
-          </div>
-
-          <div class="lyrics-controls" aria-label="歌词控制">
-            <span class="lyrics-controls-label">歌词校准</span>
-            <button id="lyrics-offset-minus" class="small-button quiet" type="button" aria-label="歌词提前 0.5 秒">−0.5s</button>
-            <span id="lyrics-offset-value" class="lyrics-offset-value">0.0s</span>
-            <button id="lyrics-offset-plus" class="small-button quiet" type="button" aria-label="歌词延后 0.5 秒">+0.5s</button>
-            <button id="lyrics-mode-toggle" class="small-button quiet" type="button">全文</button>
-          </div>
-
-          <div class="immersive-controls">
-            <div class="transport-controls" aria-label="沉浸播放控制">
-              <button id="immersive-previous-button" class="icon-button" type="button" aria-label="上一首">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6Zm3 7 9-7v14Z" /></svg>
-              </button>
-              <button id="immersive-play-pause-button" class="play-button" type="button" aria-label="播放">
-                <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.6-6.4a1 1 0 0 0 0-1.7l-9.6-6.4A1 1 0 0 0 8 5.6Z" /></svg>
-                <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
-              </button>
-              <button id="immersive-next-button" class="icon-button" type="button" aria-label="下一首">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2ZM15 12 6 5v14Z" /></svg>
-              </button>
-            </div>
-
-            <div class="timeline immersive-timeline">
-              <span id="immersive-current-time">0:00</span>
-              <input id="immersive-progress-slider" type="range" min="0" max="100" value="0" step="0.01" aria-label="沉浸播放进度" />
-              <span id="immersive-duration">0:00</span>
-            </div>
-
-            <button id="open-bilibili-button" class="secondary-button" type="button">在 B站打开</button>
-            <button id="immersive-favorite-button" class="secondary-button favorite-current-button" type="button" aria-label="收藏当前歌曲">♡ 收藏</button>
-            <button id="immersive-add-playlist-button" class="secondary-button" type="button">+ 加入歌单</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <p id="playback-notice" class="playback-notice" role="status" aria-live="polite"></p>
-
-    <footer id="result" class="player-bar panel" aria-label="当前播放">
-      <div class="now-playing">
-        <button id="open-immersive-button" class="cover-button" type="button" aria-label="打开沉浸播放页">
-          <img id="thumbnail" alt="视频封面" width="54" height="54" referrerpolicy="no-referrer" />
-        </button>
-        <div class="track-copy">
-          <strong id="title">尚未播放</strong>
-          <span id="uploader">—</span>
-        </div>
-      </div>
-
-      <div class="transport-area">
-        <div class="transport-controls" aria-label="播放控制">
-          <button id="loop-mode-button" class="mode-button icon-mode" type="button" data-loop-mode="sequence" aria-label="关闭循环" title="关闭循环">
-            <svg class="icon-repeat" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h8.6l-2.3-2.3 1.4-1.4L19.4 8l-4.7 4.7-1.4-1.4L15.6 9H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5Zm10 10H8.4l2.3 2.3-1.4 1.4L4.6 16l4.7-4.7 1.4 1.4L8.4 15H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5Z" /></svg>
-            <svg class="icon-repeat-one" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10.6l-2.3-2.3 1.4-1.4L21.4 6l-4.7 4.7-1.4-1.4L17.6 7H7a3 3 0 0 0-3 3v3H2v-3a5 5 0 0 1 5-5Zm10 14H6.4l2.3 2.3-1.4 1.4L2.6 18l4.7-4.7 1.4 1.4L6.4 17H17a3 3 0 0 0 3-3v-3h2v3a5 5 0 0 1-5 5ZM10 10l1-1h2v6h-2v-4h-1Z" /></svg>
-          </button>
-          <button id="previous-button" class="icon-button" type="button" aria-label="上一首">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6Zm3 7 9-7v14Z" /></svg>
-          </button>
-          <button id="play-pause-button" class="play-button" type="button" aria-label="播放">
-            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.6-6.4a1 1 0 0 0 0-1.7l-9.6-6.4A1 1 0 0 0 8 5.6Z" /></svg>
-            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
-          </button>
-          <button id="next-button" class="icon-button" type="button" aria-label="下一首">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2ZM15 12 6 5v14Z" /></svg>
-          </button>
-          <label class="shuffle-control" aria-label="随机播放">
-            <input id="shuffle-toggle" type="checkbox" />
-            <span title="随机播放">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.6 4H21v3.4h-2V7.2l-4.1 4.1-1.4-1.4L17.4 6H17.6ZM3 7h3.1c1.5 0 2.9.6 3.9 1.7l1 1.1-1.4 1.4-1-1.1A3.4 3.4 0 0 0 6.1 9H3Zm13.6 10H17.4l-3.9-3.9 1.4-1.4 4.1 4.1V14h2v3.4H17.6ZM3 15h3.1c1 0 1.9-.4 2.5-1.1l7-7 1.4 1.4-7 7A5.4 5.4 0 0 1 6.1 17H3Z" /></svg>
-            </span>
-          </label>
-        </div>
-
-        <div class="timeline">
-          <span id="current-time">0:00</span>
-          <input id="progress-slider" type="range" min="0" max="100" value="0" step="0.01" aria-label="播放进度" />
-          <span id="duration">0:00</span>
-        </div>
-      </div>
-
-      <div class="right-tools">
-        <span class="player-pages-group" hidden>
-          <button id="player-pages-button" class="page-count-badge player-pages-button" type="button" title="查看分P" aria-label="查看分P" hidden></button>
-          <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本次合集" aria-label="跳过本次合集，播放下一首">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 6l7 6-7 6zM11 6l7 6-7 6zM18 6h2v12h-2z" /></svg>
-          </button>
-        </span>
-        <span id="queue-position" class="queue-position">0 / 0</span>
-        <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></svg>
-        </button>
-        <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲">♡</button>
-        <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" disabled>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6Z" /></svg>
-        </button>
-        <label class="volume-control" aria-label="音量">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9Zm12.5 6.5a5 5 0 0 0 0-7l1.4-1.4a7 7 0 0 1 0 9.8Z" /></svg>
-          <input id="volume-slider" type="range" min="0" max="1" value="1" step="0.01" />
-        </label>
-      </div>
-
-      <p id="status" class="player-status" role="status"></p>
-
-    </footer>
+    <ImmersivePlayer :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
+    <PlaybackNotice :messages="snapshot.playbackMessages" />
+    <PlaybackBar :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
     <div id="mascot-stage" aria-label="小黑咪">
       <div id="mascot-slot" aria-hidden="true"></div>

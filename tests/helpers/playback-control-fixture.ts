@@ -1,3 +1,5 @@
+import { renderPlaybackDisplaySnapshot } from "./playback-display-fixture.ts";
+import type { PlaybackCallbacks } from "../../ui/root-playback.ts";
 import { createSessionContext } from "./playback-session-fixture.ts";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,10 +41,36 @@ async function createPlaybackControlFixture() {
   const invoke = async (command: string) => { invocations.push(command); return null; };
   const session = { metadata: null as unknown, playbackState: "none", setPositionState(value: unknown) { positions.push(JSON.parse(JSON.stringify(value))); }, setActionHandler(name: string, callback: (details: Record<string, number>) => void) { handlers.set(name, callback); } };
   const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} });
+  const installPlaybackCallbacks = (callbacks: Partial<PlaybackCallbacks>) => {
+    const bindings: [keyof PlaybackCallbacks, string, string][] = [
+      ["toggle", "play-pause-button", "click"], ["toggleImmersive", "immersive-play-pause-button", "click"],
+      ["previous", "previous-button", "click"], ["next", "next-button", "click"],
+      ["previousImmersive", "immersive-previous-button", "click"], ["nextImmersive", "immersive-next-button", "click"],
+      ["volume", "volume-slider", "input"], ["favorite", "favorite-current-button", "click"],
+    ];
+    for (const [key, id, event] of bindings) {
+      const callback = callbacks[key];
+      if (callback) node("#" + id).addEventListener(event, () => Reflect.apply(callback, undefined, key === "volume" ? [node("#" + id).value] : []));
+    }
+    for (const id of ["progress-slider", "immersive-progress-slider"]) {
+      if (callbacks.seekStart) node("#" + id).addEventListener("pointerdown", callbacks.seekStart);
+      if (callbacks.preview) node("#" + id).addEventListener("input", () => callbacks.preview!(node("#" + id).value));
+      if (callbacks.seek) node("#" + id).addEventListener("change", () => callbacks.seek!(node("#" + id).value));
+    }
+  };
+  let previousDisplay = store.getState().playbackDisplay;
+  store.subscribe(state => {
+    renderPlaybackDisplaySnapshot(state.playbackDisplay, previousDisplay, {
+      progressSlider: node("#progress-slider"), immersiveProgressSlider: node("#immersive-progress-slider"),
+      currentTimeLabel: node("#current-time"), durationLabel: node("#duration"), immersiveCurrentTimeLabel: node("#immersive-current-time"), immersiveDurationLabel: node("#immersive-duration"),
+      playPauseButton: node("#play-pause-button"), immersivePlayPauseButton: node("#immersive-play-pause-button"),
+    } as unknown as Parameters<typeof renderPlaybackDisplaySnapshot>[2], { formatTime: value => { const seconds = Math.floor(value) || 0; return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`; }, setTrack() {}, setPlaybackState() {}, setPosition() {} });
+    previousDisplay = state.playbackDisplay;
+  });
   const context = createSessionContext({ document: { documentElement: node("root"), activeElement: focused, querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke }, event: { listen: async (name: string, handler: (event: { payload: string }) => void) => { registration.push(name); events.set(name, handler); return () => {}; } } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
     navigator: { mediaSession: session }, MediaMetadata: class { constructor(data: object) { Object.assign(this, data); } },
-    getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
+    installPlaybackCallbacks, openCurrentPagesModal() {}, getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
     pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
     playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.
@@ -58,7 +86,7 @@ async function createPlaybackControlFixture() {
   context.resumePlayPauseButton = node("#play-pause-button"); context.initPlaybackResume();
   context.previousButton = node("#previous-button"); context.nextButton = node("#next-button");
   const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
-  vm.runInContext(main.slice(main.indexOf('previousButton.addEventListener("click"'), main.indexOf("initPlaybackResume();")), context);
+  vm.runInContext(main.slice(main.indexOf('installPlaybackCallbacks({'), main.indexOf("initPlaybackResume();")), context);
   vm.runInContext(erased.slice(erased.indexOf('window.addEventListener("bilibili-music-trackchange", (event) => {', erased.indexOf("function startAppearance()")), erased.indexOf("initializeAccentColor();", erased.indexOf("function startAppearance()"))), context);
   vm.runInContext("updateProgress(0); updatePlayPauseButton(); registerMediaSessionActionHandlers(); initializeTaskbarControls(); initializeGlobalShortcutControls();", context);
   const audio = node("#audio"), flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };

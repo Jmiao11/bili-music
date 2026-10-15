@@ -137,7 +137,7 @@ test('manual boundary preserves pending resume; successful page change clears st
   c.nextButton = { addEventListener: (_: unknown, fn: () => void) => { handlers.next = fn; } };
   c.retreatPageWithinCurrentBv = () => false;
   c.advancePageWithinCurrentBv = () => false;
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "previousButton.addEventListener(\"click\"", "initPlaybackResume();"), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), c);
   handlers.previous(); handlers.next();
   assert.deepEqual(pendingResume, { positionSeconds: 42 });
   c.advancePageWithinCurrentBv = () => true;

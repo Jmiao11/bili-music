@@ -1,6 +1,7 @@
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type Unlisten = Awaited<ReturnType<TauriEventApi["listen"]>>;
 
+import { installPlaybackCallbacks } from "./root-playback.ts";
 import { getMascotApi } from "./mascot.ts";
 import { createPlaybackCommands } from "./playback-commands.ts";
 import { effectivePlaybackVolume } from "./playback-settings-state.ts";
@@ -9,14 +10,14 @@ import { normalizeSettingsAccent } from "./settings-state.ts";
 import { readSettingsPreference } from "./settings-adapter.ts";
 import { readShuffleCollectionPrefs } from "./playback-policy.ts";
 import { clearPlaybackNotice } from "./playback-notice.ts";
-import { getApplicationStore } from "./home.ts";
 import type { SettingsSnapshot } from "./settings-state.ts";
 
+import { getApplicationStore } from "./home.ts";
 import { choosePlaylistAndAdd } from "./library-ui.ts";
-import { advancePageWithinCurrentBv, clearPendingResume, currentPlayableTrack, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog } from "./playback-core.ts";
+import { advancePageWithinCurrentBv, clearPendingResume, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog } from "./playback-core.ts";
 import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsShortcut, renderSettingsSnapshot } from "./settings-view.ts";
 import { renderPlaybackSettingsSnapshot } from "./playback-settings-view.ts";
-import { renderPlaybackDisplaySnapshot } from "./playback-display-view.ts";
+import { renderPlaybackMediaSession } from "./playback-display-view.ts";
 import { setPlaybackStatus } from "./playback-messages.ts";
 
 const { invoke: invokeAppearance } = window.__TAURI__.core;
@@ -81,29 +82,8 @@ const shortcutRecordButtons = [...document.querySelectorAll<HTMLButtonElement & 
 const shortcutClearButtons = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { shortcutClear: ShortcutAction } }>("[data-shortcut-clear]")];
 
 const playerAudio = document.querySelector<HTMLAudioElement>("#audio")!;
-const playPauseButton = document.querySelector<HTMLButtonElement>("#play-pause-button")!;
-const progressSlider = document.querySelector<HTMLInputElement>("#progress-slider")!;
-const currentTimeLabel = document.querySelector<HTMLSpanElement>("#current-time")!;
-const durationLabel = document.querySelector<HTMLSpanElement>("#duration")!;
 const openImmersiveButton = document.querySelector<HTMLButtonElement>("#open-immersive-button")!;
 const immersivePlayer = document.querySelector<HTMLElement>("#immersive-player")!;
-const closeImmersiveButton = document.querySelector<HTMLButtonElement>("#close-immersive-button")!;
-const immersiveCover = document.querySelector<HTMLImageElement>("#immersive-cover")!;
-const immersiveReflection = document.querySelector<HTMLImageElement>("#immersive-reflection")!;
-const immersiveTitle = document.querySelector<HTMLHeadingElement>("#immersive-title")!;
-const immersiveUploader = document.querySelector<HTMLParagraphElement>("#immersive-uploader")!;
-const immersivePreviousButton = document.querySelector<HTMLButtonElement>("#immersive-previous-button")!;
-const immersiveNextButton = document.querySelector<HTMLButtonElement>("#immersive-next-button")!;
-const immersivePlayPauseButton = document.querySelector<HTMLButtonElement>("#immersive-play-pause-button")!;
-const immersiveProgressSlider = document.querySelector<HTMLInputElement>("#immersive-progress-slider")!;
-const immersiveCurrentTimeLabel = document.querySelector<HTMLSpanElement>("#immersive-current-time")!;
-const immersiveDurationLabel = document.querySelector<HTMLSpanElement>("#immersive-duration")!;
-const openBilibiliButton = document.querySelector<HTMLButtonElement>("#open-bilibili-button")!;
-const openBilibiliBarButton = document.querySelector<HTMLButtonElement>("#open-bilibili-bar-button")!;
-const addPlaylistCurrentButton = document.querySelector<HTMLButtonElement>("#add-playlist-current-button")!;
-const previousButtonForImmersive = document.querySelector<HTMLButtonElement>("#previous-button")!;
-const nextButtonForImmersive = document.querySelector<HTMLButtonElement>("#next-button")!;
-const volumeSlider = document.querySelector<HTMLInputElement>("#volume-slider")!;
 const loudnessNormalizationToggle = document.querySelector<HTMLInputElement>("#loudness-normalization-toggle")!;
 
 let playbackDisplayMounted = false;
@@ -258,23 +238,6 @@ async function initializeShortcutSettings() {
 
 
 
-function formatPlaybackTime(value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    return "0:00";
-  }
-  const totalSeconds = Math.floor(value);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-    : `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-function updateRangeProgress(slider: HTMLInputElement, percent: string) {
-  slider.style.setProperty("--progress", percent);
-}
-
 function getPlaybackDisplayActions() {
   const store = getApplicationStore();
   if (!playbackDisplayMounted) {
@@ -283,8 +246,7 @@ function getPlaybackDisplayActions() {
     const render = () => {
       const state = store.getState().playbackDisplay;
       if (state === previous) return;
-      renderPlaybackDisplaySnapshot(state, previous, { progressSlider, immersiveProgressSlider, currentTimeLabel, durationLabel, immersiveCurrentTimeLabel, immersiveDurationLabel, playPauseButton, immersivePlayPauseButton }, {
-        formatTime: formatPlaybackTime,
+      renderPlaybackMediaSession(state, previous, {
         setTrack: track => withMediaSession(session => createMediaSessionAdapter(session, init => new MediaMetadata(init)).setTrack(track)),
         setPlaybackState: state => withMediaSession(session => createMediaSessionAdapter(session, init => new MediaMetadata(init)).setPlaybackState(state)),
         setPosition: position => withMediaSession(session => createMediaSessionAdapter(session, init => new MediaMetadata(init)).setPosition(position)),
@@ -486,19 +448,6 @@ function initializeGlobalShortcutControls() {
 }
 
 function syncImmersiveTrack() {
-  const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
-  immersiveTitle.textContent = currentTrack.title || "尚未播放";
-  immersiveUploader.textContent = currentTrack.uploader || "—";
-  openBilibiliButton.disabled = !currentTrack.bvid;
-  openBilibiliBarButton.disabled = !currentTrack.bvid;
-  addPlaylistCurrentButton.disabled = !currentPlayableTrack();
-  if (currentTrack.thumbnailUrl) {
-    immersiveCover.src = currentTrack.thumbnailUrl;
-    immersiveReflection.src = currentTrack.thumbnailUrl;
-  } else {
-    immersiveCover.removeAttribute("src");
-    immersiveReflection.removeAttribute("src");
-  }
   updateProgress();
 }
 
@@ -509,10 +458,9 @@ function openImmersive() {
     return;
   }
   syncImmersiveTrack();
-  immersivePlayer.hidden = false;
+  getPlaybackDisplayActions().showImmersive();
   requestAnimationFrame(() => {
-    immersivePlayer.classList.add("is-open");
-    immersivePlayer.setAttribute("aria-hidden", "false");
+    getPlaybackDisplayActions().setImmersiveOpen(true);
   });
 }
 
@@ -520,8 +468,7 @@ function closeImmersive() {
   if (immersivePlayer.contains(document.activeElement)) {
     openImmersiveButton.focus({ preventScroll: true });
   }
-  immersivePlayer.classList.remove("is-open");
-  immersivePlayer.setAttribute("aria-hidden", "true");
+  getPlaybackDisplayActions().setImmersiveOpen(false);
 }
 
 function syncMascotPickerSelection() {
@@ -767,10 +714,7 @@ function getPlaybackSettingsActions() {
       const state = store.getState().playbackSettings;
       renderPlaybackSettingsSnapshot(state, previous, {
         setMediaVolume: volume => updateEffectiveVolume(volume),
-        setVolumeControl: volume => {
-          volumeSlider.value = String(volume);
-          updateRangeProgress(volumeSlider, `${volume * 100}%`);
-        },
+        setVolumeControl: () => {},
         setNormalizationControl: enabled => { loudnessNormalizationToggle.checked = enabled; },
       });
       previous = state;
@@ -880,17 +824,14 @@ importDataButton.addEventListener("click", async () => {
   importDataButton.disabled = false;
 });
 
-openImmersiveButton.addEventListener("click", openImmersive);
-closeImmersiveButton.addEventListener("click", closeImmersive);
-immersivePlayer.addEventListener("transitionend", (event) => {
-  if (event.target === immersivePlayer && !immersivePlayer.classList.contains("is-open")) {
-    immersivePlayer.hidden = true;
-  }
-});
-immersivePlayer.addEventListener("click", (event: MouseEvent) => {
-  if ((event.target as HTMLElement).dataset.closeImmersive === "true") {
-    closeImmersive();
-  }
+installPlaybackCallbacks({
+  openImmersive, closeImmersive,
+  immersiveTransition: event => {
+    if (event.target === immersivePlayer && !immersivePlayer.classList.contains("is-open")) getPlaybackDisplayActions().hideImmersive();
+  },
+  immersiveBackdrop: event => {
+    if ((event.target as HTMLElement).dataset.closeImmersive === "true") closeImmersive();
+  },
 });
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
@@ -908,43 +849,27 @@ window.addEventListener("bilibili-music-trackchange", (event) => {
   syncMediaSessionTrack(event.detail);
 });
 
-playPauseButton.addEventListener("click", () => { void getPlaybackCommands().togglePlayPause(); });
-
-immersivePlayPauseButton.addEventListener("click", () => {
-  window.recordPlaybackDiag?.("external-control", "immersive button");
-  void getPlaybackCommands().togglePlayPause();
+installPlaybackCallbacks({
+  toggle: () => { void getPlaybackCommands().togglePlayPause(); },
+  toggleImmersive: () => {
+    window.recordPlaybackDiag?.("external-control", "immersive button");
+    void getPlaybackCommands().togglePlayPause();
+  },
+  previousImmersive: () => { getPlaybackCommands().previous(); },
+  nextImmersive: () => { getPlaybackCommands().next(); },
+  openVideo: openCurrentBilibiliVideo,
+  addPlaylist: () => { choosePlaylistAndAdd(); },
+  volume: value => applyVolume(value),
+  seekStart: () => getPlaybackDisplayActions().setSeeking(true),
+  preview: value => { getPlaybackDisplayActions().setSeeking(true); updateProgress(Number(value)); },
+  seek: value => getPlaybackCommands().seekSlider(Number(value)),
 });
-immersivePreviousButton.addEventListener("click", () => getPlaybackCommands().previous());
-immersiveNextButton.addEventListener("click", () => getPlaybackCommands().next());
-openBilibiliButton.addEventListener("click", openCurrentBilibiliVideo);
-openBilibiliBarButton.addEventListener("click", openCurrentBilibiliVideo);
-addPlaylistCurrentButton.addEventListener("click", () => choosePlaylistAndAdd());
-volumeSlider.addEventListener("input", () => applyVolume(volumeSlider.value));
 loudnessNormalizationToggle.addEventListener("change", () => applyLoudnessNormalization(loudnessNormalizationToggle.checked));
 loudnessNormalizationToggle.addEventListener("change", () => {
   if (loudnessNormalizationToggle.checked) {
     showLoudnessNormalizationDialog();
   }
 });
-
-progressSlider.addEventListener("pointerdown", () => {
-  getPlaybackDisplayActions().setSeeking(true);
-});
-immersiveProgressSlider.addEventListener("pointerdown", () => {
-  getPlaybackDisplayActions().setSeeking(true);
-});
-
-progressSlider.addEventListener("input", () => {
-  getPlaybackDisplayActions().setSeeking(true);
-  updateProgress(Number(progressSlider.value));
-});
-immersiveProgressSlider.addEventListener("input", () => {
-  getPlaybackDisplayActions().setSeeking(true);
-  updateProgress(Number(immersiveProgressSlider.value));
-});
-
-progressSlider.addEventListener("change", () => { getPlaybackCommands().seekSlider(Number(progressSlider.value)); });
-immersiveProgressSlider.addEventListener("change", () => { getPlaybackCommands().seekSlider(Number(immersiveProgressSlider.value)); });
 
 getPlaybackMedia().subscribe("timeupdate", () => {
   if (!getPlaybackDisplaySnapshot().isSeeking) {
