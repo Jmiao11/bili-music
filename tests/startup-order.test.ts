@@ -46,7 +46,7 @@ test("document lifecycle dependencies retain their current file inventory", () =
     if (/\.onload\s*=/.test(code) && !inventory.load.includes(file)) inventory.load.push(file);
   }
   assert.deepEqual(inventory, {
-    readyState: [], currentScript: [], DOMContentLoaded: ["main.ts", "sidebar.ts"], load: ["dynamic-background.ts"],
+    readyState: [], currentScript: [], DOMContentLoaded: ["main-window-ready.ts", "main.ts", "sidebar.ts"], load: ["dynamic-background.ts"],
   });
 });
 
@@ -54,7 +54,7 @@ test("the sole inline script stays in head and only sets the platform", () => {
   const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter((match) => !/\bsrc\s*=/.test(match[1]));
   assert.equal(inline.length, 1);
   assert.ok(inline[0].index < html.indexOf("</head>"));
-  assert.equal(inline[0][2].trim(), 'document.documentElement.dataset.platform = /Macintosh|Mac OS X/i.test(navigator.userAgent) ? "macos" : "windows";');
+  assert.equal(inline[0][2].trim(), "document.documentElement.dataset.platform = /Macintosh|Mac OS X/i.test(navigator.userAgent) ? \"macos\" : \"windows\";\r\n      window.onerror = () => {\r\n        document.documentElement.dataset.startupFailed = \"true\";\r\n      };");
 });
 
 test("bottom classic scripts defer and the sole module entry keeps its position", () => {

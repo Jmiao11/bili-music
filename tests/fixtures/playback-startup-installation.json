@@ -941,6 +941,14 @@
       "options": {
         "once": true
       }
+    },
+    {
+      "action": "listen",
+      "target": "window",
+      "type": "DOMContentLoaded",
+      "options": {
+        "once": true
+      }
     }
   ]
 }

@@ -18,6 +18,7 @@ favorites.json
 playlists.json
 search-history.json
 ai-config.json
+startup-errors.*
 .vs/
 
 # webstorm工程文件

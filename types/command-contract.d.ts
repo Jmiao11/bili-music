@@ -36,6 +36,7 @@ declare namespace CommandContract {
 }
 
 interface CommandMap {
+  main_window_ready: { args: undefined; result: null };
   read_public_favorite_page: { args: { link: string; page: number; existing: string[] }; result: CommandContract.ImportPage };
   create_imported_playlist: { args: { name: string; tracks: CommandContract.TrackSnapshotInput[] }; result: CommandContract.Playlist };
   set_taskbar_playback_state: { args: { isPlaying: boolean }; result: null };

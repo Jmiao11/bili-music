@@ -9,6 +9,7 @@ mod guest_playurl;
 mod library;
 mod loudness;
 mod lyrics;
+mod main_window;
 mod mini_player;
 mod proxy;
 mod ranking;
@@ -74,6 +75,7 @@ fn main() {
         .expect("failed to create the favorite import client");
 
     tauri::Builder::default()
+        .manage(std::sync::Mutex::new(main_window::ReadyGate::default()))
         .on_window_event(|window, event| {
             if window.label() == mini_player::MINI_WINDOW_LABEL
                 && matches!(event, tauri::WindowEvent::CloseRequested { .. })
@@ -97,6 +99,7 @@ fn main() {
             stream_source: Arc::new(RwLock::new(StreamSource::Guest)),
         })
         .setup(move |app| {
+            main_window::install_watchdog(app.handle().clone());
             taskbar::install(app);
             shortcuts::install(app);
             tauri::async_runtime::spawn(async move {
@@ -112,6 +115,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            main_window::main_window_ready,
             fav_import::read_public_favorite_page,
             library::playlists::create_imported_playlist,
             taskbar::set_taskbar_playback_state,

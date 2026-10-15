@@ -4,7 +4,7 @@
 
 主窗口入口是 `ui/app.ts`，由 `index.html` 中唯一的模块标签加载。入口先导入 startup-before-main 初始化窗口控制与动态背景，再求值 main，最后按顺序调用 startAppearance、initializeLyrics、initializeMascot、startMiniPlayerHost。启动调度先初始化窗口控制，再初始化动态背景；两者都在 main 顶层代码之前。
 
-F2a 在上述同步启动完成后调用 initializeMainWindowReady，追加 window 的一次性 DOMContentLoaded 回调；该回调在 sidebar 的 document 接线及原 main 的恢复监听之后发 main_window_ready，不等待网络/图片/歌词/AI 异步结果。head 原平台 inline 和 sidebar 标签保留；inline 最先记录未完成启动期间的未捕获同步 error，发生过错误就不发 ready，交给 Rust watchdog。主窗仅由 Rust 显示，不新增前端 show capability。
+F2a 在上述同步启动完成后调用 initializeMainWindowReady，追加 window 的一次性 DOMContentLoaded 回调；该回调在 sidebar 的 document 接线及原 main 的恢复监听之后发 main_window_ready，不等待网络/图片/歌词/AI 异步结果。head 原平台 inline 和 sidebar 标签保留；inline 最先记录未完成启动期间的未捕获同步 error，发生过错误就不发ready，交给Rust watchdog。head的window.onerror只置布尔标志，不读取/序列化事件或error对象；前端确认启动完成后立即置null移除，不传日志或IPC。主窗仅由 Rust 显示，不新增前端 show capability。
 
 | 文件 | 形式 | 职责 |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ scripts/vite/preserve-html.ts 在开发时映射普通脚本，在 build 阶段�
 
 `npm run verify:dist` 是独立的产物检查，不属于 node --test。scripts/vite/verify-dist.ts 通过 Vite API 在系统临时目录分别设置 TAURI_ENV_PLATFORM=windows / darwin 构建，严格比较两份产物全部 JS、HTML、CSS 的文件清单和逐字节内容，再核对 HTML 引用存在、普通脚本类型擦除后的字节、完整 HTML（只允许模块 src 与 CSS href 的产物替换）及源 CSS 内容（仅忽略换行形式和首尾空白）。正式 HTML 禁止包含 `/@vite/client`。平台环境变量在构建后恢复，两个临时输出目录在结束时删除。
 
-检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比 G0 的 154 条启动记录及首个 trackchange 索引 70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
+检查复用既有 native-module-loader，按产物 index.html 中外部脚本的顺序执行普通脚本和原生模块，对比当前获批G0的155条启动记录及首个trackchange索引70；内联平台脚本由 HTML 内容比较保护，与现有 G0 口径一致。每次检查还在临时产物中构造缺失普通脚本、模块位置错误两个反例，要求检查失败。随后以临时端口启动开发服务器，实际请求两个页面，严格对比上述开发差异，finally 关闭服务并删除临时产物。它不会创建或清理仓库 dist。
 
 源模块图、VM 切片与既有守卫继续针对 ui/，node --test 仍只用 Node 内置模块，不依赖 node_modules。产物顺序检查补充源码守卫，不能代替 Windows WebView2 / macOS WKWebView 的媒体、网络、布局与 IPC 手测。CI 的 Windows/macOS 均先 setup-node、npm ci、verify:dist，再执行原 Cargo 步骤；发布构建也先 npm ci，以供 beforeBuildCommand 使用。
 
@@ -136,7 +136,7 @@ core 在加载曲目时仍派发 `bili-track-changed` 供歌词使用；收藏�
 2. 使用方添加显式静态导入，提供方尾部列表只导出实际使用项；app 启动顺序保持固定。
 3. 检查普通脚本边界、循环依赖和声明初始化：不依赖隐式全局，不在求值阶段读取未初始化绑定，不移动会改变取值的初始化。
 4. 同步核对拆分文件规则与状态写入白名单；playerState 的写入只允许 core；搜索分片只允许 search-state 动作提交，首页分片只允许 app-state 动作提交；资料库分片只允许 library-state 动作提交；旧 libraryState 只保留 disabledPages / disabledPagePending，写入允许 library-ui/video-pages。search-view 独占搜索提交按钮；main/core/search 通过搜索动作写入，禁止快照直接或别名写入。局部同名冲突必须逐处检查并显式记录，不能静默忽略。
-5. 调整测试加载方式而非业务断言；运行下述九项验证、CRLF 四项、CI 步骤、两个 Node 22 版本清单比对及 canary，再做真实 WebView 手测。
+5. 调整测试加载方式而非业务断言；按每批验收口径运行检查，风险点做专项验证，跨平台完整回归仅在指定里程碑进行。
 
 ## 测试与守卫
 
@@ -203,24 +203,21 @@ npm run typecheck -- --update
 
 ## 每批验收口径
 
-- 开发自检：自行反复运行相关测试、typecheck、npm run build，不要求逐次报告。
-- 合并验收：每批默认依次运行 node --test（npm ci 之前）、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist。verify:dist 包含当前获批 G0（历史 154/70）、同机 windows/darwin 配置逐字节一致及 eval/new Function AST 计数均为 0；类型检查零诊断；G0 仅按固定格式申请获批后重建。
-- Rust：只有本批改动 src-tauri/、src/、Cargo.toml、Cargo.lock 或 Rust 测试时，合并验收运行 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace（debug）；否则报告“未改 Rust,跳过”。src-tauri/Cargo.toml 的既有纯换行差异不算本批修改，永不提交。
-- 测试审计：用 git diff 证明已有测试哪些未改，冻结文件用 SHA256 证明未改；只对本批改过的已有测试文件列旧/新断言原文和逐测试执行次数，包含共享 helper。原测试名和重复次数保留；新增测试单列，数量重新实测。
-- 合并变异：选 3～5 个覆盖本批新接线及关键契约，在仓库外副本用全量 node --test 与 test:dom 判定；抓不到须说明是否等价，不改业务断言以通过验证。只运行与本批守卫、登记、helper 直接相关的 canary，每项恢复文件，不跑无关 canary。
-- 用户手测：Windows 清单不超过 8 项，写成可照做的步骤；Mac 运行 npm ci && node --test && npm run test:dom && npm run typecheck && npm run verify:dist，改了 Rust 时加 cargo test --workspace。只有改变键盘、焦点、输入法、滚动行为才要求 Mac 界面手测。手测与自动检查分开报告，未执行不得写通过；合并仍须用户明确授权。
-- 阶段验收：每个区域迁移完成（资料库在 vue-5c 后；之后四个曲目列表、播放栏）、GitHub 账号恢复后以及任何正式发布前，运行完整十项（fmt、debug/release build、debug/release cargo test、node --test、npm ci、test:dom、typecheck、verify:dist）、CRLF 四项加 DOM、本地 CI 步骤对等、Node 22.18.0 与 22.23.3 两组、全部 canary、相对上一阶段基线的全量断言审计，以及 Windows/Mac 完整手测。
-- 阶段 CRLF：core.autocrlf=true 本地克隆，只覆盖跟踪的候选并处理删除/改名；ui 清单与候选相同、全部 CRLF，lockfile 等文本也检查；依次 node --test、npm ci、test:dom、typecheck、verify:dist。阶段 CI 逐条跑 workflow run，Git Bash 用 --noprofile --norc -c，只说明并跳过 Windows 不适用的 Linux 系统依赖安装。
-- 严格模式：播放核心（取流、队列、请求版本、失败跳过、播放状态机）、Rust 后端、数据持久化（资料库文件、设置、备份导入导出）、安全隐私（cookie、API Key、诊断）、G0、依赖版本，以及基础设施逻辑改动，每批按阶段验收。
-- 常规登记不触发严格模式：新增测试文件；groups.ts、tsconfig.*.json、scripts/vue/check.ts 导入登记表、vueRendererImports、模块清单、架构守卫白名单追加条目，以及对应登记断言更新。仅运行直接相关 canary（新增编译边界跑冷入口 canary）。非冻结 helper 只新增能力、旧调用默认行为不变算常规。
-- 基础设施逻辑改动触发严格模式：测试发现/分组算法、helper 默认行为、守卫判定规则、verify-dist 构建验证逻辑、G0 采集/比较逻辑改变。冻结共享 helper 的纯环境接线改动按全面 Vue 化规则预先授权；业务断言原文、预期值与次数必须不变。其他变化按单项停止条件处理。
-- 环境接线改动预先授权（含冻结 helper）：挂载真实 App、挂载后的 SFC 扫描等，只要业务断言原文、预期值、次数全部不变即可直接实施并登记。需要改变业务断言原文/含义、G0、未单项授权的 Tauri/Rust，或任何断言次数变0时停下申请。
-- 报告正文约一页：改动、验收结果表、偏差例外、手测清单。断言原文、日志、哈希放仓库外附录，正文给路径；远程 Windows/macOS CI 一律“待账号恢复后补验”。
-- 区域迁移批次：基线与迁移同批，按需 test（旧实现通过）→ feat（行为不变）→ fix（行为改变需断言授权），默认 1 个、最多 3 个提交，一轮手测。
-- 用户 2026-10-12 批准以上规则从 vue-5b 第二提交生效；本批测试改动为常规登记与纯环境迁移，按合并验收，新增 library-view 编译边界跑冷入口及对应守卫条目的 canary，其余 canary 不跑。业务断言授权、冻结文件、G0、安全隐私、Git/合并闸门、临时副本规则均保持。
-- 当前实测安装前 578、安装后 271（B2 迁入原特征 10、新增真实 DOM 基线 25），以后重新实测；完整命令和 canary 判据见架构文档。
+- 每批合并前依次运行全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist（含获批 G0、windows/darwin 产物逐字节一致及 eval/new Function AST 各为0）；类型检查零诊断。改了 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；src-tauri/Cargo.toml 的既有纯换行状态不算修改且永不提交。
+- 日常开发只跑受影响区域测试、typecheck、必要构建，不要求报告。
+- 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。专项需要 Mac 手测时明确登记，不把同机 darwin 配置构建当作 Mac 实测。
+- 未修改的冻结文件只用 git diff 证明，不再输出哈希清单；只有本批修改或新建的冻结文件报告 SHA。
+- 修改业务断言原文或含义仍须停下申请；环境接线重建（真实 App 挂载、挂载后 SFC 扫描、冻结 helper 的纯环境接线）已预先授权，业务断言原文、预期值、次数必须不变，只用一张短表登记。内部结构/模块登记按对应意图更新；不能删除业务覆盖或让断言空跑。不做常规全量断言执行次数统计。
+- 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批155/70。
+- 变异取消固定数量；只对新写的异步竞态、启动可靠性、安全边界逻辑，每处1～2个，在仓库外副本实施并恢复，以对应行为测试抓到非等价变化。
+- canary 只在修改对应守卫、检查脚本或测试分组算法时运行该守卫的 canary，不随普通测试登记或组件迁移扩大范围。
+- 专项严格验证只针对启动可靠性（watchdog/隐藏启动/首帧）、Rust、播放状态机与取流、数据持久化、安全隐私（API Key/cookie/日志脱敏）的风险点本身；不扩大成全套阶段验收。普通测试登记、fixture 扩展、组件迁移不触发。
+- 跨平台完整回归仅在 F2b 完成后、F6 完成后各一次，发布前另一次并配合远程 CI 补验：Node22.18.0与22.23.3两组测试、CRLF检查、完整canary、Windows/Mac全应用手测、Mac完整命令（npm ci、node --test、test:dom、typecheck、verify:dist，涉及Rust加fmt/build/test）。不再逐批双Node、CRLF、CI步骤对等或完整canary。
+- 报告在仓库外，正文一页以内：改了什么、验收结果表、需要用户决定的事、手测清单。不生成大量附录，除非用户要求或用于审批。远程 CI 标注“待账号恢复后补验”。
+- 相关且低风险的组件尽量同批，每批最多3提交，按 test → feat → fix 按需使用，一轮手测；不做一次性大规模重构。
+- F2a 专项：全量Node/DOM、typecheck、verify:dist；Rust fmt与debug/release build/test各一次（故障包使用release），含ReadyGate单测与日志隐私/启动监听清理验证。Windows/Mac各按不超过8项清单手测，不运行本批完整canary、双Node、CRLF、CI步骤对等或断言审计。
 
-阶段验收全部 canary 的完整清单如下；合并验收只挑直接相关项。
+守卫 canary 参考清单如下：仅修改对应守卫/检查脚本/分组算法时运行对应项；F2b、F6及发布前跨平台完整回归执行完整清单。
 
 反向验证仅在仓库外临时副本进行；每项恢复文件并删除新增文件，命令必须非零退出：
 
@@ -257,7 +254,7 @@ app-state.ts 是应用 store 工厂，本批只有 home 分片。原 homeState �
 
 home.ts 在原 updateHomeModeUi 调用位置挂载一次 store，注入 invoke、计时器与日志适配器；先 subscribe，再显式读取 getState() 完成首屏。既有首页函数作为动作桥接保留，main 的推荐要求写入改走 setHomeHint。home-view.ts 只读取快照并写首页 DOM，不调用 actions/invoke；曲目行由 track-list-ui.ts 投影到 TrackList.vue/TrackRow.vue，点击通过既有 playListItem 进入队列，高亮由控制器计算并通过只读 props 投影。renderer 只读与旧状态写入归属均有守卫。
 
-初始化事件、迷你窗同步时机、播放/搜索/资料库的状态结构保持原样。home-characterization.test.ts 先在旧首页上提交并通过，迁移期间保持逐字节相同；home-actions.test.ts 直接导入纯模块，不安装 window/document，不使用 DOM 模拟。批次报告和断言附录保存到仓库外的验证目录，不再提交；PR 描述只保留摘要。
+初始化事件、迷你窗同步时机、播放/搜索/资料库的状态结构保持原样。home-characterization.test.ts 先在旧首页上提交并通过，迁移期间保持逐字节相同；home-actions.test.ts 直接导入纯模块，不安装 window/document，不使用 DOM 模拟。批次报告在仓库外，一页以内；PR描述只保留摘要。
 
 ## 搜索状态边界（state-3）
 
@@ -275,7 +272,7 @@ library-state 负责收藏、BV 索引、歌单、选中项、失效标记、读
 
 library-view 不导入动作、store 工厂、invoke 或 Tauri API，交互只调用控制器注入的回调。节点、弹窗内容引用与动画由 renderer 管理；vue-5c 起内容由 Vue 同步投影，关闭返回仍连接文档的触发元素，Tab 使用共享焦点循环，关闭取消待执行 RAF。library-ui 只挂载一次订阅，首屏显式 getState；收藏变更的两种窗口事件仍在持久化结果和渲染之后发出，名称与 payload 不变。禁用分 P / 分 P 保存中已在 state-5 迁入 library 分片，由 changeDisabledPages 动作处理乐观更新与回滚。
 
-library-characterization.test.ts 在旧实现上先提交，通过后保持逐字节不变；library-actions.test.ts 直接导入纯模块并开启冻结；library-architecture.test.ts 保护只读 renderer 与快照别名，state-architecture 同时覆盖新状态模块的平台依赖。修改现有测试需附全部断言原文和逐测试计数：登记类更新单列，源码写法断言替换需行为测试映射，业务断言不可改变或删除；保留断言由正次数变成 0 时立即停止。
+library-characterization.test.ts 在旧实现上先提交，通过后保持逐字节不变；library-actions.test.ts 直接导入纯模块并开启冻结；library-architecture.test.ts 保护只读 renderer 与快照别名，state-architecture 同时覆盖新状态模块的平台依赖。环境接线修改用短表登记；业务断言原文或含义变化先申请，不做常规全量断言计数，发现断言空跑立即停止。
 
 ## 分P状态边界（state-5）
 
@@ -292,7 +289,7 @@ settings.session 保存导航页面、占位文案和设置面板开关。render
 
 appearance 保留事件安装位置、MutationObserver、键盘事件解析、背景与设置输入读取、导航事件派发；settings-view 保留 DOM/CSS、焦点和动画。缓存提示计时器留在 settings-adapter，state 仅接收清除回调。playback-policy 每次仍读取存储中的合集偏好，经 settings-adapter 规范化后使用，不改为复用旧快照。迷你窗继续观察原根节点属性，未改变同步时机；音量、响度和沉浸页仍留在原控制器中。
 
-settings-characterization 在旧实现上独立提交，迁移后保持字节不变；settings-actions 直接导入纯模块并冻结快照，逐次序列化 AI 保存与测试的每个应用快照；settings-architecture 保护只读 renderer、DOM 归属及快照别名写入。现有测试的全部断言原文、逐测试与嵌套子测试执行次数保存到仓库外。
+settings-characterization 在旧实现上独立提交，迁移后保持字节不变；settings-actions 直接导入纯模块并冻结快照，逐次序列化 AI 保存与测试的每个应用快照；settings-architecture 保护只读 renderer、DOM 归属及快照别名写入。后续环境接线只用短表登记；业务断言变化先申请。
 
 ## 媒体适配器（state-7a）
 
@@ -306,7 +303,7 @@ appearance 保留启动、监听、存储键和值格式及写入位置；RAF �
 
 新模块登记：playback-settings-state / media-adapter / playback-settings-view 进入主窗口模块图、类型项目、导入顺序与架构清单；纯状态守卫覆盖播放设置，媒体音量归属和只读投影守卫带反例。
 
-冻结 VM 测试使用 source-slice.ts 的两项精确登记例外（源文件、起止标记、真实模块列表及理由）；未登记调用返回原字节。模块按现有原生类型擦除和模块语法工具读取 ui/ 源码，控制器辅助函数也来自原源码；不复制业务实现。登记表由专门单元测试固定。此例外为过渡措施：播放领域迁移完成、两个测试可更新接线时，改用显式模块接线并删除登记项。逐调用哈希、逐测试断言次数及三项冻结测试破坏反例证据保存仓库外。
+冻结 VM 测试使用 source-slice.ts 的两项精确登记例外（源文件、起止标记、真实模块列表及理由）；未登记调用返回原字节。模块按现有原生类型擦除和模块语法工具读取 ui/ 源码，控制器辅助函数也来自原源码；不复制业务实现。登记表由专门单元测试固定。此例外为过渡措施：播放领域迁移完成、两个测试可更新接线时，改用显式模块接线并删除登记项。后续不做常规逐调用哈希或断言次数审计，变异仅用于本批新写的竞态、启动可靠性和安全边界。
 
 ## 播放显示与控制边界（state-7b）
 
@@ -316,7 +313,7 @@ appearance 在原监听登记位置调用媒体适配器 subscribe，首次动�
 
 Media Session 的元数据、播放状态和位置由只读 renderer 委托 media-adapter 的平台适配器写入；原 withMediaSession 保留静默兼容边界。系统操作仍在每次操作时重新观测媒体并读取快照，保留原播放/暂停幂等判断、跳转边界与默认十秒规则。上一首、下一首及播放/暂停继续复用既有按钮 click，恢复捕获监听和所有外部 click 复用位置不变；按钮业务处理仅把实际 play/pause 调用换成媒体适配器。
 
-加载、请求、取消、恢复、队列、失败跳过、记录、缓存、响度分析及任务栏上报仍留在原模块。playback-display-characterization 在旧实现上独立提交后逐字节冻结，显式装载真实状态/view/媒体模块，不新增公共切片 helper 例外。新状态模块进入纯状态守卫、模块图、导入顺序与类型项目；只读 renderer、DOM 写入归属和进度局部重绘另有守卫及行为测试。批次报告、完整断言原文和逐测试计数继续保存在仓库外。
+加载、请求、取消、恢复、队列、失败跳过、记录、缓存、响度分析及任务栏上报仍留在原模块。playback-display-characterization 在旧实现上独立提交后逐字节冻结，显式装载真实状态/view/媒体模块，不新增公共切片 helper 例外。新状态模块进入纯状态守卫、模块图、导入顺序与类型项目；只读 renderer、DOM 写入归属和进度局部重绘另有守卫及行为测试。批次报告在仓库外，一页以内。
 
 
 ## 播放队列与导航边界（state-7c）
@@ -381,7 +378,7 @@ scripts/vue/check.ts 使用 TypeScript AST 检查导入；Vue 包、产品和测
 
 SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 window、__TAURI__、invoke、actions 的直接引用或对应字符串属性访问；组件只通过 props 和回调交互。禁止外部 script src。生产产物守卫 scripts/vite/javascript-guard.ts 扫描 JS 文件与 HTML 内联脚本 AST，直接 eval 与 new Function 必须均为 0；不会把注释、字符串或 object.eval() 计为直接 eval。
 
-以下新增 canary 全在仓库外候选副本修改，每项执行后恢复；命令必须非零退出且出现对应诊断或守卫消息。原有全部 canary 继续执行。两类 AST 守卫还含运行时自检，涵盖注释/字符串误报、模板内违规与括号调用的解析路径。
+以下新增 canary 全在仓库外候选副本修改，每项执行后恢复；命令必须非零退出且出现对应诊断或守卫消息。新增项纳入完整canary清单，按本节验收口径选择执行时机。两类 AST 守卫还含运行时自检，涵盖注释/字符串误报、模板内违规与括号调用的解析路径。
 
 | canary | 外部副本中的修改 | 必须失败的命令与判据 |
 | --- | --- | --- |
@@ -410,7 +407,7 @@ SFC 内容守卫扫描原始脚本 AST 与官方编译后的模板 AST，禁止 
 
 真实 DOM 基线覆盖 RAF 前后与焦点优先级、各关闭入口与 transitionend、重绘焦点、原生可聚焦按钮清单、单击/双击/键盘点击、迟到查询与忙态清理、禁用分P先关闭再播放、保存期间 DOM/disabled/焦点同步变化。jsdom 没有布局、真实键盘默认动作或 CSS 动画；隐藏按钮焦点、原生 Tab 顺序、IntersectionObserver 可见性、滚动定位、双击事件时序与 transitionend 必须另行在真实 WebView 手测，不将自动结果当作浏览器验证。
 
-本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，原有全部 canary 继续执行。
+本地验收测试数量为安装前 615、安装后 19；原十个分P从前组移到后组，新增八个真实 DOM 特征单列。两组完整文件清单及 Node 实际 worker 文件发现结果保存在仓库外，确保每个测试恰好属于一组、执行范围不重叠。新增归属反例：把安装后登记路径改成 *.test.ts，node --test tests/vue-toolchain.test.ts 必须非零并出现 DOM test registration must use，新增项纳入完整canary清单，按本节验收口径选择执行时机。
 
 GitHub 账号暂停期间按 AGENTS.md 的纯本地流程执行，远程 CI 为“待账号恢复后补验”。vue-2b 分别验证响应式订阅与显式 render 的同步边界及焦点实际行为；vue-3 通过同步投影和原控制器保持 action 返回前的旧 DOM、disabled 与焦点契约，按用户 2026-10-11 补充决定，vue-3 及后续批次按纯本地流程开展，远程 CI 待账号恢复后补验。
 
@@ -429,7 +426,7 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 
 构建期三个开关统一由 scripts/vue/features.ts 定义为 false：__VUE_OPTIONS_API__、__VUE_PROD_DEVTOOLS__、__VUE_PROD_HYDRATION_MISMATCH_DETAILS__。Vite 产品配置、原 SFC 冒烟与新基础设施测试共用定义；测试用 Vite 编译并分别刻画开发/生产错误行为，每例建立独立 jsdom window 和冷模块实例，卸载、关闭 window、恢复 globals/console，并删除临时编译产物。测试 fixture 不进入生产包。
 
-新增 tests/fixtures/vue/StoreReader.vue 由官方 vue-tsc 单独验证 useAppState 深只读推导，保持全部 strict/erasableSyntaxOnly/isolatedModules 选项。它只作为精确登记的类型 fixture，不扩大产品或测试默认 SFC 导入例外。新增测试仍属 tests/dom/*.dom.ts，安装前新增两个内置模块架构测试；当前完整数量为安装前 617、安装后 27。原测试名和重复次数保留，两份分P冻结测试及 G0 fixture 逐字节不变，既有业务断言改变 0、删除 0。只更新 main.files 与安装后文件清单两个登记类断言，扫描循环从 102→103 个安装前文件、744→756 个本地导入边；完整原文与逐测试执行计数在仓库外报告附录。
+新增 tests/fixtures/vue/StoreReader.vue 由官方 vue-tsc 单独验证 useAppState 深只读推导，保持全部 strict/erasableSyntaxOnly/isolatedModules 选项。它只作为精确登记的类型 fixture，不扩大产品或测试默认 SFC 导入例外。新增测试仍属 tests/dom/*.dom.ts，安装前新增两个内置模块架构测试；当前完整数量为安装前 617、安装后 27。原测试名和重复次数保留，两份分P冻结测试及 G0 fixture 逐字节不变，既有业务断言改变 0、删除 0。只更新 main.files 与安装后文件清单两个登记类断言，扫描循环从 102→103 个安装前文件、744→756 个本地导入边；历史执行记录保留；后续报告按精简验收口径。
 
 新增反例与变异均在仅含 Git 跟踪文件的仓库外副本执行，结束恢复：
 
@@ -444,7 +441,7 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 | 写 selected.value.requestVersion / selected.value | npm run typecheck 的 vue-tsc 产生 TS2540 |
 | 修改只读 Map / reader.actions | npm run typecheck 的 vue-tsc 产生 TS2339 |
 
-本地十项、CRLF 与双 Node 两组、CI workflow 的适用 run 步骤、原全部 canary、G0 和 7 产物同环境逐字节比较均需完成；远程 CI 为“待账号恢复后补验”。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，历史批次的推进上限由用户 2026-10-11 补充决定取消，后续批次按纯本地流程开展。
+验收按每批口径与指定里程碑执行；远程CI待账号恢复后补验。jsdom 的焦点、布局及脱离节点事件行为不能替代 WebView 手测；本批手测确认启动和播放，vue-3 前还需在真实 WebView 核对同步焦点策略。本批等待用户手测与本地合并授权，历史批次的推进上限由用户 2026-10-11 补充决定取消，后续批次按纯本地流程开展。
 
 ## vue-3 分P列表渲染
 
@@ -452,13 +449,13 @@ createSyncRegion(host, Component) 使用 Vue 公开 render(h(Component, props), 
 
 仅 ui/pages-view.ts 的列表循环替换为 ui/components/PagesList.vue。首个打开投影先清空旧列表，再建立独占同步区域并公开 render；后续投影显式 update，使用递增 key 保留旧整批替换行为，随后在同一流程恢复关闭按钮焦点。打开 RAF、关闭/transitionend、Tab、查询、版本丢弃与偏好保存仍在旧模块。组件只接深只读 modal/集合、当前播放标识和两个控制器回调；复用 styles.css，无 scoped 样式。禁用页播放按钮仍可点击，控制器先关闭再播放。
 
-安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包 G0 继续核对 154/70。原安装前其他领域测试不得被误写成 Vue 运行时验证。
+安装前模块语法只增加 pages-view.ts 的两个精确编译边界登记。业务模块图保持无依赖解释，rendererFiles 单列真实组件与同步基础设施；类型检查显式登记组件。安装前临时冷入口的边界替身只提供模块连接，创建区域立刻抛错，不制造 DOM 或业务成功。安装后 pages-fixture 用 Vite/Vue 插件编译真实 store、控制器、renderer、SFC，使用三个相同的 false 特性开关及 runtime-only；真实生产包G0继续核对当前获批基线155/70。原安装前其他领域测试不得被误写成 Vue 运行时验证。
 
 两个分P冻结测试 SHA256 保持 vue-2a 的值。用户单项批准原 strict-null-runtime 空上下文测试迁入安装后组：第一条 assert.deepEqual(list.children, ["unchanged"]) 适配为 assert.deepEqual(Array.from(list.childNodes, node => node.textContent), ["unchanged"])，其余四条原文、原测试名及五条各一次保持。授权来自 2026-10-11 本任务的用户回复；本批业务断言等价适配 1，删除 0，不能写成改变 0。
 
 新增九个旧 renderer 状态矩阵覆盖空、单页、多页、当前页、禁用页、两种保存项、全部恢复、BV 大小写不同。基线由本地 master 3c21c42 的真实 renderer 配合 jsdom 生成，innerHTML 原文保留；Vue 仅在列表首尾各增加一个不可见空文本 Fragment 锚点，无注释或其他差异。当前安装前 618，安装后 48（包含矩阵父测试及九个子测试、惰性同步投影、完整流程 Vue 警告、禁用按钮接线及冒泡测试、六个 Tab 可见性测试）；两组文件清单、默认 Node 实际发现文件与逐断言计数保存到仓库外。
 
-验证仍按十项、CRLF、两种 Node 两组、CI run 步骤对等、全部 canary 与本批八项变异执行。首次引入 Vue 导致主 ESM 包变化，与 master 的七产物字节一致口径不适用；体积增量报告在外部验证目录。同机 windows/darwin 两种配置分别构建，七产物路径、数量与内容哈希仍须完全一致；AST eval/new Function 均为零。真实 Windows/macOS 手测另核对主题、Tab、焦点、scrollIntoView、RAF、transitionend、单/双击与禁用偏好同步状态，不把 jsdom 结果写成真实 WebView 通过。
+后续验证按每批验收口径执行。首次引入 Vue 导致主 ESM 包变化，与 master 的七产物字节一致口径不适用；体积增量报告在外部验证目录。同机 windows/darwin 两种配置分别构建，七产物路径、数量与内容哈希仍须完全一致；AST eval/new Function 均为零。真实 Windows/macOS 手测另核对主题、Tab、焦点、scrollIntoView、RAF、transitionend、单/双击与禁用偏好同步状态，不把 jsdom 结果写成真实 WebView 通过。
 
 vue-3 补充验收：tests/dom/pages-toggle.dom.ts 以原生 click 验证第 1P 禁用/恢复的精确 command、cid=11、单次调用、保存中禁止点击、弹窗保持打开及全部恢复；列表矩阵另直接计数 onToggle 回调，避免控制器的 pending 守卫掩盖重复回调。冒泡观察器区分 @click.stop 的效果；完整打开→禁用→恢复→播放关闭流程不得收集 Vue 警告。
 
@@ -466,7 +463,7 @@ vue-3 补充验收：tests/dom/pages-toggle.dom.ts 以原生 click 验证第 1P 
 
 补充变异均在仓库外副本运行全量 node --test 和 test:dom：禁用布尔取反错误、cid 改为 page.page、双重 onToggle、删除 @click、删除组件 key 递增、焦点来源读取移到 render 后、清理宿主移到 createSyncRegion 后、删除 .stop；所有要求的非等价变异必须被业务行为测试抓到。冷入口 canary 让现有安装前测试打开弹窗，必须使 node --test 非零退出；恢复后全部通过。
 
-用户 2026-10-11 已取消等待远程 CI 才能推进下一批的阻塞。GitHub 暂停期间后续批次均走本地流程，验收标准不降低；每批合并前的用户手测和 Mac 验证按每批验收口径执行。远程 Windows/macOS CI 待账号恢复后补验；此决定不自动授予手测、合并或发布权限。隐藏的“全部恢复”按钮 Tab 行为另开批次处理，本批保留 keepFocusInPagesModal 及冻结真实 DOM 测试第 69、74 行。
+用户 2026-10-11 已取消等待远程 CI 才能推进下一批的阻塞。GitHub 暂停期间后续批次均走本地流程，验收标准不降低；每批Windows手测及指定里程碑跨平台完整回归按验收口径执行。远程 Windows/macOS CI 待账号恢复后补验；此决定不自动授予手测、合并或发布权限。隐藏的“全部恢复”按钮 Tab 行为另开批次处理，本批保留 keepFocusInPagesModal 及冻结真实 DOM 测试第 69、74 行。
 
 ## fix(pages) Tab 隐藏按钮边界
 
@@ -476,7 +473,7 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 
 - vue-4 保留给可选的分P弹窗外壳迁移；vue-5a 先在旧 renderer 上建立真实 DOM 基线，vue-5b 再逐区域迁移资料库浮层。vue-5a 不修改 ui/、依赖、lockfile、既有业务断言、分P冻结文件或 G0。
 - 安装后新增 49 个资料库测试（结构和时序 19、输入 6、命令路径 24），使用 Vite 编译真实 main、appearance、资料库控制器、renderer 和 store，jsdom 平台桩只记录调用。没有 Tab 陷阱、关闭不返回焦点、组字中间 input 写入、同一 session 输入节点复用均按现状冻结，不据此宣称真实 WebView 验证。
-- 下列三个特征测试以及两个专用 helper 作为 vue-5b 冻结基线，迁移时逐字节不改；不改 pages-fixture.ts。若需改变冻结断言或共享接线，先附完整 diff 申请。
+- 下列三个特征测试以及两个专用 helper 作为 vue-5b 冻结基线，迁移时逐字节不改；不改 pages-fixture.ts。业务断言变化先申请；纯环境接线按预先授权实施并用短表登记。
 - `tests/dom/library-modal-actions.dom.ts`：Git/LF `3accaca75ec841c2effc094ed8decdc80147740e2832a4e15797b63ae561e004`；检出/CRLF `aa14e3c8e72ac62f22759c49524e69985dffe1e183c4b43a65ace3c3f2cf9f67`。
 - `tests/dom/library-modal-input.dom.ts`：Git/LF `34c47569c0e23c653adbd9ad9b6cd0c3da4c2d7fc8486409384c32bad6a5b3e7`；检出/CRLF `792b53713f7cb971a7c8b76ad33fbd84e5949fc8bd8079228e1e4ff58392d580`。
 - `tests/dom/library-modal-render.dom.ts`：Git/LF `8c81f687d922de920d177a0a66dbe9c8a989018a90ad2f94597b1e107c02bdd2`；检出/CRLF `06a0496abb56d210bd3709e5c944e874a9c70c6c2cf7e9714ec214ee338de979`。
@@ -512,19 +509,17 @@ Tab 循环保持原 disabled 排除规则，并排除按钮自身或祖先带 hi
 
 ## 全面 Vue 化路线与同步根契约（用户 2026-10-14 批准）
 
-E1 已在 master 94b6a6f 本地合并；全应用 Windows/Mac 回归为“发布前待执行”。F1 已审阅并采纳，spike/vue-root 仅保留本地参考、不合并。原“Vue 岛”为最终形态及新增区域必须“首次使用才挂载、隐藏时不投影”的准入结论作废，业务、安全、数据、依赖与本地 Git 闸门继续有效。
+E1 已在 master 94b6a6f 本地合并；全应用Windows/Mac完整回归安排在F2b完成后、F6完成后及发布前。F1 已审阅并采纳，spike/vue-root 仅保留本地参考、不合并。原“Vue 岛”为最终形态及新增区域必须“首次使用才挂载、隐藏时不投影”的准入结论作废，业务、安全、数据、依赖与本地 Git 闸门继续有效。
 
 ### 迁移对象与批次
 
 | 批次 | 迁移对象 | 必须保留的契约 |
 | --- | --- | --- |
 | F2a | 主窗 hidden 启动、Rust main_window_ready/watchdog；不动 Vue、不退役 head 脚本 | 其他窗口配置、迷你窗恢复、原启动阶段；G0 单项审批 |
-| F2b | App.vue 启动根、外壳/侧栏/标题栏、store 组合模块、head 脚本退役 | 先同步挂载再求值控制器；单一 store；根最先订阅；持久化、拖动/双击/resize |
-| F2c | 四种曲目列表与歌单目录并入树 | 结构共享、稳定模型/回调、激活/拖拽/计时器、列表投影版本 |
-| F3 | 播放栏与状态条 | 同一个 audio、媒体/请求/跨窗顺序；两项 appearance 切片与播放过渡 fixture 按环境接线流程收口 |
-| F4 | 页面控件、搜索/推荐草稿、歌单操作栏、设置 | 草稿回读/恢复/组字/分页；隐藏投影；API Key 临时参数边界 |
-| F5 | 沉浸页与歌词 | 同一播放状态、隐藏更新、行高亮/滚动/焦点、原匹配及 offset 行为 |
-| F6 | 分P/资料库内容并树，删除主窗 createSyncRegion 区域与过渡桥，最终 G0 | 强制替换与 session key、disabled、同步焦点、浮层动画、脱离节点回调清理 |
+| F2b | App.vue 根挂载、外壳/侧栏/标题栏、store组合模块、head退役，曲目列表与歌单目录并树；两个feat提交、一轮手测，随后第一次跨平台完整回归 | 先同步挂载再求值控制器；根最先订阅；结构共享与稳定回调；持久化、拖动/双击/resize及列表行为 |
+| F3 | 播放栏、状态条、沉浸页与歌词，共用播放显示投影一起迁 | 同一个audio；媒体/请求/跨窗顺序；隐藏更新、歌词高亮/滚动/offset；过渡fixture按环境接线收口 |
+| F4 | 页面控件、搜索框与草稿、设置 | 草稿回读/恢复/组字/分页；隐藏投影；API Key专项检查 |
+| F6 | 收口：分P/资料库内容并树，删除主窗createSyncRegion与过渡桥，最终G0、第二次跨平台完整回归 | session key、disabled、同步焦点、浮层动画、脱离节点回调清理 |
 | F7（可选） | 独立迷你窗 | 独立窗口生命周期与主窗同步；不阻塞主窗 F6 收口 |
 
 ### 十条实施规则
@@ -535,9 +530,9 @@ E1 已在 master 94b6a6f 本地合并；全应用 Windows/Mac 回归为“发布
 4. 子组件只收必要切片、标量和固定回调；不向普通子组件传整个根快照，不在 render 中复制不变切片、重建 rows/回调或动态 slot。按原依赖/投影版本缓存，实测无关提交的 render 次数和节点身份。组件不访问 window/DOM 查询/Tauri/invoke/actions；必要节点经类型化 ref 回调交给控制器。
 5. audio 只创建一次，禁止条件卸载、随曲目变 key 或重绑媒体监听。业务事件种类、请求身份、trackchange 接收阶段、媒体监听、四项 IPC listen 与跨窗同步相对顺序保持；每区域一次性交接 DOM 与事件所有权，不保留双入口。
 6. 设置、沉浸页、歌词常驻，保留隐藏期间数据和 DOM 投影。hidden/is-open/aria-hidden/transitionend、焦点和滚动阶段保留，不统一改 v-if。草稿经领域读写端口，组字/BV/恢复/分页阶段不变；API Key 只为临时动作参数，不进入快照、日志、普通投影或跨窗 payload。
-7. G0 重建申请固定为：(a)播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command 四项 IPC listen、跨窗同步的受保护投影新旧逐条对比，必须完全相同；(b)其余新增/删除/移位逐条列出原因；(c)新条数、首个 trackchange 索引、SHA256；(d)旧 fixture 的 SHA 与原内容存档仓库外。投影不一致时不得申请，先报告原因；批准前不得修改 fixture。154/70 为历史基线，新基线只在批准后登记。
-8. 环境接线重建预先授权：fixture 改为挂载真实 App、静态 HTML 扫描改为扫描挂载的真实 SFC、冻结 helper 中仅涉及环境接线的修改，只要业务断言原文、预期值、执行次数全部不变，直接实施并用一张表登记文件、旧/新接线、受影响测试及次数。内部结构与登记断言按既有分类处理，不借此重录业务期望。必须停下申请的只有：业务断言原文或含义变化；G0 重建；Tauri 配置/capability/Rust 改动（任务已单项授权的除外）；任何保留断言次数变为 0。
-9. 新根模块/SFC/冷入口/类型项目按精确文件登记，不放宽 strict、类型擦除、组件边界和默认导入白名单。测试发现、helper 默认行为、守卫逻辑、verify-dist/G0 算法变化仍走严格模式完整阶段验收；普通登记按原规则跑相关 canary。环境授权不免除逐断言审计与阶段验证。
+7. G0 重建申请只列受保护投影是否完全相同、其余变化简述、新条数/首个trackchange索引/SHA。投影范围为播放、请求、trackchange、媒体监听、taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command四项IPC listen及跨窗同步；不一致先报告原因，批准前不改fixture。当前155/70。
+8. 环境接线重建预先授权：fixture挂载真实App、静态HTML扫描改为挂载后SFC扫描、冻结helper纯接线，只要业务断言原文/预期值/次数不变，直接实施并用短表登记文件、旧/新接线、受影响测试。不做常规次数统计；不能让断言空跑。业务断言变化、G0重建、未单项授权Tauri/capability/Rust及已发现断言变0仍停下申请。
+9. 新根模块/SFC/冷入口/类型项目精确登记，不放宽strict、类型擦除、组件边界和默认导入白名单。守卫/检查脚本/分组算法变更只跑对应canary；专项严格验证只覆盖实际风险点，普通登记、fixture扩展、组件迁移不触发。
 10. hidden、Rust ready/watchdog、head 退役分批验证故障。F2a 已单项授权 main visible:false（含 macOS 同步）、main_window_ready 与约5秒一次性 watchdog、相关前端启动握手/契约登记；无前端 show 新权限，其他配置与业务不改，G0 仍单项申请。后续批次、业务断言、合并/发布不因此自动获权；每批最多3提交，验收→仓库外报告→用户手测并明确允许合并→核对后本地 fast-forward。
 
 原三个滑块每次 input 保存、清空搜索历史不确认、Key 临时参数等行为继续保留。已完成 B1/B2/资料库/分P的历史基线与 SHA 继续有效，不能因本路线自动删除。精确冷边界、Vue/模块/写入守卫、组件清理、测试分组、eval/new Function 为0、windows/darwin产物逐字节一致继续保护当前实现；按对应批次逐项替代区域登记。远程 Windows/macOS CI：待账号恢复后补验。

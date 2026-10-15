@@ -31,6 +31,9 @@ function firstWindow(config: Config, file: string, allowMissing: boolean): objec
 
 try {
   const mainWindow = firstWindow(readConfig(mainPath), "src-tauri/tauri.conf.json", false);
+  if (!("visible" in mainWindow) || mainWindow.visible !== false) {
+    throw new Error("src-tauri/tauri.conf.json 的 main 窗口必须 visible:false");
+  }
   const macosWindow = firstWindow(
     readConfig(macosPath),
     "src-tauri/tauri.macos.conf.json",
@@ -40,6 +43,9 @@ try {
   if (!macosWindow) {
     console.log("Tauri 平台配置检查通过：macOS 未覆盖 app.windows。");
   } else {
+    if (!("visible" in macosWindow) || macosWindow.visible !== mainWindow.visible) {
+      throw new Error("macOS main 窗口的 visible 必须与主配置一致");
+    }
     const macosFields = new Set(Object.keys(macosWindow));
     const missingFields = Object.keys(mainWindow).filter((field) => !macosFields.has(field));
 

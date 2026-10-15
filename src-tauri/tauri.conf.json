@@ -15,6 +15,7 @@
     "windows": [
       {
         "label": "main",
+        "visible": false,
         "title": "Bili Music",
         "width": 1180,
         "height": 760,

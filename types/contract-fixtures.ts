@@ -81,6 +81,8 @@ const bindingsSomeInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtu
 const bindingsNoneInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtureShortcutBindingsNone };
 const bindingsOmittedInput: CommandMap["set_shortcuts"]["args"] = { bindings: {} };
 const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
+  // src-tauri/src/main_window.rs:37 returns Result<(), String>; success serializes to null.
+  main_window_ready: null,
   read_public_favorite_page: fixtureImportPage,
   create_imported_playlist: fixturePlaylist,
   set_taskbar_playback_state: null,

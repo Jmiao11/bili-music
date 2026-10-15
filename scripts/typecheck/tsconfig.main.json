@@ -57,6 +57,7 @@
     "../../ui/lyrics.ts",
     "../../ui/mini-player-host.ts",
     "../../ui/playback-mini-view.ts",
+    "../../ui/main-window-ready.ts",
     "../../ui/vue/use-app-state.ts",
     "../../ui/vue/sync-region.ts",
     "../../ui/components/PagesList.vue",

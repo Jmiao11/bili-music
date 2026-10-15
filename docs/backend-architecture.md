@@ -1,6 +1,6 @@
 # 后端播放模块
 
-F2a：main_window.rs 提供 main_window_ready 与 5000ms 一次性 watchdog。窗口无关 ReadyGate 共用成功门闩；show/焦点成功才完成，ready/超时重复到达不再改变窗口。主窗启动 visible:false，迷你窗及其 restore_main_window 保持原逻辑；无前端 show 权限。启动错误同时写 stderr、现有前端诊断（可用时）及 library_root()/startup-errors.log；只写固定启动原因与窗口操作错误，日志不含播放 URL、cookie 或前端异常原文。dev 仍 .local-data/，release 复用当前用户数据目录；记录日志失败也不阻止 watchdog 显示窗口。
+F2a：main_window.rs 提供 main_window_ready 与 5000ms 一次性 watchdog。窗口无关 ReadyGate 共用成功门闩；show/焦点成功才完成，ready/超时重复到达不再改变窗口。主窗启动 visible:false，迷你窗及其 restore_main_window 保持原逻辑；无前端 show 权限。启动错误写stderr、现有前端诊断（可用时）及startup-errors.log。只写固定启动原因；未知窗口/路径错误详情用ai::safe_error整段脱敏，不读取API Key配置。head不传ErrorEvent或error对象，只记失败标志。日志每次写入覆盖旧记录，消息最多1024字符（UTF-8加时间不超过4128字节）；dev在.local-data/，release在exe同目录，startup-errors.*已忽略。日志写入失败也不阻止watchdog显示窗口，失败详情同样脱敏。
 
 ## 组合与依赖
 
