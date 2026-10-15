@@ -20,7 +20,7 @@ test("startup five deferred controllers retain their phases and first trackchang
   assert.ok(phases.every(index => index >= 0));
   assert.deepEqual([...phases].sort((a, b) => a - b), phases);
   const dispatch = loaded.events.findIndex(event => event.action === "dispatch" && event.type === "bilibili-music-trackchange");
-  assert.equal(dispatch, 70);
+  assert.equal(dispatch, 84);
   const receivers = loaded.events.slice(0, dispatch).filter(event => event.action === "listen" && event.target === "window" && event.type === "bilibili-music-trackchange");
   assert.equal(receivers.length, 2);
   assert.match(String(receivers[0].stack), /dynamic-background\.ts:/);

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { realpathSync } from "node:fs";
 import os from "node:os";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -39,7 +40,7 @@ function installColdRendererBoundary(): void {
     resolve(specifier, context, next) {
       if (context.parentURL?.startsWith("file:")) {
         const file = fileURLToPath(context.parentURL);
-        const temporary = path.relative(os.tmpdir(), file);
+        const temporary = path.relative(realpathSync(os.tmpdir()), file);
         if (!temporary.startsWith("..") && !path.isAbsolute(temporary) && /^(?:bili-native-esm-|bili-library-characterization-|bili-search-characterization-|bili-settings-characterization-)/.test(temporary) && vueRendererImports.some(entry => entry.file === path.basename(file))) {
           const entry = vueRendererImports.find(entry => entry.file === path.basename(file) && entry.specifier === specifier);
           if (entry) {

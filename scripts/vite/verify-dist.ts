@@ -133,7 +133,7 @@ function checkCounterexamples() {
   fs.writeFileSync(htmlFile, incorrect);
   try {
     assert.throws(() => checkPage("index.html"), (error: Error) => {
-      assert.match(error.message, /ordinary\/inline script changed|module tag position/);
+      assert.match(error.message, /ordinary\/inline script changed|module tag position|HTML changed beyond module src and CSS href/);
       console.log(`PASS counterexample misplaced module tag: ${error.message.split("\n")[0]}`);
       return true;
     });
@@ -182,7 +182,6 @@ async function checkDevelopment() {
       if (page === "index.html") {
         const rewrites = [
           ["href", "./styles.css", "/styles.css"],
-          ["src", "./sidebar.js", "/sidebar.js"],
           ["src", "app.ts", "/app.ts"],
         ];
         for (const [name, before, after] of rewrites) {

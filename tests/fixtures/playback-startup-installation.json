@@ -1,6 +1,11 @@
 {
-  "firstTrackchange": 70,
+  "firstTrackchange": 84,
   "sequence": [
+    {
+      "action": "window-set",
+      "property": "onerror",
+      "valueType": "function"
+    },
     {
       "action": "listen",
       "target": "document",
@@ -41,6 +46,54 @@
     },
     {
       "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "span",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "window",
       "type": "bilibili-music-trackchange",
       "options": null
@@ -54,7 +107,7 @@
     {
       "action": "observe",
       "id": 1,
-      "target": "document.documentElement",
+      "target": "html",
       "options": {
         "attributes": true,
         "attributeFilter": [
@@ -344,6 +397,36 @@
     },
     {
       "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "#home-ranking-error",
       "type": "click",
       "options": null
@@ -435,6 +518,36 @@
     },
     {
       "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "#open-settings-button",
       "type": "click",
       "options": null
@@ -454,6 +567,30 @@
     {
       "action": "listen",
       "target": "#settings-modal",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "button",
       "type": "click",
       "options": null
     },
@@ -740,6 +877,42 @@
       "options": null
     },
     {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "input",
+      "type": "change",
+      "options": null
+    },
+    {
       "action": "observer",
       "name": "MutationObserver",
       "id": 3,
@@ -748,7 +921,7 @@
     {
       "action": "observe",
       "id": 3,
-      "target": "document.documentElement",
+      "target": "html",
       "options": {
         "attributes": true,
         "attributeFilter": [
