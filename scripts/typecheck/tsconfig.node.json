@@ -184,6 +184,8 @@
     "../../tests/helpers/playback-root-fixture.ts",
     "../../tests/helpers/playback-volume-fixture.ts",
     "../../tests/dom/playback-tree.dom.ts",
-    "../../tests/lyrics-display-state.test.ts"
+    "../../tests/lyrics-display-state.test.ts",
+    "../../tests/dom/controls-settings-fixture.ts",
+    "../../tests/dom/controls-settings-characterization.dom.ts"
   ]
 }

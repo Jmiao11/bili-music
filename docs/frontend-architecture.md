@@ -650,3 +650,5 @@ App 树常驻 PlaybackBar、PlaybackNotice、ImmersivePlayer 与 LyricsDisplay�
 两项 appearance sourceSlice 自动模块注入例外已由显式 VM 接线替代，登记清空；冻结业务断言保持。安装前 fixture 的原生输出端口复用组件的纯投影，安装后基线挂载真实 App。F3 的 10 项旧实现真实 DOM 基线及 playback-ui-baseline.json 保持；受影响 helper 的环境接线按预先授权登记。旧切片测试仍需的 updatePlayerPagesButton/updateFavoriteButtons 保留为无 DOM 写入的兼容触发入口，F6 随 fixture 收口删除。仅分P列表、资料库内容仍使用 createSyncRegion，F6 收口；迷你窗保持既有命令与同步路径。F3 G0 已获批184/102，仅27条监听前移至Vue首次挂载；受保护投影完全相同。
 
 列表行模型按既有 key 和显示字段复用，回调由行会话稳定转交；纯进度提交不渲染列表/行，高亮切换每个列表最多旧、新两行，收藏与分P元数据变化只渲染受影响行；内容或来源替换允许重新渲染。真实 DOM 测试按每次提交登记改变切片与行渲染次数。
+
+F3 用户已完成 Windows 手测并批准合并；03ae6e4、f279eb7 已于 2026-10-15 fast-forward 合入 master。master f279eb7 的 Windows/macOS CI 均通过：https://github.com/Jmiao11/bili-music/actions/runs/38732420842 。F4 从该 master 开始，先冻结页面控件与设置的真实 DOM 基线；本批 Mac 界面手测仅检查搜索框与 AI Key 输入框的中文组字和回车。
