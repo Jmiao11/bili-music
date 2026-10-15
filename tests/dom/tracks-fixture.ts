@@ -24,12 +24,12 @@ type Selection = { startPage?: CommandContract.VideoPage; pages?: CommandContrac
 type Modules = {
   home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { updateQueueUi(): void };
+  core: { updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
-  nodes: typeof import("../../ui/player-dom.ts"); store: Store;
+  nodes: typeof import("../../ui/player-dom.ts"); store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean } = {}) {
+async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
@@ -43,6 +43,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   for (const name of [".local-data", "cookies.txt", "tools"]) if (fs.existsSync(path.join(root, name))) throw Error("Runtime data in library fixture: " + name);
   const dom = new JSDOM(fs.readFileSync(path.join(source, "index.html"), "utf8"), { url: "http://127.0.0.1/" });
   const window = dom.window as typeof dom.window & { CompositionEvent: typeof CompositionEvent; InputEvent: typeof InputEvent; CustomEvent: typeof CustomEvent; MutationObserver: typeof MutationObserver };
+  if (options.playback) Object.defineProperty(window, "matchMedia", { configurable: true, value: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) });
   if (options.saved) window.localStorage.setItem("bilibili-music.last-search", options.saved);
   const prepareRootInputs = () => {
   (window.document.querySelector("#search-keyword") as HTMLInputElement).value = options.draft ?? "";
@@ -100,14 +101,14 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
   Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); return reply(command, args); } }, event: { async listen(name: string) { platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); } } } });
-  for (const [name, value] of Object.entries({ __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
+  for (const [name, value] of Object.entries({ __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & InputEventInit & CompositionEventInit = {}) => {
     const options = { bubbles: true, cancelable: true, ...fields };
     const event = type.startsWith("composition") ? new window.CompositionEvent(type, options) : type === "input" ? new window.InputEvent(type, options) : type.startsWith("key") ? new window.KeyboardEvent(type, options) : ["click", "dblclick"].includes(type) ? new window.MouseEvent(type, options) : new window.Event(type, options);
     target.dispatchEvent(event); await microtasks(); return event;
   };
-  const raf = () => { const pending = [...frames]; frames.clear(); for (const [, callback] of pending) callback(0); };
+  const raf = (time = 0) => { const pending = [...frames]; frames.clear(); for (const [, callback] of pending) callback(time); };
   const dispose = () => {
     console.warn = savedWarn;
     for (const listener of listeners) listener.target.removeEventListener(listener.type, listener.callback, listener.options);
@@ -119,7 +120,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts";' + (options.homeSpy ? 'import { initializeRootLists } from "./track-list-ui.ts"; initializeRootLists();' : 'import "./main.ts";') + 'export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; export * as nodes from "./player-dom.ts"; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts";' + (options.homeSpy ? 'import { initializeRootLists } from "./track-list-ui.ts"; initializeRootLists();' : 'import "./main.ts";') + 'export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; export * as nodes from "./player-dom.ts"; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();' + 'export * as appearance from "./appearance.ts"; export * as notice from "./playback-notice.ts";' + (options.playback ? 'import { startAppearance } from "./appearance.ts"; startAppearance();' : '') + (options.lyrics ? 'import { initializeLyrics } from "./lyrics.ts"; initializeLyrics();' : ''));
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
       const component = /\/components\/(TrackList|TrackRow|PlaylistList)\.vue/.exec(file)?.[1];
@@ -144,7 +145,7 @@ async function fixture(options: { homeSpy?: boolean; saved?: string; draft?: str
         .replace(/unmount\(\)(?:: void)? \{/, match => match + " globalThis.__tracksVueRecords.push({ operation: 'unmount', host });");    } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, renderCounts, window, doc, calls, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
+    return { ...modules, renderCounts, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
       visible(target: Element) { intersection([{ target, isIntersecting: true }]); },
       async advance(milliseconds: number) {
         const end = now + milliseconds;

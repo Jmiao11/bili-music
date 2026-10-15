@@ -177,6 +177,8 @@
     "../vue/startup-probe.ts",
     "./dom-assertion-cli.ts",
     "../../tests/dom/root-lists.dom.ts",
-    "../../tests/dom/render-counter.ts"
+    "../../tests/dom/render-counter.ts",
+    "../../tests/dom/playback-ui-characterization.dom.ts",
+    "../../tests/dom/playback-ui-fixture.ts"
   ]
 }

@@ -210,10 +210,14 @@ npm run typecheck -- --update
 
 ## Git 与 GitHub 工作流
 
+- CI 查询低频串行：推送后约2分钟才首次查询，此后间隔至少2分钟；每次等待最多查询10次，未完成报告“CI运行中”及链接。gh run watch 如获准使用必须 --interval 120 或更长；不得并发查询同一信息或循环批量查询多个运行。
+- fetch/push/gh 因网络或服务失败，等至少1分钟后最多重试1次；仍失败停止并报告原文。403、429、secondary rate limit、abuse、account 等提示立即停止所有 GitHub 操作，不重试。
+- 每批报告列 GitHub 操作次数：推送（含分支删除分别登记）、查询及是否重试。
+
 F2b 合并前未运行远程 CI；feat/vue-root 从未有 PR 或 Actions 运行。master 3d62278 的 run 38693837939（第一次尝试）为 F2b 首次远程 CI；此前“Draft PR 双平台通过”为授权模板误填，已更正。
 
-- 本地 Git 用终端；Codex 可以本地提交、推送定稿功能分支、获合并授权并完成本地 fast-forward 后推送 master、删除自己推送且已合并进 master 的远程功能分支。只读查询自己推送提交的 CI（gh run list / gh run view），调用尽量少。02436a5 的首次远程 CI 查询由用户单项授权。
-- 创建、编辑、关闭、合并 PR，以及 Issue、Release、tag、重新运行 CI job、仓库设置与凭证只由用户执行。
+- 本地 Git 用终端；Codex 可以本地提交、推送定稿功能分支、获合并授权并完成本地 fast-forward 后推送 master、删除自己推送且已合并进 master 的远程功能分支。只读查询自己推送提交的 CI（仅 gh run list / gh run view，含 --log-failed），不使用 gh api 或其他 gh 命令。02436a5 的首次远程 CI 查询由用户单项授权。所有代码只经本地 Git 提交，不通过 GitHub API/网页逐文件更新；按批次定稿后推送一次，修复追加提交后再推送，合并后 master 推送一次。
+- PR/Issue 的创建、编辑、评论、合并、关闭，以及 Release、tag、label、secrets、仓库设置、任何认证操作、重跑/取消 CI、手动触发 workflow 只由用户执行。Codex 不读取、不输出 token；其他只读信息需要时请用户提供。
 - 永不使用 --force、--force-with-lease 或其他改写远程历史的方式；不删除、不改写 master，不推送 tag。不修改 remote 地址、凭证或 git 配置；命令输出与报告不得出现 token 或凭证。
 - 每次推送前先 git fetch，确认远程目标分支是本地分支祖先，只做 fast-forward；分叉立即停止，不 rebase、不 merge 远程。新功能分支确认远程同名分支不存在后才首次推送。
 - 功能分支只在本批提交定稿、本地验收通过后推送；推送任何分支都会自动运行 CI，同一 workflow/ref 的新推送取消旧运行，pull_request 触发保留。Codex 自行查询该分支最新提交的 windows-latest 与 macos-latest 结果并提供运行链接；双平台均通过前不能接受“手测通过，允许合并”授权，不依赖用户开 PR 触发 CI。推送后不再改写这些提交，修改用追加提交。
@@ -226,14 +230,14 @@ F2b 合并前未运行远程 CI；feat/vue-root 从未有 PR 或 Actions 运行�
 
 - 每批合并前依次运行全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist（含获批 G0、windows/darwin 产物逐字节一致及 eval/new Function AST 各为0）；类型检查零诊断。改了 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；src-tauri/Cargo.toml 的既有纯换行状态不算修改且永不提交。
 - 日常开发只跑受影响区域测试、typecheck、必要构建，不要求报告。
-- 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。专项需要 Mac 手测时明确登记，不把同机 darwin 配置构建当作 Mac 实测。
+- 用户 Windows 手测清单不超过8项，写成可照做的步骤；未执行不得写通过，合并须明确回复“手测通过，允许合并”。每批不再要求用户在 Mac 手动运行命令，由最新功能分支的双平台 CI 代替；Mac 界面手测仅在跨平台阶段回归，或本批改变窗口、键盘、输入法、滚动等平台相关行为时进行。不把同机 darwin 配置构建当作 Mac 实测。
 - 未修改的冻结文件只用 git diff 证明，不再输出哈希清单；只有本批修改或新建的冻结文件报告 SHA。
 - 修改业务断言原文或含义仍须停下申请；环境接线重建（真实 App 挂载、挂载后 SFC 扫描、冻结 helper 的纯环境接线）已预先授权，业务断言原文、预期值、次数必须不变，只用一张短表登记。内部结构/模块登记按对应意图更新；不能删除业务覆盖或让断言空跑。不做常规全量断言执行次数统计。
 - 每批 verify:dist 照跑；G0 重建仍先申请，申请只列三项：受保护事件投影是否完全相同；其余变化的简短说明；新条数/首个 trackchange 索引/SHA。受保护播放、请求、trackchange、媒体监听、四项 IPC listen、跨窗同步投影不一致先报告原因，不申请重建来掩盖差异。当前获批184/84（采集器改为真实 DOM；同一采集器下 F2a 为183/83；旧155/70存档在仓库外）。
 - 变异取消固定数量；只对新写的异步竞态、启动可靠性、安全边界逻辑，每处1～2个，在仓库外副本实施并恢复，以对应行为测试抓到非等价变化。
 - canary 只在修改对应守卫、检查脚本或测试分组算法时运行该守卫的 canary，不随普通测试登记或组件迁移扩大范围。
 - 专项严格验证只针对启动可靠性（watchdog/隐藏启动/首帧）、Rust、播放状态机与取流、数据持久化、安全隐私（API Key/cookie/日志脱敏）的风险点本身；不扩大成全套阶段验收。普通测试登记、fixture 扩展、组件迁移不触发。
-- 跨平台完整回归仅在 F2b 完成后、F6 完成后各一次，发布前另一次并配合远程 CI 补验：Node22.18.0与22.23.3两组测试、CRLF检查、完整canary、Windows/Mac全应用手测、Mac完整命令（npm ci、node --test、test:dom、typecheck、verify:dist，涉及Rust加fmt/build/test）。不再逐批双Node、CRLF、CI步骤对等或完整canary。
+- 跨平台完整回归仅在 F2b 完成后、F6 完成后各一次，发布前另一次并配合远程 CI 补验：Node22.18.0与22.23.3两组测试、CRLF检查、完整canary、Windows/Mac全应用手测、功能分支双平台 CI（代替用户在 Mac 手动运行命令）。不再逐批双Node、CRLF、CI步骤对等或完整canary。
 - 报告在仓库外，正文一页以内：改了什么、验收结果表、需要用户决定的事、手测清单。不生成大量附录，除非用户要求或用于审批。远程 CI 报告实际结果或“CI 运行中”。
 - 相关且低风险的组件尽量同批，每批最多3提交，按 test → feat → fix 按需使用，一轮手测；不做一次性大规模重构。
 - F2a 专项：全量Node/DOM、typecheck、verify:dist；Rust fmt与debug/release build/test各一次（故障包使用release），含ReadyGate单测与日志隐私/启动监听清理验证。Windows/Mac各按不超过8项清单手测，不运行本批完整canary、双Node、CRLF、CI步骤对等或断言审计。
@@ -631,3 +635,5 @@ B1 test 当前实测安装前 588、安装后 173；新增冻结文件与 Git/LF
 root-lists 保存稳定只读列表模型；main 在原初始化入口安装投影函数，根订阅每次先按快照计算列表再 render，home/search/library 的后置订阅不再驱动列表。track-list-ui 复用原依赖比较、激活会话与行 key；library-ui 保留拖拽、计时器和节点回调，拖拽视觉变化显式刷新根。ListHost 保留原 ul 的属性与空列表 :empty；有内容时才挂载 TrackList/PlaylistList。播放进度100次提交时三类列表组件实际render计数均为0。仅 pages-view 与 library-view 的 createSyncRegion 过渡桥保留到F6。
 
 G0 已获批重建为184/84，Git/LF SHA256 `e216131b2ffb7c3c12d8a7d01b810f32ff576767b842f44ec225b3e286df349a`。真实DOM采集器下F2a为183/83，旧155/70存档于仓库外；批准差异限28条补录监听、onerror登记移位及2个observer目标名称。主JS加载/解析失败时启动模块尚未运行，故障包由Rust约5秒watchdog显示窗口，startup-errors.log记录握手超时，不记录脚本错误。冷入口helper以真实临时目录路径匹配，覆盖macOS的/var与/private/var别名。
+
+F3 长期约定：<audio id="audio"> 永久保留在 index.html 的 Vue 宿主之外，不能由组件创建、替换或重复登记媒体监听。
