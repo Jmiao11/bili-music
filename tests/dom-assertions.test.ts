@@ -9,10 +9,10 @@ const html = '<input id="field"><div id="panel"></div>';
 test("mounted main HTML supplements the guard without changing mini HTML or its default", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-mounted-dom-guard-"));
   try {
-    fs.mkdirSync(path.join(root, "ui"));
+    fs.mkdirSync(path.join(root, "ui/app"), {recursive:true});
     fs.writeFileSync(path.join(root, "ui/index.html"), '<div id="app"></div>');
     fs.writeFileSync(path.join(root, "ui/mini.html"), '<div id="mini"></div>');
-    fs.writeFileSync(path.join(root, "ui/main.ts"), 'const element = document.getElementById("field")!;');
+    fs.writeFileSync(path.join(root, "ui/app/main.ts"), 'const element = document.getElementById("field")!;');
     fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = document.getElementById("mini")!;');
     assert.throws(() => checkRepository(root), /id does not exist.*field/);
     assert.equal(checkRepository(root, html).length, 2);
@@ -45,7 +45,7 @@ test("HTML id parser accepts exact attributes across quoting, whitespace and CRL
   const markup = '<div ID="a"></div><input id=\'b\'><p id=c></p><span id = "d"></span>\r\n<section\r\n id\r\n=\r\n"e"\r\n></section>';
   assert.deepEqual([...htmlIds(markup)], ["a", "b", "c", "d", "e"]);
   for (const id of htmlIds(markup)) {
-    assert.deepEqual(checkDomAssertions(`const element = document.querySelector("#${id}")!;`, "main.ts", markup).errors, []);
+    assert.deepEqual(checkDomAssertions(`const element = document.querySelector("#${id}")!;`, "app/main.ts", markup).errors, []);
   }
 });
 
@@ -59,13 +59,13 @@ test("HTML id parser rejects attribute lookalikes, inert content and duplicate i
     '<template><template></template><div id="missing"></div></template>',
     '<div title="id=missing"></div>', '<div id="missing"></div><p ID=missing></p>',
   ]) {
-    assert.ok(checkDomAssertions('const element = document.querySelector("#missing")!;', "main.ts", markup).errors.length, markup);
+    assert.ok(checkDomAssertions('const element = document.querySelector("#missing")!;', "app/main.ts", markup).errors.length, markup);
   }
 });
 
 test("DOM assertion selectors must be a single pure id", () => {
   for (const selector of ["#a .b", "#a, #b", "div#a", "#a:hover"]) {
-    const result = checkDomAssertions(`const element = document.querySelector("${selector}")!;`, "main.ts", '<div id="a"></div><div id="b"></div>');
+    const result = checkDomAssertions(`const element = document.querySelector("${selector}")!;`, "app/main.ts", '<div id="a"></div><div id="b"></div>');
     assert.ok(result.errors.length, selector);
   }
 });
@@ -73,13 +73,13 @@ test("DOM assertion selectors must be a single pure id", () => {
 test("DOM assertion ids belong to the corresponding window HTML", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dom-guard-"));
   try {
-    fs.mkdirSync(path.join(root, "ui"));
+    fs.mkdirSync(path.join(root, "ui/app"), {recursive:true});
     fs.writeFileSync(path.join(root, "ui/index.html"), '<div id="main-only"></div>');
     fs.writeFileSync(path.join(root, "ui/mini.html"), '<div id="mini-only"></div>');
     fs.writeFileSync(path.join(root, "ui/mini.js"), 'const element = /** @type {HTMLDivElement} */ (document.getElementById("main-only"));');
     assert.throws(() => checkRepository(root), /id does not exist.*main-only/);
     fs.unlinkSync(path.join(root, "ui/mini.js"));
-    fs.writeFileSync(path.join(root, "ui/main.ts"), 'const element = document.getElementById("mini-only")!;');
+    fs.writeFileSync(path.join(root, "ui/app/main.ts"), 'const element = document.getElementById("mini-only")!;');
     assert.throws(() => checkRepository(root), /id does not exist.*mini-only/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
@@ -128,14 +128,14 @@ test("DOM assertion guard checks parenthesized TS DOM casts", () => {
 test("TS DOM casts retain the main and mini window mapping", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-dom-ts-cast-"));
   try {
-    fs.mkdirSync(path.join(root, "ui"));
+    fs.mkdirSync(path.join(root, "ui/app"), {recursive:true});
     fs.writeFileSync(path.join(root, "ui/index.html"), '<div id="main"></div>');
     fs.writeFileSync(path.join(root, "ui/mini.html"), '<div id="mini"></div>');
     fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = (document.getElementById("main") as HTMLDivElement);');
     assert.throws(() => checkRepository(root), /id does not exist.*main/);
     fs.writeFileSync(path.join(root, "ui/mini.ts"), 'const element = (document.getElementById("mini") as HTMLDivElement);');
     assert.equal(checkRepository(root).length, 1);
-    fs.writeFileSync(path.join(root, "ui/main.ts"), 'const element = (document.getElementById("mini") as HTMLDivElement);');
+    fs.writeFileSync(path.join(root, "ui/app/main.ts"), 'const element = (document.getElementById("mini") as HTMLDivElement);');
     assert.throws(() => checkRepository(root), /id does not exist.*mini/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

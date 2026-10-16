@@ -4,13 +4,13 @@ import path from "node:path";
 import { test } from "node:test";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
-const stateModuleFiles = ["lyrics-display-state.ts","application-store.ts","playback-messages-state.ts", "playback-mini-view.ts", "playback-request-state.ts", "playback-session-state.ts", "playback-queue-state.ts", "playback-display-state.ts", "playback-settings-state.ts", "settings-state.ts", "page-selection.ts", "state-store.ts", "app-state.ts", "search-state.ts", "library-state.ts", "pages-state.ts", "track-utils.ts"];
+const stateModuleFiles = ["features/immersive/lyrics-display-state.ts","store/application-store.ts","features/playback/playback-messages-state.ts", "mini/playback-mini-view.ts", "features/playback/playback-request-state.ts", "features/playback/playback-session-state.ts", "features/playback/playback-queue-state.ts", "features/playback/playback-display-state.ts", "features/playback/playback-settings-state.ts", "features/settings/settings-state.ts", "features/pages/page-selection.ts", "store/state-store.ts", "store/app-state.ts", "features/search/search-state.ts", "features/library/library-state.ts", "features/pages/pages-state.ts", "shared/track-utils.ts"];
 
 function assertStateModule(source: string, file: string): void {
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:window|document|navigator|localStorage|sessionStorage|Window|Document|Element|HTMLElement|HTML\w*Element|Node|EventTarget|MutationObserver|ResizeObserver|IntersectionObserver|__TAURI__|Tauri\w*)\b/, `${file}: state cannot reference platform globals or DOM types`);
   for (const match of source.matchAll(/\b(?:import|export)\b[^;]*?["']([^"']+)["']/g)) {
-    assert.ok(["./lyrics-display-state.ts", "./playback-messages-state.ts", "./app-state.ts", "./playback-request-state.ts", "./playback-session-state.ts", "./playback-queue-state.ts", "./playback-display-state.ts", "./playback-settings-state.ts", "./settings-state.ts", "./page-selection.ts", "./state-store.ts", "./track-utils.ts", "./search-state.ts", "./library-state.ts", "./pages-state.ts"].includes(match[1]), `${file}: forbidden state dependency ${match[1]}`);
+    assert.ok(["./features/immersive/lyrics-display-state.ts", "./features/playback/playback-messages-state.ts", "./store/app-state.ts", "./features/playback/playback-request-state.ts", "./features/playback/playback-session-state.ts", "./features/playback/playback-queue-state.ts", "./features/playback/playback-display-state.ts", "./features/playback/playback-settings-state.ts", "./features/settings/settings-state.ts", "./features/pages/page-selection.ts", "./store/state-store.ts", "./shared/track-utils.ts", "./features/search/search-state.ts", "./features/library/library-state.ts", "./features/pages/pages-state.ts"].map(target => target.slice(2)).includes(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1]))), `${file}: forbidden state dependency ${match[1]}`);
   }
 }
 
@@ -24,7 +24,7 @@ test("state modules are registered and contain no DOM or Tauri dependencies", ()
 });
 
 test("state architecture guard rejects document references and DOM types and platform imports", () => {
-  for (const source of ["document.title;", "window.location;", "type Bad = HTMLElement;", "type Bad = Document;", 'import { invoke } from "./runtime-api.ts";', 'import { x } from "@tauri-apps/api/core";']) {
+  for (const source of ["document.title;", "window.location;", "type Bad = HTMLElement;", "type Bad = Document;", 'import { invoke } from "./platform/runtime-api.ts";', 'import { x } from "@tauri-apps/api/core";']) {
     assert.throws(() => assertStateModule(source, "counterexample.ts"));
   }
   assert.doesNotThrow(() => assertStateModule('// document\nconst message = "document";\ntype State = { count: number };', "valid.ts"));
@@ -33,14 +33,14 @@ function assertHomeRenderer(source: string): void {
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|playListItem|createApplicationStore)\b|\.\s*actions\b/, "renderer cannot call actions or platform commands");
   for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) {
-    assert.ok(["./app-state.ts", "./player-dom.ts"].includes(match[1]), `renderer dependency is not readonly: ${match[1]}`);
+    assert.ok(["../../store/app-state.ts", "../../platform/player-dom.ts"].includes(match[1]), `renderer dependency is not readonly: ${match[1]}`);
   }
 }
 
 test("home renderer reads snapshots and delegates user interaction without actions or invoke", () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/home-view.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/home/home-view.ts"), "utf8");
   assertHomeRenderer(source);
-  for (const bad of ["store.actions.setHomeMode('ranking');", "invoke('get_music_ranking');", 'import { playListItem } from "./playback-core.ts";']) {
+  for (const bad of ["store.actions.setHomeMode('ranking');", "invoke('get_music_ranking');", 'import { playListItem } from "./features/playback/playback-core.ts";']) {
     assert.throws(() => assertHomeRenderer(bad));
   }
 });
@@ -65,7 +65,7 @@ function assertSearchSnapshotReads(source: string): void {
 
 test("search snapshot guard rejects direct and aliased metadata writes", () => {
   const root = path.join(import.meta.dirname, "../ui");
-  for (const file of ["main.ts", "playback-core.ts", "search.ts", "search-view.ts"]) assertSearchSnapshotReads(fs.readFileSync(path.join(root, file), "utf8"));
+  for (const file of ["app/main.ts", "features/playback/playback-core.ts", "features/search/search.ts", "features/search/search-view.ts"]) assertSearchSnapshotReads(fs.readFileSync(path.join(root, file), "utf8"));
   for (const bad of [
     'getSearchSnapshot().page = 2;',
     'getSearchSnapshot().results.push(video);',
@@ -78,11 +78,11 @@ test("search snapshot guard rejects direct and aliased metadata writes", () => {
 
 test("search renderer is readonly and exclusively owns the search submit button", () => {
   const root = path.join(import.meta.dirname, "../ui");
-  const source = fs.readFileSync(path.join(root, "search-view.ts"), "utf8");
+  const source = fs.readFileSync(path.join(root, "features/search/search-view.ts"), "utf8");
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|getSearchActions|createApplicationStore)\b|\.\s*actions\b/);
-  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["./track-utils.ts", "./search-state.ts", "./player-dom.ts"].includes(match[1]));
-  for (const file of fs.readdirSync(root).filter(name => name.endsWith(".ts") && name !== "search-view.ts")) {
+  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["../../shared/track-utils.ts", "./search-state.ts", "../../platform/player-dom.ts"].includes(match[1]));
+  for (const file of fs.readdirSync(root, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter(name => name.endsWith(".ts") && name !== "features/search/search-view.ts")) {
     assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(root, file), "utf8")), /\bsearchButton\s*\.\s*(?:disabled|textContent)\s*=/, `${file}: search submit button belongs to renderer`);
   }
 });

@@ -4,8 +4,8 @@ import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 import { afterEach } from "node:test";
-import { projectPlaybackMessages } from "../../ui/playback-messages-view.ts";
-import { createApplicationStore } from "../../ui/app-state.ts";
+import { projectPlaybackMessages } from "../../ui/features/playback/playback-messages-view.ts";
+import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 
 function mountMessagePort(context: vm.Context, store: ReturnType<typeof createApplicationStore>): void {
@@ -46,12 +46,12 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
     getRequestSnapshot: () => store.getState().playbackRequest,
   });
   const read = (file: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file);
-  vm.runInContext(read("playback-messages.ts"), context);
+  vm.runInContext(read("features/playback/playback-messages.ts"), context);
   mountMessagePort(context, store);
   beforeMount?.(store);
   context.getPlaybackMessagesActions();
-  vm.runInContext(read("playback-notice.ts"), context);
-  const core = read("playback-core.ts"), begin = core.indexOf('window.addEventListener("bilibili-music-notice-change"');
+  vm.runInContext(read("features/playback/playback-notice.ts"), context);
+  const core = read("features/playback/playback-core.ts"), begin = core.indexOf('window.addEventListener("bilibili-music-notice-change"');
   vm.runInContext(core.slice(begin, core.indexOf("\n});", begin) + 4), context);
   return { context, status, playbackNotice, store, timers, events, handlers,
     show: (text: string, options: { persistent?: boolean; kind?: "info" | "error" } = {}) => context.showPlaybackNotice(text, options),
@@ -64,7 +64,7 @@ function wirePlaybackMessagesContext(context: vm.Context): void {
   context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
   const store = context.getApplicationStore();
   if (!context.__renderFixtureRoot) mountPlaybackFixtureRoot(context, store);
-  for (const file of ["playback-messages.ts"]) {
+  for (const file of ["features/playback/playback-messages.ts"]) {
     vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file), context);
   }
 }

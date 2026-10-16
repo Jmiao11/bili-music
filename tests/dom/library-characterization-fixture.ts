@@ -8,11 +8,11 @@ type Fired = { fire(type: string): Promise<Event> };
 type LibraryApi = { loadLibrary(): Promise<void>; createPlaylist(): void; renameSelectedPlaylist(): void; deleteSelectedPlaylist(): void; choosePlaylistAndAdd(video?: CommandContract.TrackSnapshotInput): void; closeLibraryModal(): void; importFavoritePlaylist(): void; openLoudnessModal(): void };
 async function fixture() {
   const source = path.resolve(import.meta.dirname, "../../ui");
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, "player-dom.ts"), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(names);
-  for (const name of ["video-pages.ts", "appearance.ts", "playback-notice.ts", "playback-diagnostics.ts"]) {
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, "platform/player-dom.ts"), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(names);
+  for (const name of ["features/pages/video-pages.ts", "features/settings/appearance.ts", "features/playback/playback-notice.ts", "features/playback/playback-diagnostics.ts"]) {
     const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(exports);
   }
-  collectModuleGraph(source, ["main.ts"]);
+  collectModuleGraph(source, ["app/main.ts"]);
   const h = await realFixture();
   const requests: Promise<unknown>[] = [];
   const fire = async (element: HTMLElement, type: string) => {

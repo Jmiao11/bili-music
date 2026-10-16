@@ -5,8 +5,8 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8");
-const functionSource = sourceSlice(source, "ui/track-utils.ts", "function unavailableTrackLocations(", "function isBvId(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/shared/track-utils.ts"), "utf8");
+const functionSource = sourceSlice(source, "ui/shared/track-utils.ts", "function unavailableTrackLocations(", "function isBvId(");
 assert.ok(functionSource.includes("function unavailableTrackLocations"));
 
 const context = vm.createContext({});

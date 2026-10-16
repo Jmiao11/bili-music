@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPlaybackSettingsActions, effectivePlaybackVolume, initialPlaybackSettingsState } from "../ui/playback-settings-state.ts";
-import { createStateStore } from "../ui/state-store.ts";
-import { renderPlaybackSettingsSnapshot } from "../ui/playback-settings-view.ts";
+import { createPlaybackSettingsActions, effectivePlaybackVolume, initialPlaybackSettingsState } from "../ui/features/playback/playback-settings-state.ts";
+import { createStateStore } from "../ui/store/state-store.ts";
+import { renderPlaybackSettingsSnapshot } from "../ui/features/playback/playback-settings-view.ts";
 
 function fixture() {
   return createStateStore(initialPlaybackSettingsState(), createPlaybackSettingsActions, { freeze: true });

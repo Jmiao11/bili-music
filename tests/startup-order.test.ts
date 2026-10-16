@@ -18,20 +18,20 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["dynamic-background.ts", "mascot.ts", "playback-core.ts", "appearance.ts", "mini-player-host.ts"]);
-  const appearance = topLevelStatements(read("appearance.ts"));
+  assert.deepEqual(listeners, ["features/settings/dynamic-background.ts", "app/mascot.ts", "features/playback/playback-core.ts", "features/settings/appearance.ts", "mini/mini-player-host.ts"]);
+  const appearance = topLevelStatements(read("features/settings/appearance.ts"));
   assert.ok(appearance.every((statement) => /^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code)));
 });
 
 test("main's last executable statement synchronously dispatches initial trackchange", () => {
-  const executable = topLevelStatements(read("main.ts")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
+  const executable = topLevelStatements(read("app/main.ts")).filter((statement) => !/^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code));
   const last = executable.at(-1);
   if (last === undefined) throw new Error("Main executable statement is missing");
   assert.equal(last.text.trim(), "emitCurrentTrackChanged();");
 });
 
 test("document lifecycle dependencies retain their current file inventory", () => {
-  const files = readdirSync(ui).filter((file) => /\.(?:js|ts)$/.test(file)).sort();
+  const files = readdirSync(ui, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter((file) => /\.(?:js|ts)$/.test(file)).sort();
   const inventory: Record<string, string[]> = { readyState: [], currentScript: [], DOMContentLoaded: [], load: [] };
   for (const file of files) {
     const source = read(file);
@@ -46,14 +46,14 @@ test("document lifecycle dependencies retain their current file inventory", () =
     if (/\.onload\s*=/.test(code) && !inventory.load.includes(file)) inventory.load.push(file);
   }
   assert.deepEqual(inventory, {
-    readyState: [], currentScript: [], DOMContentLoaded: ["main-window-ready.ts", "main.ts", "sidebar.ts"], load: ["dynamic-background.ts"],
+    readyState: [], currentScript: [], DOMContentLoaded: ["app/main-window-ready.ts", "app/main.ts", "app/sidebar.ts"], load: ["features/settings/dynamic-background.ts"],
   });
 });
 
 test("the sole inline script stays in head and only sets the platform", () => {
   const inline = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].filter(match => !/\bsrc\s*=/.test(match[1]));
   assert.equal(inline.length, 0);
-  assert.match(read("startup-platform.ts"), /dataset\.platform/);
+  assert.match(read("app/startup-platform.ts"), /dataset\.platform/);
 });
 
 test("bottom classic scripts defer and the sole module entry keeps its position", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createMediaAdapter } from "../ui/media-adapter.ts";
+import { createMediaAdapter } from "../ui/platform/media-adapter.ts";
 
 function fixture() {
   const calls: string[] = [], listeners = new Map<string, Set<(event: Event) => void>>();

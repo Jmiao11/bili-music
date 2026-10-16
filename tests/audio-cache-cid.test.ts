@@ -6,8 +6,8 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const helpers = sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8");
+const helpers = sourceSlice(source, "ui/features/playback/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(");
 assert.ok(helpers.includes("function currentAudioCacheCid()"));
 
 function cacheCid(currentPages: { cid: number }[], currentPageIndex = 0) {

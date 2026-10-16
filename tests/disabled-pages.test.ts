@@ -1,4 +1,4 @@
-const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
+const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -7,10 +7,10 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
-const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const helper = pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-policy.ts'), 'utf8');
+const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/features/pages/page-selection.ts"), "utf8");
+const helper = pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
 const context = vm.createContext({ Map, Set });
 vm.runInContext(helper, context);
 

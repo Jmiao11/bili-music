@@ -1,7 +1,7 @@
 import type vm from "node:vm";
-import { applySettingsField, createSettingsControlsProjection } from "../../ui/settings-controls.ts";
-import type { SettingsSnapshot } from "../../ui/settings-state.ts";
-import type { SettingsCallbacks } from "../../ui/root-settings.ts";
+import { applySettingsField, createSettingsControlsProjection } from "../../ui/features/settings/settings-controls.ts";
+import type { SettingsSnapshot } from "../../ui/features/settings/settings-state.ts";
+import type { SettingsCallbacks } from "../../ui/features/settings/root-settings.ts";
 
 // Native ports for installation-before fixtures; installed baselines render the real SFC.
 function attachSettingsControlPorts(context: vm.Context, clearKey = false) {

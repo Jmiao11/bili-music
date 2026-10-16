@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore, isHomePopular } from "../ui/app-state.ts";
-import type { HomeAdapter, HomeSnapshot } from "../ui/app-state.ts";
+import { createApplicationStore, isHomePopular } from "../ui/store/app-state.ts";
+import type { HomeAdapter, HomeSnapshot } from "../ui/store/app-state.ts";
 
 const track = { bvid: "BV1234567890", title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 };
 function fixture() {

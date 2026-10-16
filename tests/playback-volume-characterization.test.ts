@@ -7,15 +7,15 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
-const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const policy = readFileSync(path.join(import.meta.dirname, "../ui/playback-policy.ts"), "utf8");
-const code = sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
-  + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
-  + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", { endAfterStart: true })
-  + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true })
-  + sourceSlice(core, "ui/playback-core.ts", "function refreshTrackLoudness(", "function analyzeCurrentTrackAtThreshold(");
-const startup = sourceSlice(appearance, "ui/appearance.ts", "applyVolume(localStorage.getItem(VOLUME_KEY), false);", "updateProgress(0);", { endAfterStart: true });
+const appearance = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8");
+const policy = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-policy.ts"), "utf8");
+const code = sourceSlice(appearance, "ui/features/settings/appearance.ts", "const VOLUME_KEY", "const root =")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function applyVolume(", "function startAppearance()", { endAfterStart: true })
+  + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true })
+  + sourceSlice(core, "ui/features/playback/playback-core.ts", "function refreshTrackLoudness(", "function analyzeCurrentTrackAtThreshold(");
+const startup = sourceSlice(appearance, "ui/features/settings/appearance.ts", "applyVolume(localStorage.getItem(VOLUME_KEY), false);", "updateProgress(0);", { endAfterStart: true });
 const volumeKey = "bilibili-music.volume", enabledKey = "bilibili-music.loudness-normalization";
 function fixture(saved: [string, string][] = []) {
   const stored = new Map(saved), writes: [string, string][] = [], frames = new Map<number, (time: number) => void>(), cancelled: number[] = [];

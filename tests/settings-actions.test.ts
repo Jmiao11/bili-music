@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import type { HomeAdapter } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import type { HomeAdapter } from "../ui/store/app-state.ts";
 function fixture() {
   const storage = new Map<string, string>(), writes: [string, string | null][] = [], calls: { command: string; args: unknown }[] = [], reports: unknown[] = [];
   let reply: (command: string, args: unknown) => Promise<unknown> = async () => [];

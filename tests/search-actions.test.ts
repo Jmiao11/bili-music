@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import type { HomeAdapter } from "../ui/app-state.ts";
-import type { SearchSnapshot } from "../ui/search-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import type { HomeAdapter } from "../ui/store/app-state.ts";
+import type { SearchSnapshot } from "../ui/features/search/search-state.ts";
 
 const track = (index: number) => ({ bvid: `BV${String(index).padStart(10, "0")}`, title: `曲目${index}`, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, playCount: 0, pubdate: 0 });
 const page = Array.from({ length: 20 }, (_, i) => track(i));

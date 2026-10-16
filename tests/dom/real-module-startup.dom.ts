@@ -15,15 +15,15 @@ test("real module graph dispatches once during main before appearance starts onc
   const dispatches = changes.filter((event) => event.action === "dispatch");
   assert.equal(dispatches.length, 1);
   const from = (event: typeof changes[number], file: string, name?: string) => loaded.origins.get(event)?.some(frame => frame.file === fs.realpathSync(path.join(ui, file)) && (name === undefined || frame.functionName === name));
-  assert.ok(from(dispatches[0], "playback-core.ts", "emitCurrentTrackChanged"));
-  assert.ok(from(dispatches[0], "main.ts"));
-  const mainListener = changes.find((event) => event.action === "listen" && from(event, "playback-core.ts"));
-  const appearanceListener = changes.find((event) => event.action === "listen" && from(event, "appearance.ts", "startAppearance"));
+  assert.ok(from(dispatches[0], "features/playback/playback-core.ts", "emitCurrentTrackChanged"));
+  assert.ok(from(dispatches[0], "app/main.ts"));
+  const mainListener = changes.find((event) => event.action === "listen" && from(event, "features/playback/playback-core.ts"));
+  const appearanceListener = changes.find((event) => event.action === "listen" && from(event, "features/settings/appearance.ts", "startAppearance"));
   assert.ok(mainListener);
   assert.ok(appearanceListener);
   assert.ok(loaded.events.indexOf(mainListener) < loaded.events.indexOf(dispatches[0]));
   assert.ok(loaded.events.indexOf(appearanceListener) > loaded.events.indexOf(dispatches[0]));
-  const appearanceEvents = loaded.events.filter(event => from(event, "appearance.ts", "startAppearance"));
+  const appearanceEvents = loaded.events.filter(event => from(event, "features/settings/appearance.ts", "startAppearance"));
   assert.ok(appearanceEvents.length > 0);
   assert.ok(appearanceEvents.every((event) => loaded.events.indexOf(event) > loaded.events.indexOf(dispatches[0])));
   const functions = loaded.coverage.filter((script) => /\/appearance\.ts$/.test(script.url)).flatMap((script) => script.functions);
@@ -44,7 +44,7 @@ test("startup probe identifies sources through project and temporary directory a
     const loaded = await loadNativeModules(path.join(project, "ui"));
     const dispatch = loaded.events.find(event => event.action === "dispatch" && event.type === "bilibili-music-trackchange");
     assert.ok(dispatch);
-    assert.ok(loaded.origins.get(dispatch)?.some(frame => frame.file === fs.realpathSync(path.join(project, "ui/main.ts"))));
+    assert.ok(loaded.origins.get(dispatch)?.some(frame => frame.file === fs.realpathSync(path.join(project, "ui/app/main.ts"))));
     const appearance = loaded.coverage.filter(script => /\/appearance\.ts$/.test(script.url)).flatMap(script => script.functions).find(fn => fn.functionName === "startAppearance");
     assert.equal(appearance?.ranges[0].count, 1);
   } finally {

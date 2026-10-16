@@ -6,24 +6,24 @@ import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
 const clickExceptions = [
   {
-    "file": "ui/main.ts",
+    "file": "ui/app/main.ts",
     "line": "homeHintApply?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
   },
   {
-    "file": "ui/main.ts",
+    "file": "ui/app/main.ts",
     "line": "document.querySelector<HTMLButtonElement>(\"#open-settings-button\")?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
   }
 ] as const;
 const expected = [
   {
-    "file": "ui/main.ts",
+    "file": "ui/app/main.ts",
     "line": "homeHintApply?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
   },
   {
-    "file": "ui/main.ts",
+    "file": "ui/app/main.ts",
     "line": "document.querySelector<HTMLButtonElement>(\"#open-settings-button\")?.click();",
     "reason": "首页表单提交与打开设置，不属于播放控制"
   }
@@ -36,7 +36,7 @@ test("playback click exceptions exactly match approved long-term and temporary e
 
 function checkClicks(root: string) {
   const seen = new Set<number>();
-  for (const file of fs.readdirSync(root).filter(name => name.endsWith(".ts"))) {
+  for (const file of fs.readdirSync(root, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter(name => name.endsWith(".ts"))) {
     const source = fs.readFileSync(path.join(root, file), "utf8"), masked = maskCommentsAndStrings(source);
     for (const match of masked.matchAll(/\.\s*click\s*\(/g)) {
       const line = source.slice(0, match.index).split("\n").length;

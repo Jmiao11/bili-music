@@ -6,7 +6,7 @@ import vm from "node:vm";
 import { pathToFileURL } from "node:url";
 import { afterEach, test } from "node:test";
 import { wirePlaybackMessagesContext } from "./helpers/playback-messages-fixture.ts";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.ts";
 
 const fixtureErrors: unknown[] = [];
@@ -29,12 +29,12 @@ class QueueNode {
 }
 
 async function fixture() {
-  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "playback-core.ts"), "utf8");
+  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "features/playback/playback-core.ts"), "utf8");
   const calls: { command: string; args: Record<string, unknown> }[] = [], loads: unknown[] = [], notices: string[] = [];
   let saved: unknown = null;
   const invoke = async (command: string, args: Record<string, unknown> = {}) => { calls.push({ command, args: plain(args) }); return command === "get_playback_state" ? saved : []; };
   const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report(level, message, error) { fixtureErrors.push({ level, message, error }); } }, { onSubscriberError: error => fixtureErrors.push(error) });
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "player-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/player-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
   const nodes = Object.fromEntries(names.map(name => [name, new QueueNode()]));
   const audio = { paused: true, currentSrc: "", currentTime: 0, play: async () => { audio.paused = false; }, pause() {}, load() {} };
   const search = { results: [] as ReturnType<typeof track>[], requestVersion: 8 };
@@ -48,13 +48,13 @@ async function fixture() {
   });
   wirePlaybackMessagesContext(context);
   // Load actual pure dependencies; new queue modules are picked up through the real core imports.
-  for (const declaration of moduleDeclarations(source, "ui/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) {
-    Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
+  for (const declaration of moduleDeclarations(source, "ui/features/playback/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) {
+    Object.assign(context, await import(pathToFileURL(path.join(ui, "features/playback", declaration.specifier)).href));
   }
   // Each fixture owns the original mutable request state; imported singleton state must not leak between tests.
-  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, "player-state.ts"), "utf8"), "ui/player-state.ts"), context);
-  for (const file of ["settings-adapter.ts", "playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
-  vm.runInContext(stripModuleSyntax(source, "ui/playback-core.ts"), context);
+  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, "shared/player-state.ts"), "utf8"), "ui/shared/player-state.ts"), context);
+  for (const file of ["features/settings/settings-adapter.ts", "features/playback/playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
+  vm.runInContext(stripModuleSyntax(source, "ui/features/playback/playback-core.ts"), context);
   context.loadCurrentTrack = (options: unknown = {}) => loads.push(plain(options));
   context.initPlaybackModes();
   const snapshot = () => vm.runInContext('typeof getQueueSnapshot === "function" ? getQueueSnapshot() : playerState', context);

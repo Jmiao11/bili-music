@@ -6,8 +6,8 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
-const helper = sourceSlice(readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8"), "ui/track-utils.ts", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
+const helper = sourceSlice(readFileSync(path.join(import.meta.dirname, "../ui/shared/track-utils.ts"), "utf8"), "ui/shared/track-utils.ts", "function shouldOpenPastedBvPages(", "function displayThumbnailUrl(");
 const context = createQueueContext({});
 vm.runInContext(helper, context);
 const shouldOpen = vm.runInContext("shouldOpenPastedBvPages", context);
@@ -23,7 +23,7 @@ test("failed page loading notices only the current request while keeping single-
     showPlaybackNotice: (message: string) => notices.push(message),
     console: { warn: () => {} },
   });
-  vm.runInContext(sourceSlice(source, "ui/playback-core.ts", "async function loadPagesForCurrentVideo(", "function emitCurrentTrackChanged("), app);
+  vm.runInContext(sourceSlice(source, "ui/features/playback/playback-core.ts", "async function loadPagesForCurrentVideo(", "function emitCurrentTrackChanged("), app);
   const load = vm.runInContext("loadPagesForCurrentVideo", app);
   assert.equal(await load({ bvid: pending.bvid }, 7), true);
   assert.equal(state.currentPages.length, 0);
@@ -65,7 +65,7 @@ function eventContext() {
     currentPlayableTrack: () => ({ bvid: currentBvid }),
     openCurrentPagesModal: () => { opened += 1; },
   });
-  vm.runInContext(`${helper}\n${sourceSlice(source, "ui/playback-core.ts", "window.addEventListener(\"bili-track-changed\"", "\n}\n", { endAfterStart: true }) + "\n\n"}`, app);
+  vm.runInContext(`${helper}\n${sourceSlice(source, "ui/features/playback/playback-core.ts", "window.addEventListener(\"bili-track-changed\"", "\n}\n", { endAfterStart: true }) + "\n\n"}`, app);
   return {
     app, handlers, playerState,
     mark: () => app.getSessionActions().setPendingPastedPages({bvid:"BV1GF4X6MEb1",requestVersion:7}),

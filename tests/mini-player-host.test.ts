@@ -3,11 +3,11 @@ import { readFileSync, stripModuleSyntax } from "./helpers/module-syntax.ts";
 import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
-import { createApplicationStore } from "../ui/app-state.ts";
-import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "../ui/playback-mini-view.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "../ui/mini/playback-mini-view.ts";
 import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 
-const source = stripModuleSyntax(readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8"), "ui/mini-player-host.ts");
+const source = stripModuleSyntax(readFileSync(path.join(import.meta.dirname, "../ui/mini/mini-player-host.ts"), "utf8"), "ui/mini/mini-player-host.ts");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 type MockElement = EventTarget & { dataset: Record<string, string | undefined>; textContent: string; disabled: boolean; click?: () => unknown; classList: { add(name: string): unknown; contains(name: string): boolean; remove(name: string): unknown; toggle(name: string, force: boolean): unknown } };

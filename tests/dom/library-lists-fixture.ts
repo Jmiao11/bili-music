@@ -17,7 +17,7 @@ function deferred() {
 }
 
 type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown>;
-type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
+type Store = ReturnType<typeof import("../../ui/store/app-state.ts").createApplicationStore>;
 type Snapshot = ReturnType<Store["getState"]>;
 type Selection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type Modules = {
@@ -117,10 +117,10 @@ async function fixture() {
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts";' + 'export * as library from "./library-ui.ts"; export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./app/root-mount.ts"; import "./app/main.ts";' + 'export * as library from "./features/library/library-ui.ts"; export * as home from "./features/home/home.ts"; export * as search from "./features/search/search.ts"; export * as core from "./features/playback/playback-core.ts"; export * as pages from "./features/pages/video-pages.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./features/home/home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
-      if (file.includes("/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
+      if (file.includes("/features/tracks/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
         const hooks = "function rootListHooks(id) { const host = () => document.getElementById(String(id)); return { onVnodeMounted: () => globalThis.__tracksVueRecords.push({operation: 'create', host: host()}), onVnodeUpdated: () => globalThis.__tracksVueRecords.push({operation: 'update', host: host()}), onVnodeBeforeUnmount: () => globalThis.__tracksVueRecords.push({operation: 'unmount', host: host()}) }; }\n";
         return hooks + code.replace(/h\(TrackList,\s*\{/g, "h(TrackList, { ...rootListHooks(attrs.id),").replace(/h\(PlaylistList,\s*\{/g, "h(PlaylistList, { ...rootListHooks(attrs.id),");
       }

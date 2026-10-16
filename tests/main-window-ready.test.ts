@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 
 const ui = path.resolve(import.meta.dirname, "../ui");
-const inline = readFileSync(path.join(ui, "startup-platform.ts"), "utf8") + "\ninitializeStartupPlatform();";
+const inline = readFileSync(path.join(ui, "app/startup-platform.ts"), "utf8") + "\ninitializeStartupPlatform();";
 
 function startup({ failure = "", platform = "Windows" } = {}) {
   type Handler = { callback: () => void; once: boolean };
@@ -29,12 +29,12 @@ function startup({ failure = "", platform = "Windows" } = {}) {
   };
   context.initializeSidebar = () => {};
   vm.runInContext(inline, context);
-  vm.runInContext(readFileSync(path.join(ui, "main-window-ready.ts"), "utf8"), context);
+  vm.runInContext(readFileSync(path.join(ui, "app/main-window-ready.ts"), "utf8"), context);
   for (const name of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "initializeMascot", "startMiniPlayerHost"]) {
     context[name] = () => { phases.push(name); if (failure === name) throw Error("startup failed"); };
   }
   const run = () => {
-    vm.runInContext(readFileSync(path.join(ui, "startup-before-main.ts"), "utf8"), context);
+    vm.runInContext(readFileSync(path.join(ui, "app/startup-before-main.ts"), "utf8"), context);
     vm.runInContext(readFileSync(path.join(ui, "app.ts"), "utf8"), context);
   };
   return { root, window, context, phases, calls, errors, fire, run };

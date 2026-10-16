@@ -1,5 +1,5 @@
 import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
-const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
+const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -8,11 +8,11 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
-const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const slice = (start: string, end: string, options?: Parameters<typeof sourceSlice>[4]) => sourceSlice(start.startsWith("function") || start === "function initPlaybackModes() {" ? core : source, start.startsWith("function") || start === "function initPlaybackModes() {" ? "ui/playback-core.ts" : "ui/main.ts", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-policy.ts'), 'utf8');
+const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/features/pages/page-selection.ts"), "utf8");
+const slice = (start: string, end: string, options?: Parameters<typeof sourceSlice>[4]) => sourceSlice(start.startsWith("function") || start === "function initPlaybackModes() {" ? core : source, start.startsWith("function") || start === "function initPlaybackModes() {" ? "ui/features/playback/playback-core.ts" : "ui/app/main.ts", start, end, options) + (end === "\n}\n" ? "\n\n" : "");
 
 test("queue switches remember the departed cid and pass a history cid to track loading", () => {
   const loads: { startPage: { cid: number }; randomStartPage?: boolean }[] = [];
@@ -55,7 +55,7 @@ test("only random page advancement adds a page-level history entry", () => {
     currentVideoPage: () => pages[state.currentPageIndex],
     loadCurrentTrack() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
@@ -143,7 +143,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     playQueueIndex: (index: number, options: { historyCid: number }) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function retreatPageWithinCurrentBv()", "function playNext(")
     + slice("function playPrevious()", "function initPlaybackSearch(")
     + slice('installPlaybackCallbacks({', 'initPlaybackResume();')

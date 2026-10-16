@@ -12,7 +12,7 @@ test("mini host classic installation matches G0 and an ESM loading candidate pre
     return src ? [{ file: src[1].replace(/^\.\//, ""), module: /\btype\s*=\s*["']module["']/i.test(tag[1]) }] : [];
   });
   const { files } = collectBusinessScripts(ui);
-  const candidate = scripts.map(script => script.file === "mini-player-host.js" ? { file: "mini-player-host.ts", module: true } : script);
+  const candidate = scripts.map(script => script.file === "mini-player-host.js" ? { file: "mini/mini-player-host.ts", module: true } : script);
   const after = await loadNativeModules(ui, files, "app.ts", candidate);
   const sequence = after.events.map(({ stack, ...event }) => event);
   assert.deepEqual(sequence, JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../fixtures/playback-startup-installation.json"), "utf8")).sequence);

@@ -1,5 +1,5 @@
 import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
-const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
+const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -8,14 +8,14 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
-const trackUtils = readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8");
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
-const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/page-selection.ts"), "utf8");
-const lookupSource = pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
-const navigationSource = sourceSlice(core, "ui/playback-core.ts", "function advancePageWithinCurrentBv(", "function playNext(");
-const trackSource = sourceSlice(core, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
+const trackUtils = readFileSync(path.join(import.meta.dirname, "../ui/shared/track-utils.ts"), "utf8");
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-policy.ts'), 'utf8');
+const pageSelection = readFileSync(path.join(import.meta.dirname, "../ui/features/pages/page-selection.ts"), "utf8");
+const lookupSource = pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(");
+const navigationSource = sourceSlice(core, "ui/features/playback/playback-core.ts", "function advancePageWithinCurrentBv(", "function playNext(");
+const trackSource = sourceSlice(core, "ui/features/playback/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 const bvid = "BV1GF4X6MEb1";
 type Page = { cid: number; page: number; part: string; durationSeconds: number };
 type History = { index: number; cid: number; pageLevel?: boolean };
@@ -116,7 +116,7 @@ function navigationContext(disabledCids: Iterable<number>, loopMode = "sequence"
 
 test("manual next and previous skip consecutive disabled pages", () => {
   const { context, state, loads, handlers } = navigationContext([2, 3]);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/app/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), context);
   handlers.next();
   assert.equal(state.currentPageIndex, 3);
   handlers.previous();
@@ -126,7 +126,7 @@ test("manual next and previous skip consecutive disabled pages", () => {
 
 test("natural end skips disabled pages, while single loop repeats the current page", () => {
   const { context, state, loads, handlers } = navigationContext([1, 2, 3]);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/app/main.ts", "audio.addEventListener(\"ended\"", "initPlaybackPersistenceAndCache();"), context);
   handlers.ended({ timeStamp: 1 });
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 1);
@@ -251,7 +251,7 @@ test("a new BV resets the collection visit count", () => {
   context.updateQueueUi = () => {};
   context.emitCurrentTrackChanged = () => {};
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   const pageRound = (context as { randomPageRound: { playedCount: number } | null }).randomPageRound;
   if (!pageRound) throw new Error("Random page round is missing");
@@ -271,7 +271,7 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   context.seedQueue({history:[...state.history,{ index: 0, cid: 1, pageLevel: true }]});
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   if (!context.randomPageRound) throw new Error("Random page round is missing");
@@ -299,7 +299,7 @@ test("only a random next index requests a random start page", () => {
     playerState: state,
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext({ skipFailed: true }), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, true);
@@ -322,7 +322,7 @@ test("random queue navigation starts at the first enabled page for sequential co
     localStorage: { getItem: (key: string) => key.endsWith("order") ? "sequential" : "all" },
     playQueueIndex: (index: number, options: LoadOptions) => calls.push({ index, options }),
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function playPrevious("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + lookupSource + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playNext(", "function playPrevious("), context);
   assert.equal(context.playNext(), true);
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
@@ -342,7 +342,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
     emitCurrentTrackChanged() {}, currentVideoPage: () => null,
     loadCurrentTrack() {},
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playQueueIndex(", "function takeRandomNext()"), context);
   context.playQueueIndex(1);
   assert.equal(context.randomPageRound, null);
 
@@ -350,7 +350,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   context.seedQueue({randomPageRound:{ bvid, remaining: [1] }});
   context.shuffleToggle = { checked: true, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { change = handler; } };
   context.resetRandomRemaining = () => {};
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function initPlaybackModes() {", "\n}\n", { endAfterStart: true, includeEnd: true }) + "\ninitPlaybackModes();" + "\n\n", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/features/playback/playback-core.ts", "function initPlaybackModes() {", "\n}\n", { endAfterStart: true, includeEnd: true }) + "\ninitPlaybackModes();" + "\n\n", context);
   if (!change) throw new Error("Shuffle change handler is missing");
   change();
   assert.equal(context.randomPageRound, null);
@@ -393,7 +393,7 @@ function trackContext(disabledCids: Iterable<number>, videoPages = pages) {
     playNext: (options: LoadOptions) => { nextCalls.push(options); return true; },
     showPlaybackNotice: (message: string) => notices.push(message),
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(trackUtils, "ui/track-utils.ts", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(trackUtils, "ui/shared/track-utils.ts", "function playbackFailureMessage(", "function unavailableTrackLocations(") + lookupSource + trackSource, context);
   return { context, state, prepares, notices, nextCalls };
 }
 

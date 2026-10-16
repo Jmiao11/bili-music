@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { maskCommentsAndStrings, topLevelStatements } from "./helpers/js-source.ts";
 
-const controllers = ["window-controls.ts", "dynamic-background.ts", "lyrics.ts", "mascot.ts", "mini-player-host.ts"];
+const controllers = ["app/window-controls.ts", "features/settings/dynamic-background.ts", "features/immersive/lyrics.ts", "app/mascot.ts", "mini/mini-player-host.ts"];
 function checkInitializer(source: string) {
   for (const statement of topLevelStatements(source)) {
     assert.match(statement.code, /^(?:function|const|let)\b/, "controllers only declare bindings at module evaluation");
@@ -18,7 +18,7 @@ test("five startup ESM controllers have no module evaluation effects", () => {
   for (const file of controllers) checkInitializer(readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8"));
 });
 test("startup ESM guard rejects direct effects and platform initializers", () => {
-  const source = readFileSync(path.join(import.meta.dirname, "../ui/lyrics.ts"), "utf8");
+  const source = readFileSync(path.join(import.meta.dirname, "../ui/features/immersive/lyrics.ts"), "utf8");
   for (const bad of ["initializeLyrics();", "const node = document.querySelector('#audio');", "window.BiliLyrics = {};"]) {
     assert.throws(() => checkInitializer(source + "\n" + bad));
   }

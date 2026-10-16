@@ -5,10 +5,10 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
-const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const controller = sourceSlice(appearance, "ui/appearance.ts", "function openSettings(", "async function restoreAudioCacheSettings(")
-  + sourceSlice(appearance, "ui/appearance.ts", "function closeSettings(", "function setActiveView(")
-  + sourceSlice(appearance, "ui/appearance.ts", "async function restoreAiConfig(", "async function saveAiConfig(");
+const appearance = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const controller = sourceSlice(appearance, "ui/features/settings/appearance.ts", "function openSettings(", "async function restoreAudioCacheSettings(")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function closeSettings(", "function setActiveView(")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "async function restoreAiConfig(", "async function saveAiConfig(");
 
 test("settings reopening preserves Rust key_hint output including short and Unicode keys", async () => {
   // src-tauri/src/ai.rs:878-886: nonempty -> four bullets + last min(4, char count) Rust chars.

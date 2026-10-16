@@ -1,5 +1,5 @@
-import { projectPlaybackProgress, renderPlaybackMediaSession } from "../../ui/playback-display-view.ts";
-import type { PlaybackDisplaySnapshot, PlaybackSessionTrack } from "../../ui/playback-display-state.ts";
+import { projectPlaybackProgress, renderPlaybackMediaSession } from "../../ui/features/playback/playback-display-view.ts";
+import type { PlaybackDisplaySnapshot, PlaybackSessionTrack } from "../../ui/features/playback/playback-display-state.ts";
 
 type PlaybackDisplayDom = { progressSlider: HTMLInputElement; immersiveProgressSlider: HTMLInputElement;
   currentTimeLabel: HTMLElement; durationLabel: HTMLElement; immersiveCurrentTimeLabel: HTMLElement; immersiveDurationLabel: HTMLElement;

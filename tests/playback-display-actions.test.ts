@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import { createPlaybackDisplayActions, initialPlaybackDisplayState } from "../ui/playback-display-state.ts";
-import { createStateStore } from "../ui/state-store.ts";
-import { createMediaAdapter, createMediaSessionAdapter } from "../ui/media-adapter.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import { createPlaybackDisplayActions, initialPlaybackDisplayState } from "../ui/features/playback/playback-display-state.ts";
+import { createStateStore } from "../ui/store/state-store.ts";
+import { createMediaAdapter, createMediaSessionAdapter } from "../ui/platform/media-adapter.ts";
 import { renderPlaybackDisplaySnapshot } from "./helpers/playback-display-fixture.ts";
 import { maskCommentsAndStrings } from "./helpers/js-source.ts";
 
@@ -42,7 +42,7 @@ test("media observation and Media Session adapters delegate live values and prop
 });
 
 test("playback display renderer is readonly and its projection cannot access lists", () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/playback-display-view.ts"), "utf8"), code = maskCommentsAndStrings(source);
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-display-view.ts"), "utf8"), code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|document|window|getApplicationStore|getPlaybackDisplayActions)\b|\.\s*actions\b|\bstate\s*\.\s*\w+\s*=(?!=|>)/);
   assert.doesNotMatch(code, /\b(?:innerHTML|replaceChildren|createElement|renderSearch|renderHome|renderFavorites|renderPlaylists)\b/);
 });
@@ -61,6 +61,6 @@ test("playback display progress commits repaint only progress controls", () => {
 
 test("playback display DOM assignments belong to the readonly renderer", () => {
   const check = (source: string) => assert.doesNotMatch(maskCommentsAndStrings(source), /\b(?:progressSlider|immersiveProgressSlider)\s*\.\s*(?:value|max)\s*=|\b(?:currentTimeLabel|durationLabel|immersiveCurrentTimeLabel|immersiveDurationLabel)\s*\.\s*textContent\s*=/);
-  check(fs.readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8"));
+  check(fs.readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8"));
   for (const invalid of ["progressSlider.value = '1';", "immersiveDurationLabel.textContent = '0:00';"]) assert.throws(() => check(invalid));
 });

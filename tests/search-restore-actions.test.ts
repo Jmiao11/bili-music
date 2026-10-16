@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 
 test("search pending restore actions consume once without mutating the previous frozen snapshot", () => {
   const store = createApplicationStore({ invoke: async () => { throw Error("unexpected command"); }, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });

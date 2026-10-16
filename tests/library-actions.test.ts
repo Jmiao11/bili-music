@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import type { HomeAdapter } from "../ui/app-state.ts";
-import { isLibraryDragClickSuppressed } from "../ui/library-state.ts";
-import type { LibrarySnapshot } from "../ui/library-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import type { HomeAdapter } from "../ui/store/app-state.ts";
+import { isLibraryDragClickSuppressed } from "../ui/features/library/library-state.ts";
+import type { LibrarySnapshot } from "../ui/features/library/library-state.ts";
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, addedAt: 1 });
 const playlist = (id: string, items = [track(1)]) => ({ id, name: id, items, createdAt: 1, updatedAt: 1 });

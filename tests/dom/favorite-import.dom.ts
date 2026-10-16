@@ -5,14 +5,14 @@ import path from "node:path";
 import { test } from "node:test";
 import { fixture } from "./library-modal-fixture.ts";
 
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/library-ui.ts"), "utf8");
-const code = sourceSlice(source, "ui/library-ui.ts", "function importFavoritePlaylist()       {", "function openPurgeUnavailableTracksModal()")
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/features/library/library-ui.ts"), "utf8");
+const code = sourceSlice(source, "ui/features/library/library-ui.ts", "function importFavoritePlaylist()       {", "function openPurgeUnavailableTracksModal()")
   .replace("function importFavoritePlaylist()       {", "function importFavoritePlaylist() {");
 assert.ok(code.startsWith("function importFavoritePlaylist() {"));
 
 async function setup(invoke: (command: string, args: Record<string, unknown>) => Promise<unknown>, t: import("node:test").TestContext) {
   // 保留原接线的模块语法验证，DOM 仍由 Vite 编译真实模块。
-  for (const name of ["track-utils.ts", "library-state.ts", "library-view.ts", "library-ui.ts"]) stripModuleSyntax(readFileSync(path.resolve(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
+  for (const name of ["shared/track-utils.ts", "features/library/library-state.ts", "features/library/library-view.ts", "features/library/library-ui.ts"]) stripModuleSyntax(readFileSync(path.resolve(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
   const h = await fixture(); t.after(h.dispose);
   const library = h.library as typeof h.library & { importFavoritePlaylist(): void };
   library.importFavoritePlaylist();

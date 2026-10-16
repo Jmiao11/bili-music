@@ -6,8 +6,8 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 // Execute the real, isolated bridge without booting the rest of the application.
-const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const bridge = sourceSlice(source, "ui/appearance.ts", "function initializeTaskbarControls() {", "function syncImmersiveTrack(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const bridge = sourceSlice(source, "ui/features/settings/appearance.ts", "function initializeTaskbarControls() {", "function syncImmersiveTrack(");
 assert.ok(bridge.startsWith("function initializeTaskbarControls() {"));
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));

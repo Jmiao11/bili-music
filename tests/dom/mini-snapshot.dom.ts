@@ -6,8 +6,8 @@ import { collectBusinessScripts } from "../helpers/module-graph.ts";
 import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
 import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 import { test } from "node:test";
-import { createApplicationStore } from "../../ui/app-state.ts";
-import { selectMiniPlayerSnapshot } from "../../ui/playback-mini-view.ts";
+import { createApplicationStore } from "../../ui/store/app-state.ts";
+import { selectMiniPlayerSnapshot } from "../../ui/mini/playback-mini-view.ts";
 
 const create = () => createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
 test("mini snapshot projection preserves displayed track independently of pending queue and media observations", () => {
@@ -45,7 +45,7 @@ test("mini snapshot uses applied accent variant and exposes only approved non-se
 test("mini bridge exposes exactly seven frozen functions backed by actual commands and snapshot projection", async () => {
   const h = await createMiniHostFixture(); h.setTrack();
   h.context.selectMiniPlayerSnapshot = selectMiniPlayerSnapshot;
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../../ui/mini-player-host.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../../ui/mini/mini-player-host.ts"), "utf8");
   const ports = vm.runInContext("({ getMiniPlayerHostSnapshot, subscribeMiniPlayerTheme })", h.context);
   const commands = h.context.getPlaybackCommands();
   assert.deepEqual(Object.keys(ports).sort(), ["getMiniPlayerHostSnapshot", "subscribeMiniPlayerTheme"]);

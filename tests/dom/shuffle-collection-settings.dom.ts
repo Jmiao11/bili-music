@@ -10,14 +10,14 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const main = readFileSync(path.join(import.meta.dirname, "../../ui/main.ts"), "utf8");
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../../ui/playback-policy.ts'), 'utf8');
-const pageSelection = readFileSync(path.join(import.meta.dirname, "../../ui/page-selection.ts"), "utf8");
-const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
+const main = readFileSync(path.join(import.meta.dirname, "../../ui/app/main.ts"), "utf8");
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../../ui/features/playback/playback-policy.ts'), 'utf8');
+const pageSelection = readFileSync(path.join(import.meta.dirname, "../../ui/features/pages/page-selection.ts"), "utf8");
+const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/appearance.ts"), "utf8");
 const html = mountedApplicationHtml;
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
-  + sourceSlice(appearance, "ui/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
-  + "installSettingsCallbacks({" + sourceSlice(appearance, "ui/appearance.ts", "collection: (kind,value)", ", clearCache:") + "});";
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/settings-adapter.ts"), "utf8") + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function openSettings()", "async function restoreAudioCacheSettings()")
+  + "installSettingsCallbacks({" + sourceSlice(appearance, "ui/features/settings/appearance.ts", "collection: (kind,value)", ", clearCache:") + "});";
 
 function setup(stored = new Map()) {
   const handlers: Record<string, () => void> = {};

@@ -6,10 +6,10 @@ import vm from "node:vm";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const tracks = readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8");
-const code = sourceSlice(tracks, "ui/track-utils.ts", "function isBvId(", "function shouldOpenPastedBvPages(")
-  + sourceSlice(core, "ui/playback-core.ts", "function initPlaybackSearch(", "function initPastedBvPages(");
+const core = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8");
+const tracks = readFileSync(path.join(import.meta.dirname, "../ui/shared/track-utils.ts"), "utf8");
+const code = sourceSlice(tracks, "ui/shared/track-utils.ts", "function isBvId(", "function shouldOpenPastedBvPages(")
+  + sourceSlice(core, "ui/features/playback/playback-core.ts", "function initPlaybackSearch(", "function initPastedBvPages(");
 
 function deferred() {
   let resolve: ((value: void | PromiseLike<void>) => void) | undefined;

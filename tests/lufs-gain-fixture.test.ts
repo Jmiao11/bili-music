@@ -6,8 +6,8 @@ import vm from "node:vm";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
 test("LUFS gain matches the shared Rust/JS fixture", () => {
-  const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-policy.ts"), "utf8");
-  const code = sourceSlice(source, "ui/playback-policy.ts", "function lufsToGain(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n";
+  const source = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-policy.ts"), "utf8");
+  const code = sourceSlice(source, "ui/features/playback/playback-policy.ts", "function lufsToGain(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n";
   const context = vm.createContext({});
   vm.runInContext(code, context);
   const cases = JSON.parse(readFileSync(path.join(import.meta.dirname, "fixtures/lufs-gain.json"), "utf8"));

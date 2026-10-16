@@ -51,7 +51,7 @@ test("library Vue reuses primary within session and replaces it on reopen before
     h.library.closeLibraryModal(); assert.equal(h.primary(), old);
     await open(h, "delete"); assert.notEqual(h.primary(), old);
     old.click(); assert.equal(h.calls.length, 0); assert.equal(h.state().session.open, true);
-    const source = fs.readFileSync(path.resolve(import.meta.dirname, "../../ui/library-view.ts"), "utf8");
+    const source = fs.readFileSync(path.resolve(import.meta.dirname, "../../ui/features/library/library-view.ts"), "utf8");
     assert.match(source, /const libraryModalPrimarySelector = "\.library-modal-actions > \.secondary-button"/);
     for (const kind of ["loudness", "purge"] as const) { await open(h, kind); assert.equal(h.doc.activeElement, h.primary()); assert.ok(h.platform.some(x => x.operation === "focus" && x.target === h.primary())); }
     const content = h.nodes.libraryModalBody.innerHTML, purgePrimary = h.primary();

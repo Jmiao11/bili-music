@@ -8,7 +8,7 @@ import { JSDOM } from "jsdom";
 import { build } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { vueFeatureFlags } from "../../scripts/vue/features.ts";
-import type { ApplicationStore } from "../../ui/application-store.ts";
+import type { ApplicationStore } from "../../ui/store/application-store.ts";
 
 test("root mounts before all player DOM queries and preserves controller writes through 1000 synchronous renders", async () => {
   const project = path.resolve(import.meta.dirname, "../.."), output = fs.mkdtempSync(path.join(os.tmpdir(), "bili-root-shell-"));
@@ -22,7 +22,7 @@ test("root mounts before all player DOM queries and preserves controller writes 
     }
     Object.defineProperty(dom.window, "__TAURI__", { value: { core: { invoke: () => new Promise(() => {}) } } });
     const entry = path.join(output, "entry.ts");
-    fs.writeFileSync(entry, `import ${JSON.stringify(project + "/ui/root-mount.ts")}; export * as nodes from ${JSON.stringify(project + "/ui/player-dom.ts")}; export { readApplicationStore } from ${JSON.stringify(project + "/ui/application-store.ts")}; export { setRootPlaylistList } from ${JSON.stringify(project + "/ui/root-lists.ts")};`);
+    fs.writeFileSync(entry, `import ${JSON.stringify(project + "/ui/app/root-mount.ts")}; export * as nodes from ${JSON.stringify(project + "/ui/platform/player-dom.ts")}; export { readApplicationStore } from ${JSON.stringify(project + "/ui/store/application-store.ts")}; export { setRootPlaylistList } from ${JSON.stringify(project + "/ui/features/tracks/root-lists.ts")};`);
     await build({ configFile: false, root: project, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(output, "compiled"), minify: false, lib: { entry, formats: ["es"], fileName: "root" } },

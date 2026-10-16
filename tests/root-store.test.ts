@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createRootStore } from "../ui/application-store.ts";
+import { createRootStore } from "../ui/store/application-store.ts";
 
 test("root subscription runs before nested business commits and never ends on the old snapshot", () => {
   const projected: string[] = [];

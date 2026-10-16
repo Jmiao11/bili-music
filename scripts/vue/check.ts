@@ -4,20 +4,21 @@ import path from "node:path";
 import ts from "typescript";
 import { compileTemplate, parse } from "vue/compiler-sfc";
 
+const productSfc = (file: string) => /^ui\/(?:app|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const vueImports: Record<string, string[]> = {
-  "ui/components/SettingsPanel.vue": ["vue"],
-  "ui/components/ListHost.vue": ["vue"],
-  "ui/root-mount.ts": ["vue"],
-  "ui/components/PlaylistList.vue": ["vue"],
-  "ui/components/TrackList.vue": ["vue"],
-  "ui/components/TrackRow.vue": ["vue"],
-  "ui/components/LibraryModalBody.vue": ["vue"],
+  "ui/features/settings/components/SettingsPanel.vue": ["vue"],
+  "ui/features/tracks/components/ListHost.vue": ["vue"],
+  "ui/app/root-mount.ts": ["vue"],
+  "ui/features/library/components/PlaylistList.vue": ["vue"],
+  "ui/features/tracks/components/TrackList.vue": ["vue"],
+  "ui/features/tracks/components/TrackRow.vue": ["vue"],
+  "ui/features/library/components/LibraryModalBody.vue": ["vue"],
   "scripts/vue/check.ts": ["vue/compiler-sfc"],
   "tests/dom/vue-smoke.dom.ts": ["vue"],
   "tests/dom/pages-runtime.ts": ["vue"],
 };
-const sfcAdditionalForbidden: Record<string, string[]> = { "ui/components/PlaylistList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/components/TrackList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/components/TrackRow.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/components/LibraryModalBody.vue": ["focus"] };
+const sfcAdditionalForbidden: Record<string, string[]> = { "ui/features/library/components/PlaylistList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/tracks/components/TrackList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/tracks/components/TrackRow.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/library/components/LibraryModalBody.vue": ["focus"] };
 function inspect(source: string, file: string, visit: (node: ts.Node) => void) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   function walk(node: ts.Node) { visit(node); ts.forEachChild(node, walk); }
@@ -37,7 +38,7 @@ function checkImports(source: string, file: string) {
     if (specifier === "vue" || specifier.startsWith("vue/")) assert.ok(vueImports[file]?.includes(specifier), `Unregistered Vue import: ${file} -> ${specifier}`);
     if (specifier.endsWith(".vue")) {
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      const product = file.startsWith("ui/") && target.startsWith("ui/components/");
+      const product = file.startsWith("ui/") && productSfc(target);
       // The smoke test uses Vite's entry API; only infrastructure can import this exact fixture.
       const testFixture = file === "tests/dom/vue-smoke.dom.ts" && target === fixture;
       assert.ok(product || testFixture, `Unregistered SFC import: ${file} -> ${target}`);
@@ -73,7 +74,7 @@ function checkRepository(root: string) {
       if (entry.isDirectory()) {
         if (!["node_modules", "dist", "target", ".git"].includes(entry.name)) visit(absolute);
       } else if (file.endsWith(".vue")) {
-        assert.ok(file.startsWith("ui/components/") || file === fixture, `Unregistered SFC file: ${file}`);
+        assert.ok(productSfc(file) || file === fixture, `Unregistered SFC file: ${file}`);
         checkSfc(fs.readFileSync(absolute, "utf8"), file);
       } else if (file.endsWith(".ts")) checkImports(fs.readFileSync(absolute, "utf8"), file);
     }
@@ -84,13 +85,13 @@ function checkRepository(root: string) {
 // Guard self-checks run after installation; no third-party dependency enters node --test.
 assert.throws(() => checkImports('import { ref } from "vue";', "ui/app.ts"), /Unregistered Vue import/);
 assert.throws(() => checkImports('import X from "../tests/fixtures/vue/ToolchainSmoke.vue";', "ui/app.ts"), /Unregistered SFC import/);
-assert.doesNotThrow(() => checkImports('import X from "./components/X.vue";', "ui/app.ts"));
+assert.doesNotThrow(() => checkImports('import X from "./app/components/X.vue";', "ui/app.ts"));
 for (const expression of ["window.location", "window.__TAURI__", "invoke('x')", "actions.update()", "globalThis['window']"]) {
   assert.throws(() => checkSfc(`<script setup lang="ts">${expression};</script><template><button /></template>`, fixture), /forbidden component access/);
   assert.throws(() => checkSfc(`<template><button>{{ ${expression} }}</button></template>`, fixture), /forbidden component access/);
 }
-assert.throws(() => checkSfc('<script setup lang="ts">element.focus();</script><template><button /></template>', "ui/components/LibraryModalBody.vue"), /forbidden component access/);
-for (const file of ["ui/components/PlaylistList.vue", "ui/components/TrackList.vue", "ui/components/TrackRow.vue"]) for (const expression of ["element.focus()", "queueSource", "queueSearchVersion", "getApplicationStore()", "useAppState()", "actions.update()"]) {
+assert.throws(() => checkSfc('<script setup lang="ts">element.focus();</script><template><button /></template>', "ui/features/library/components/LibraryModalBody.vue"), /forbidden component access/);
+for (const file of ["ui/features/library/components/PlaylistList.vue", "ui/features/tracks/components/TrackList.vue", "ui/features/tracks/components/TrackRow.vue"]) for (const expression of ["element.focus()", "queueSource", "queueSearchVersion", "getApplicationStore()", "useAppState()", "actions.update()"]) {
   assert.throws(() => checkSfc(`<script setup lang="ts">${expression};</script>`, file), /forbidden component access/);
 }
 checkRepository(path.resolve(import.meta.dirname, "../.."));

@@ -7,24 +7,24 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const appearance = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const main = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
-const policy = readFileSync(path.join(import.meta.dirname, "../ui/playback-policy.ts"), "utf8");
-const code = sourceSlice(core, "ui/playback-core.ts", "let cacheRequestPromise", "let recoveryPromise")
-  + sourceSlice(appearance, "ui/appearance.ts", "const VOLUME_KEY", "const root =")
-  + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
-  + sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
-  + sourceSlice(core, "ui/playback-core.ts", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
-  + sourceSlice(policy, "ui/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
-  + sourceSlice(core, "ui/playback-core.ts", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
-const cacheListenerCode = sourceSlice(core, "ui/playback-core.ts", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (getSessionSnapshot().cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
-  + sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
-const endedHandlerCode = sourceSlice(main, "ui/main.ts", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
+const appearance = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const main = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8").replace(/\r\n/g, "\n");
+const policy = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-policy.ts"), "utf8");
+const code = sourceSlice(core, "ui/features/playback/playback-core.ts", "let cacheRequestPromise", "let recoveryPromise")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "const VOLUME_KEY", "const root =")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
+  + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function applyVolume(", "function startAppearance()", {"endAfterStart":true})
+  + sourceSlice(core, "ui/features/playback/playback-core.ts", "function emitCurrentTrackChanged(", "function resetRandomRemaining(")
+  + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "// 与 src-tauri/", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n"
+  + sourceSlice(core, "ui/features/playback/playback-core.ts", "function refreshTrackLoudness(", "async function loadCurrentTrack(");
+const cacheListenerCode = sourceSlice(core, "ui/features/playback/playback-core.ts", "audio.addEventListener(\"timeupdate\"", "\n}\n", { startLastBefore: "if (getSessionSnapshot().cacheRequestedForCurrentTrack) return;", endAfterStart: true }) + "\n\n"
+  + sourceSlice(main, "ui/app/main.ts", "audio.addEventListener(\"timeupdate\", analyzeCurrentTrackAtThreshold);", ";", { endAfterStart: true, includeEnd: true });
+const endedHandlerCode = sourceSlice(main, "ui/app/main.ts", "audio.addEventListener(\"ended\", (event) => {", "initPlaybackPersistenceAndCache();", {"endAfterStart":true});
 const settingKey = "bilibili-music.loudness-normalization";
 const volumeKey = "bilibili-music.volume";
-const applyNormalizationCode = "let playbackSettingsMounted = false, playbackSettingsMedia = null;\n" + sourceSlice(appearance, "ui/appearance.ts", "function getPlaybackSettingsActions(", "function startAppearance()") + sourceSlice(appearance, "ui/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
-const loudnessToggleListeners = sourceSlice(appearance, "ui/appearance.ts", "installSettingsCallbacks({normalization:", "getPlaybackMedia().subscribe(\"timeupdate\"");
+const applyNormalizationCode = "let playbackSettingsMounted = false, playbackSettingsMedia = null;\n" + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function getPlaybackSettingsActions(", "function startAppearance()") + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function applyLoudnessNormalization(", "function initializeLoudnessNormalization(");
+const loudnessToggleListeners = sourceSlice(appearance, "ui/features/settings/appearance.ts", "installSettingsCallbacks({normalization:", "getPlaybackMedia().subscribe(\"timeupdate\"");
 
 type Query = { command: string; args: Record<string, unknown>; resolve(value: unknown): void; reject(reason?: unknown): void };
 type Animation = { callbacks: Map<number, (timestamp: number) => void>; cancelled: number[]; nextId: number; now: number; runNext(now: number): number };

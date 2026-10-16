@@ -6,9 +6,9 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const code = sourceSlice(source, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
-  + sourceSlice(source, "ui/appearance.ts", "function readAccentColor(", "function resetBackground(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const code = sourceSlice(source, "ui/features/settings/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+  + sourceSlice(source, "ui/features/settings/appearance.ts", "function readAccentColor(", "function resetBackground(");
 const expected: Record<string, Record<string, number[]>> = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },
   blue: { dark: [122, 166, 231], light: [40, 88, 161] },
@@ -94,8 +94,8 @@ test("twelve actual variants meet contrast targets and pairs preserve hue within
   const contrast = (a: number[], b: number[]) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
   const mix = (a: number[], b: number[], alpha: number) => a.map((v: number, i: number) => v * alpha + b[i] * (1 - alpha));
   // Reuse the existing RGB/HSL implementation without initializing the background.
-  const dynamic = readFileSync(path.join(import.meta.dirname, "../ui/dynamic-background.ts"), "utf8");
-  vm.runInContext(sourceSlice(dynamic, "ui/dynamic-background.ts", null, "function initializeDynamicBackground"), app);
+  const dynamic = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/dynamic-background.ts"), "utf8");
+  vm.runInContext(sourceSlice(dynamic, "ui/features/settings/dynamic-background.ts", null, "function initializeDynamicBackground"), app);
   for (const name of Object.keys(expected)) {
     const dark = Array.from<number>(app.accentChannels(name, "dark"));
     const light = Array.from<number>(app.accentChannels(name, "light"));

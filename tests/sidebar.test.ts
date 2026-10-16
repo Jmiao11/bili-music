@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/sidebar.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/app/sidebar.ts"), "utf8");
 const logic = vm.createContext({});
 vm.runInContext(source, logic);
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
@@ -208,7 +208,7 @@ test("unchanged mascot API and bubble cleanup work while the sidebar is collapse
     setTimeout(fn: (event?: Record<string, unknown>) => void, ms: number) { timers.set(++timerId, { fn, ms }); return timerId; },
     clearTimeout(id: number) { timers.delete(id); },
   });
-  const api = vm.runInNewContext(readFileSync(path.join(import.meta.dirname, "../ui/mascot.ts"), "utf8") + "\ninitializeMascot(); getMascotApi();", {
+  const api = vm.runInNewContext(readFileSync(path.join(import.meta.dirname, "../ui/app/mascot.ts"), "utf8") + "\ninitializeMascot(); getMascotApi();", {
     document, window, localStorage: { getItem: () => null, setItem() {} },
   });
   if (!api) throw new Error("Mascot API is missing");

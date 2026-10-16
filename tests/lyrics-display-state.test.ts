@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 
 test("lyrics display copies external rows and candidates without changing playback domains", () => {
   const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });

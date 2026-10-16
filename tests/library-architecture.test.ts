@@ -20,7 +20,7 @@ function readonlyLibrary(source: string, names: string[] = []): void {
 }
 
 test("library renderer reads snapshots without actions platform imports or snapshot writes", () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/library-view.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/library/library-view.ts"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(source), /\b(?:invoke|getLibraryActions|getApplicationStore)\b|\.\s*actions\b/);
   readonlyLibrary(source, ["state", "libraryState"]);
 });
@@ -28,7 +28,7 @@ test("library renderer reads snapshots without actions platform imports or snaps
 test("library snapshot guard rejects collection and nested alias mutations", () => {
   for (const source of ['getLibrarySnapshot().selectedPlaylistId = "a";', 'const library = getLibrarySnapshot(); library.favorites.push(track);', 'const rows = getLibrarySnapshot().playlists; const playlist = rows[0]; Object.assign(playlist, changed);', 'getLibrarySnapshot().unavailableBvids.set(bvid, reason);', 'state.session.busy = true;']) assert.throws(() => readonlyLibrary(source, ["state"]), source);
   assert.doesNotThrow(() => readonlyLibrary('const values = new Map(getLibrarySnapshot().unavailableBvids); values.set(bvid, reason);'));
-  for (const file of ["library-ui.ts", "playback-core.ts", "main.ts", "video-pages.ts"]) {
+  for (const file of ["features/library/library-ui.ts", "features/playback/playback-core.ts", "app/main.ts", "features/pages/video-pages.ts"]) {
     const source = fs.readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8");
     readonlyLibrary(source);
   }

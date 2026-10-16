@@ -1,11 +1,11 @@
 import { renderPlaybackDisplaySnapshot } from "./playback-display-fixture.ts";
-import type { PlaybackCallbacks } from "../../ui/root-playback.ts";
+import type { PlaybackCallbacks } from "../../ui/features/playback/root-playback.ts";
 import { createControllerContext as createSessionContext } from "./controller-context.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { pathToFileURL } from "node:url";
-import { createApplicationStore } from "../../ui/app-state.ts";
+import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./module-syntax.ts";
 
 type FixtureEvent = { type: string; detail?: unknown; prevented: boolean; immediate: boolean; preventDefault(): void; stopImmediatePropagation(): void };
@@ -31,7 +31,7 @@ class DisplayNode {
 }
 
 async function createPlaybackControlFixture() {
-  const ui = path.join(import.meta.dirname, "../../ui"), source = fs.readFileSync(path.join(ui, "appearance.ts"), "utf8"), nodes = new Map<string, DisplayNode>();
+  const ui = path.join(import.meta.dirname, "../../ui"), source = fs.readFileSync(path.join(ui, "features/settings/appearance.ts"), "utf8"), nodes = new Map<string, DisplayNode>();
   const node = (id: string) => { if (!nodes.has(id)) nodes.set(id, new DisplayNode()); return nodes.get(id)!; };
   const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [], navigation: string[] = [];
   // Event payloads: src-tauri/src/taskbar.rs:488 and shortcuts.rs:45 emit the action string.
@@ -74,18 +74,18 @@ async function createPlaybackControlFixture() {
     pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
     playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.
-  for (const declaration of moduleDeclarations(source, "ui/appearance.ts")) if (declaration.kind === "import" && /(?:playback-.*-(?:state|view)|media-adapter|playback-commands)\.ts$/.test(declaration.specifier)) {
-    Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
+  for (const declaration of moduleDeclarations(source, "ui/features/settings/appearance.ts")) if (declaration.kind === "import" && /(?:playback-.*-(?:state|view)|media-adapter|playback-commands)\.ts$/.test(declaration.specifier)) {
+    Object.assign(context, await import(pathToFileURL(path.join(ui, "features/settings", declaration.specifier)).href));
   }
-  const erased = stripModuleSyntax(source, "ui/appearance.ts");
+  const erased = stripModuleSyntax(source, "ui/features/settings/appearance.ts");
   vm.runInContext(erased.slice(0, erased.indexOf("function startAppearance()")), context);
   // Immersive cover/queue rendering is outside this fixture; time, buttons and Media Session remain real.
   context.syncImmersiveTrack = () => {};
-  const core = stripModuleSyntax(fs.readFileSync(path.join(ui, "playback-core.ts"), "utf8"), "ui/playback-core.ts");
+  const core = stripModuleSyntax(fs.readFileSync(path.join(ui, "features/playback/playback-core.ts"), "utf8"), "ui/features/playback/playback-core.ts");
   vm.runInContext(core.slice(core.indexOf("function initPlaybackResume()"), core.indexOf("function initPlaybackPersistenceAndCache()")), context);
   context.resumePlayPauseButton = node("#play-pause-button"); context.initPlaybackResume();
   context.previousButton = node("#previous-button"); context.nextButton = node("#next-button");
-  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
+  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "app/main.ts"), "utf8"), "ui/app/main.ts");
   vm.runInContext(main.slice(main.indexOf('installPlaybackCallbacks({'), main.indexOf("initPlaybackResume();")), context);
   vm.runInContext(erased.slice(erased.indexOf('window.addEventListener("bilibili-music-trackchange", (event) => {', erased.indexOf("function startAppearance()")), erased.indexOf("initializeAccentColor();", erased.indexOf("function startAppearance()"))), context);
   vm.runInContext("updateProgress(0); updatePlayPauseButton(); registerMediaSessionActionHandlers(); initializeTaskbarControls(); initializeGlobalShortcutControls();", context);

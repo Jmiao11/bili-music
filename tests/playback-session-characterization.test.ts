@@ -7,7 +7,7 @@ import vm from "node:vm";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { wirePlaybackMessagesContext } from "./helpers/playback-messages-fixture.ts";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.ts";
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "cover-image", durationSeconds: 80 });
@@ -118,7 +118,7 @@ for (const success of [true, false]) test(`session pasted BV pending pages ${suc
   assert.equal(h.events.includes("open-pages"), success);
 });
 async function fixture({ count = 3, pageCount = 1, normalization = false, cacheResult = "disabled", saved = null as unknown, deferPages = false } = {}) {
-  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "playback-core.ts"), "utf8");
+  const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "features/playback/playback-core.ts"), "utf8");
   const names = [...applicationNodeNames, ...legacyPlaybackNodeNames];
   const nodes = Object.fromEntries(names.map(n => [n, new RequestNode()]));
   const details: { type: string; detail: Record<string, unknown> }[] = [], calls: { command: string; args: Record<string, unknown> }[] = [], gains: number[] = [];
@@ -146,11 +146,11 @@ async function fixture({ count = 3, pageCount = 1, normalization = false, cacheR
     clearPlaybackNotice() {}, showPlaybackNotice: (text: string) => { notices.push(text); void windowNode.fire("bilibili-music-notice-change"); }, setSearchPlaybackBusy() {},
     resetSearchForBv: () => 0, recognizeSearchBv() {}, runSearch() {}, openCurrentPagesModal: () => events.push("open-pages"),
     isLoudnessNormalizationEnabled: () => normalization, setNormalizationGain: (gain: number) => gains.push(gain) });
-  for (const declaration of moduleDeclarations(source, "ui/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) Object.assign(context, await import(pathToFileURL(path.join(ui, declaration.specifier)).href));
-  for (const file of ["player-state.ts", "settings-adapter.ts", "playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
+  for (const declaration of moduleDeclarations(source, "ui/features/playback/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) Object.assign(context, await import(pathToFileURL(path.join(ui, "features/playback", declaration.specifier)).href));
+  for (const file of ["shared/player-state.ts", "features/settings/settings-adapter.ts", "features/playback/playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
   wirePlaybackMessagesContext(context);
-  vm.runInContext(stripModuleSyntax(source, "ui/playback-core.ts"), context);
-  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
+  vm.runInContext(stripModuleSyntax(source, "ui/features/playback/playback-core.ts"), context);
+  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "app/main.ts"), "utf8"), "ui/app/main.ts");
   vm.runInContext(main.slice(main.indexOf('audio.addEventListener("ended", (event) => {'), main.indexOf("initPlaybackPersistenceAndCache();")), context);
   context.initPlaybackAudioIdentity(); audio.addEventListener("error", context.handleAudioRecoveryError);
   store.actions.playbackQueue.replaceQueue(Array.from({ length: count }, (_, i) => track(i + 1)));

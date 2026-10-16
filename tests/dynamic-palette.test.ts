@@ -5,9 +5,9 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/dynamic-background.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/dynamic-background.ts"), "utf8");
 const colors = vm.createContext({});
-vm.runInContext(sourceSlice(source, "ui/dynamic-background.ts", null, "function initializeDynamicBackground"), colors);
+vm.runInContext(sourceSlice(source, "ui/features/settings/dynamic-background.ts", null, "function initializeDynamicBackground"), colors);
 const plain = (value: number) => JSON.parse(JSON.stringify(value));
 type Area = [number[], number];
 const artwork = (...areas: Area[]) => new Uint8ClampedArray(areas.flatMap(([rgb, count]) =>

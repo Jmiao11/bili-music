@@ -18,7 +18,7 @@ async function renderApplicationHtml(root: string): Promise<string> {
     }
     Object.defineProperty(dom.window, "__TAURI__", { value: { core: { invoke: () => new Promise(() => {}) } } });
     const entry = path.join(output, "entry.ts");
-    fs.writeFileSync(entry, `import ${JSON.stringify(path.join(root, "ui/root-mount.ts"))};`);
+    fs.writeFileSync(entry, `import ${JSON.stringify(path.join(root, "ui/app/root-mount.ts"))};`);
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(root, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(output, "compiled"), minify: false, lib: { entry, formats: ["es"], fileName: "shell" } },

@@ -1,5 +1,5 @@
-import { createApplicationStore } from "../ui/app-state.ts";
-import { normalizeTrack } from "../ui/track-utils.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import { normalizeTrack } from "../ui/shared/track-utils.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -7,13 +7,13 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-const searchSource = readFileSync(path.join(import.meta.dirname, "../ui/search.ts"), "utf8");
-const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/player-state.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+const searchSource = readFileSync(path.join(import.meta.dirname, "../ui/features/search/search.ts"), "utf8");
+const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/shared/player-state.ts"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（注入应用 store 动作）。
-const helpers = sourceSlice(stateSource, "ui/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
-  + sourceSlice(searchSource, "ui/search.ts", "function readLastSearchKeyword(", "function getSearchActions(");
+const helpers = sourceSlice(stateSource, "ui/shared/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
+  + sourceSlice(searchSource, "ui/features/search/search.ts", "function readLastSearchKeyword(", "function getSearchActions(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
 
 function setup({ keyword = "", results = [] }: { keyword?: string; results?: { bvid: string }[] } = {}) {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import type { LibrarySnapshot } from "../../ui/library-state.ts";
+import type { LibrarySnapshot } from "../../ui/features/library/library-state.ts";
 import { fixture, deferred, playlist, track } from "./library-modal-fixture.ts";
 import { open } from "./library-modal-open.ts";
 

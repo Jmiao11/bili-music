@@ -77,16 +77,16 @@ async function fixture(saved: [string, string][] = []) {
   const warn = console.warn; console.warn = () => {};
   const dispose = () => { console.warn = warn; for (const [name, descriptor] of globals) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); } fs.rmSync(rootPath, { recursive: true, force: true }); };
   try {
-    for (const name of collectModuleGraph(source, ["appearance.ts"])) fs.copyFileSync(path.join(source, name), path.join(rootPath, name)); fs.writeFileSync(path.join(rootPath, "package.json"), '{"type":"module"}');
-    for (const name of ["playback-core.ts", "library-ui.ts"]) { const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean); fs.writeFileSync(path.join(rootPath, name), exports.map(x => 'function '+x+'() {}').join("\n")+'\nexport { '+exports.join(", ")+' };'); }
+    for (const name of collectModuleGraph(source, ["features/settings/appearance.ts"])) { fs.mkdirSync(path.dirname(path.join(rootPath, name)), {recursive:true}); fs.copyFileSync(path.join(source, name), path.join(rootPath, name)); } fs.writeFileSync(path.join(rootPath, "package.json"), '{"type":"module"}');
+    for (const name of ["features/playback/playback-core.ts", "features/library/library-ui.ts"]) { const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean); fs.writeFileSync(path.join(rootPath, name), exports.map(x => 'function '+x+'() {}').join("\n")+'\nexport { '+exports.join(", ")+' };'); }
     const portContext = {document:doc,root:doc.documentElement,themeOptions:themes,accentColorOptions:accents,shortcutRecordButtons:records,shortcutClearButtons:clears,imageOnlyGroups:groups[".image-only"],autoSource:auto};
     const renderControls = attachSettingsControlPorts(portContext);
     install("__settingsFixtureRegister", Reflect.get(portContext,"installSettingsCallbacks"));
-    fs.appendFileSync(path.join(rootPath,"root-settings.ts"), '\nconst registerSettingsForFixture=installSettingsCallbacks; installSettingsCallbacks=function(next){registerSettingsForFixture(next);globalThis.__settingsFixtureRegister(next);};\n');
-    const composition = await import(pathToFileURL(path.join(rootPath, "application-store.ts")).href);
-    composition.initializeApplicationStore({ invoke, setTimeout: setTimer, clearTimeout: (id: number) => timers.delete(id), report() {}, settings: (await import(pathToFileURL(path.join(rootPath, "settings-adapter.ts")).href)).createSettingsPlatform() }, snapshot => renderControls(snapshot.settings));
-    const appearance = await import(pathToFileURL(path.join(rootPath, "appearance.ts")).href) as { startAppearance(): void }; appearance.startAppearance();
-    const policy = await import(pathToFileURL(path.join(rootPath, "playback-policy.ts")).href) as { readShuffleCollectionPrefs(): { order: string; limit: number } };
+    fs.appendFileSync(path.join(rootPath,"features/settings/root-settings.ts"), '\nconst registerSettingsForFixture=installSettingsCallbacks; installSettingsCallbacks=function(next){registerSettingsForFixture(next);globalThis.__settingsFixtureRegister(next);};\n');
+    const composition = await import(pathToFileURL(path.join(rootPath, "store/application-store.ts")).href);
+    composition.initializeApplicationStore({ invoke, setTimeout: setTimer, clearTimeout: (id: number) => timers.delete(id), report() {}, settings: (await import(pathToFileURL(path.join(rootPath, "features/settings/settings-adapter.ts")).href)).createSettingsPlatform() }, snapshot => renderControls(snapshot.settings));
+    const appearance = await import(pathToFileURL(path.join(rootPath, "features/settings/appearance.ts")).href) as { startAppearance(): void }; appearance.startAppearance();
+    const policy = await import(pathToFileURL(path.join(rootPath, "features/playback/playback-policy.ts")).href) as { readShuffleCollectionPrefs(): { order: string; limit: number } };
     const h = { node, doc, css, storage, writes, reads, calls, events, themes, accents, nav, records, clears, auto, policy, dispose,
       reply(next: typeof reply) { reply = next; }, async flush() { for (let i = 0; i < 80; i++) await Promise.resolve(); while (frames.length) frames.shift()?.(); mutations.forEach(callback => callback()); },
       async fireWindow(type: string, fields: Record<string, unknown> = {}) { return win.fire(type, fields); }, async expire() { for (const [id, timer] of [...timers]) if (timer.delay === 3000) { timers.delete(id); timer.callback(); } await h.flush(); }

@@ -3,17 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 import { afterEach } from "node:test";
-import { createApplicationStore } from "../../ui/app-state.ts";
-import { createStateStore } from "../../ui/state-store.ts";
-import { createPlaybackQueueActions, initialPlaybackQueueState } from "../../ui/playback-queue-state.ts";
-import { initialPlaybackRequestState } from "../../ui/playback-request-state.ts";
-import { initialPlaybackSessionState } from "../../ui/playback-session-state.ts";
-import { createPlaybackCommands } from "../../ui/playback-commands.ts";
-import { createMediaAdapter } from "../../ui/media-adapter.ts";
+import { createApplicationStore } from "../../ui/store/app-state.ts";
+import { createStateStore } from "../../ui/store/state-store.ts";
+import { createPlaybackQueueActions, initialPlaybackQueueState } from "../../ui/features/playback/playback-queue-state.ts";
+import { initialPlaybackRequestState } from "../../ui/features/playback/playback-request-state.ts";
+import { initialPlaybackSessionState } from "../../ui/features/playback/playback-session-state.ts";
+import { createPlaybackCommands } from "../../ui/features/playback/playback-commands.ts";
+import { createMediaAdapter } from "../../ui/platform/media-adapter.ts";
 import { mountPlaybackFixtureRoot } from "./playback-root-fixture.ts";
 import {sourceSlice} from "./source-slice.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
-const clearResumeSource=sourceSlice(fs.readFileSync(path.join(import.meta.dirname,"../../ui/playback-core.ts"),"utf8"),"ui/playback-core.ts","function clearPendingResume()","function savePlaybackState()");
+const clearResumeSource=sourceSlice(fs.readFileSync(path.join(import.meta.dirname,"../../ui/features/playback/playback-core.ts"),"utf8"),"ui/features/playback/playback-core.ts","function clearPendingResume()","function savePlaybackState()");
 const errors: unknown[] = [];
 afterEach(()=>assert.deepEqual(errors.splice(0),[],"Controller fixture reported an unexpected error"));
 
@@ -63,7 +63,7 @@ function createControllerContext(seed: vm.Context, options?: vm.CreateContextOpt
   context.playbackNotice ??= context.document?.querySelector?.("#playback-notice");
   mountPlaybackFixtureRoot(context, store);
   context.__renderFixtureRoot();
-  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/playback-messages.ts"), "utf8"), "ui/playback-messages.ts"), context);
+  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui/features/playback/playback-messages.ts"), "utf8"), "ui/features/playback/playback-messages.ts"), context);
   return context;
 }
 

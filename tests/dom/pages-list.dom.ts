@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { JSDOM } from "jsdom";
 import { fixture, track } from "./pages-fixture.ts";
 import { compilePagesRuntime } from "./pages-runtime.ts";
-import type { PagesSnapshot } from "../../ui/pages-state.ts";
+import type { PagesSnapshot } from "../../ui/features/pages/pages-state.ts";
 
 type Scenario = {
   name: string; modal: NonNullable<PagesSnapshot["modal"]>; disabled: number[]; pending: (number | null)[];

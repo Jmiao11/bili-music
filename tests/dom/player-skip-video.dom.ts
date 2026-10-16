@@ -10,8 +10,8 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/main.ts"), "utf8");
-const core = readFileSync(path.join(import.meta.dirname, "../../ui/playback-core.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/app/main.ts"), "utf8");
+const core = readFileSync(path.join(import.meta.dirname, "../../ui/features/playback/playback-core.ts"), "utf8");
 const html = mountedApplicationHtml.replace(/<[^>]+>/g, tag => / hidden(?:="")?(?=\s|>)/.test(tag) ? tag.replace(/ hidden(?:="")?(?=\s|>)/, "").replace(/>$/, " hidden>") : tag);
 
 test("the skip button follows the unchanged page badge inside one hidden group", () => {
@@ -52,7 +52,7 @@ test("skip video calls playNext directly and clears state only on a successful s
     clearPendingResume: () => calls.push(["clearPendingResume"]),
     clearPlaybackNotice: () => calls.push(["clearPlaybackNotice"]),
   });
-  vm.runInContext(sourceSlice(source, "ui/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), context);
+  vm.runInContext(sourceSlice(source, "ui/app/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), context);
   handlers.skip();
   assert.deepEqual(calls, [
     ["playNext", []], ["clearPendingResume"], ["clearPlaybackNotice"],

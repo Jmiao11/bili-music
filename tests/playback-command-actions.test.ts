@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createPlaybackCommands } from "../ui/playback-commands.ts";
-import { createMediaAdapter } from "../ui/media-adapter.ts";
+import { createPlaybackCommands } from "../ui/features/playback/playback-commands.ts";
+import { createMediaAdapter } from "../ui/platform/media-adapter.ts";
 import { createControllerContext as createSessionContext } from "./helpers/controller-context.ts";
 import vm from "node:vm";
 

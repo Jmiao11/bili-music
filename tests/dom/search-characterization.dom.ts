@@ -16,9 +16,9 @@ async function fixture(saved = "", draft = "") {
   };
   for (const node of [h.doc, h.window, h.window.HTMLElement.prototype]) Object.defineProperty(node, "fire", { configurable: true, value: function(this: EventTarget, type: string, detail?: unknown) { return dispatch(this, type, detail); } });
   const source = path.resolve(import.meta.dirname, "../../ui");
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, "player-dom.ts"), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean);
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, "platform/player-dom.ts"), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean);
   assert.ok(names);
-  for (const name of ["library-ui.ts", "video-pages.ts", "appearance.ts", "playback-notice.ts", "playback-diagnostics.ts"]) {
+  for (const name of ["features/library/library-ui.ts", "features/pages/video-pages.ts", "features/settings/appearance.ts", "features/playback/playback-notice.ts", "features/playback/playback-diagnostics.ts"]) {
     const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(exports);
   }
   const nodes = h.nodes as unknown as { [K in keyof typeof h.nodes]: typeof h.nodes[K] extends HTMLElement ? FixtureNode & Omit<typeof h.nodes[K], "children"> : typeof h.nodes[K] };

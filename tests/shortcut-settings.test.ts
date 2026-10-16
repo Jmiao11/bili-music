@@ -1,4 +1,4 @@
-import {shortcutDisplayLabel as projectShortcutLabel} from "../ui/settings-controls.ts";
+import {shortcutDisplayLabel as projectShortcutLabel} from "../ui/features/settings/settings-controls.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
@@ -7,9 +7,9 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-const formatterSource = sourceSlice(source, "ui/appearance.ts", "function isShortcutModifierCode(", "function shortcutButtonFor(");
-const recorderSource = sourceSlice(source, "ui/appearance.ts", "function shortcutButtonFor(", "async function saveShortcutBinding(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+const formatterSource = sourceSlice(source, "ui/features/settings/appearance.ts", "function isShortcutModifierCode(", "function shortcutButtonFor(");
+const recorderSource = sourceSlice(source, "ui/features/settings/appearance.ts", "function shortcutButtonFor(", "async function saveShortcutBinding(");
 assert.ok(formatterSource.startsWith("function isShortcutModifierCode("));
 assert.ok(recorderSource.startsWith("function shortcutButtonFor("));
 
@@ -17,7 +17,7 @@ const formatterContext = vm.createContext({
   Set,
   document: { documentElement: { dataset: { platform: "windows" } } },
 });
-vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/settings-view.ts"), "utf8") + formatterSource, formatterContext);
+vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/features/settings/settings-view.ts"), "utf8") + formatterSource, formatterContext);
 
 formatterContext.shortcutDisplayLabel = (binding: string | null) => projectShortcutLabel(binding, formatterContext.document.documentElement.dataset.platform);
 

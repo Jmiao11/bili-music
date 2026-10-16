@@ -5,9 +5,9 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const trackUtilsSource = readFileSync(path.join(import.meta.dirname, "../ui/track-utils.ts"), "utf8");
-const functionSource = sourceSlice(trackUtilsSource, "ui/track-utils.ts", "function playbackFailureMessage(", "function isBvId(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8");
+const trackUtilsSource = readFileSync(path.join(import.meta.dirname, "../ui/shared/track-utils.ts"), "utf8");
+const functionSource = sourceSlice(trackUtilsSource, "ui/shared/track-utils.ts", "function playbackFailureMessage(", "function isBvId(");
 assert.ok(functionSource.includes("function playbackFailureMessage"));
 
 const context = vm.createContext({});

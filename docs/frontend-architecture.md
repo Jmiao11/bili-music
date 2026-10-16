@@ -2,9 +2,13 @@
 
 主窗口为单一 Vue 组件树，Rust 保持取流、代理、持久化与系统窗口职责。迷你窗是独立原生入口；本轮没有迁移它的宿主。长期约束见 [AGENTS](../AGENTS.md)，功能定位见 [改功能指南](where-to-change.md)，过程记录见 [迁移历史](frontend-migration-history.md)。
 
+## 目录约定
+
+HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.css`、`mini.css` 留在 `ui/` 根目录，不改变HTML及构建产物路径。启动/外壳与跨页接线在 `ui/app/`，组合store在 `ui/store/`，平台和DOM/草稿端口在 `ui/platform/`，迷你窗宿主在 `ui/mini/`。新功能放 `ui/features/<功能>/`，同域state、控制器、投影与组件相邻；跨功能共用放 `ui/shared/` 或独立功能目录（曲目行在 `ui/features/tracks/`）。功能内部默认平铺，文件较多再设 `components/`；不引入路径别名。`store/app-state.ts`仍是原有组合工厂，`app/root-controls.ts`与`app/root-modals.ts`因跨功能接线留在app，不为目录拆实现。
+
 ## 启动与同步边界
 
-`index.html` 中的 audio 在 `#app` 外。`app.ts` 第一个静态导入是 `root-mount.ts`：启动适配先应用平台与侧栏宽度，组合模块创建唯一 store、立即安装根订阅、读取快照，用公开 `render(h(App, props), host)` 完成首屏；之后其他控制器与 player-dom 才求值。业务订阅不能抢在根订阅之前，尤其不能在嵌套提交后让外层旧快照成为最后一帧。
+`index.html` 中的 audio 在 `#app` 外。`app.ts` 第一个静态导入是 `app/root-mount.ts`：启动适配先应用平台与侧栏宽度，组合模块创建唯一 store、立即安装根订阅、读取快照，用公开 `render(h(App, props), host)` 完成首屏；之后其他控制器与 player-dom 才求值。业务订阅不能抢在根订阅之前，尤其不能在嵌套提交后让外层旧快照成为最后一帧。
 
 每次提交都同步走根投影，组件收到完整只读快照中的切片、稳定显示模型与稳定转交回调。业务回调在原控制器阶段安装，提前存在的组件事件不会提前开展业务。首页 getter 的首次订阅与首投影时机保持。主路径无 nextTick/watch/RAF 合批；RAF 只用于原有动画、焦点阶段、主题同步及音量过渡等平台行为。
 
@@ -37,50 +41,50 @@
 
 | 端口 | 控制器/适配器 | 保留原因 |
 |---|---|---|
-| `audio` | `main.ts`、`playback-core.ts`、`playback-diagnostics.ts` | 唯一媒体节点；适配器、诊断与音频身份监听必须持有同一节点 |
-| `closeLibraryModalButton` | `main.ts` | 资料库外壳关闭监听与焦点边界 |
-| `favoritesCount` | `library-view.ts` | 收藏数量的原生文字投影 |
-| `favoritesList` | `library-ui.ts`、`library-view.ts` | 收藏列表宿主身份、拖拽与行会话接线 |
-| `favoritesStatus` | `library-view.ts` | 收藏加载/空态文字投影 |
-| `homeCacheNote` | `home-view.ts` | 首页缓存说明及可见性投影 |
-| `homeHintApply` | `main.ts` | 提示输入与Enter处理时的按钮状态读取 |
-| `homeHintInput` | `draft-ports.ts`、`home.ts` | 非受控首页提示草稿端口及缺节点降级 |
-| `homeListLabel` | `home-view.ts` | 首页榜单/推荐列表说明文字 |
-| `homeModeTabs` | `home-view.ts`、`main.ts` | 原模式投影接口；生产集合为0，不新增按钮 |
-| `homePanel` | `home-view.ts` | 首页模式dataset、布局/引导class原生投影 |
-| `homeRankingError` | `home-view.ts`、`main.ts` | 榜单错误文字及原生重试监听 |
-| `homeRankingList` | `home-view.ts`、`track-list-ui.ts` | 首页列表宿主、observer与稳定行会话 |
-| `homeRankingStatus` | `home-view.ts` | 首页加载/状态aria-live文字 |
-| `homeSourceLabel` | `home-view.ts` | 首页来源标签文字与隐藏状态 |
-| `homeSubtitle` | `home-view.ts` | 首页模式说明文字 |
-| `homeTitle` | `home-view.ts` | 首页模式标题文字 |
-| `libraryModal` | `library-view.ts`、`main.ts` | 资料库外壳hidden/class/aria、焦点约束和transitionend |
-| `libraryModalBody` | `library-view.ts` | 仅作输入/primary查询和焦点目标，不写入其内容树 |
-| `libraryModalStatus` | `library-view.ts` | 资料库状态文字与aria-live输出 |
-| `libraryModalSubtitle` | `library-view.ts` | 资料库外壳说明文字和hidden |
-| `libraryModalTitle` | `library-view.ts` | 资料库外壳标题与无障碍名称 |
-| `pagesModal` | `main.ts`、`pages-view.ts` | 分P外壳hidden/class/aria与键盘焦点约束 |
-| `pagesModalClose` | `main.ts`、`pages-view.ts` | 分P关闭监听及重绘后的焦点目标 |
-| `pagesModalList` | `pages-view.ts` | 分P行查询、首次打开滚动/焦点；内容由Vue独占 |
-| `pagesModalRestoreAll` | `main.ts`、`pages-view.ts` | 恢复全部监听、忙态与焦点；不创建内容节点 |
-| `pagesModalStatus` | `pages-view.ts` | 分P错误aria-live文字 |
-| `pagesModalSub` | `pages-view.ts` | 分P视频说明与数量文字 |
-| `pagesModalTitle` | `pages-view.ts` | 分P外壳无障碍标题 |
-| `playerPagesButton` | `video-pages.ts` | 打开当前分P的触发器、请求aria-busy与返回焦点 |
-| `playlistMeta` | `library-view.ts` | 当前歌单曲目数量或未选择提示文字 |
-| `playlistTitle` | `library-view.ts` | 当前歌单标题文字 |
-| `playlistTracks` | `library-ui.ts` | 歌单曲目宿主身份、拖拽和行会话接线 |
-| `playlistsList` | `library-ui.ts`、`library-view.ts` | 目录宿主身份、拖拽与目录会话接线 |
-| `playlistsStatus` | `library-view.ts` | 歌单目录加载/数量/错误文字 |
-| `purgeAppearanceStatus` | `library-view.ts` | 设置中的失效曲目清理结果文字（与外观提示共用端口） |
-| `purgeUnavailableTracksButton` | `library-view.ts` | 失效曲目清理请求的原生禁用状态 |
-| `queueCount` | `playback-core.ts` | 搜索结果计数文字，与真实播放队列隔离 |
-| `refreshRankingButton` | `home-view.ts`、`main.ts` | 首页显式刷新监听及原生禁用状态 |
-| `result` | `playback-core.ts`、`playback-notice.ts`、`search-view.ts` | 搜索/播放结果容器可见性与提示几何定位 |
-| `resumePlayPauseButton` | `playback-core.ts`、`playback-notice.ts` | capture阶段恢复拦截、失败提示中心定位；click仍由组件接收 |
-| `searchKeyword` | `draft-ports.ts` | 非受控搜索草稿的统一读写端口 |
-| `searchResults` | `main.ts` | 分页滚动几何、搜索列表宿主及稳定行会话 |
-| `searchStatus` | `search-view.ts` | 搜索加载/错误/分页状态文字 |
+| `audio` | `app/main.ts`、`features/playback/playback-core.ts`、`features/playback/playback-diagnostics.ts` | 唯一媒体节点；适配器、诊断与音频身份监听必须持有同一节点 |
+| `closeLibraryModalButton` | `app/main.ts` | 资料库外壳关闭监听与焦点边界 |
+| `favoritesCount` | `features/library/library-view.ts` | 收藏数量的原生文字投影 |
+| `favoritesList` | `features/library/library-ui.ts`、`features/library/library-view.ts` | 收藏列表宿主身份、拖拽与行会话接线 |
+| `favoritesStatus` | `features/library/library-view.ts` | 收藏加载/空态文字投影 |
+| `homeCacheNote` | `features/home/home-view.ts` | 首页缓存说明及可见性投影 |
+| `homeHintApply` | `app/main.ts` | 提示输入与Enter处理时的按钮状态读取 |
+| `homeHintInput` | `platform/draft-ports.ts`、`features/home/home.ts` | 非受控首页提示草稿端口及缺节点降级 |
+| `homeListLabel` | `features/home/home-view.ts` | 首页榜单/推荐列表说明文字 |
+| `homeModeTabs` | `features/home/home-view.ts`、`app/main.ts` | 原模式投影接口；生产集合为0，不新增按钮 |
+| `homePanel` | `features/home/home-view.ts` | 首页模式dataset、布局/引导class原生投影 |
+| `homeRankingError` | `features/home/home-view.ts`、`app/main.ts` | 榜单错误文字及原生重试监听 |
+| `homeRankingList` | `features/home/home-view.ts`、`features/tracks/track-list-ui.ts` | 首页列表宿主、observer与稳定行会话 |
+| `homeRankingStatus` | `features/home/home-view.ts` | 首页加载/状态aria-live文字 |
+| `homeSourceLabel` | `features/home/home-view.ts` | 首页来源标签文字与隐藏状态 |
+| `homeSubtitle` | `features/home/home-view.ts` | 首页模式说明文字 |
+| `homeTitle` | `features/home/home-view.ts` | 首页模式标题文字 |
+| `libraryModal` | `features/library/library-view.ts`、`app/main.ts` | 资料库外壳hidden/class/aria、焦点约束和transitionend |
+| `libraryModalBody` | `features/library/library-view.ts` | 仅作输入/primary查询和焦点目标，不写入其内容树 |
+| `libraryModalStatus` | `features/library/library-view.ts` | 资料库状态文字与aria-live输出 |
+| `libraryModalSubtitle` | `features/library/library-view.ts` | 资料库外壳说明文字和hidden |
+| `libraryModalTitle` | `features/library/library-view.ts` | 资料库外壳标题与无障碍名称 |
+| `pagesModal` | `app/main.ts`、`features/pages/pages-view.ts` | 分P外壳hidden/class/aria与键盘焦点约束 |
+| `pagesModalClose` | `app/main.ts`、`features/pages/pages-view.ts` | 分P关闭监听及重绘后的焦点目标 |
+| `pagesModalList` | `features/pages/pages-view.ts` | 分P行查询、首次打开滚动/焦点；内容由Vue独占 |
+| `pagesModalRestoreAll` | `app/main.ts`、`features/pages/pages-view.ts` | 恢复全部监听、忙态与焦点；不创建内容节点 |
+| `pagesModalStatus` | `features/pages/pages-view.ts` | 分P错误aria-live文字 |
+| `pagesModalSub` | `features/pages/pages-view.ts` | 分P视频说明与数量文字 |
+| `pagesModalTitle` | `features/pages/pages-view.ts` | 分P外壳无障碍标题 |
+| `playerPagesButton` | `features/pages/video-pages.ts` | 打开当前分P的触发器、请求aria-busy与返回焦点 |
+| `playlistMeta` | `features/library/library-view.ts` | 当前歌单曲目数量或未选择提示文字 |
+| `playlistTitle` | `features/library/library-view.ts` | 当前歌单标题文字 |
+| `playlistTracks` | `features/library/library-ui.ts` | 歌单曲目宿主身份、拖拽和行会话接线 |
+| `playlistsList` | `features/library/library-ui.ts`、`features/library/library-view.ts` | 目录宿主身份、拖拽与目录会话接线 |
+| `playlistsStatus` | `features/library/library-view.ts` | 歌单目录加载/数量/错误文字 |
+| `purgeAppearanceStatus` | `features/library/library-view.ts` | 设置中的失效曲目清理结果文字（与外观提示共用端口） |
+| `purgeUnavailableTracksButton` | `features/library/library-view.ts` | 失效曲目清理请求的原生禁用状态 |
+| `queueCount` | `features/playback/playback-core.ts` | 搜索结果计数文字，与真实播放队列隔离 |
+| `refreshRankingButton` | `features/home/home-view.ts`、`app/main.ts` | 首页显式刷新监听及原生禁用状态 |
+| `result` | `features/playback/playback-core.ts`、`features/playback/playback-notice.ts`、`features/search/search-view.ts` | 搜索/播放结果容器可见性与提示几何定位 |
+| `resumePlayPauseButton` | `features/playback/playback-core.ts`、`features/playback/playback-notice.ts` | capture阶段恢复拦截、失败提示中心定位；click仍由组件接收 |
+| `searchKeyword` | `platform/draft-ports.ts` | 非受控搜索草稿的统一读写端口 |
+| `searchResults` | `app/main.ts` | 分页滚动几何、搜索列表宿主及稳定行会话 |
+| `searchStatus` | `features/search/search-view.ts` | 搜索加载/错误/分页状态文字 |
 
 appearance 中 settingsDom 已缩为导航、页面容器、设置外壳及根CSS端口；删除18个失去用途的输出句柄。未删的输入读取、桌宠存在性检查、窗口/媒体节点与归一化实际checked读取仍有控制器用途。
 

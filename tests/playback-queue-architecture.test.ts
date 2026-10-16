@@ -23,9 +23,9 @@ function assertQueueSnapshotReads(source: string): void {
 }
 
 test("queue ownership removes migrated request-state fields and rejects direct and aliased snapshot writes", () => {
-  const root = path.join(import.meta.dirname, "../ui"), request = fs.readFileSync(path.join(root, "player-state.ts"), "utf8");
+  const root = path.join(import.meta.dirname, "../ui"), request = fs.readFileSync(path.join(root, "shared/player-state.ts"), "utf8");
   for (const field of queueFields) assert.doesNotMatch(request, new RegExp(String.raw`\b${field}\s*:`));
-  for (const file of ["playback-core.ts", "main.ts", "library-ui.ts"]) {
+  for (const file of ["features/playback/playback-core.ts", "app/main.ts", "features/library/library-ui.ts"]) {
     const source = fs.readFileSync(path.join(root, file), "utf8"); assertQueueSnapshotReads(source);
     assert.doesNotMatch(maskCommentsAndStrings(source), new RegExp(String.raw`\bplayerState\.(?:${queueFields.join("|")})\b`));
   }
@@ -34,9 +34,9 @@ test("queue ownership removes migrated request-state fields and rejects direct a
 });
 
 test("queue state obtains randomness and preferences from arguments and queue renderer remains readonly", () => {
-  const root = path.join(import.meta.dirname, "../ui"), state = maskCommentsAndStrings(fs.readFileSync(path.join(root, "playback-queue-state.ts"), "utf8"));
+  const root = path.join(import.meta.dirname, "../ui"), state = maskCommentsAndStrings(fs.readFileSync(path.join(root, "features/playback/playback-queue-state.ts"), "utf8"));
   assert.doesNotMatch(state, /\bMath\s*\.\s*random\b|\bDate\b|\bperformance\b|\blocalStorage\b/);
-  const core = fs.readFileSync(path.join(root, "playback-core.ts"), "utf8"), render = core.slice(core.indexOf("function updateQueueUi()"), core.indexOf("function playCurrentVideoPage("));
+  const core = fs.readFileSync(path.join(root, "features/playback/playback-core.ts"), "utf8"), render = core.slice(core.indexOf("function updateQueueUi()"), core.indexOf("function playCurrentVideoPage("));
   assert.doesNotMatch(maskCommentsAndStrings(render), /\b(?:getQueueActions|invoke)\b|\.actions\b/);
   assertQueueSnapshotReads(render);
 });

@@ -17,10 +17,10 @@ function readonlyPages(source: string, names: string[] = []) {
   assert.doesNotMatch(code, new RegExp(targets + String.raw`\s*\.\s*(?:push|pop|splice|shift|unshift|sort|reverse|set|add|delete|clear)\s*\(`));
 }
 test("pages renderer reads snapshots with callback bindings and no actions or platform commands", () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/pages-view.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/pages/pages-view.ts"), "utf8");
   assert.doesNotMatch(maskCommentsAndStrings(source), /\b(?:invoke|getPagesActions|getApplicationStore)\b|\.\s*actions\b/);
   readonlyPages(source, ["state"]);
-  for (const file of ["video-pages.ts", "main.ts"]) readonlyPages(fs.readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8"));
+  for (const file of ["features/pages/video-pages.ts", "app/main.ts"]) readonlyPages(fs.readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8"));
 });
 test("pages snapshot guard rejects direct nested and collection alias writes", () => {
   for (const source of ['getPagesSnapshot().requestVersion++;', 'const pages = getPagesSnapshot(); pages.videoPageCounts.set(bvid, 2);', 'const pages = getPagesSnapshot().modal.pages; pages.push(page);', 'const modal = getPagesSnapshot().modal; Object.assign(modal, data);', 'state.modal.error = "bad";']) assert.throws(() => readonlyPages(source, ["state"]));

@@ -20,7 +20,7 @@ test("theme defaults preserve null, invalid values and all supported themes", ()
     setGlassBlur() {}, setPanelAlpha() {}, setBackgroundDim() {},
   });
   attachSettingsVm(context);
-  vm.runInContext(slice("appearance.ts", "function applyTheme(", "function setGlassBlur("), context);
+  vm.runInContext(slice("features/settings/appearance.ts", "function applyTheme(", "function setGlassBlur("), context);
   for (const value of [null, undefined, "", "invalid", 0, false, {}, "dark", "light", "image", "dynamic"]) {
     context.applyTheme(value);
     const expected = typeof value === "string" && ["dark", "light", "image", "dynamic"].includes(value) ? value : "dark";
@@ -39,7 +39,7 @@ test("restoring cache settings cancels the active timer and preserves the null t
       invokeAppearance: async () => settings,
     });
     attachSettingsVm(context);
-    vm.runInContext(slice("appearance.ts", "async function restoreAudioCacheSettings(", "async function refreshAudioCacheUsage("), context);
+    vm.runInContext(slice("features/settings/appearance.ts", "async function restoreAudioCacheSettings(", "async function refreshAudioCacheUsage("), context);
     await context.restoreAudioCacheSettings();
     assert.deepEqual(cancelled, timer === null ? [] : [timer]);
     assert.equal(context.audioCacheStatusTimer, null);
@@ -50,7 +50,7 @@ test("restoring cache settings cancels the active timer and preserves the null t
 
 test("window control target handling keeps native element matches and ignores null targets", () => {
   const context = createQueueContext({});
-  vm.runInContext(slice("window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);
+  vm.runInContext(slice("app/window-controls.ts", "function isWindowControlTarget(", "function isTitlebarDragTarget("), context);
   assert.equal(context.isWindowControlTarget(null), false);
   assert.equal(context.isWindowControlTarget({ closest: () => ({}) }), true);
   assert.equal(context.isWindowControlTarget({ closest: () => null }), false);
@@ -78,7 +78,7 @@ test("mascot picker callbacks use the initialized API for selection and hiding",
     document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
   });
   attachSettingsVm(context);
-  vm.runInContext(slice("appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
+  vm.runInContext(slice("features/settings/appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
   context.renderMascotPicker();
   assert.equal(picker.children.length, 2);
   (picker.children[0] as RuntimeElement).listeners.click();
@@ -97,7 +97,7 @@ test("page count observer disconnect handling preserves native unobserve and ign
     videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
     observedPageCountTargets: new Map(), stopObservingPageCountBvid() {}, queuePageCountLookup() {},
   });
-  vm.runInContext(slice("video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);
+  vm.runInContext(slice("features/pages/video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);
   const item = { dataset: {}, isConnected: false };
   context.getPagesSnapshot = () => ({ videoPageCounts: context.videoPageCounts, queries: new Map() });
   context.observePageCount(item, "bv");
@@ -118,7 +118,7 @@ test("current pages opener forwards the selected page from its modal callback", 
     playerState: { currentPages: [page] }, playerPagesButton: {}, playCurrentVideoPage: (value: unknown) => played.push(value),
     openPagesModal: (video: unknown, count: number, pages: unknown[], onPlay: (...args: unknown[]) => unknown) => { assert.equal(count, 1); callback = onPlay; },
   });
-  vm.runInContext(slice("video-pages.ts", "function openCurrentPagesModal(", "function closePagesModal("), context);
+  vm.runInContext(slice("features/pages/video-pages.ts", "function openCurrentPagesModal(", "function closePagesModal("), context);
   context.openCurrentPagesModal();
   if (!callback) throw new Error("Expected callback is missing");
   callback({ startPage: page, pages: [page] });
@@ -135,7 +135,7 @@ test("page advancement preserves shuffle rounds, sequential advancement and the 
       takeRandomPageFromRound: () => ({ index: 1, remaining: [] }), findEnabledPageIndex: () => 1,
       currentVideoPage: () => state.currentPages[state.currentPageIndex],
     });
-    vm.runInContext(slice("playback-core.ts", "function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
+    vm.runInContext(slice("features/playback/playback-core.ts", "function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
     assert.equal(context.advancePageWithinCurrentBv(), expected);
     assert.equal(state.currentPageIndex, expected ? 1 : 0);
     assert.equal(state.history.length, shuffle && expected ? 1 : 0);
@@ -155,7 +155,7 @@ test("playlist name dialog preserves create and rename contracts and ignores a m
       libraryState: { playlists: [] }, invoke: async (name: string, args: Record<string, unknown>) => { calls.push([name, args]); return []; },
       renderLibraryViews() {}, closeLibraryModal() {},
     });
-    vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/library-state.ts"), "utf8"), context);
+    vm.runInContext(readFileSync(path.join(import.meta.dirname, "../ui/features/library/library-state.ts"), "utf8"), context);
     vm.runInContext(`let snapshot = initialLibraryState();
       const actions = createLibraryActions(() => snapshot, next => { snapshot = next; primaryButton.disabled = next.session.busy; }, { invoke, report() {} });
       function showPlaylistNameDialog(options) { actions.showName(options.mode, options.playlist ?? null); setCallback(() => actions.submitName(input.value)); }
@@ -184,7 +184,7 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
       searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
       updateLibraryHighlights() {},
     });
-    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function playCurrentVideoPage("), context);
+    vm.runInContext(slice("features/playback/playback-core.ts", "function updateQueueUi(", "function playCurrentVideoPage("), context);
     context.updateQueueUi();
     const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
     assert.equal(button.title, expected);
@@ -198,7 +198,7 @@ test("mascot storage selection preserves null property conversion, defaults and 
     const context = createQueueContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
       renderMascot: (mascot: unknown) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
     });
-    vm.runInContext(slice("mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);
+    vm.runInContext(slice("app/mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);
     assert.deepEqual(rendered, [expected]);
   }
 });

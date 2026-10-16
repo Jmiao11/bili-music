@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/playback-mini-view.ts";
-import { createApplicationStore } from "../../ui/app-state.ts";
+import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/mini/playback-mini-view.ts";
+import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 import { createPlaybackControlFixture } from "./playback-control-fixture.ts";
 
@@ -37,9 +37,9 @@ async function createMiniHostFixture() {
   h.context.getLibraryActions = () => library.actions.library;
   h.context.getLibrarySnapshot = () => library.getState().library;
   h.context.currentPlayableTrack = () => h.store.getState().playbackQueue.queue[h.store.getState().playbackQueue.currentIndex] ?? null;
-  const favorite = stripModuleSyntax(fs.readFileSync(path.join(ui, "library-ui.ts"), "utf8"), "ui/library-ui.ts");
+  const favorite = stripModuleSyntax(fs.readFileSync(path.join(ui, "features/library/library-ui.ts"), "utf8"), "ui/features/library/library-ui.ts");
   vm.runInContext(favorite.slice(favorite.indexOf("async function toggleFavorite("), favorite.indexOf("function closeLibraryModal(")), h.context);
-  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "main.ts"), "utf8"), "ui/main.ts");
+  const main = stripModuleSyntax(fs.readFileSync(path.join(ui, "app/main.ts"), "utf8"), "ui/app/main.ts");
   h.context.favoriteCurrentButton = h.node("#favorite-current-button");
   const favoriteLine = main.split(/\r?\n/).find(line => line.startsWith('installPlaybackCallbacks({ favorite:'));
   if (!favoriteLine) throw Error("Favorite handler is missing");
@@ -53,7 +53,7 @@ async function createMiniHostFixture() {
   const timers: { handler: () => Promise<void>; delay: number }[] = [];
   // src-tauri/src/mini_player.rs:29,85: both window commands return unit (null).
   const invoke = async (command: string) => { invoked.push(command); return null; };
-  const hostSource = stripModuleSyntax(fs.readFileSync(path.join(ui, "mini-player-host.ts"), "utf8"), "ui/mini-player-host.ts");
+  const hostSource = stripModuleSyntax(fs.readFileSync(path.join(ui, "mini/mini-player-host.ts"), "utf8"), "ui/mini/mini-player-host.ts");
   const tauri = h.context.window.__TAURI__; h.context.window.__TAURI__ = undefined;
   const createHost = vm.runInContext(hostSource + "\ncreateMiniPlayerHost", h.context);
   h.context.window.__TAURI__ = tauri;

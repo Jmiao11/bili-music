@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 
 test("session actions preserve immutable snapshots and injected time without platform APIs", () => {
   const store = createApplicationStore({ invoke: async () => { throw Error("Unexpected invoke"); }, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });

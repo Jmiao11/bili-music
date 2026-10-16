@@ -8,26 +8,26 @@ import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
 const read = (file: string) => readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8");
-const main = read("playback-core.ts");
-const search = read("search.ts");
-const state = read("player-state.ts");
-const policy = read("playback-policy.ts");
-const settingsAdapterSource = read("settings-adapter.ts");
-const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
+const main = read("features/playback/playback-core.ts");
+const search = read("features/search/search.ts");
+const state = read("shared/player-state.ts");
+const policy = read("features/playback/playback-policy.ts");
+const settingsAdapterSource = read("features/settings/settings-adapter.ts");
+const slice = (start: string, end: string) => sourceSlice(main, "ui/features/playback/playback-core.ts", start, end);
 const stateCode = "const libraryState = initialLibraryState();\n";
-const functions = read("page-selection.ts") + read("track-utils.ts")
+const functions = read("features/pages/page-selection.ts") + read("shared/track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
   + slice("function stopAudioElement()", "function updateQueueUi()")
-  + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+  + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
   + slice("function waitForAudioMetadata()", "function recoveryAttemptsFor(")
   + slice("function waitForRecoveryMetadata(", "async function recoverCurrentAudio(")
   + slice("async function loadCurrentTrack(", "function playBvId(")
   + slice("function playSearchResult(", "function advancePageWithinCurrentBv(")
   + slice("function playNext(", "function initPlaybackSearch(")
   + search.slice(search.indexOf("function runSearch(")) + "\n";
-const searchFactory = read("search-state.ts");
-const libraryFactory = read("library-state.ts");
+const searchFactory = read("features/search/search-state.ts");
+const libraryFactory = read("features/library/library-state.ts");
 
 function deferred() {
   let resolve: ((value?: unknown) => void) | undefined, reject: ((reason?: unknown) => void) | undefined;

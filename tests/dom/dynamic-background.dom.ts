@@ -9,7 +9,7 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/dynamic-background.ts"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/dynamic-background.ts"), "utf8");
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
 const pixels = (rgb: number[]) => new Uint8ClampedArray(Array.from({ length: 1024 }, () => [...rgb, 255]).flat());
 
@@ -223,10 +223,10 @@ test("crossfade keeps only latest pending palette; reduced motion removes fade w
 });
 
 test("dynamic texture stays fixed; image retains three controls and ignores legacy content settings", async (t) => {
-  const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
-  const code = sourceSlice(appearance, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
-    + sourceSlice(appearance, "ui/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
-    + sourceSlice(appearance, "ui/appearance.ts", "function applyTheme(", "function resetBackground(");
+  const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/appearance.ts"), "utf8");
+  const code = sourceSlice(appearance, "ui/features/settings/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+    + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
+    + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function applyTheme(", "function resetBackground(");
   const stored = new Map<string, string>([
     ["bilibili-music.content-alpha", "75"],
     ...["glass-blur", "panel-alpha", "content-alpha", "background-dim"]

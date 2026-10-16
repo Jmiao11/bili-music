@@ -29,10 +29,10 @@ function createMascotFixture(saved: string | null = null) {
     createElement: element, querySelector: (selector: string) => ({ "#mascot-stage": stage, "#mascot-slot": slot, "#mascot-bubble": bubble } as Record<string, unknown>)[selector] ?? null },
     localStorage: { getItem: () => saved, setItem: (key: string, value: string) => writes.push([key, value]) } });
   const read = (name: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
-  const api: MascotApi | undefined = vm.runInContext(read("mascot.ts") + "\ninitializeMascot(); getMascotApi();", context);
+  const api: MascotApi | undefined = vm.runInContext(read("app/mascot.ts") + "\ninitializeMascot(); getMascotApi();", context);
   if (!api) throw Error("Mascot API is missing");
   attachSettingsVm(context);
-  const appearance = read("appearance.ts");
+  const appearance = read("features/settings/appearance.ts");
   vm.runInContext(appearance.slice(appearance.indexOf("function syncMascotPickerSelection("), appearance.indexOf("function openSettings(")), context);
   return { api, writes, stage, slot, picker, renderPicker: () => vm.runInContext("renderMascotPicker()", context) };
 }

@@ -42,10 +42,10 @@ function invokedCommands(source: string, file: string) {
     if (literal) { commands.add(literal[2]); continue; }
     // A forwarding implementation is not a command-name call site. Validate
     // its exact forwarding expression; callers of the wrapper must be literal.
-    assert.equal(file, "ui/home.ts", `${file}: nonliteral command at offset ${match.index}`);
+    assert.equal(file, "ui/features/home/home.ts", `${file}: nonliteral command at offset ${match.index}`);
     const wrapper = sourceSlice(source, file, "function invokeWithTimeout                            (", "async function loadHomeRanking(");
     const wrapperStart = source.indexOf(wrapper);
-    assert.ok(file === "ui/home.ts" && match[1] === "invoke"
+    assert.ok(file === "ui/features/home/home.ts" && match[1] === "invoke"
       && match.index >= wrapperStart && match.index < wrapperStart + wrapper.length
       && /^\s*command\s*,\s*args\s*\)/.test(source.slice(offset)),
     `${file}: nonliteral command at offset ${match.index}`);
@@ -58,7 +58,7 @@ test("UI command literals are registered in release and debug-only registrations
   assert.ok(debug.size > 0);
   assert.deepEqual([...debug].filter((name) => !release.has(name)), [...DEBUG_ONLY_COMMANDS]);
   const used = new Set<string>();
-  for (const name of fs.readdirSync(path.join(root, "ui")).filter((name) => /\.(?:js|ts)$/.test(name))) {
+  for (const name of fs.readdirSync(path.join(root, "ui"), { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter((name) => /\.(?:js|ts)$/.test(name))) {
     for (const command of invokedCommands(readFileSync(path.join(root, "ui", name), "utf8"), `ui/${name}`)) {
       used.add(command);
       assert.ok(release.has(command), `${name}: unregistered release command ${command}`);
@@ -75,10 +75,10 @@ test("command-name scanner rejects nonliteral calls and ignores comments and str
 });
 
 test("playbackTrackSnapshot rounds fractional durations before saving playback state", () => {
-  const source = readFileSync(path.join(root, "ui/track-utils.ts"), "utf8");
+  const source = readFileSync(path.join(root, "ui/shared/track-utils.ts"), "utf8");
   const context = vm.createContext({ displayThumbnailUrl: (value: unknown) => value });
-  vm.runInContext(sourceSlice(source, "ui/track-utils.ts", "function normalizeTrack(", "function normalizeVideoPage("), context);
-  vm.runInContext(sourceSlice(source, "ui/track-utils.ts", "function playbackTrackSnapshot(", "function formatDuration("), context);
+  vm.runInContext(sourceSlice(source, "ui/shared/track-utils.ts", "function normalizeTrack(", "function normalizeVideoPage("), context);
+  vm.runInContext(sourceSlice(source, "ui/shared/track-utils.ts", "function playbackTrackSnapshot(", "function formatDuration("), context);
   const snapshot = vm.runInContext("playbackTrackSnapshot", context);
   assert.equal(snapshot({ durationSeconds: 120.5 }).durationSeconds, 121);
 });

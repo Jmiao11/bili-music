@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createStateStore } from "../ui/state-store.ts";
+import { createStateStore } from "../ui/store/state-store.ts";
 
 function counterStore(options = {}) {
   return createStateStore({ count: 0, stable: { label: "unchanged" }, values: [1], map: new Map([["a", { count: 1 }]]), set: new Set([1]) }, (getState, commit) => ({

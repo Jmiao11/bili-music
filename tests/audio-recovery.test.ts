@@ -7,13 +7,13 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const policy = readFileSync(path.join(import.meta.dirname, "../ui/playback-policy.ts"), "utf8");
-const decision = sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
-  + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
-const metadataWait = sourceSlice(source, "ui/playback-core.ts", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
-const recoverCurrentAudio = sourceSlice(source, "ui/playback-core.ts", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
-const loadCurrentTrack = sourceSlice(source, "ui/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
+const source = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-core.ts"), "utf8");
+const policy = readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-policy.ts"), "utf8");
+const decision = sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
+  + sourceSlice(source, "ui/features/playback/playback-core.ts", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
+const metadataWait = sourceSlice(source, "ui/features/playback/playback-core.ts", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
+const recoverCurrentAudio = sourceSlice(source, "ui/features/playback/playback-core.ts", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
+const loadCurrentTrack = sourceSlice(source, "ui/features/playback/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 
 test("network recovery requires the current started audio and remaining attempts", () => {
   const context = createQueueContext({ recoveryVersion: 7, recoveryAttempts: 2 });
@@ -234,14 +234,14 @@ test("expired token network error after a long pause re-resolves the same page a
       return prepareResult.promise;
     },
   });
-  const mainSource = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
-  const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise", "function getRequestSnapshot(")
-    + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(")
-    + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
-    + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "function refreshTrackLoudness(")
-    + sourceSlice(source, "ui/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
+  const mainSource = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
+  const chain = sourceSlice(source, "ui/features/playback/playback-core.ts", "let recoveryPromise", "function getRequestSnapshot(")
+    + sourceSlice(source, "ui/features/playback/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(")
+    + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
+    + sourceSlice(source, "ui/features/playback/playback-core.ts", "function recoveryAttemptsFor(", "function refreshTrackLoudness(")
+    + sourceSlice(source, "ui/features/playback/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")
     + "\ninitPlaybackAudioIdentity();\n"
-    + sourceSlice(mainSource, "ui/main.ts", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
+    + sourceSlice(mainSource, "ui/app/main.ts", 'audio.addEventListener("error", handleAudioRecoveryError);', '\nfor (const eventName');
   vm.runInContext(chain, context);
   await audio.play();
   audio.dispatchEvent(new Event("playing"));

@@ -1,16 +1,16 @@
 import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
-const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
+const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/features/settings/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import vm from "node:vm";
-const source = readFileSync(nodePath.join(import.meta.dirname, '../ui/main.ts'), 'utf8');
-const core = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-core.ts'), 'utf8');
-const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-policy.ts'), 'utf8');
-const noticeSource = readFileSync(nodePath.join(import.meta.dirname, '../ui/playback-notice.ts'), 'utf8');
-const pageSelection = readFileSync(nodePath.join(import.meta.dirname, '../ui/page-selection.ts'), "utf8");
+const source = readFileSync(nodePath.join(import.meta.dirname, '../ui/app/main.ts'), 'utf8');
+const core = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-core.ts'), 'utf8');
+const policy = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-policy.ts'), 'utf8');
+const noticeSource = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/playback/playback-notice.ts'), 'utf8');
+const pageSelection = readFileSync(nodePath.join(import.meta.dirname, '../ui/features/pages/page-selection.ts'), "utf8");
 
 function setup() {
   const classes = new Set<string>();
@@ -35,11 +35,11 @@ function setup() {
     takeSequentialNext: () => null, takeRandomNext: () => null,
     playQueueIndex: () => { throw Error('unexpected navigation'); },
   });
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(noticeSource, "ui/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
-    + sourceSlice(noticeSource, "ui/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
-    + sourceSlice(noticeSource, "ui/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
-    + sourceSlice(core, "ui/playback-core.ts", "function playNext(", "function initPlaybackSearch("), context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(noticeSource, "ui/features/playback/playback-notice.ts", "function clearPlaybackNotice()", "function initPlaybackNotice(")
+    + sourceSlice(noticeSource, "ui/features/playback/playback-notice.ts", "positionPlaybackNotice();", "\n}", { endAfterStart: true }) + "\n\n"
+    + sourceSlice(noticeSource, "ui/features/playback/playback-notice.ts", "function showPlaybackNotice(", "\n}", { endAfterStart: true, includeEnd: true }) + "\n\n", context);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
+    + sourceSlice(core, "ui/features/playback/playback-core.ts", "function playNext(", "function initPlaybackSearch("), context);
   return { context, notice, timers, events, styles };
 }
 
@@ -137,7 +137,7 @@ test('manual boundary preserves pending resume; successful page change clears st
   c.nextButton = { addEventListener: (_: unknown, fn: () => void) => { handlers.next = fn; } };
   c.retreatPageWithinCurrentBv = () => false;
   c.advancePageWithinCurrentBv = () => false;
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(source, "ui/app/main.ts", "installPlaybackCallbacks({", "initPlaybackResume();"), c);
   handlers.previous(); handlers.next();
   assert.deepEqual(pendingResume, { positionSeconds: 42 });
   c.advancePageWithinCurrentBv = () => true;
@@ -155,8 +155,8 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const visits: number[] = [];
   c.playQueueIndex = (index => visits.push(index)) as (index: number) => number;
   c.resetRandomRemaining = () => { c.seedQueue({randomRemaining:[]}); };
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
-  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
+  vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/features/playback/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
   c.seedQueue({queue:[{}, {}]});
   c.playNext(); assert.deepEqual(visits, [1]);
   c.seedQueue({currentIndex:1});

@@ -16,15 +16,15 @@ test("mini host DOM message exceptions exactly match approved state-9 debt", () 
   assert.deepEqual(messageReadExceptions, []);
 });
 test("mini host publishes snapshots with only the two approved message reads", () => {
-  checkHost(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8"));
+  checkHost(fs.readFileSync(path.join(import.meta.dirname, "../ui/mini/mini-player-host.ts"), "utf8"));
 });
 test("mini host guard rejects DOM field regressions and simulated playback clicks", () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/mini-player-host.ts"), "utf8");
+  const source = fs.readFileSync(path.join(import.meta.dirname, "../ui/mini/mini-player-host.ts"), "utf8");
   for (const bad of ['const title = document.querySelector("#title").textContent;', 'button.click();']) assert.throws(() => checkHost(source + bad));
 });
 
 function checkClassicBridgeReaders(ui: string) {
-  for (const file of fs.readdirSync(ui).filter(file => file.endsWith(".ts"))) {
+  for (const file of fs.readdirSync(ui, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter(file => file.endsWith(".ts"))) {
     assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(ui, file), "utf8")), /\b(?:bilibiliMusicMiniHost|BiliLyrics|BiliMascot)\b/, file + ": removed window bridges are forbidden");
   }
   for (const page of ["index.html", "mini.html"]) {
@@ -33,7 +33,7 @@ function checkClassicBridgeReaders(ui: string) {
     if (/\btype=["']module["']/.test(tag[1])) continue;
     const src = /\bsrc=["'](?:\.\/)?([^"']+)["']/.exec(tag[1]);
     if (!src) { assert.doesNotMatch(maskCommentsAndStrings(tag[2]), /\bbilibiliMusicMiniHost\b/, page + ": inline classic bridge reader is forbidden"); continue; }
-    const file = src[1].replace(/\.js$/, ".ts"); if (file === "mini-player-host.ts") continue;
+    const file = src[1].replace(/\.js$/, ".ts"); if (file === "mini/mini-player-host.ts") continue;
     assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(ui, file), "utf8")), /\bbilibiliMusicMiniHost\b/, file + ": classic bridge reader is forbidden");
     }
   }

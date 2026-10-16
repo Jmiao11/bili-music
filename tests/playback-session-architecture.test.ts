@@ -12,13 +12,13 @@ function assertSessionOwnership(source: string) {
 }
 test("session ownership rejects all legacy data reads and writes and removes the player object", () => {
   const ui = path.join(import.meta.dirname, "../ui");
-  for (const file of ["playback-core.ts", "main.ts", "player-state.ts", "video-pages.ts"]) assertSessionOwnership(fs.readFileSync(path.join(ui, file), "utf8"));
+  for (const file of ["features/playback/playback-core.ts", "app/main.ts", "shared/player-state.ts", "features/pages/video-pages.ts"]) assertSessionOwnership(fs.readFileSync(path.join(ui, file), "utf8"));
   for (const field of fields) for (const example of [`playerState.${field};`, `playerState.${field} = input;`]) assert.throws(() => assertSessionOwnership(example));
   for (const field of fields.slice(2)) for (const example of [field + ";", field + " = input;"]) assert.throws(() => assertSessionOwnership(example));
 });
 test("session state has no platform handles clocks randomness or sensitive URL data", () => {
-  const app = fs.readFileSync(path.join(import.meta.dirname, "../ui/playback-session-state.ts"), "utf8");
+  const app = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/playback/playback-session-state.ts"), "utf8");
   const factory = app;
-  assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(import.meta.dirname, "../ui/app-state.ts"), "utf8")), /\bfunction\s+(?:initialPlaybackSessionState|createPlaybackSessionActions)\s*\(/);
+  assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(import.meta.dirname, "../ui/store/app-state.ts"), "utf8")), /\bfunction\s+(?:initialPlaybackSessionState|createPlaybackSessionActions)\s*\(/);
   assert.doesNotMatch(maskCommentsAndStrings(factory), /\b(?:Date|performance|Math|window|document|invoke|audio|Promise|AbortController|setTimeout|requestAnimationFrame|activeAudioUrl)\b/);
 });

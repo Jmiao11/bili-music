@@ -2,6 +2,8 @@
 
 本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。
 
+全面 Vue 化已完成；Windows/Mac 发布前全应用回归于2026-10-16完成，对应 master `d8a7f4bc856b1aa7af23ec81d2c84c4bce9cffaa`，Windows watchdog 故障包亦已验证。后续功能修改仍按任务验收；发布时须核对最新 master CI。
+
 ## 技术栈与架构
 
 - Tauri v2、Rust Cargo workspace、TypeScript、Vue 单一 `App.vue` 根组件。迷你窗保持独立入口。Vue 3.5.43、Vite 8.3.2、TypeScript 6.0.3、@vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、vue-tsc 3.3.12 精确锁定；不增加 Pinia、Vitest 或其他状态库。TS 升级须等 Vue 工具链支持。

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DeepReadonly } from "../../../ui/state-store.ts";
+import type { DeepReadonly } from "../../../ui/store/state-store.ts";
 
 const props = defineProps<{
   snapshot: DeepReadonly<{ count: number }>;

@@ -20,7 +20,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown>;
-type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
+type Store = ReturnType<typeof import("../../ui/store/app-state.ts").createApplicationStore>;
 type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store };
 
 async function fixture(options: {captureWarnings?:boolean} = {}) {
@@ -96,7 +96,7 @@ async function fixture(options: {captureWarnings?:boolean} = {}) {
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./app/root-mount.ts"; import "./app/main.ts"; import { startAppearance } from "./features/settings/appearance.ts"; startAppearance(); export * as library from "./features/library/library-ui.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./features/home/home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); raf(); await microtasks(); calls.length = 0; platform.length = 0;

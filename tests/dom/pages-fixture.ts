@@ -17,7 +17,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 type EventFields = { detail?: number; key?: string; shiftKey?: boolean };
-type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
+type Store = ReturnType<typeof import("../../ui/store/app-state.ts").createApplicationStore>;
 type PageNodes = { pagesModal: HTMLElement; pagesModalClose: HTMLButtonElement; pagesModalRestoreAll: HTMLButtonElement; pagesModalList: HTMLUListElement; pagesModalSub: HTMLElement; pagesModalTitle: HTMLElement; pagesModalStatus: HTMLElement; playerPagesButton: HTMLButtonElement; status: HTMLElement };
 type Pages = {
   bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: ReturnType<typeof track>, play: (selection?: unknown) => void): void;
@@ -101,14 +101,14 @@ async function fixture() {
     }
     for (const name of [".local-data", "cookies.txt", "tools"]) if (fs.existsSync(path.join(root, name))) throw Error(`Runtime file in fixture: ${name}`);
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "runtime-api.ts"), 'const invoke = globalThis.__pagesFixture.invoke; export { invoke };');
-    for (const name of ["playback-core.ts", "appearance.ts", "playback-notice.ts", "playback-diagnostics.ts"]) {
+    fs.writeFileSync(path.join(root, "platform/runtime-api.ts"), 'const invoke = globalThis.__pagesFixture.invoke; export { invoke };');
+    for (const name of ["features/playback/playback-core.ts", "features/settings/appearance.ts", "features/playback/playback-notice.ts", "features/playback/playback-diagnostics.ts"]) {
       const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean);
       const bodies: Record<string, string> = { currentPlayableTrack: 'return globalThis.__pagesFixture.current;', currentVideoPage: 'return globalThis.__pagesFixture.pages[0];', hasMultipleCurrentPages: 'return globalThis.__pagesFixture.pages.length > 1;', playCurrentVideoPage: 'globalThis.__pagesFixture.onPlay(arguments[0]);', isLoudnessNormalizationEnabled: 'return false;' };
       fs.writeFileSync(path.join(root, name), exports.map(x => 'function '+x+'() {'+(bodies[x] ?? '')+'}').join("\n")+'\nexport { '+exports.join(", ")+' };');
     }
     fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; export * as pages from "./video-pages.ts"; export * as library from "./library-ui.ts"; export * as home from "./home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./app/root-mount.ts"; import "./app/main.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; export * as pages from "./features/pages/video-pages.ts"; export * as library from "./features/library/library-ui.ts"; export * as home from "./features/home/home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
     await build({ configFile: false, root, plugins: [vue()], logLevel: "silent", define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } },

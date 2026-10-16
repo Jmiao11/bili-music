@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { test } from "node:test";
-import * as settings from "../ui/playback-settings-state.ts";
-import * as mediaAdapters from "../ui/media-adapter.ts";
+import * as settings from "../ui/features/playback/playback-settings-state.ts";
+import * as mediaAdapters from "../ui/platform/media-adapter.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 
 
@@ -16,11 +16,11 @@ test("source slice unregistered calls preserve raw bytes options and marker erro
   assert.equal(sourceSlice("const x: number = 1;\n// end", "plain.ts", null, "// end", { stripModules: false }), "const x         = 1;\n");
   assert.throws(() => sourceSlice(source, "plain.js", "absent", "// stop"), /marker not found/);
   assert.throws(() => sourceSlice(source, "plain.js", "function b()", "// stop"), /not after/);
-  assert.equal(sourceSlice(source, "ui/appearance.ts", "function a()", "// stop"), "function a() { return 1; }\r\n");
+  assert.equal(sourceSlice(source, "ui/features/settings/appearance.ts", "function a()", "// stop"), "function a() { return 1; }\r\n");
 });
 test("explicit fixture wiring executes real media and state module implementations", () => {
-  const appearance = fs.readFileSync(path.join(import.meta.dirname, "../ui/appearance.ts"), "utf8");
-  const injected = sourceSlice(appearance, "ui/appearance.ts", "function applyVolume(", "function startAppearance()", { endAfterStart: true });
+  const appearance = fs.readFileSync(path.join(import.meta.dirname, "../ui/features/settings/appearance.ts"), "utf8");
+  const injected = sourceSlice(appearance, "ui/features/settings/appearance.ts", "function applyVolume(", "function startAppearance()", { endAfterStart: true });
   const context = vm.createContext({ __sliceRealModules: { ...settings, ...mediaAdapters } }); vm.runInContext(injected, context);
   const media = { src: "", volume: 1, currentTime: 0, load() {}, play: async () => {}, pause() {}, addEventListener() {}, removeEventListener() {} };
   context.__sliceRealModules.createMediaAdapter(media).setVolume(0.3); assert.equal(media.volume, 0.3);

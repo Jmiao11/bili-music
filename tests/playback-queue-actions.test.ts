@@ -2,9 +2,9 @@ import vm from "node:vm";
 import {createControllerContext as createQueueContext} from "./helpers/controller-context.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import { createPlaybackQueueActions, initialPlaybackQueueState } from "../ui/playback-queue-state.ts";
-import { createStateStore } from "../ui/state-store.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import { createPlaybackQueueActions, initialPlaybackQueueState } from "../ui/features/playback/playback-queue-state.ts";
+import { createStateStore } from "../ui/store/state-store.ts";
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
 const fixture = () => createStateStore(initialPlaybackQueueState(), createPlaybackQueueActions, { freeze: true });

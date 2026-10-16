@@ -9,9 +9,9 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/appearance.ts"), "utf8");
-const code = sourceSlice(source, "ui/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
-  + sourceSlice(source, "ui/appearance.ts", "function readAccentColor(", "function resetBackground(");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/appearance.ts"), "utf8");
+const code = sourceSlice(source, "ui/features/settings/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
+  + sourceSlice(source, "ui/features/settings/appearance.ts", "function readAccentColor(", "function resetBackground(");
 const key = "bilibili-music.accent-color";
 const colors: Record<string, { dark: number[]; light: number[] }> = {
   pink: { dark: [251, 114, 153], light: [164, 41, 76] },

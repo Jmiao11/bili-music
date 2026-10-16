@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
-import type { HomeAdapter } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
+import type { HomeAdapter } from "../ui/store/app-state.ts";
 const video = { bvid: "BV1234567890", title: "视频" };
 const meta = { videos: 2, pages: [{ page: 1, cid: 11, part: "一", durationSeconds: 60 }, { page: 2, cid: 22, part: "二", durationSeconds: 90 }] };
 function fixture() {

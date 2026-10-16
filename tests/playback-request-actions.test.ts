@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createApplicationStore } from "../ui/app-state.ts";
+import { createApplicationStore } from "../ui/store/app-state.ts";
 
 test("request actions preserve immutable stages and take activation time as an argument", () => {
   const store = createApplicationStore({ invoke: async () => { throw Error("Unexpected platform access"); }, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });

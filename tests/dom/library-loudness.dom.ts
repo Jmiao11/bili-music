@@ -7,8 +7,8 @@ import { test } from "node:test";
 import { fixture } from "./library-modal-fixture.ts";
 
 test("loudness explanation acknowledge button closes the shared dialog", async () => {
-  for (const name of ["library-view.ts", "library-ui.ts"]) stripModuleSyntax(readFileSync(path.resolve(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
-  stripTypes(fs.readFileSync(path.resolve(import.meta.dirname, "../../ui/playback-core.ts"), "utf8"), "ui/playback-core.ts");
+  for (const name of ["features/library/library-view.ts", "features/library/library-ui.ts"]) stripModuleSyntax(readFileSync(path.resolve(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
+  stripTypes(fs.readFileSync(path.resolve(import.meta.dirname, "../../ui/features/playback/playback-core.ts"), "utf8"), "ui/features/playback/playback-core.ts");
   const h = await fixture(); try {
     const body = h.nodes.libraryModalBody;
     const opens: { title: string; subtitle: string }[] = [];
