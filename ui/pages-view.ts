@@ -1,8 +1,6 @@
 import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "./player-dom.ts";
 import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import PagesList from "./components/PagesList.vue";
-import { createSyncRegion } from "./vue/sync-region.ts";
 import { trapFocus } from "./focus-trap.ts";
 type PagesBindings = {
   openFromBadge(button: HTMLButtonElement, trigger: HTMLButtonElement | null | undefined): void;
@@ -12,8 +10,6 @@ type PagesBindings = {
   currentPage(): Readonly<CommandContract.VideoPage> | null;
 };
 let pagesModalReturnFocus: Element | null = null;
-let pagesListRegion: ReturnType<typeof createSyncRegion> | null = null;
-let pagesListRenderVersion = 0;
 function preparePagesModal(trigger: Element | null): void { pagesModalReturnFocus = trigger instanceof HTMLElement ? trigger : document.activeElement; }
 function renderPagesTrigger(trigger: HTMLElement | null, version: number, busy: boolean): void {
   if (busy) { trigger?.setAttribute("aria-busy", "true"); if (trigger) trigger.dataset.pagesRequestVersion = String(version); }
@@ -55,26 +51,13 @@ function renderPagesModal(state: PagesSnapshot, library: LibrarySnapshot, bindin
   const pending = library.disabledPagePending.has(bvidKey);
   const pendingCid = library.disabledPagePending.get(bvidKey);
   const disabledCids = library.disabledPages.get(bvidKey);
-  const hadFocus = pagesModalList.contains(document.activeElement) ||
-    document.activeElement === pagesModalRestoreAll;
   pagesModalStatus.textContent = state.modal.error;
   pagesModalTitle.textContent = "选择分P";
   pagesModalSub.textContent = `${video.title || video.bvid} · 共 ${videos}P`;
   pagesModalRestoreAll.hidden = !disabledCids?.size && !(pending && pendingCid === null);
   pagesModalRestoreAll.disabled = pending;
   pagesModalRestoreAll.textContent = pending && pendingCid === null ? "恢复中…" : "全部恢复";
-  if (!pagesListRegion) {
-    pagesModalList.replaceChildren();
-    pagesListRegion = createSyncRegion(pagesModalList, PagesList);
-  }
-  const currentTrack = bindings.currentTrack();
-  // Preserve the old replaceChildren contract, including detaching previously focused rows.
-  const props = { key: ++pagesListRenderVersion, modal: state.modal,
-    disabledPages: library.disabledPages, pending: library.disabledPagePending,
-    currentBvid: currentTrack?.bvid ?? null, currentCid: currentTrack?.bvid.toLowerCase() === bvidKey ? bindings.currentPage()?.cid ?? null : null,
-    onPlay: bindings.playPage, onToggle: bindings.changeDisabledPages } satisfies InstanceType<typeof PagesList>["$props"];
-  pagesListRegion.update(props);
-  if (hadFocus) pagesModalClose.focus({ preventScroll: true });
+
 }
 
 

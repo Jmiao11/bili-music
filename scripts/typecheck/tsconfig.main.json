@@ -24,6 +24,7 @@
     "../../ui/state-store.ts",
     "../../ui/search-state.ts",
     "../../ui/library-state.ts",
+    "../../ui/root-modals.ts",
     "../../ui/root-settings.ts",
     "../../ui/settings-controls.ts",
     "../../ui/root-playback.ts",
@@ -65,14 +66,6 @@
     "../../ui/lyrics.ts",
     "../../ui/mini-player-host.ts",
     "../../ui/playback-mini-view.ts",
-    "../../ui/main-window-ready.ts",
-    "../../ui/vue/use-app-state.ts",
-    "../../ui/vue/sync-region.ts",
-    "../../ui/components/PagesList.vue",
-    "../../ui/track-list-model.ts",
-    "../../ui/components/PlaylistList.vue",
-    "../../ui/components/TrackList.vue",
-    "../../ui/components/TrackRow.vue",
-    "../../ui/components/App.vue"
+    "../../ui/main-window-ready.ts"
   ]
 }

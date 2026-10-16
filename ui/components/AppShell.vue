@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { RootModals } from "../root-modals.ts";
+import type { libraryCallbacks, pagesCallbacks } from "../root-modals.ts";
+import PagesList from "./PagesList.vue";
+import LibraryModalBody from "./LibraryModalBody.vue";
 import SettingsPanel from "./SettingsPanel.vue";
 import type {SettingsControls} from "../settings-controls.ts";
 import type {SettingsCallbacks} from "../root-settings.ts";
@@ -19,7 +23,7 @@ import type { RootLists } from "../root-lists.ts";
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
-defineProps<{ settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; playback: PlaybackControls }>();
+defineProps<{ modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
     <div class="dynamic-background" aria-hidden="true">
@@ -163,7 +167,7 @@ defineProps<{ settingsControls:SettingsControls;settingsCallbacks:SettingsCallba
           </button>
         </header>
 
-        <div id="library-modal-body" class="library-modal-body"></div>
+        <div id="library-modal-body" class="library-modal-body"><LibraryModalBody v-for="model in modals.library ? [modals.library] : []" v-bind="model" :key="model.key" v-bind.prop="libraryCallbacks" /></div>
         <p id="library-modal-status" class="appearance-status" role="status"></p>
       </div>
     </div>
@@ -176,7 +180,7 @@ defineProps<{ settingsControls:SettingsControls;settingsCallbacks:SettingsCallba
         </div>
         <p id="pages-modal-sub" class="modal-sub"></p>
         <p id="pages-modal-status" class="pages-modal-status" role="alert" aria-live="assertive"></p>
-        <ul id="pages-modal-list" class="pages-list"></ul>
+        <ul id="pages-modal-list" class="pages-list"><PagesList v-for="model in modals.pages ? [modals.pages] : []" v-bind="model" :key="model.key" v-bind.prop="pagesCallbacks" /></ul>
         <div class="modal-actions">
           <button id="pages-modal-close" class="small-button" type="button">关闭</button>
         </div>

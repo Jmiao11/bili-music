@@ -72,7 +72,7 @@ function currentPlayableTrack(): CommandContract.TrackSnapshotInput | null {
 function resetCurrentPageState() {
   getSessionActions().setCurrentPages([]);
   getQueueActions().resetPage();
-  updatePlayerPagesButton();
+
 }
 
 function hasMultipleCurrentPages() {
@@ -90,9 +90,6 @@ function currentAudioCacheCid() {
   return currentVideoPage()?.cid ?? getSessionSnapshot().currentPages[0]?.cid ?? null;
 }
 
-function updatePlayerPagesButton() {
-  // shortcut: retain legacy fixture entry points until their F6 replacement; the root owns DOM projection.
-}
 
 async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInput, requestVersion: number) {
   resetCurrentPageState();
@@ -105,7 +102,7 @@ async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInpu
       .map(normalizeVideoPage)
       .filter((page) => page.cid > 0));
     getQueueActions().selectPage(0);
-    updatePlayerPagesButton();
+
   } catch (error) {
     if (getRequestActions().isCurrent(requestVersion)) {
       console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
@@ -275,9 +272,6 @@ function updateQueueUi() {
   queueCount.textContent = `${getSearchSnapshot().results.length} 首`;
 }
 
-function updateFavoriteButtons() {
-  // shortcut: retain the legacy projection trigger until F6; the root owns favorite controls.
-}
 
 function playCurrentVideoPage(page: CommandContract.VideoPage) {
   clearPendingResume();
@@ -288,7 +282,7 @@ function playCurrentVideoPage(page: CommandContract.VideoPage) {
     return;
   }
   getQueueActions().selectPage(pageIndex);
-  updatePlayerPagesButton();
+
   loadCurrentTrack({ keepPage: true });
 }
 
@@ -502,7 +496,7 @@ async function loadCurrentTrack({
         : findEnabledPageIndex(getSessionSnapshot().currentPages, 0, 1, isDisabled);
       if (pageIndex < 0) throw new Error("all pages disabled by user");
       getQueueActions().selectPage(pageIndex);
-      updatePlayerPagesButton();
+
     };
 
     if (!startPage && !keepPage && resumePosition === null && hasMultipleCurrentPages()) {
@@ -515,7 +509,7 @@ async function loadCurrentTrack({
       );
       if (startPageIndex >= 0) {
         getQueueActions().selectPage(startPageIndex);
-        updatePlayerPagesButton();
+
       } else if (hasMultipleCurrentPages()) {
         selectDefaultPage();
       }
@@ -789,7 +783,7 @@ function playQueueIndex(
       getQueueActions().selectPage(startPageIndex);
     }
   }
-  updatePlayerPagesButton();
+
   markRandomIndexPlayed(index);
   updateQueueUi();
   emitCurrentTrackChanged();
@@ -808,14 +802,14 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
     loadCurrentTrack({ keepPage: true }); return true;
   }
   if (!getQueueActions().advancePage(getSessionSnapshot().currentPages, getLibrarySnapshot().disabledPages, Math.random, readShuffleCollectionPrefs)) return false;
-  updatePlayerPagesButton();
+
   loadCurrentTrack({ keepPage: true });
   return true;
 }
 
 function retreatPageWithinCurrentBv() {
   if (!getQueueActions().retreatPage(getSessionSnapshot().currentPages, getLibrarySnapshot().disabledPages)) return false;
-  updatePlayerPagesButton();
+
   loadCurrentTrack({ keepPage: true });
   return true;
 }
@@ -848,7 +842,7 @@ function playPrevious() {
     showPlaybackNotice("暂无可播放的歌曲", { kind: "info" }); return;
   }
   if (navigation.kind === "page") {
-    updatePlayerPagesButton(); loadCurrentTrack({ keepPage: true }); return;
+     loadCurrentTrack({ keepPage: true }); return;
   }
   if (navigation.kind === "queue") {
     playQueueIndex(navigation.index, { recordCurrent: false, ...("cid" in navigation ? { historyCid: navigation.cid } : {}) }); return;
@@ -997,4 +991,4 @@ installPlaybackCallbacks({
 }
 
 
-export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateFavoriteButtons, updateQueueUi };
+export { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };

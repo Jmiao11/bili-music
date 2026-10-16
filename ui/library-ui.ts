@@ -1,3 +1,4 @@
+import { installModalBindings } from "./root-modals.ts";
 import { refreshRootLists, setRootPlaylistList } from "./root-lists.ts";
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
@@ -7,7 +8,7 @@ import { renderLibraryTrackRows } from "./track-list-ui.ts";
 import { getApplicationStore } from "./home.ts";
 import { renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
-import { currentPlayableTrack, playListItem, updateFavoriteButtons } from "./playback-core.ts";
+import { currentPlayableTrack, playListItem } from "./playback-core.ts";
 import { getPlaybackMessagesActions } from "./playback-messages.ts";
 
 let libraryMounted = false;
@@ -102,7 +103,7 @@ function getLibraryActions() {
   getPlaybackMessagesActions();
   const store = getApplicationStore();
   if (!libraryMounted) {
-    libraryMounted = true; let previous: LibrarySnapshot | null = null;
+    libraryMounted = true; installModalBindings(null, libraryBindings()); let previous: LibrarySnapshot | null = null;
     const render = (state: ReturnType<typeof store.getState>) => {
       const before = previous; previous = state.library;
       if (state.library.view.rowsVersion !== before?.view.rowsVersion) {
@@ -111,7 +112,7 @@ function getLibraryActions() {
         if (getLibrarySnapshot().drags.playlists.drag) finishLibraryDrag("playlists");
       }
       const bindings = libraryBindings();
-      if (renderLibrarySnapshot(state.library, before, bindings)) updateFavoriteButtons();
+      renderLibrarySnapshot(state.library, before, bindings);
     };
     store.subscribe(render); render(store.getState());
   }

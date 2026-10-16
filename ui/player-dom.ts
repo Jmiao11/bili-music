@@ -1,12 +1,4 @@
-const searchForm = document.querySelector<HTMLFormElement>("#search-form")!;
-
 const searchKeyword = document.querySelector<HTMLInputElement>("#search-keyword")!;
-
-const searchButton = document.querySelector<HTMLButtonElement>("#search-button")!;
-
-const musicTabs = [...document.querySelectorAll<HTMLButtonElement>(".music-tab[data-tids]")];
-
-const sortModeTabs = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { sortMode: string } }>(".music-tab[data-sort-mode]")];
 
 const searchStatus = document.querySelector<HTMLParagraphElement>("#search-status")!;
 
@@ -32,17 +24,7 @@ const homeRankingError = document.querySelector<HTMLParagraphElement>("#home-ran
 
 const homeRankingList = document.querySelector<HTMLUListElement>("#home-ranking-list")!;
 
-const homeSetupHint = document.querySelector<HTMLDivElement>("#home-setup-hint")!;
-
-const homeSetupTitle = document.querySelector<HTMLParagraphElement>("#home-setup-title")!;
-
-const homeSetupSub = document.querySelector<HTMLParagraphElement>("#home-setup-sub")!;
-
-const homeSetupSettings = document.querySelector<HTMLButtonElement>("#home-setup-settings")!;
-
 const refreshRankingButton = document.querySelector<HTMLButtonElement>("#refresh-ranking-button")!;
-
-const homeHintRow = document.querySelector<HTMLDivElement>("#home-hint-row")!;
 
 const homeHintInput = document.querySelector<HTMLInputElement>("#home-hint-input")!;
 
@@ -74,14 +56,6 @@ const playlistMeta = document.querySelector<HTMLParagraphElement>("#playlist-met
 
 const playlistTracks = document.querySelector<HTMLUListElement>("#playlist-tracks")!;
 
-const playlistActions = document.querySelector<HTMLDivElement>("#playlist-actions")!;
-
-const createPlaylistButton = document.querySelector<HTMLButtonElement>("#create-playlist-button")!;
-
-const renamePlaylistButton = document.querySelector<HTMLButtonElement>("#rename-playlist-button")!;
-
-const deletePlaylistButton = document.querySelector<HTMLButtonElement>("#delete-playlist-button")!;
-
 const libraryModal = document.querySelector<HTMLDivElement>("#library-modal")!;
 
 const closeLibraryModalButton = document.querySelector<HTMLButtonElement>("#close-library-modal-button")!;
@@ -112,4 +86,4 @@ const pagesModalList = document.querySelector<HTMLUListElement>("#pages-modal-li
 
 const pagesModalClose = document.querySelector<HTMLButtonElement>("#pages-modal-close")!;
 
-export { audio, closeLibraryModalButton, createPlaylistButton, deletePlaylistButton, favoritesCount, favoritesList, favoritesStatus, homeCacheNote, homeHintApply, homeHintInput, homeHintRow, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSetupHint, homeSetupSettings, homeSetupSub, homeSetupTitle, homeSourceLabel, homeSubtitle, homeTitle, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, musicTabs, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, playlistActions, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, queueCount, refreshRankingButton, renamePlaylistButton, result, resumePlayPauseButton, searchButton, searchForm, searchKeyword, searchResults, searchStatus, sortModeTabs };
+export { audio, closeLibraryModalButton, favoritesCount, favoritesList, favoritesStatus, homeCacheNote, homeHintApply, homeHintInput, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSourceLabel, homeSubtitle, homeTitle, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle, playerPagesButton, playlistMeta, playlistTitle, playlistTracks, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton, queueCount, refreshRankingButton, result, resumePlayPauseButton, searchKeyword, searchResults, searchStatus };

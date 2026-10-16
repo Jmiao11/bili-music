@@ -62,28 +62,10 @@ const placeholderTitle = document.querySelector<HTMLHeadingElement>("#placeholde
 const settingsModal = document.querySelector<HTMLDivElement>("#settings-modal")!;
 const openSettingsButton = document.querySelector<HTMLButtonElement>("#open-settings-button")!;
 const closeSettingsButton = document.querySelector<HTMLButtonElement>("#close-settings-button")!;
-const themeOptions = [...document.querySelectorAll<HTMLButtonElement & { dataset: DOMStringMap & { themeOption: string } }>("[data-theme-option]")];
-const accentColorOptions = [...document.querySelectorAll<HTMLInputElement & { nextElementSibling: HTMLElement }>("[data-accent-color]")];
 const mascotPicker = document.querySelector<HTMLDivElement>("#mascot-picker")!;
-const chooseBackgroundButton = document.querySelector<HTMLButtonElement>("#choose-background-button")!;
-const backgroundName = document.querySelector<HTMLElement>("#background-name")!;
-const appearanceStatus = document.querySelector<HTMLParagraphElement>("#appearance-status")!;
-const imageOnlyGroups = [...document.querySelectorAll<HTMLElement>(".image-only")];
-const glassBlurSlider = document.querySelector<HTMLInputElement>("#glass-blur-slider")!;
-const glassBlurValue = document.querySelector<HTMLElement>("#glass-blur-value")!;
-const panelAlphaSlider = document.querySelector<HTMLInputElement>("#panel-alpha-slider")!;
-const panelAlphaValue = document.querySelector<HTMLElement>("#panel-alpha-value")!;
-const backgroundDimSlider = document.querySelector<HTMLInputElement>("#background-dim-slider")!;
-const backgroundDimValue = document.querySelector<HTMLElement>("#background-dim-value")!;
 const streamSourceSelect = document.querySelector<HTMLSelectElement>("#stream-source-select")!;
-const streamSourceStatus = document.querySelector<HTMLElement>("#stream-source-status")!;
 const audioCacheEnabled = document.querySelector<HTMLInputElement>("#audio-cache-enabled")!;
 const audioCacheCapacity = document.querySelector<HTMLSelectElement>("#audio-cache-capacity")!;
-const shuffleCollectionOrder = document.querySelector<HTMLSelectElement>("#shuffle-collection-order")!;
-const shuffleCollectionLimit = document.querySelector<HTMLSelectElement>("#shuffle-collection-limit")!;
-const audioCacheUsage = document.querySelector<HTMLElement>("#audio-cache-usage")!;
-const audioCacheStatus = document.querySelector<HTMLElement>("#audio-cache-status")!;
-const clearAudioCacheButton = document.querySelector<HTMLButtonElement>("#clear-audio-cache-button")!;
 const aiApiFormatSelect = document.querySelector<HTMLSelectElement>("#ai-api-format-select")!;
 const aiBaseUrlInput = document.querySelector<HTMLInputElement>("#ai-base-url-input")!;
 const aiModelInput = document.querySelector<HTMLInputElement>("#ai-model-input")!;
@@ -102,7 +84,7 @@ let playbackDisplayMounted = false;
 
 
 
-function settingsDom() { return { root, navItems, homeView, searchView, favoritesView, playlistsView, placeholderView, placeholderTitle, settingsModal, openSettingsButton, themeOptions, accentColorOptions, chooseBackgroundButton, backgroundName, appearanceStatus, imageOnlyGroups, glassBlurSlider, glassBlurValue, panelAlphaSlider, panelAlphaValue, backgroundDimSlider, backgroundDimValue, streamSourceSelect, streamSourceStatus, audioCacheEnabled, audioCacheCapacity, shuffleCollectionOrder, shuffleCollectionLimit, audioCacheUsage, audioCacheStatus, clearAudioCacheButton, aiApiFormatSelect, aiBaseUrlInput, aiModelInput, aiApiKeyInput, saveAiConfigButton, testAiConnectionButton, aiConfigStatus, shortcutRecordButtons }; }
+function settingsDom() { return {root,navItems,homeView,searchView,favoritesView,playlistsView,placeholderView,placeholderTitle,settingsModal,openSettingsButton}; }
 type SettingsDom = ReturnType<typeof settingsDom>;
 
 let settingsMounted = false;

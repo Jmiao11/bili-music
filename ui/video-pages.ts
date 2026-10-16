@@ -1,3 +1,4 @@
+import { installModalBindings } from "./root-modals.ts";
 import { invoke } from "./runtime-api.ts";
 import { playerPagesButton } from "./player-dom.ts";
 import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "./player-state.ts";
@@ -335,7 +336,7 @@ function getPagesActions() {
   getPlaybackMessagesActions();
   const store = getApplicationStore();
   if (!pagesMounted) {
-    pagesMounted = true;
+    pagesMounted = true; installModalBindings(pagesBindings(), null);
     let previous: ReturnType<typeof store.getState> | undefined;
     const render = (state: ReturnType<typeof store.getState>) => { const before = previous; previous = state; renderPagesSnapshot(state.pages, state.library, before ? { pages: before.pages, library: before.library } : undefined, pagesBindings()); };
     store.subscribe(render); render(store.getState());
