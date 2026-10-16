@@ -76,7 +76,7 @@
     "../../tests/media-session-actions.test.ts",
     "../../tests/dom/mini-player-config.dom.ts",
     "../../tests/mini-player-host.test.ts",
-    "../../tests/mini-player-window.test.ts",
+    "../../tests/dom/mini-player-window.dom.ts",
     "../../tests/module-bindings.test.ts",
     "../../tests/module-graph.test.ts",
     "../../tests/module-syntax.test.ts",

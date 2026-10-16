@@ -1,11 +1,12 @@
+import { JSDOM } from "jsdom";
 import assert from "node:assert/strict";
-import { readFileSync } from "./helpers/module-syntax.ts";
+import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
-import { test } from "node:test";
+import { test, afterEach } from "node:test";
 import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../ui/mini.ts"), "utf8");
-const styles = readFileSync(path.join(import.meta.dirname, "../ui/mini.css"), "utf8");
+const source = readFileSync(path.join(import.meta.dirname, "../../ui/mini.ts"), "utf8");
+const styles = readFileSync(path.join(import.meta.dirname, "../../ui/mini.css"), "utf8");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 type MiniElement = EventTarget & {
@@ -15,52 +16,26 @@ type MiniElement = EventTarget & {
   classList: { add(name: string): unknown; contains(name: string): boolean; remove(name: string): unknown; toggle(name: string, force: boolean): unknown };
   setAttribute(name: string, value: unknown): void; removeAttribute(name: string): void; getAttribute(name: string): string | null;
 };
-function element(extra = {}): MiniElement {
-  const classes = new Set();
-  const attributes: Record<string, string> = {};
-  return Object.assign(new EventTarget(), {
-    dataset: {},
-    textContent: "",
-    disabled: false,
-    hidden: false,
-    style: { setProperty(this: Record<string, unknown>, name: string, value: unknown) { this[name] = value; } },
-    classList: {
-      add: (name: string) => classes.add(name),
-      contains: (name: string) => classes.has(name),
-      remove: (name: string) => classes.delete(name),
-      toggle: (name: string, force: boolean) => force ? classes.add(name) : classes.delete(name),
-    },
-    setAttribute: (name: string, value: unknown) => { attributes[name] = String(value); },
-    removeAttribute: (name: string) => { delete attributes[name]; },
-    getAttribute: (name: string) => attributes[name] ?? null,
-    attributes,
-    ...extra,
-  });
-}
-
-function setup({ stored = null, failStorage = false, failSetPosition = false }: { stored?: string | null; failStorage?: boolean; failSetPosition?: boolean } = {}) {
-  const controls: Record<string, MiniElement> = {
-    "#mini-previous": element(),
-    "#mini-play-pause": element(),
-    "#mini-next": element(),
-    "#mini-favorite": element(),
-    "#mini-restore": element(),
-    "#mini-drag-region": element(),
-    "#mini-title": element(),
-    "#mini-title-viewport": element(),
-    "#mini-cover": element(),
-    "#mini-notice": element(),
-    "#mini-notice-more": element({ hidden: true }),
-    "#mini-notice-full": element({ hidden: true }),
-  };
-  const root = element();
-  const document: EventTarget & { documentElement: MiniElement; querySelector(selector: string): MiniElement | null; getElementById(id: string): MiniElement | null; activeElement?: MiniElement } = Object.assign(new EventTarget(), {
-    documentElement: root,
-    querySelector: (selector: string) => controls[selector] ?? null,
-    getElementById: (id: string) => controls["#" + id] ?? null,
-  });
+const eventDom = new JSDOM();
+const Event = eventDom.window.Event;
+eventDom.window.close();
+const closeWindows: (() => void)[] = [];
+afterEach(() => { for (const close of closeWindows.splice(0)) close(); });
+function setup({ stored = null, failStorage = false, failSetPosition = false, initial, failReadyEvent=false }: { stored?: string | null; failStorage?: boolean; failSetPosition?: boolean; initial?: Partial<MiniPlayerStatePayload>; failReadyEvent?:boolean } = {}) {
+  const dom = new JSDOM(readFileSync(path.join(import.meta.dirname, "../../ui/mini.html"), "utf8"), {url:"http://localhost/mini.html"});
+  closeWindows.push(() => dom.window.close());
+  const controls = Object.fromEntries([...dom.window.document.querySelectorAll<HTMLElement>("[id]")].map(node => ["#"+node.id, node])) as unknown as Record<string, MiniElement>;
+  const root = dom.window.document.documentElement as unknown as MiniElement;
+  const document = dom.window.document as unknown as EventTarget & {documentElement:MiniElement;querySelector(selector:string):MiniElement|null;getElementById(id:string):MiniElement|null;activeElement?:MiniElement};
+  const active = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(dom.window.document), "activeElement")!;
+  Object.defineProperty(document, "activeElement", {get:()=>active.get!.call(document),set:(node:HTMLElement)=>dom.window.HTMLElement.prototype.focus.call(node),configurable:true});
+  for(const [node,names] of [[root,["--accent-r"]],[controls["#mini-title"],["--mini-title-distance","--mini-title-duration"]]] as const) for(const name of names) Object.defineProperty(node.style,name,{get:()=>((node.style as unknown as CSSStyleDeclaration).getPropertyValue(name)||undefined),configurable:true});
+  for(const [node,name] of [[controls["#mini-title-viewport"],"clientWidth"],[controls["#mini-title"],"scrollWidth"]] as const) Object.defineProperty(node,name,{value:0,writable:true,configurable:true});
   const listeners = new Map();
   const emitted: { name: string; payload: unknown }[] = [];
+  const readyNodes: (Element | null)[] = [];
+  const startupOrder: string[] = [];
+  const warnings: unknown[][] = [];
   const invoked: string[] = [];
   const writes: [string, string][] = [];
   const storage = {
@@ -76,10 +51,15 @@ function setup({ stored = null, failStorage = false, failSetPosition = false }: 
   const eventApi = {
     listen(name: string, handler: (...args: unknown[]) => unknown) {
       listeners.set(name, handler);
+      startupOrder.push("listen:"+name);
+      if(initial) handler({payload:initial});
       return Promise.resolve(() => listeners.delete(name));
     },
     emit(name: string, payload: unknown) {
       emitted.push({ name, payload });
+      startupOrder.push("emit:"+name);
+      if(name === "mini-player-ready") readyNodes.push(dom.window.document.getElementById("mini-title"));
+      if(name === "mini-player-ready" && failReadyEvent) return Promise.reject(Error("event unavailable"));
       return Promise.resolve();
     },
   };
@@ -99,7 +79,7 @@ function setup({ stored = null, failStorage = false, failSetPosition = false }: 
   };
   const availableMonitors = () => Promise.resolve([{ position: { x: 0, y: 0 }, size: { width: 1920, height: 1080 } }]);
   const dpi = { PhysicalPosition: class PhysicalPosition { declare x: number; declare y: number; constructor(x: number, y: number) { this.x = x; this.y = y; } } };
-  const window = new EventTarget();
+  const window = dom.window;
   const controller = vm.runInNewContext(`${source}\ncreateMiniPlayerController`, {
     EventTarget,
     Event,
@@ -107,17 +87,17 @@ function setup({ stored = null, failStorage = false, failSetPosition = false }: 
     console: { warn() {} },
   })({
     eventApi,
-    invoke: (command: string) => { invoked.push(command); return Promise.resolve(); },
+    invoke: (command: string) => { invoked.push(command); startupOrder.push("invoke:"+command); if(command === "mini_player_ready") readyNodes.push(dom.window.document.getElementById("mini-title")); return Promise.resolve(); },
     windowApi,
     availableMonitors,
     dpi,
     document,
     storage,
     window,
-    console: { warn() {} },
+    console: { warn(...args:unknown[]) {warnings.push(args);} },
   });
   return {
-    controls, root, document, window, listeners, emitted, invoked, writes, storage, windowApi, controller,
+    controls, root, document, window, listeners, emitted, invoked, writes, storage, windowApi, controller, readyNodes, startupOrder, warnings,
     fire: (name: string, payload: unknown) => listeners.get(name)?.({ payload }),
   };
 }
@@ -319,4 +299,40 @@ test("position restore failures do not block the mini window handshake", async (
   await settle();
   assert.deepEqual(app.invoked, ["mini_player_ready"]);
   assert.equal(app.emitted[0].name, "mini-player-ready");
+});
+
+test("mini real DOM is ready before either handshake channel and early snapshots are synchronous", async () => {
+  const app = setup({initial:{title:"握手前快照",notice:"握手前提示",hasCurrent:true,canNext:true}});
+  await app.controller.start();
+  assert.deepEqual(app.startupOrder,["listen:mini-player-state","emit:mini-player-ready","invoke:mini_player_ready"]);
+  assert.equal(app.readyNodes.length,2);
+  for(const node of app.readyNodes) assert.equal(node,app.document.getElementById("mini-title"));
+  assert.equal(app.controls["#mini-title"].textContent,"握手前快照");
+  assert.equal(app.controls["#mini-notice"].textContent,"握手前提示");
+  assert.equal(app.controls["#mini-play-pause"].disabled,false);
+  assert.equal(app.controls["#mini-drag-region"].getAttribute("aria-label"),"迷你播放器");
+  assert.equal(app.controls["#mini-cover"].getAttribute("referrerpolicy"),"no-referrer");
+  assert.equal(app.controls["#mini-notice"].getAttribute("aria-live"),"polite");
+});
+
+test("mini repeated snapshots retain real control identities and open notice state", async () => {
+  const app=setup(); await app.controller.start();
+  const title=app.controls["#mini-title"],more=app.controls["#mini-notice-more"];
+  app.fire("mini-player-state",{title:"同一标题",notice:"详细提示",hasCurrent:true});
+  more.dispatchEvent(new Event("click"));
+  for(let i=0;i<3;i++) app.fire("mini-player-state",{title:"同一标题",notice:"详细提示",hasCurrent:true});
+  assert.equal(app.document.getElementById("mini-title"),title);
+  assert.equal(app.document.getElementById("mini-notice-more"),more);
+  assert.equal(app.controls["#mini-notice-full"].hidden,false);
+  assert.equal(app.controls["#mini-notice-full"].textContent,"详细提示");
+});
+
+test("mini move listener failures and failed ready events still reach backend handshake", async () => {
+  const app=setup({failReadyEvent:true}); app.windowApi.onMoved=async()=>{throw Error("move unavailable");};
+  await app.controller.start();
+  assert.deepEqual(app.invoked,["mini_player_ready"]);
+  assert.ok(app.warnings.some(args=>args[0]==="mini player move listener failed:"));
+  assert.ok(app.warnings.some(args=>args[0]==="mini player ready event failed:"));
+  app.window.dispatchEvent(new Event("beforeunload"));
+  assert.equal(app.listeners.size,0);
 });
