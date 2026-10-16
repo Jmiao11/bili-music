@@ -5,11 +5,8 @@ import vm from "node:vm";
 import { test } from "node:test";
 import * as settings from "../ui/playback-settings-state.ts";
 import * as mediaAdapters from "../ui/media-adapter.ts";
-import { sourceSlice, sourceSliceModuleExceptions } from "./helpers/source-slice.ts";
+import { sourceSlice } from "./helpers/source-slice.ts";
 
-test("source slice module exception registration is empty after explicit playback wiring", () => {
-  assert.deepEqual(sourceSliceModuleExceptions, []);
-});
 
 test("source slice unregistered calls preserve raw bytes options and marker errors", () => {
   const source = "head\r\nfunction a() { return 1; }\r\n// stop\r\nfunction b() {}";

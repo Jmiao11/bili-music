@@ -1,6 +1,6 @@
 import { renderPlaybackDisplaySnapshot } from "./playback-display-fixture.ts";
 import type { PlaybackCallbacks } from "../../ui/root-playback.ts";
-import { createSessionContext } from "./playback-session-fixture.ts";
+import { createControllerContext as createSessionContext } from "./controller-context.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";

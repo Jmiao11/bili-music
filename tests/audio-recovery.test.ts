@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import test from "node:test";
@@ -47,7 +47,7 @@ test("metadata wait ignores its own emptied event and ends when a switch clears 
   assert.equal(await loaded, true);
 
   const abandoned = vm.runInContext("waitForRecoveryMetadata(7)", context);
-  context.playerState.requestVersion = 8;
+  context.getRequestActions().beginRequest();
   audio.dispatchEvent(new Event("emptied"));
   assert.equal(await abandoned, false);
 });
@@ -84,7 +84,7 @@ test("recovery prepares the same page, seeks, and resumes without resetting trac
       return { audioUrl: "http://local/audio/new" };
     },
     refundRecoveryAttempt(version: number) {
-      if (context.recoveryVersion === version) context.recoveryAttempts -= 1;
+      if (context.recoveryVersion === version) context.getSessionActions().setRecoveryAttempts(context.recoveryAttempts - 1);
     },
     showPlaybackNotice: () => calls.push("notice"),
   });
@@ -236,7 +236,7 @@ test("expired token network error after a long pause re-resolves the same page a
   });
   const mainSource = readFileSync(path.join(import.meta.dirname, "../ui/main.ts"), "utf8");
   const chain = sourceSlice(source, "ui/playback-core.ts", "let recoveryPromise", "function getRequestSnapshot(")
-    + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()")
+    + sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(")
     + sourceSlice(policy, "ui/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
     + sourceSlice(source, "ui/playback-core.ts", "function recoveryAttemptsFor(", "function refreshTrackLoudness(")
     + sourceSlice(source, "ui/playback-core.ts", "function initPlaybackAudioIdentity()", "function initPlaybackModes()")

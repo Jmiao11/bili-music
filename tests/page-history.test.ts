@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -25,8 +25,8 @@ test("queue switches remember the departed cid and pass a history cid to track l
     playerState: state, randomPageRound: null,
     currentVideoPage: () => state.currentPages.length > 1 ? state.currentPages[state.currentPageIndex] : null,
     clearPendingResume() {}, clearPlaybackNotice() {},
-    resetCurrentPageState() { state.currentPages = []; state.currentPageIndex = 0; },
-    updatePlayerPagesButton() {}, markRandomIndexPlayed() {}, updateQueueUi() {},
+    resetCurrentPageState() { context.getSessionActions().setCurrentPages([]); context.seedQueue({currentPageIndex:0}); },
+    markRandomIndexPlayed() {}, updateQueueUi() {},
     emitCurrentTrackChanged() {}, loadCurrentTrack: (options: { startPage: { cid: number }; randomStartPage?: boolean }) => loads.push(options),
   });
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice("function playQueueIndex(", "function takeRandomNext()"), context);
@@ -53,7 +53,7 @@ test("only random page advancement adds a page-level history entry", () => {
     libraryState: { disabledPages: new Map() },
     hasMultipleCurrentPages: () => true,
     currentVideoPage: () => pages[state.currentPageIndex],
-    updatePlayerPagesButton() {}, loadCurrentTrack() {},
+    loadCurrentTrack() {},
   });
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio(")
     + slice("function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
@@ -62,41 +62,42 @@ test("only random page advancement adds a page-level history entry", () => {
   assert.equal(state.history[0].index, 0);
   assert.equal(state.history[0].cid, 11);
   assert.equal(state.history[0].pageLevel, true);
-  state.shuffle = false;
+  context.seedQueue({shuffle:false});
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.history.length, 1);
 });
 
 test("previous accepts numeric history, restores a page in place, and forwards missing cids", () => {
   const calls: ({ index: number; options: { historyCid: number | null } } | { load: { keepPage: boolean } })[] = [];
-  const round = { bvid: "BV1", remaining: [2] };
+  const inputRound = { bvid: "BV1", remaining: [2] };
   const state = {
     currentIndex: 1, currentPages: [{ cid: 11 }, { cid: 12 }],
     currentPageIndex: 1, currentDisplayTrack: {}, history: [2] as (number | { index: number; cid: number; pageLevel?: boolean })[], shuffle: true,
   };
   const context = createQueueContext({
-    playerState: state, randomPageRound: round,
+    playerState: state, randomPageRound: inputRound,
     playQueueIndex: (index: number, options: { historyCid: number | null }) => calls.push({ index, options }),
-    updatePlayerPagesButton() {}, loadCurrentTrack: (options: { keepPage: boolean }) => calls.push({ load: options }),
+    loadCurrentTrack: (options: { keepPage: boolean }) => calls.push({ load: options }),
   });
+  const round=context.randomPageRound;
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice("function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal((calls[0] as { index: number; options: { historyCid: number | null } }).index, 2);
   assert.equal((calls[0] as { index: number; options: { historyCid: number | null } }).options.historyCid, null);
 
-  state.history.push({ index: 1, cid: 11, pageLevel: true });
+  context.seedQueue({history:[...state.history,{ index: 1, cid: 11, pageLevel: true }]});
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
   assert.equal(state.currentDisplayTrack, null);
   assert.equal((calls[1] as { load: { keepPage: boolean } }).load.keepPage, true);
   assert.equal(context.randomPageRound, round);
 
-  state.history.push({ index: 1, cid: 999, pageLevel: true });
+  context.seedQueue({history:[...state.history,{ index: 1, cid: 999, pageLevel: true }]});
   context.playPrevious();
   assert.equal((calls[2] as { index: number; options: { historyCid: number | null } }).index, 1);
   assert.equal((calls[2] as { index: number; options: { historyCid: number | null } }).options.historyCid, 999);
 
-  state.history.push({ index: 0, cid: 12 });
+  context.seedQueue({history:[...state.history,{ index: 0, cid: 12 }]});
   context.playPrevious();
   assert.equal((calls[3] as { index: number; options: { historyCid: number | null } }).index, 0);
   assert.equal((calls[3] as { index: number; options: { historyCid: number | null } }).options.historyCid, 12);
@@ -116,7 +117,7 @@ test("random previous skips page retreat while sequential previous keeps it", ()
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + slice('installPlaybackCallbacks({', 'initPlaybackResume();'), context);
   handlers.previous();
   assert.deepEqual(calls, ["history"]);
-  state.shuffle = false;
+  context.seedQueue({shuffle:false});
   handlers.previous();
   assert.deepEqual(calls, ["history", "retreat"]);
 });
@@ -138,7 +139,7 @@ test("turning shuffle off removes page history and previous no longer jumps forw
     shuffleToggle: { checked: false, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { handlers.shuffle = handler; } },
     previousButton: { addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { handlers.previous = handler; } },
     hasMultipleCurrentPages: () => true,
-    updatePlayerPagesButton() {}, loadCurrentTrack() {},
+    loadCurrentTrack() {},
     playQueueIndex: (index: number, options: { historyCid: number }) => queueCalls.push({ index, options }),
     clearPendingResume() {}, clearPlaybackNotice() {}, updateQueueUi() {},
   });

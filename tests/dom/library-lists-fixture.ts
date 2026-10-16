@@ -26,7 +26,7 @@ type Modules = {
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
   core: { updateQueueUi(): void; playListItem(source: string, items: readonly CommandContract.TrackSnapshotInput[], index: number): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
-  nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store;
+  nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store;
 };
 
 async function fixture() {
@@ -116,17 +116,15 @@ async function fixture() {
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts";' + 'export * as library from "./library-ui.ts"; export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts";' + 'export * as library from "./library-ui.ts"; export * as home from "./home.ts"; export * as search from "./search.ts"; export * as core from "./playback-core.ts"; export * as pages from "./video-pages.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
       if (file.includes("/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
         const hooks = "function rootListHooks(id) { const host = () => document.getElementById(String(id)); return { onVnodeMounted: () => globalThis.__tracksVueRecords.push({operation: 'create', host: host()}), onVnodeUpdated: () => globalThis.__tracksVueRecords.push({operation: 'update', host: host()}), onVnodeBeforeUnmount: () => globalThis.__tracksVueRecords.push({operation: 'unmount', host: host()}) }; }\n";
         return hooks + code.replace(/h\(TrackList,\s*\{/g, "h(TrackList, { ...rootListHooks(attrs.id),").replace(/h\(PlaylistList,\s*\{/g, "h(PlaylistList, { ...rootListHooks(attrs.id),");
       }
-      if (!id.replaceAll("\\", "/").endsWith("/vue/sync-region.ts")) return;
-      return code.replace(/function createSyncRegion[^{]+\{/, match => match + " globalThis.__tracksVueRecords.push({ operation: 'create', host });")
-        .replace(/update\(props[^)]*\)(?:: void)? \{/, match => match + " globalThis.__tracksVueRecords.push({ operation: 'update', host });")
-        .replace(/unmount\(\)(?:: void)? \{/, match => match + " globalThis.__tracksVueRecords.push({ operation: 'unmount', host });");    } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
+    } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); calls.length = 0; platform.length = 0; events.length = 0;
     return { ...modules, window, doc, calls, events, requests, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, reply(next: Reply) { reply = next; }, time(next: number) { now = next; }, state: () => modules.store.getState().library,

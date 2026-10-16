@@ -23,9 +23,9 @@ test("mini favorite with no current track has no invoke, state change or prompt"
 });
 
 test("mini play during pending or active resume runs only recovery and unknown commands do nothing", async () => {
-  const h = await createMiniHostFixture(); h.context.pendingResume = true;
+  const h = await createMiniHostFixture(); h.context.getSessionActions().setPendingResume(true);
   await h.fire("mini-player-command", "toggle_play"); assert.equal(h.context.resumes, 1);
-  h.context.pendingResume = false; h.context.resumeInProgress = true;
+  h.context.getSessionActions().setPendingResume(false); h.context.getSessionActions().setResumeInProgress(true);
   await h.fire("mini-player-command", "toggle_play"); assert.equal(h.context.resumes, 2);
   await h.fire("mini-player-command", "unknown");
   assert.deepEqual(h.audio.operations, []); assert.deepEqual(h.navigation, []); assert.deepEqual(h.invoked, []);

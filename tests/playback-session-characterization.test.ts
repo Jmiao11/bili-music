@@ -1,3 +1,4 @@
+import { applicationNodeNames } from "./dom/application-nodes.ts";
 import { legacyPlaybackNodeNames } from "./helpers/playback-root-fixture.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -118,7 +119,7 @@ for (const success of [true, false]) test(`session pasted BV pending pages ${suc
 });
 async function fixture({ count = 3, pageCount = 1, normalization = false, cacheResult = "disabled", saved = null as unknown, deferPages = false } = {}) {
   const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "playback-core.ts"), "utf8");
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "player-dom.ts"), "utf8"))![1].split(",").map(n => n.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
+  const names = [...applicationNodeNames, ...legacyPlaybackNodeNames];
   const nodes = Object.fromEntries(names.map(n => [n, new RequestNode()]));
   const details: { type: string; detail: Record<string, unknown> }[] = [], calls: { command: string; args: Record<string, unknown> }[] = [], gains: number[] = [];
   const pageRequests: { resolve(value: unknown): void }[] = [], loudness: { resolve(value: number | null): void }[] = [];

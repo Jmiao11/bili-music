@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createPlaybackCommands } from "../ui/playback-commands.ts";
 import { createMediaAdapter } from "../ui/media-adapter.ts";
-import { createSessionContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createSessionContext } from "./helpers/controller-context.ts";
 import vm from "node:vm";
 
 function fixture() {
@@ -45,7 +45,7 @@ test("playback commands navigate once and preserve slider versus Media Session d
 test("session fixture exposes the real command factory while retaining legacy resume boundary inputs", async () => {
   let resumed = 0;
   const context = createSessionContext({ resumePendingPlayback() { resumed++; } });
-  context.pendingResume = { positionSeconds: 5 };
+  context.getSessionActions().setPendingResume({ positionSeconds: 5 });
   vm.runInContext("function runCommand() { return getPlaybackCommands().togglePlayPause(); }", context);
   await context.runCommand();
   assert.equal(resumed, 1);

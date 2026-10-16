@@ -1,10 +1,10 @@
+import vm from "node:vm";
+import {createControllerContext as createQueueContext} from "./helpers/controller-context.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import vm from "node:vm";
 import { createApplicationStore } from "../ui/app-state.ts";
 import { createPlaybackQueueActions, initialPlaybackQueueState } from "../ui/playback-queue-state.ts";
 import { createStateStore } from "../ui/state-store.ts";
-import { createQueueContext } from "./helpers/playback-queue-fixture.ts";
 
 const track = (n: number) => ({ bvid: "BV" + String(n).padStart(10, "0"), title: "曲目" + n, uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
 const fixture = () => createStateStore(initialPlaybackQueueState(), createPlaybackQueueActions, { freeze: true });
@@ -63,7 +63,7 @@ test("explicit queue fixture executes real actions and resynchronizes mutable le
   const context = createQueueContext({ playerState: state }); const before = context.getQueueSnapshot();
   assert.deepEqual(context.getQueueActions().nextNavigation(false, false, () => 0), { kind: "queue", index: 1 });
   assert.deepEqual([...state.randomRemaining], []); assert.deepEqual(before.randomRemaining, [1]); assert.equal(Object.isFrozen(before.queue), true);
-  state.randomRemaining.push(1); assert.deepEqual(context.getQueueActions().nextNavigation(false, false, () => 0), { kind: "queue", index: 1 });
+  context.seedQueue({randomRemaining:[...state.randomRemaining,1]}); assert.deepEqual(context.getQueueActions().nextNavigation(false, false, () => 0), { kind: "queue", index: 1 });
   assert.deepEqual(before.randomRemaining, [1]); assert.equal(vm.runInContext("1 + 1", context), 2);
 });
 

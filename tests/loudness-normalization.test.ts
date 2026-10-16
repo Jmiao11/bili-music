@@ -1,5 +1,5 @@
 import { attachPlaybackVolumeVm } from "./helpers/playback-volume-fixture.ts";
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -203,8 +203,8 @@ test("toggle applies current cached loudness and disabling restores user volume 
 test("rapid track changes discard late results, including while next track is resolving", async () => {
   const { app, queries, state } = setup();
   app.applyLoudnessNormalization(true);
-  state.requestVersion++;
-  state.currentPages = [{ cid: 2 }];
+  app.getRequestActions().beginRequest();
+  app.getSessionActions().setCurrentPages([{ cid: 2 }]);
   app.refreshTrackLoudness();
   queries[1].resolve(-12);
   await settle();
@@ -213,7 +213,7 @@ test("rapid track changes discard late results, including while next track is re
   await settle();
   assert.equal(app.playerAudio.volume, current);
   app.refreshTrackLoudness();
-  state.requestVersion++;
+  app.getRequestActions().beginRequest();
   queries[2].resolve(0);
   await settle();
   assert.equal(app.playerAudio.volume, 1);
@@ -238,10 +238,10 @@ test("disabling invalidates pending queries even when enabled again", async () =
 
 test("missing cid, absent measurement and query failure keep unity gain and warn", async () => {
   const { app, queries, state, warnings } = setup();
-  state.currentPages = [];
+  app.getSessionActions().setCurrentPages([]);
   app.applyLoudnessNormalization(true);
   assert.equal(queries.length, 0);
-  state.currentPages = [{ cid: 1 }];
+  app.getSessionActions().setCurrentPages([{ cid: 1 }]);
   app.refreshTrackLoudness();
   queries[0].resolve(null);
   await settle();
@@ -292,7 +292,7 @@ test("threshold analysis waits for cache request regardless of its result", asyn
 
 test("threshold analysis starts immediately without a cache request", () => {
   const { app, queries, state, emitTimeUpdate } = setup(new Map([[settingKey, "true"]]));
-  state.activeAudioVersion = -1;
+  app.getRequestActions().activateAudio(-1,app.getRequestSnapshot().activeAudioUrl,app.getRequestSnapshot().audioActivatedAt);
   app.audio.currentTime = 30;
   emitTimeUpdate();
   assert.equal(queries.filter(query => query.command === "cache_track_audio").length, 0);
@@ -305,7 +305,7 @@ test("track switch while cache is pending drops the old analysis", async () => {
   emitTimeUpdate();
   const cache = queries.find(query => query.command === "cache_track_audio");
   if (cache === undefined) throw new Error("Expected cache is missing");
-  state.requestVersion++;
+  app.getRequestActions().beginRequest();
   app.emitCurrentTrackChanged();
   cache.resolve("cached");
   await settle();
@@ -352,9 +352,9 @@ test("track change resets threshold analysis for the new track", () => {
   const { app, queries, state } = setup(new Map([[settingKey, "true"]]));
   app.audio.currentTime = 30;
   app.analyzeCurrentTrackAtThreshold();
-  state.requestVersion++;
-  state.queue = [{ bvid: "BV1NNY96LEwD" }];
-  state.currentPages = [{ cid: 41821209264 }];
+  app.getRequestActions().beginRequest();
+  app.seedQueue({queue:[{ bvid: "BV1NNY96LEwD" }]});
+  app.getSessionActions().setCurrentPages([{ cid: 41821209264 }]);
   app.emitCurrentTrackChanged();
   app.analyzeCurrentTrackAtThreshold();
   assert.equal(queries.filter(query => query.command === "analyze_track_loudness").length, 2);
@@ -366,7 +366,7 @@ test("late threshold analysis result does not change gain", async () => {
   app.analyzeCurrentTrackAtThreshold();
   const analysis = queries.find(query => query.command === "analyze_track_loudness");
   if (analysis === undefined) throw new Error("Expected analysis is missing");
-  state.requestVersion++;
+  app.getRequestActions().beginRequest();
   analysis.resolve(0);
   await settle();
   assert.equal(app.playerAudio.volume, 1);

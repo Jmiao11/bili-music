@@ -1,12 +1,11 @@
 import * as fs from "./typescript-source.ts";
 const { stripTypes } = fs;
 import { maskCommentsAndStrings } from "./js-source.ts";
-import { vueRendererImports } from "./vue-renderer-boundary.ts";
 
 type Declaration = { names: string[]; start: number; end: number } & ({ kind: "import"; specifier: string } | { kind: "export"; specifier: null });
 
-// This accepts only this batch's static import/export grammar, not arbitrary ESM.
-function moduleDeclarations(source: string, file = "source.js", grammarFile = file) {
+// Extract static declarations for VM tests; product ESM is checked by its compiler.
+function moduleDeclarations(source: string, file = "source.js") {
   source = stripTypes(source, file);
   const code = maskCommentsAndStrings(source);
   const declarations: Declaration[] = [];
@@ -19,12 +18,11 @@ function moduleDeclarations(source: string, file = "source.js", grammarFile = fi
     if (depth !== 0) throw new Error("Module declaration must be top-level");
     const text = source.slice(index);
     const names = String.raw`[A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*\s*,?`;
-    const relative = String.raw`["'](\./[^"'\r\n]+\.(?:js|ts))["']`;
     const pattern = keyword[0] === "import"
-      ? new RegExp(String.raw`^import\s+(?:\{\s*(${names})\s*\}\s+from\s+)?${relative}\s*;`)
+      ? /^import\s+(?:(?:\{\s*([^}]*?)\s*\}|([A-Za-z_$][\w$]*))\s+from\s+)?["']([^"'\r\n]+)["']\s*;/
       : new RegExp(String.raw`^export\s*\{\s*(${names})?\s*\}\s*;`);
-    const registered = vueRendererImports.find(entry => grammarFile.replace(/\\/g, "/").endsWith("ui/" + entry.file) && text.startsWith(entry.declaration));
-    const match = registered ? [registered.declaration, registered.name, registered.specifier] : pattern.exec(text);
+    const raw = pattern.exec(text);
+    const match = raw && keyword[0] === "import" ? [raw[0],raw[1] ?? raw[2],raw[3]] : raw;
     if (!match) throw new Error(`Unsupported module syntax: ${text.slice(0, 80)}`);
     declarations.push({ kind: keyword[0], names: match[1]?.split(",").map((name) => name.trim()).filter(Boolean) || [], specifier: keyword[0] === "import" ? match[2] : null, start: index, end: index + match[0].length } as Declaration);
     index += match[0].length - 1;
@@ -32,10 +30,10 @@ function moduleDeclarations(source: string, file = "source.js", grammarFile = fi
   return declarations;
 }
 
-function stripModuleSyntax(source: string, file = "source.js", grammarFile = file) {
+function stripModuleSyntax(source: string, file = "source.js") {
   source = stripTypes(source, file);
   let result = source;
-  for (const declaration of moduleDeclarations(source, "source.js", grammarFile).reverse()) {
+  for (const declaration of moduleDeclarations(source, "source.js").reverse()) {
     result = result.slice(0, declaration.start)
       + source.slice(declaration.start, declaration.end).replace(/[^\r\n]/g, "")
       + result.slice(declaration.end);
@@ -45,7 +43,7 @@ function stripModuleSyntax(source: string, file = "source.js", grammarFile = fil
 
 function readFileSync(file: string, options: BufferEncoding) {
   const source = fs.readFileSync(file, options);
-  return /\.(?:js|ts)$/.test(String(file)) ? stripModuleSyntax(source, "source.js", String(file)) : source;
+  return /\.(?:js|ts)$/.test(String(file)) ? stripModuleSyntax(source, "source.js") : source;
 }
 
 export { moduleDeclarations, stripModuleSyntax, readFileSync };

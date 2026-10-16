@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 const settingsAdapterSource = readFileSync(path.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -100,7 +100,7 @@ function navigationContext(disabledCids: Iterable<number>, loopMode = "sequence"
     libraryState: { disabledPages: new Map([[bvid.toLowerCase(), new Set(disabledCids)]]) },
     hasMultipleCurrentPages: () => true,
     loadCurrentTrack: (options: LoadOptions) => loads.push(options),
-    updatePlayerPagesButton() {},
+
     clearPendingResume() {}, clearPlaybackNotice() {},
     playNext: () => { throw Error("unexpected queue navigation"); },
     playPrevious: () => { throw Error("unexpected queue navigation"); },
@@ -131,7 +131,7 @@ test("natural end skips disabled pages, while single loop repeats the current pa
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 1);
 
-  state.loopMode = "single";
+  context.seedQueue({loopMode:"single"});
   handlers.ended({ timeStamp: 2 });
   assert.equal(state.currentPageIndex, 3);
   assert.equal(loads.length, 2);
@@ -145,8 +145,8 @@ test("failed-page advancement skips disabled pages even in single loop", () => {
 
 test("random mode with multiple queue items plays every other page once before leaving", () => {
   const { context, state, loads } = navigationContext([]);
-  state.shuffle = true;
-  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  context.seedQueue({shuffle:true});
+  context.seedQueue({queue:[...state.queue,{ bvid: "BV1rW4y1Q7o7" }]});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.currentPageIndex, 1);
@@ -160,9 +160,9 @@ test("random mode with multiple queue items plays every other page once before l
 
 test("a randomly selected start page stays out of its first page round", () => {
   const { context, state } = navigationContext([]);
-  state.shuffle = true;
-  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
-  state.currentPageIndex = context.pickRandomEnabledPageIndex(pages, () => false, () => 0.6);
+  context.seedQueue({shuffle:true});
+  context.seedQueue({queue:[...state.queue,{ bvid: "BV1rW4y1Q7o7" }]});
+  context.seedQueue({currentPageIndex:context.pickRandomEnabledPageIndex(pages, () => false, () => 0.6)});
   assert.equal(state.currentPageIndex, 2);
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   const visited: number[] = [];
@@ -176,13 +176,13 @@ test("a randomly selected start page stays out of its first page round", () => {
 
 test("random mode still repeats the current page in automatic single loop", () => {
   const { context, state, loads } = navigationContext([], "single");
-  state.shuffle = true;
-  state.currentPageIndex = 2;
+  context.seedQueue({shuffle:true});
+  context.seedQueue({currentPageIndex:2});
   assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
   assert.equal(state.currentPageIndex, 2);
   assert.equal(loads.length, 1);
   assert.equal(loads[0].keepPage, true);
-  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  context.seedQueue({queue:[...state.queue,{ bvid: "BV1rW4y1Q7o7" }]});
   assert.equal(context.advancePageWithinCurrentBv({ automatic: true }), true);
   assert.equal(state.currentPageIndex, 2);
   assert.equal(loads.length, 2);
@@ -190,11 +190,11 @@ test("random mode still repeats the current page in automatic single loop", () =
 
 test("single-item random queue advances each enabled page once, then exits the round", () => {
   const { context, state, loads } = navigationContext([]);
-  state.shuffle = true;
+  context.seedQueue({shuffle:true});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.currentPageIndex, 1);
-  state.currentDisplayTrack = {};
+  context.seedQueue({currentDisplayTrack:{}});
   context.libraryState.disabledPages.get(bvid.toLowerCase()).add(3);
   assert.equal(context.advancePageWithinCurrentBv({ automatic: true, skipFailed: true }), true);
   assert.equal(state.currentPageIndex, 3);
@@ -206,8 +206,8 @@ test("single-item random queue advances each enabled page once, then exits the r
 
 test("single-item random queue discards a round belonging to another BV", () => {
   const { context, state } = navigationContext([]);
-  state.shuffle = true;
-  context.randomPageRound = { bvid: "BV1rW4y1Q7o7", remaining: [] };
+  context.seedQueue({shuffle:true});
+  context.seedQueue({randomPageRound:{ bvid: "BV1rW4y1Q7o7", remaining: [] }});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(context.randomPageRound.bvid, bvid);
@@ -217,7 +217,7 @@ test("single-item random queue discards a round belonging to another BV", () => 
 test("random collection limit counts the opening page and stops after the chosen total", () => {
   for (const [limit, successfulMoves] of [["1", 0], ["3", 2], ["10", 3]] as [string, number][]) {
     const { context, state } = navigationContext([]);
-    state.shuffle = true;
+    context.seedQueue({shuffle:true});
     context.localStorage = { getItem: (key: string) => key.endsWith("limit") ? limit : "random" };
     vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
     for (let step = 0; step < successfulMoves; step += 1) {
@@ -230,7 +230,7 @@ test("random collection limit counts the opening page and stops after the chosen
 
 test("sequential collection order skips disabled pages, records history, and obeys the limit", () => {
   const { context, state } = navigationContext([2]);
-  state.shuffle = true;
+  context.seedQueue({shuffle:true});
   context.localStorage = { getItem: (key: string) => key.endsWith("order") ? "sequential" : "3" };
   assert.equal(context.advancePageWithinCurrentBv(), true);
   assert.equal(state.currentPageIndex, 2);
@@ -243,10 +243,10 @@ test("sequential collection order skips disabled pages, records history, and obe
 
 test("a new BV resets the collection visit count", () => {
   const { context, state } = navigationContext([]);
-  state.shuffle = true;
-  state.queue.push({ bvid: "BV1rW4y1Q7o7" });
+  context.seedQueue({shuffle:true});
+  context.seedQueue({queue:[...state.queue,{ bvid: "BV1rW4y1Q7o7" }]});
   context.localStorage = { getItem: (key: string) => key.endsWith("limit") ? "3" : "random" };
-  context.resetCurrentPageState = () => { state.currentPageIndex = 0; };
+  context.resetCurrentPageState = () => { context.seedQueue({currentPageIndex:0}); };
   context.markRandomIndexPlayed = () => {};
   context.updateQueueUi = () => {};
   context.emitCurrentTrackChanged = () => {};
@@ -266,11 +266,11 @@ test("a new BV resets the collection visit count", () => {
 
 test("previous within a BV leaves the collection visit count unchanged", () => {
   const { context, state } = navigationContext([]);
-  state.shuffle = true;
+  context.seedQueue({shuffle:true});
   context.localStorage = { getItem: (key: string) => key.endsWith("limit") ? "3" : "random" };
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   assert.equal(context.advancePageWithinCurrentBv(), true);
-  state.history.push({ index: 0, cid: 1, pageLevel: true });
+  context.seedQueue({history:[...state.history,{ index: 0, cid: 1, pageLevel: true }]});
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function playPrevious()", "function initPlaybackSearch("), context);
   context.playPrevious();
   assert.equal(state.currentPageIndex, 0);
@@ -282,7 +282,7 @@ test("previous within a BV leaves the collection visit count unchanged", () => {
 
 test("storage read errors use the default random unlimited preference", () => {
   const { context, state } = navigationContext([]);
-  state.shuffle = true;
+  context.seedQueue({shuffle:true});
   context.localStorage = { getItem() { throw Error("storage denied"); } };
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + "Math.random = () => 0", context);
   for (let step = 0; step < 3; step += 1) {
@@ -305,12 +305,12 @@ test("only a random next index requests a random start page", () => {
   assert.equal(calls[0].options.randomStartPage, true);
   assert.equal(calls[0].options.preserveFailureStreak, true);
 
-  state.shuffle = false;
+  context.seedQueue({shuffle:false});
   context.playNext();
   assert.equal(calls[1].options.randomStartPage, undefined);
 
-  state.shuffle = true;
-  state.loopMode = "single";
+  context.seedQueue({shuffle:true});
+  context.seedQueue({loopMode:"single"});
   context.playNext({ automatic: true });
   assert.equal(calls[2].options.randomStartPage, undefined);
 });
@@ -327,7 +327,7 @@ test("random queue navigation starts at the first enabled page for sequential co
   assert.equal(calls[0].index, 1);
   assert.equal(calls[0].options.randomStartPage, undefined);
   context.localStorage.getItem = () => { throw Error("storage denied"); };
-  context.playerState.randomRemaining = [1];
+  context.seedQueue({randomRemaining:[1]});
   assert.equal(context.playNext(), true);
   assert.equal(calls[1].options.randomStartPage, true);
 });
@@ -338,7 +338,7 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   const context = createQueueContext({
     randomPageRound: { bvid, remaining: [1] }, playerState: state,
     clearPendingResume() {}, clearPlaybackNotice() {}, resetCurrentPageState() {},
-    updatePlayerPagesButton() {}, markRandomIndexPlayed() {}, updateQueueUi() {},
+    markRandomIndexPlayed() {}, updateQueueUi() {},
     emitCurrentTrackChanged() {}, currentVideoPage: () => null,
     loadCurrentTrack() {},
   });
@@ -347,14 +347,14 @@ test("entering a queue item and toggling shuffle clear the page round", () => {
   assert.equal(context.randomPageRound, null);
 
   let change: ((...args: unknown[]) => unknown) | undefined;
-  context.randomPageRound = { bvid, remaining: [1] };
+  context.seedQueue({randomPageRound:{ bvid, remaining: [1] }});
   context.shuffleToggle = { checked: true, addEventListener: (_: unknown, handler: (...args: unknown[]) => unknown) => { change = handler; } };
   context.resetRandomRemaining = () => {};
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function initPlaybackModes() {", "\n}\n", { endAfterStart: true, includeEnd: true }) + "\ninitPlaybackModes();" + "\n\n", context);
   if (!change) throw new Error("Shuffle change handler is missing");
   change();
   assert.equal(context.randomPageRound, null);
-  context.randomPageRound = { bvid, remaining: [1] };
+  context.seedQueue({randomPageRound:{ bvid, remaining: [1] }});
   context.shuffleToggle.checked = false;
   if (!change) throw new Error("Shuffle change handler is missing");
   change();
@@ -376,12 +376,12 @@ function trackContext(disabledCids: Iterable<number>, videoPages = pages) {
     stopAudioElement() {}, searchButton: { disabled: false }, setSearchPlaybackBusy() {}, result: { hidden: true },
     status: { textContent: "" }, console: ({ error() {} } as { error(...args: unknown[]): void }), recoveryPromise: null,
     loadPagesForCurrentVideo: async () => {
-      state.currentPages = videoPages;
-      state.currentPageIndex = 0;
+      context.getSessionActions().setCurrentPages(videoPages);
+      context.seedQueue({currentPageIndex:0});
       return true;
     },
     hasMultipleCurrentPages: () => state.currentPages.length > 1,
-    updatePlayerPagesButton() {},
+
     currentVideoPage: () => state.currentPages[state.currentPageIndex],
     currentAudioCacheCid: () => state.currentPages[state.currentPageIndex]?.cid,
     invoke: (command: string, args: Record<string, unknown>) => {

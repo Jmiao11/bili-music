@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { isTypeScript, eraseTypes } from "./typescript-source.ts";
 
-const sourceSliceModuleExceptions = [] as const;
+
 
 function sourceSlice(source: string, file: string, startMarker: string | null, endMarker: string, {
   endAfterStart = false,
@@ -35,6 +35,6 @@ function sourceSlice(source: string, file: string, startMarker: string | null, e
   return slice;
 }
 
-export { sourceSlice, sourceSliceModuleExceptions };
+export { sourceSlice };
 
 export type Contract = { sourceSlice: typeof sourceSlice };

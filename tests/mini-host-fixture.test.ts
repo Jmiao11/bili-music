@@ -15,7 +15,7 @@ test("mini fixture invokes real favorite actions and uses actual play capture in
   await h.fire("mini-player-command", "toggle_favorite");
   assert.equal(h.library.getState().library.favorites.length, 1);
   assert.equal(h.library.getState().library.favorites[0].addedAt, "1700000000000");
-  h.context.pendingResume = true; await h.fire("mini-player-command", "toggle_play");
+  h.context.getSessionActions().setPendingResume(true); await h.fire("mini-player-command", "toggle_play");
   assert.equal(h.store.getState().playbackSession.pendingResume !== null, true);
   assert.equal(h.context.resumes, 1); assert.deepEqual(h.audio.operations, []);
 });

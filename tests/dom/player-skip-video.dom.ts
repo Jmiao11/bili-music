@@ -1,7 +1,8 @@
+import {fixture,track} from "./tracks-fixture.ts";
 import { fileURLToPath } from "node:url";
 import { renderApplicationHtml } from "../../scripts/vue/shell-html.ts";
 const mountedApplicationHtml = await renderApplicationHtml(fileURLToPath(new URL("../..", import.meta.url)));
-import { createSessionContext as createQueueContext } from "../helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "../helpers/controller-context.ts";
 import { sourceSlice } from "../helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "../helpers/module-syntax.ts";
@@ -21,22 +22,16 @@ test("the skip button follows the unchanged page badge inside one hidden group",
   assert.ok(group.indexOf('id="player-pages-button"') < group.indexOf('id="skip-video-button"'));
 });
 
-test("page group is visible only with a current multi-page track", () => {
-  const playerPagesButton: { hidden: boolean; textContent?: string; setAttribute(name: string, value: unknown): void } = { hidden: true, setAttribute(this: Record<string, unknown>, name: string, value: unknown) { this[name] = value; } };
-  const playerPagesGroup = { hidden: true };
-  const state = { queue: [{}], currentIndex: -1, currentPages: [{}, {}], currentPageIndex: 1 };
-  const context = createQueueContext({ playerState: state, playerPagesButton, playerPagesGroup });
-  vm.runInContext(sourceSlice(core, "ui/playback-core.ts", "function updatePlayerPagesButton(", "async function loadPagesForCurrentVideo("), context);
-  context.updatePlayerPagesButton();
+test("page group is visible only with a current multi-page track", async t => {
+  const h=await fixture({playback:true}); t.after(h.dispose);
+  const playerPagesButton=h.doc.querySelector<HTMLButtonElement>("#player-pages-button")!, playerPagesGroup=h.doc.querySelector<HTMLElement>(".player-pages-group")!;
+  const pages=[{page:1,cid:11,part:"P1",durationSeconds:60},{page:2,cid:22,part:"P2",durationSeconds:60}];
+  h.store.actions.playbackSession.setCurrentPages(pages);
   assert.equal(playerPagesGroup.hidden, true);
-
-  state.currentIndex = 0;
-  state.currentPages = [{}];
-  context.updatePlayerPagesButton();
+  h.store.actions.playbackQueue.replaceQueue([track(1)]); h.store.actions.playbackQueue.selectIndex(0,false,null);
+  h.store.actions.playbackSession.setCurrentPages(pages.slice(0,1));
   assert.equal(playerPagesGroup.hidden, true);
-
-  state.currentPages = [{}, {}];
-  context.updatePlayerPagesButton();
+  h.store.actions.playbackSession.setCurrentPages(pages); h.store.actions.playbackQueue.selectPage(1);
   assert.equal(playerPagesButton.hidden, false);
   assert.equal(playerPagesGroup.hidden, false);
   assert.equal(playerPagesButton.textContent, "P2/2");

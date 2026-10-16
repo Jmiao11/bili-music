@@ -21,11 +21,11 @@ test("Vue pages list matches the old renderer HTML matrix and adds only two empt
     let unmount: (() => void) | undefined;
     try {
       for (const [name, value] of Object.entries(globals)) Object.defineProperty(globalThis, name, { configurable: true, value });
-      const runtime = await compilePagesRuntime(), region = runtime.createSyncRegion(host, runtime.PagesList); unmount = region.unmount;
+      const runtime = await compilePagesRuntime(); unmount = () => runtime.render(null,host);
       const key = scenario.modal.video.bvid.toLowerCase();
       const toggles: unknown[][] = [];
-      region.update({ modal: scenario.modal, disabledPages: new Map([[key, new Set(scenario.disabled)]]), pending: new Map(scenario.pending.length ? [[key, scenario.pending[0]]] : []),
-        currentBvid: scenario.currentBvid, currentCid: scenario.currentCid, onPlay() {}, onToggle: async (...args: unknown[]) => { toggles.push(args); } });
+      runtime.render(runtime.h(runtime.PagesList, { modal: scenario.modal, disabledPages: new Map([[key, new Set(scenario.disabled)]]), pending: new Map(scenario.pending.length ? [[key, scenario.pending[0]]] : []),
+        currentBvid: scenario.currentBvid, currentCid: scenario.currentCid, onPlay() {}, onToggle: async (...args: unknown[]) => { toggles.push(args); } }),host);
       assert.equal(host.innerHTML, scenario.innerHTML);
       const nonElements = [...host.childNodes].filter(node => node.nodeType !== 1);
       assert.deepEqual(nonElements.map(node => ({ type: node.nodeType, text: node.textContent })), [{ type: 3, text: "" }, { type: 3, text: "" }]);
@@ -55,20 +55,16 @@ test("pages open disable restore and playback close produce no Vue warnings", as
   } finally { h.dispose(); }
 });
 
-test("pages projection creates a single region on first open and renders inside the action before return", async () => {
+test("pages projection in the application tree renders inside the action before return", async () => {
   const h = await fixture(); try {
-    assert.equal(h.bridge.regions, 0);
-    h.pages.closePagesModal(); assert.equal(h.bridge.regions, 0);
-    h.nodes.pagesModalList.append(h.doc.createElement("li"));
+    h.pages.closePagesModal();
     let returned = false;
     const observations: { returned: boolean; text: string | null; buttons: number }[] = [];
     const stop = h.store.subscribe(state => { if (state.pages.modal) observations.push({ returned, text: h.nodes.pagesModalList.textContent, buttons: h.nodes.pagesModalList.querySelectorAll("button").length }); });
     try {
       h.store.actions.pages.open(track(1), 2, h.bridge.pages); returned = true;
       assert.deepEqual(observations, [{ returned: false, text: "1 · 一 · 1:00 · 当前2 · 二 · 1:30", buttons: 4 }]);
-      assert.equal(h.bridge.regions, 1);
       h.pages.closePagesModal(); h.store.actions.pages.open(track(2), 2, h.bridge.pages);
-      assert.equal(h.bridge.regions, 1);
       assert.equal(h.nodes.pagesModalList.querySelectorAll("li").length, 2);
     } finally { stop(); }
   } finally { h.dispose(); }

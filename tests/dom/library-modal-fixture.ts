@@ -21,9 +21,11 @@ function deferred() {
 }
 type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown>;
 type Store = ReturnType<typeof import("../../ui/app-state.ts").createApplicationStore>;
-type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: typeof import("../../ui/player-dom.ts") & { status: HTMLParagraphElement }; store: Store };
+type Modules = { library: { loadLibrary: () => Promise<void>; closeLibraryModal: () => void; createPlaylist: () => void }; nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store };
 
-async function fixture() {
+async function fixture(options: {captureWarnings?:boolean} = {}) {
+  const warnings:unknown[][]=[], savedWarn=console.warn;
+  if(options.captureWarnings) console.warn=(...args:unknown[])=>{warnings.push(args);};
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-library-modal-dom-"));
@@ -83,6 +85,7 @@ async function fixture() {
   };
   const raf = () => { const pending = [...frames]; frames.clear(); for (const [, callback] of pending) callback(0); };
   const dispose = () => {
+    if(options.captureWarnings) console.warn=savedWarn;
     for (const listener of listeners) listener.target.removeEventListener(listener.type, listener.callback, listener.options);
     for (const observer of mutations) observer.disconnect();
     listeners.length = 0; frames.clear(); timers.clear(); window.close();
@@ -92,11 +95,12 @@ async function fixture() {
   };
   try {
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; import * as legacyNodes from "./player-dom.ts"; export const nodes = { ...legacyNodes, status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
+    fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./root-mount.ts"; import "./main.ts"; import { startAppearance } from "./appearance.ts"; startAppearance(); export * as library from "./library-ui.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./home.ts"; export const store = getApplicationStore();');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue()], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); raf(); await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, window, doc, calls, platform, fire, raf, microtasks, dispose, reply(next: Reply) { reply = next; },
+    return { ...modules, window, doc, calls, platform, warnings, fire, raf, microtasks, dispose, reply(next: Reply) { reply = next; },
       state: () => modules.store.getState().library,
       input: () => doc.querySelector<HTMLInputElement>("#library-modal-body input")!,
       primary: () => doc.querySelector<HTMLButtonElement>("#library-modal-body .secondary-button")!,

@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -7,7 +7,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/playback-core.ts"), "utf8");
-const helpers = sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "function updatePlayerPagesButton()");
+const helpers = sourceSlice(source, "ui/playback-core.ts", "function hasMultipleCurrentPages()", "async function loadPagesForCurrentVideo(");
 assert.ok(helpers.includes("function currentAudioCacheCid()"));
 
 function cacheCid(currentPages: { cid: number }[], currentPageIndex = 0) {

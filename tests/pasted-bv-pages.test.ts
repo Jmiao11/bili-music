@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -19,7 +19,7 @@ test("failed page loading notices only the current request while keeping single-
   const app = createQueueContext({
     playerState: state,
     invoke: async () => { throw new Error("view failed"); },
-    resetCurrentPageState: () => { state.currentPages = []; },
+    resetCurrentPageState: () => { app.getSessionActions().setCurrentPages([]); },
     showPlaybackNotice: (message: string) => notices.push(message),
     console: { warn: () => {} },
   });
@@ -28,7 +28,7 @@ test("failed page loading notices only the current request while keeping single-
   assert.equal(await load({ bvid: pending.bvid }, 7), true);
   assert.equal(state.currentPages.length, 0);
   assert.deepEqual(notices, ["分P列表获取失败，暂按单个视频播放。"]);
-  state.requestVersion = 8;
+  app.getRequestActions().beginRequest();
   assert.equal(await load({ bvid: pending.bvid }, 7), false);
   assert.equal(notices.length, 1);
 });
@@ -65,10 +65,10 @@ function eventContext() {
     currentPlayableTrack: () => ({ bvid: currentBvid }),
     openCurrentPagesModal: () => { opened += 1; },
   });
-  vm.runInContext(`let pendingPastedBvPages = null;\n${helper}\n${sourceSlice(source, "ui/playback-core.ts", "window.addEventListener(\"bili-track-changed\"", "\n}\n", { endAfterStart: true }) + "\n\n"}`, app);
+  vm.runInContext(`${helper}\n${sourceSlice(source, "ui/playback-core.ts", "window.addEventListener(\"bili-track-changed\"", "\n}\n", { endAfterStart: true }) + "\n\n"}`, app);
   return {
     app, handlers, playerState,
-    mark: () => vm.runInContext('pendingPastedBvPages = { bvid: "BV1GF4X6MEb1", requestVersion: 7 }', app),
+    mark: () => app.getSessionActions().setPendingPastedPages({bvid:"BV1GF4X6MEb1",requestVersion:7}),
     setCurrent: (bvid: string) => { currentBvid = bvid; },
     opened: () => opened,
   };
@@ -86,15 +86,15 @@ test("single-page success, playback failure, and track switch clear the marker",
   const app = eventContext();
   const ready = () => app.handlers.get("bili-track-changed")({ detail: { bvid: pending.bvid } });
   app.mark();
-  app.playerState.currentPages = [{}];
+  app.app.getSessionActions().setCurrentPages([{}]);
   app.handlers.get("bilibili-music-trackchange")();
-  app.playerState.currentPages = [{}, {}];
+  app.app.getSessionActions().setCurrentPages([{}, {}]);
   ready();
 
   app.mark();
-  app.playerState.consecutiveResolveFailures = 1;
+  (()=>{app.app.getRequestActions().resetFailures();for(let index=0;index<1;index++)app.app.getRequestActions().recordFailure();})();
   app.handlers.get("bilibili-music-notice-change")();
-  app.playerState.consecutiveResolveFailures = 0;
+  (()=>{app.app.getRequestActions().resetFailures();for(let index=0;index<0;index++)app.app.getRequestActions().recordFailure();})();
   ready();
 
   app.mark();

@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { getEventListeners } from "node:events";
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -14,8 +14,7 @@ const state = read("player-state.ts");
 const policy = read("playback-policy.ts");
 const settingsAdapterSource = read("settings-adapter.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/playback-core.ts", start, end);
-const stateCode = "const playerState = { currentPages: [], lastEmittedTrackIdentity: \"\" };\n"
-  + "const libraryState = initialLibraryState();\n";
+const stateCode = "const libraryState = initialLibraryState();\n";
 const functions = read("page-selection.ts") + read("track-utils.ts")
   + slice("function currentTrackSnapshot()", "function resetRandomRemaining(")
   + slice("function resetRandomRemaining(", "function stopAudioElement()")
@@ -126,12 +125,12 @@ function setup({ manual = [] }: { manual?: string[] } = {}) {
 for (const outcome of ["resolve", "reject"]) {
   test(`ordinary loading ignores an old ${outcome} after a newer prepare starts`, async () => {
     const h = setup();
-    h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
-    h.playerState.currentIndex = 0;
+    h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]});
+    h.context.seedQueue({currentIndex:0});
     const old = h.context.loadCurrentTrack();
     (await h.request("get_video_pages")).resolve(pages(11));
     const oldPrepare = await h.request("prepare_audio");
-    h.playerState.currentIndex = 1;
+    h.context.seedQueue({currentIndex:1});
     const current = h.context.loadCurrentTrack();
     (await h.request("get_video_pages", 1)).resolve(pages(22));
     const newPrepare = await h.request("prepare_audio", 1);
@@ -154,11 +153,11 @@ for (const outcome of ["resolve", "reject"]) {
 
 test("ordinary loading ignores old pages while the new page request is pending", async () => {
   const h = setup();
-  h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
-  h.playerState.currentIndex = 0;
+  h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]});
+  h.context.seedQueue({currentIndex:0});
   const old = h.context.loadCurrentTrack();
   const oldPages = await h.request("get_video_pages");
-  h.playerState.currentIndex = 1;
+  h.context.seedQueue({currentIndex:1});
   const current = h.context.loadCurrentTrack();
   oldPages.resolve(pages(11));
   await old;
@@ -176,7 +175,7 @@ test("ordinary loading ignores old pages while the new page request is pending",
 
 test("an old play rejection cannot overwrite the newer loading status or release its button", async () => {
   const h = setup();
-  h.playerState.queue = [track("BV0000000001"), track("BV0000000002")]; h.playerState.currentIndex = 0;
+  h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]}); h.context.seedQueue({currentIndex:0});
   h.audio.playGate = deferred();
   const playGate = h.audio.playGate;
   const old = h.context.loadCurrentTrack();
@@ -184,7 +183,7 @@ test("an old play rejection cannot overwrite the newer loading status or release
   (await h.request("prepare_audio")).resolve(info("old"));
   await h.request("play");
   h.audio.playGate = null;
-  h.playerState.currentIndex = 1;
+  h.context.seedQueue({currentIndex:1});
   const current = h.context.loadCurrentTrack();
   playGate.reject("play was interrupted");
   await old;
@@ -199,7 +198,7 @@ test("an old play rejection cannot overwrite the newer loading status or release
 
 test("cancel invalidates the prepare immediately and ignores its rejection before backend acknowledgement", async () => {
   const h = setup({ manual: ["cancel_prepare_audio"] });
-  h.playerState.queue = [track("BV0000000001")]; h.playerState.currentIndex = 0;
+  h.context.seedQueue({queue:[track("BV0000000001")]}); h.context.seedQueue({currentIndex:0});
   const loading = h.context.loadCurrentTrack();
   (await h.request("get_video_pages")).resolve(pages());
   const prepare = await h.request("prepare_audio");
@@ -224,7 +223,7 @@ for (const count of [0, 1, 3]) for (const loopMode of ["sequence", "list", "sing
   test(`queue navigation matrix: ${count} tracks / ${loopMode} / shuffle=${shuffle}`, () => {
     for (const automatic of [false, true]) {
       const h = setup(), visited: number[] = [];
-      Object.assign(h.playerState, { queue: Array.from({ length: count }, (_, index) => track(`BV${index}`)), currentIndex: count - 1, loopMode, shuffle });
+      h.context.seedQueue({ queue: Array.from({ length: count }, (_, index) => track(`BV${index}`)), currentIndex: count - 1, loopMode, shuffle });
       h.context.playQueueIndex = (index: number) => visited.push(index);
       h.context.resetRandomRemaining();
       assert.deepEqual([...h.playerState.randomRemaining].sort(), Array.from({ length: Math.max(0, count - 1) }, (_, index) => index));
@@ -291,7 +290,7 @@ test("a late saved state cannot replace a queue selected while restore was pendi
 
 test("unavailable marking, failure skip, successful clear and persistence errors keep playback progressing", async () => {
   const h = setup({ manual: ["mark_track_unavailable", "clear_track_unavailable"] });
-  h.playerState.queue = [track("BV0000000001"), track("BV0000000002")]; h.playerState.currentIndex = 0;
+  h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]}); h.context.seedQueue({currentIndex:0});
   h.libraryState.unavailableBvids.set("bv0000000002", "旧标记");
   const failed = h.context.loadCurrentTrack();
   (await h.request("get_video_pages")).resolve(pages(11));
@@ -317,7 +316,7 @@ test("unavailable marking, failure skip, successful clear and persistence errors
 
 test("new search and old pagination update only the display until an explicit result click", async () => {
   const h = setup();
-  h.playerState.queue = [track("BV0000000001")]; h.playerState.currentIndex = 0; h.playerState.queueSource = "favorites";
+  h.context.seedQueue({queue:[track("BV0000000001")]}); h.context.seedQueue({currentIndex:0}); h.context.seedQueue({queueSource:"favorites"});
   h.audio.src = "http://127.0.0.1/audio/current";
   const queue = h.playerState.queue, version = h.playerState.requestVersion;
   h.searchState.requestKeyword = "旧搜索"; h.searchState.userKeyword = "旧搜索"; h.searchState.page = 1; h.searchState.hasMore = true;
@@ -347,7 +346,7 @@ test("new search and old pagination update only the display until an explicit re
 for (const outcome of ["resolve", "reject"]) {
   test(`an old search ${outcome} cannot replace the new results or interrupt playback`, async () => {
     const h = setup();
-    h.playerState.queue = [track("BV0000000001")]; h.playerState.currentIndex = 0;
+    h.context.seedQueue({queue:[track("BV0000000001")]}); h.context.seedQueue({currentIndex:0});
     h.audio.src = "http://127.0.0.1/audio/current";
     const queue = h.playerState.queue;
     const old = h.context.runSearch({ userKeyword: "旧搜索" });
@@ -371,8 +370,8 @@ test("pagination extends the playback queue only when it belongs to this search"
     h.searchState.results = [track("BV0000000001")];
     h.searchState.requestVersion = 3; h.searchState.requestKeyword = "音乐"; h.searchState.userKeyword = "音乐";
     h.searchState.page = 1; h.searchState.hasMore = true; h.context.searchKeyword.value = "音乐";
-    h.playerState.queue = [track("BV0000000001")]; h.playerState.currentIndex = 0; h.playerState.shuffle = true;
-    h.playerState.queueSearchVersion = sameSearch ? 3 : null;
+    h.context.seedQueue({queue:[track("BV0000000001")]}); h.context.seedQueue({currentIndex:0}); h.context.seedQueue({shuffle:true});
+    h.context.seedQueue({queueSearchVersion:sameSearch ? 3 : null});
     const loading = h.context.loadMoreSearchResults();
     (await h.request("search_videos")).resolve([track("BV0000000001"), track("BV0000000002")]);
     await loading;
@@ -386,17 +385,14 @@ test("pagination extends the playback queue only when it belongs to this search"
 
 test("appending search results preserves per-track flags and still broadcasts", () => {
   const h = setup();
-  h.playerState.queue = [track("BV0000000001")];
-  h.playerState.currentIndex = 0;
-  h.playerState.currentPages = pages(11);
+  h.context.seedQueue({queue:[track("BV0000000001")]});
+  h.context.seedQueue({currentIndex:0});
+  h.context.getSessionActions().setCurrentPages(pages(11));
   h.searchState.results = [...h.playerState.queue];
-  h.playerState.queueSearchVersion = h.searchState.requestVersion;
+  h.context.seedQueue({queueSearchVersion:h.searchState.requestVersion});
   h.context.emitCurrentTrackChanged();
   const pendingCache = Promise.resolve();
-  Object.assign(h.context, {
-    playRecordedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
-    cacheRequestedForCurrentTrack: true, cacheRequestPromise: pendingCache,
-  });
+  h.context.getSessionActions().setPlayRecorded(true); h.context.getSessionActions().setLoudnessAnalyzed(true); h.context.getSessionActions().setCacheRequested(true); h.context.cacheRequestPromise=pendingCache;
   assert.equal(h.context.appendSearchResults([track("BV0000000002")]), 1);
   assert.equal(h.context.playRecordedForCurrentTrack, true);
   assert.equal(h.context.loudnessAnalyzedForCurrentTrack, true);
@@ -410,17 +406,14 @@ test("appending search results preserves per-track flags and still broadcasts", 
 for (const change of ["bvid", "cid", "page"]) {
   test(`changing the current ${change} resets per-track flags`, () => {
     const h = setup();
-    h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
-    h.playerState.currentIndex = 0;
-    h.playerState.currentPages = change === "page" ? [] : pages(11);
+    h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]});
+    h.context.seedQueue({currentIndex:0});
+    h.context.getSessionActions().setCurrentPages(change === "page" ? [] : pages(11));
     h.context.emitCurrentTrackChanged();
-    Object.assign(h.context, {
-      playRecordedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
-      cacheRequestedForCurrentTrack: true, cacheRequestPromise: Promise.resolve(),
-    });
-    if (change === "bvid") h.playerState.currentIndex = 1;
-    else if (change === "cid") h.playerState.currentPages = pages(22);
-    else h.playerState.currentPageIndex = 1;
+    h.context.getSessionActions().setPlayRecorded(true); h.context.getSessionActions().setLoudnessAnalyzed(true); h.context.getSessionActions().setCacheRequested(true); h.context.cacheRequestPromise=Promise.resolve();
+    if (change === "bvid") h.context.seedQueue({currentIndex:1});
+    else if (change === "cid") h.context.getSessionActions().setCurrentPages(pages(22));
+    else h.context.seedQueue({currentPageIndex:1});
     h.context.emitCurrentTrackChanged();
     assert.equal(h.context.playRecordedForCurrentTrack, false);
     assert.equal(h.context.loudnessAnalyzedForCurrentTrack, false);
@@ -433,8 +426,8 @@ for (const change of ["bvid", "cid", "page"]) {
 for (const action of ["cancel", "switch"]) {
   test(`ordinary metadata waiting ends after ${action} without affecting a newer load`, async () => {
     const h = setup();
-    h.playerState.queue = [track("BV0000000001"), track("BV0000000002")];
-    h.playerState.currentIndex = 0;
+    h.context.seedQueue({queue:[track("BV0000000001"), track("BV0000000002")]});
+    h.context.seedQueue({currentIndex:0});
     let finished = false;
     const old = h.context.loadCurrentTrack({ resumePosition: 35 }).then(() => { finished = true; });
     (await h.request("get_video_pages")).resolve(pages(11));
@@ -451,7 +444,7 @@ for (const action of ["cancel", "switch"]) {
       assert.equal(h.audio.currentTime, 0);
       assert.equal(h.playerState.activeAudioVersion, -1);
     }
-    h.playerState.currentIndex = 1;
+    h.context.seedQueue({currentIndex:1});
     current = h.context.loadCurrentTrack();
     h.audio.dispatchEvent(new Event("emptied"));
     (await h.request("get_video_pages", 1)).resolve(pages(22));

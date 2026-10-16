@@ -5,7 +5,6 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import vm from "node:vm";
 import { Session } from "node:inspector";
-import { disposeColdRendererBoundary } from "./vue-renderer-boundary.ts";
 import { isTypeScript, stripTypes } from "./typescript-source.ts";
 
 type RecordedEvent = { action: string; stack?: string; [key: string]: unknown };
@@ -130,7 +129,7 @@ async function loadNativeModules(sourceRoot: string, files: string[], entry: str
     const coverage = result.filter((script) => script.url.startsWith(pathToFileURL(root).href));
     return { namespace, events, coverage };
   } finally {
-    disposeColdRendererBoundary();
+
     session.disconnect();
     for (const [name, descriptor] of descriptors) {
       if (descriptor) Object.defineProperty(globalThis, name, descriptor);

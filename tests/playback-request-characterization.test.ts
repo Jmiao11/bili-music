@@ -1,6 +1,6 @@
 import { legacyPlaybackNodeNames } from "./helpers/playback-root-fixture.ts";
 import assert from "node:assert/strict";
-import { createSessionContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createSessionContext } from "./helpers/controller-context.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -77,7 +77,7 @@ test("request activation timestamp filters ended and error while playing preserv
   h.audio.fire("error", 100); await h.flush(); assert.equal(h.pending.length, before + 1);
   await h.finish(1, true); assert.equal(h.request().audioActivatedAt, 100);
   const currentSource = h.audio.currentSrc; h.audio.currentSrc = "previous-source";
-  vm.runInContext("playingAudioVersion = -1", h.context); h.audio.fire("playing", 101); assert.equal(vm.runInContext("playingAudioVersion", h.context), -1);
+  h.store.actions.playbackSession.setPlayingVersion(-1); h.audio.fire("playing", 101); assert.equal(vm.runInContext("playingAudioVersion", h.context), -1);
   h.audio.fire("error", 101); h.audio.fire("ended", 101); await h.flush(); assert.equal(h.pending.length, before + 1); assert.equal(h.request().requestVersion, version);
   h.audio.currentSrc = currentSource; h.audio.fire("playing", 100); assert.equal(vm.runInContext("playingAudioVersion", h.context), version);
   h.audio.fire("ended", 100); await h.flush(); assert.equal(h.request().requestVersion, version + 1);

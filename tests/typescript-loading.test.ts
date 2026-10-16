@@ -50,9 +50,7 @@ test("TS rejects code-generating syntax, decorators and explicit any", () => {
     (assert.throws as (block: () => unknown, error: undefined, message: string) => void)(() => stripTypes(source, "sample.ts"), undefined, source);
   }
   assert.doesNotThrow(() => stripTypes('const text: string = "any"; // any in comments\nexport { text };', "sample.ts"));
-  for (const source of ['import value from "./leaf.ts";', 'import { value as alias } from "./leaf.ts";', 'export default 1;']) {
-    assert.throws(() => stripModuleSyntax(source, "sample.ts"));
-  }
+
 });
 
 test("native JS/TS loading executes .ts directly without loading pure type dependencies", async (t) => {

@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fixture as realFixture } from "./library-modal-fixture.ts";
 import { collectModuleGraph } from "../helpers/module-graph.ts";
-import { disposeColdRendererBoundary } from "../helpers/vue-renderer-boundary.ts";
 
 type Fired = { fire(type: string): Promise<Event> };
 type LibraryApi = { loadLibrary(): Promise<void>; createPlaylist(): void; renameSelectedPlaylist(): void; deleteSelectedPlaylist(): void; choosePlaylistAndAdd(video?: CommandContract.TrackSnapshotInput): void; closeLibraryModal(): void; importFavoritePlaylist(): void; openLoudnessModal(): void };
@@ -13,7 +12,7 @@ async function fixture() {
   for (const name of ["video-pages.ts", "appearance.ts", "playback-notice.ts", "playback-diagnostics.ts"]) {
     const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))?.[1].split(",").map(x => x.trim()).filter(Boolean); assert.ok(exports);
   }
-  collectModuleGraph(source, ["main.ts"]); disposeColdRendererBoundary();
+  collectModuleGraph(source, ["main.ts"]);
   const h = await realFixture();
   const requests: Promise<unknown>[] = [];
   const fire = async (element: HTMLElement, type: string) => {

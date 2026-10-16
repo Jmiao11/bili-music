@@ -2,7 +2,6 @@ import { readFileSync } from "./typescript-source.ts";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { moduleDeclarations } from "./module-syntax.ts";
-import { vueRendererImports, installColdRendererBoundary } from "./vue-renderer-boundary.ts";
 
 function collectModuleGraph(root: string, entries: string[]) {
   const modules = new Set<string>();
@@ -12,12 +11,9 @@ function collectModuleGraph(root: string, entries: string[]) {
     if (modules.has(relative)) return;
     modules.add(relative);
     const source = readFileSync(file, "utf8");
-    for (const declaration of moduleDeclarations(source, "source.js", "ui/" + relative)) {
+    for (const declaration of moduleDeclarations(source, "source.js")) {
       if (declaration.kind !== "import") continue;
-      if (vueRendererImports.some(entry => entry.file === relative && entry.specifier === declaration.specifier)) {
-        installColdRendererBoundary();
-        continue;
-      }
+      if (!declaration.specifier.startsWith(".") || declaration.specifier.endsWith(".vue")) continue;
       visit(path.relative(root, path.resolve(path.dirname(file), declaration.specifier)));
     }
   }
@@ -48,10 +44,8 @@ function collectBusinessScripts(root: string) {
       readFileSync(path.join(root, name), "utf8");
     }
   }
-  const rendererFiles = [...new Set(vueRendererImports.filter(entry => modules.includes(entry.file) && entry.specifier.startsWith(".")).map(entry => path.posix.normalize(path.posix.join(path.posix.dirname(entry.file), entry.specifier))))];
-  return rendererFiles.length ? { ordinary, entries, modules, files, rendererFiles } : { ordinary, entries, modules, files };
+  return { ordinary, entries, modules, files };
 }
 
 export { collectModuleGraph, collectBusinessScripts };
-
 export type Contract = { collectModuleGraph: typeof collectModuleGraph; collectBusinessScripts: typeof collectBusinessScripts };

@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import { attachSettingsVm } from "./helpers/settings-vm.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -133,7 +133,7 @@ test("page advancement preserves shuffle rounds, sequential advancement and the 
       hasMultipleCurrentPages: () => true, loadCurrentTrack: (options: { keepPage?: boolean }) => loads.push(options),
       buildRandomPageRound: () => [1], isPageDisabled: () => false, readShuffleCollectionPrefs: () => ({ order: "random", limit }),
       takeRandomPageFromRound: () => ({ index: 1, remaining: [] }), findEnabledPageIndex: () => 1,
-      currentVideoPage: () => state.currentPages[state.currentPageIndex], updatePlayerPagesButton() {},
+      currentVideoPage: () => state.currentPages[state.currentPageIndex],
     });
     vm.runInContext(slice("playback-core.ts", "function advancePageWithinCurrentBv(", "function retreatPageWithinCurrentBv("), context);
     assert.equal(context.advancePageWithinCurrentBv(), expected);
@@ -182,9 +182,9 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
       playerState: { queue: [], currentIndex: -1, loopMode: mode, shuffle: false },
       getSearchSnapshot: () => ({ results: [] }), queueCount: {}, queuePosition: {}, previousButton: {}, nextButton: {}, shuffleToggle: {},
       searchResults: { querySelectorAll: () => [] }, homeRankingList: null,
-      updateFavoriteButtons() {}, updateLibraryHighlights() {},
+      updateLibraryHighlights() {},
     });
-    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function updateFavoriteButtons("), context);
+    vm.runInContext(slice("playback-core.ts", "function updateQueueUi(", "function playCurrentVideoPage("), context);
     context.updateQueueUi();
     const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
     assert.equal(button.title, expected);

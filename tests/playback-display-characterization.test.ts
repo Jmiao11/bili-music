@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createSessionContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createSessionContext } from "./helpers/controller-context.ts";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -111,8 +111,8 @@ test("playback Media Session actions retain click forwarding guards and seek bou
 
 test("playback click reuse preserves source errors and real capture-stage resume interception", async () => {
   const h = await fixture(); await h.node("#immersive-play-pause-button").fire("click"); await h.flush(); assert.deepEqual(h.audio.operations, ["play"]);
-  h.context.pendingResume = true; const event = await h.node("#play-pause-button").fire("click"); assert.equal(event.prevented, true); assert.equal(event.immediate, true); assert.equal(h.context.resumes, 1); assert.deepEqual(h.audio.operations, ["play"]);
-  h.context.pendingResume = false; h.context.resumeInProgress = true; h.handlers.get("pause")!({}); await h.flush(); assert.equal(h.context.resumes, 2); assert.deepEqual(h.audio.operations, ["play"]);
-  h.context.resumeInProgress = false; h.audio.currentSrc = ""; await h.node("#play-pause-button").fire("click"); assert.equal(h.node("#status").textContent, "请先从队列中选择一首歌曲。");
+  h.context.getSessionActions().setPendingResume(true); const event = await h.node("#play-pause-button").fire("click"); assert.equal(event.prevented, true); assert.equal(event.immediate, true); assert.equal(h.context.resumes, 1); assert.deepEqual(h.audio.operations, ["play"]);
+  h.context.getSessionActions().setPendingResume(false); h.context.getSessionActions().setResumeInProgress(true); h.handlers.get("pause")!({}); await h.flush(); assert.equal(h.context.resumes, 2); assert.deepEqual(h.audio.operations, ["play"]);
+  h.context.getSessionActions().setResumeInProgress(false); h.audio.currentSrc = ""; await h.node("#play-pause-button").fire("click"); assert.equal(h.node("#status").textContent, "请先从队列中选择一首歌曲。");
   h.audio.currentSrc = "fixture"; h.audio.paused = true; h.audio.rejectPlay = true; await h.node("#play-pause-button").fire("click"); assert.equal(h.node("#status").textContent, "音频暂时无法播放，请稍后重试。");
 });

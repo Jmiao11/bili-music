@@ -18,11 +18,11 @@ for (const [name, trigger] of Object.entries(controls)) {
   });
   test(`external ${name} preserves capture resume interception and source failure messages`, async () => {
     const h = await createPlaybackControlFixture();
-    h.context.pendingResume = true; trigger(h); await h.flush();
+    h.context.getSessionActions().setPendingResume(true); trigger(h); await h.flush();
     assert.equal(h.context.resumes, 1); assert.deepEqual(h.audio.operations, []);
-    h.context.pendingResume = false; h.context.resumeInProgress = true; trigger(h); await h.flush();
+    h.context.getSessionActions().setPendingResume(false); h.context.getSessionActions().setResumeInProgress(true); trigger(h); await h.flush();
     assert.equal(h.context.resumes, 2); assert.deepEqual(h.audio.operations, []);
-    h.context.resumeInProgress = false; h.audio.currentSrc = ""; trigger(h); await h.flush();
+    h.context.getSessionActions().setResumeInProgress(false); h.audio.currentSrc = ""; trigger(h); await h.flush();
     assert.equal(h.node("#status").textContent, "请先从队列中选择一首歌曲。");
     h.audio.currentSrc = "fixture"; h.audio.rejectPlay = true; trigger(h); await h.flush();
     assert.equal(h.node("#status").textContent, "音频暂时无法播放，请稍后重试。");
@@ -58,9 +58,9 @@ test("external navigation attempts current video pages before queue and clears r
 test("external Media Session registers all actions and preserves paused guards during pending resume", async () => {
   const h = await createPlaybackControlFixture();
   assert.deepEqual([...h.handlers.keys()], ["play", "pause", "previoustrack", "nexttrack", "seekto", "seekbackward", "seekforward"]);
-  h.context.pendingResume = true; h.handlers.get("pause")!({}); await h.flush(); assert.equal(h.context.resumes, 0);
+  h.context.getSessionActions().setPendingResume(true); h.handlers.get("pause")!({}); await h.flush(); assert.equal(h.context.resumes, 0);
   h.handlers.get("play")!({}); await h.flush(); assert.equal(h.context.resumes, 1); assert.deepEqual(h.audio.operations, []);
-  h.audio.paused = false; h.context.pendingResume = false; h.context.resumeInProgress = true;
+  h.audio.paused = false; h.context.getSessionActions().setPendingResume(false); h.context.getSessionActions().setResumeInProgress(true);
   h.handlers.get("play")!({}); await h.flush(); assert.equal(h.context.resumes, 1);
   h.handlers.get("pause")!({}); await h.flush(); assert.equal(h.context.resumes, 2); assert.deepEqual(h.audio.operations, []);
 });

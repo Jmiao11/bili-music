@@ -1,4 +1,4 @@
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 const settingsAdapterSource = readFileSync(nodePath.join(import.meta.dirname, "../ui/settings-adapter.ts"), "utf8");
 import nodePath from "node:path";
 import { sourceSlice } from "./helpers/source-slice.ts";
@@ -56,7 +56,7 @@ test('manual boundaries explain failure without overwriting playback status', ()
   c.playPrevious(); assert.equal(notice.textContent, '已经是第一首了');
   c.playNext(); assert.equal(notice.textContent, '已经是最后一首了');
   assert.equal(c.status.textContent, '在线播放中。');
-  c.playerState.currentIndex = -1;
+  c.seedQueue({currentIndex:-1});
   c.playNext(); assert.equal(notice.textContent, '暂无可播放的歌曲');
   c.playPrevious(); assert.equal(notice.textContent, '暂无可播放的歌曲');
 });
@@ -64,7 +64,7 @@ test('manual boundaries explain failure without overwriting playback status', ()
 test('automatic end is silent; random history has accurate wording', () => {
   const { context: c, notice } = setup();
   c.playNext({ automatic: true }); assert.equal(notice.textContent, '');
-  c.playerState.shuffle = true;
+  c.seedQueue({shuffle:true});
   c.playPrevious(); assert.equal(notice.textContent, '暂无上一首播放记录');
   c.playNext(); assert.equal(notice.textContent, '本轮随机播放已结束');
 });
@@ -84,10 +84,10 @@ test('list loop and history navigate without boundary notices', () => {
   const { context: c, notice } = setup();
   const visited: number[] = [];
   c.playQueueIndex = (index => visited.push(index)) as (index: number) => number;
-  c.playerState.loopMode = 'list';
+  c.seedQueue({loopMode:'list'});
   c.takeSequentialNext = () => 0;
   c.playNext(); c.playPrevious();
-  c.playerState.history = [2]; c.playPrevious();
+  c.seedQueue({history:[2]}); c.playPrevious();
   assert.deepEqual(visited, [0, 0, 2]);
   assert.equal(notice.textContent, '');
 });
@@ -109,8 +109,8 @@ test('notice removal notifies the mini window on both natural expiry and explici
 test('automatic next stays silent on an empty queue', () => {
   const { context: c, notice, timers, events } = setup();
   // 场景 A：严格空队列（无当前歌曲且队列为空）
-  c.playerState.currentIndex = -1;
-  c.playerState.queue = [];
+  c.seedQueue({currentIndex:-1});
+  c.seedQueue({queue:[]});
   events.length = 0;
   c.playNext({ automatic: true });
   assert.equal(notice.textContent, '');
@@ -118,7 +118,7 @@ test('automatic next stays silent on an empty queue', () => {
   assert.equal(timers.size, 0);
   assert.deepEqual(events, []);
   // 场景 B：队列有歌但无当前歌曲（currentIndex = -1），分支相同，一并覆盖
-  c.playerState.queue = [{}];
+  c.seedQueue({queue:[{}]});
   c.playNext({ automatic: true });
   assert.equal(notice.textContent, '');
   assert.equal(timers.size, 0);
@@ -154,22 +154,22 @@ test('real sequential, random and page selectors preserve navigation semantics',
   const { context: c, notice } = setup();
   const visits: number[] = [];
   c.playQueueIndex = (index => visits.push(index)) as (index: number) => number;
-  c.resetRandomRemaining = () => { c.playerState.randomRemaining = []; };
+  c.resetRandomRemaining = () => { c.seedQueue({randomRemaining:[]}); };
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + pageSelection + settingsAdapterSource + sourceSlice(policy, "ui/playback-policy.ts", "function readShuffleCollectionPrefs(", "function shouldRecoverAudio("), c);
   vm.runInContext("function getLibrarySnapshot() { return libraryState; }\n" + sourceSlice(core, "ui/playback-core.ts", "function takeRandomNext()", "function playNext("), c);
-  c.playerState.queue = [{}, {}];
+  c.seedQueue({queue:[{}, {}]});
   c.playNext(); assert.deepEqual(visits, [1]);
-  c.playerState.currentIndex = 1;
+  c.seedQueue({currentIndex:1});
   c.playNext(); assert.equal(notice.textContent, '已经是最后一首了');
-  c.clearPlaybackNotice(); c.playerState.loopMode = 'list';
+  c.clearPlaybackNotice(); c.seedQueue({loopMode:'list'});
   c.playNext(); assert.equal(visits.at(-1), 0);
-  c.playerState.shuffle = true; c.playerState.randomRemaining = [0];
+  c.seedQueue({shuffle:true}); c.seedQueue({randomRemaining:[0]});
   c.playNext(); assert.equal(visits.at(-1), 0);
-  c.playerState.loopMode = 'sequence';
+  c.seedQueue({loopMode:'sequence'});
   c.playNext(); assert.equal(notice.textContent, '本轮随机播放已结束');
-  c.playerState.shuffle = false;
+  c.seedQueue({shuffle:false});
   c.hasMultipleCurrentPages = () => true;
-  c.playerState.currentPages = [{}, {}]; c.playerState.currentPageIndex = 0;
+  c.getSessionActions().setCurrentPages([{}, {}]); c.seedQueue({currentPageIndex:0});
   c.updatePlayerPagesButton = () => {};
   let loads = 0;
   c.loadCurrentTrack = () => { loads++; };

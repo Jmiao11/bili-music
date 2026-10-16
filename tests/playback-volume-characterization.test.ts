@@ -1,5 +1,5 @@
 import { attachPlaybackVolumeVm } from "./helpers/playback-volume-fixture.ts";
-import { createSessionContext as createQueueContext } from "./helpers/playback-session-fixture.ts";
+import { createControllerContext as createQueueContext } from "./helpers/controller-context.ts";
 import assert from "node:assert/strict";
 import path from "node:path";
 import vm from "node:vm";
@@ -56,10 +56,10 @@ test("volume track change replaces an in-flight fade and discards its late loudn
   const h = fixture([[enabledKey, "true"], [volumeKey, "0.8"]]);
   h.queries[0].resolve(-8); await h.settle(); h.frame(0); h.frame(125);
   const middle = h.audio.volume, pending = [...h.frames.keys()][0];
-  h.playerState.requestVersion++; h.playerState.currentPages = [{ cid: 2 }]; h.context.refreshTrackLoudness();
+  h.context.getRequestActions().beginRequest(); h.context.getSessionActions().setCurrentPages([{ cid: 2 }]); h.context.refreshTrackLoudness();
   assert.equal(h.cancelled.includes(pending), true); assert.equal(h.audio.volume, middle); assert.equal(h.queries[1].key, "BV1GF4X6MEb1:2");
   h.frame(125); h.frame(375); assert.equal(h.audio.volume, 0.8);
-  h.playerState.requestVersion++; h.context.refreshTrackLoudness(); h.queries[1].resolve(0); await h.settle();
+  h.context.getRequestActions().beginRequest(); h.context.refreshTrackLoudness(); h.queries[1].resolve(0); await h.settle();
   assert.equal(h.audio.volume, 0.8); assert.equal(h.frames.size, 0);
 });
 test("volume repeated normalization toggles replace fades without persisting intermediate gain", async () => {
