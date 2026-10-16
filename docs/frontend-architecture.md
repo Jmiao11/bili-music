@@ -1,6 +1,6 @@
 # 前端架构
 
-主窗口为单一 Vue 组件树，Rust 保持取流、代理、持久化与系统窗口职责。迷你窗是独立原生入口；本轮没有迁移它的宿主。长期约束见 [AGENTS](../AGENTS.md)，功能定位见 [改功能指南](where-to-change.md)，过程记录见 [迁移历史](frontend-migration-history.md)。
+主窗口为单一 Vue 组件树，Rust 保持取流、代理、持久化与系统窗口职责。迷你窗由独立的 `ui/mini.ts` 模块入口与 `ui/mini/components/MiniApp.vue` 根组件同步渲染，主窗侧宿主发布契约保持。长期约束见 [AGENTS](../AGENTS.md)，功能定位见 [改功能指南](where-to-change.md)，过程记录见 [迁移历史](frontend-migration-history.md)。
 
 ## 目录约定
 
@@ -114,3 +114,11 @@ G0 当前193条、首个trackchange索引140，Git/LF SHA256 `c9858fc2d6c2d3b217
 F6与发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、双平台CI及Windows/Mac全应用手测。相同机器构建darwin配置仅证明产物一致，不能当Mac手测。真实窗口性能记录20秒根渲染平均/P95及纯进度列表/行重绘，不设数值门槛；策略拦截则交付可运行脚本，不绕过。
 
 报告在仓库外一页内，列删除规模、接线短表、CI链接/GitHub操作次数与待手测项。只在分支CI双平台通过、用户明确授权后本地ff-only合并并推送master，PR始终由用户管理。
+
+## 迷你窗同步根与产物隔离
+
+`ui/mini.ts` 调用 `mini/window-controller.ts`；控制器先通过 `mini/root-mount.ts` 清理body静态占位并公开render首帧，再读取五个测量/焦点端口。每次mini-player-state到达及全文展开/关闭等本地变化都同步render，不依赖nextTick/watch/RAF合批。RAF仍只用于标题实际溢出测量与原有动画重启；命令处理函数在原先绑定阶段才生效。两个就绪通道都在首次渲染之后，位置恢复/移动持久化/卸载刷新和失败恢复沿用原控制器流程。
+
+迷你窗组件独占标题、封面、控制按钮、提示、滚动class/style的显示写权；documentElement上的主题和强调色变量仍由窗口控制器同步应用，保证原来的:root CSS与跨平台透明窗口不变。原生拖动、焦点、测量、IPC和存储不进入组件。`scripts/typecheck/check.ts` 对mini也使用官方vue-tsc，覆盖真实SFC。
+
+`vite.config.ts` 的主构建只处理index；`scripts/vite/mini-bundle.ts` 独立构建mini模块并将产物合入同一目录，Vue各自内联，两个入口都不允许静态/动态公共chunk。mini.js退役，mini.html只将原脚本改为module入口，其余源结构及CSS保持；verify:dist继续精确比HTML、双平台字节、G0与AST，缺文件反例改为迷你窗模块。F7主窗产物与G1逐字节核对，不重建193/140的G0。F8只盘点主窗剩余原生写入，不在F7迁移。

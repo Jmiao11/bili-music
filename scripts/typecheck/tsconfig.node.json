@@ -44,6 +44,7 @@
     "../../scripts/typecheck/check.ts",
     "../../scripts/typecheck/dom-assertions.ts",
     "../../scripts/vite/preserve-html.ts",
+    "../../scripts/vite/mini-bundle.ts",
     "../../scripts/vite/verify-dist.ts",
     "../../vite.config.ts",
     "../../tests/dom/accent-color.dom.ts",

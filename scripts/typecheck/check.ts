@@ -56,7 +56,7 @@ function run() {
   const all: Diagnostic[] = [];
 
   for (const project of ["main", "mini", "node", "sfc"]) {
-    const executable = path.join(root, ["main", "sfc"].includes(project) ? "node_modules/vue-tsc/bin/vue-tsc.js" : "node_modules/typescript/bin/tsc");
+    const executable = path.join(root, ["main", "mini", "sfc"].includes(project) ? "node_modules/vue-tsc/bin/vue-tsc.js" : "node_modules/typescript/bin/tsc");
     const config = project === "sfc" ? path.join(root, "tests/fixtures/vue/tsconfig.json") : path.join(import.meta.dirname, `tsconfig.${project}.json`);
     fs.accessSync(config);
     const result = spawnSync(process.execPath, [executable, "-p", config, "--pretty", "false"], { cwd: root, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });

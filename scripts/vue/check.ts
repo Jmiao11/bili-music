@@ -4,9 +4,10 @@ import path from "node:path";
 import ts from "typescript";
 import { compileTemplate, parse } from "vue/compiler-sfc";
 
-const productSfc = (file: string) => /^ui\/(?:app|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
+const productSfc = (file: string) => /^ui\/(?:app|mini|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const vueImports: Record<string, string[]> = {
+  "ui/mini/root-mount.ts": ["vue"],
   "ui/features/settings/components/SettingsPanel.vue": ["vue"],
   "ui/features/tracks/components/ListHost.vue": ["vue"],
   "ui/app/root-mount.ts": ["vue"],

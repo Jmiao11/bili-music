@@ -1,11 +1,12 @@
+import {loadMiniFactory} from "./mini-runtime.ts";
 import { JSDOM } from "jsdom";
 import assert from "node:assert/strict";
 import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test, afterEach } from "node:test";
-import vm from "node:vm";
 
-const source = readFileSync(path.join(import.meta.dirname, "../../ui/mini.ts"), "utf8");
+
+
 const styles = readFileSync(path.join(import.meta.dirname, "../../ui/mini.css"), "utf8");
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -21,7 +22,7 @@ const Event = eventDom.window.Event;
 eventDom.window.close();
 const closeWindows: (() => void)[] = [];
 afterEach(() => { for (const close of closeWindows.splice(0)) close(); });
-function setup({ stored = null, failStorage = false, failSetPosition = false, initial, failReadyEvent=false }: { stored?: string | null; failStorage?: boolean; failSetPosition?: boolean; initial?: Partial<MiniPlayerStatePayload>; failReadyEvent?:boolean } = {}) {
+async function setup({ stored = null, failStorage = false, failSetPosition = false, initial, failReadyEvent=false }: { stored?: string | null; failStorage?: boolean; failSetPosition?: boolean; initial?: Partial<MiniPlayerStatePayload>; failReadyEvent?:boolean } = {}) {
   const dom = new JSDOM(readFileSync(path.join(import.meta.dirname, "../../ui/mini.html"), "utf8"), {url:"http://localhost/mini.html"});
   closeWindows.push(() => dom.window.close());
   const controls = Object.fromEntries([...dom.window.document.querySelectorAll<HTMLElement>("[id]")].map(node => ["#"+node.id, node])) as unknown as Record<string, MiniElement>;
@@ -29,8 +30,6 @@ function setup({ stored = null, failStorage = false, failSetPosition = false, in
   const document = dom.window.document as unknown as EventTarget & {documentElement:MiniElement;querySelector(selector:string):MiniElement|null;getElementById(id:string):MiniElement|null;activeElement?:MiniElement};
   const active = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(dom.window.document), "activeElement")!;
   Object.defineProperty(document, "activeElement", {get:()=>active.get!.call(document),set:(node:HTMLElement)=>dom.window.HTMLElement.prototype.focus.call(node),configurable:true});
-  for(const [node,names] of [[root,["--accent-r"]],[controls["#mini-title"],["--mini-title-distance","--mini-title-duration"]]] as const) for(const name of names) Object.defineProperty(node.style,name,{get:()=>((node.style as unknown as CSSStyleDeclaration).getPropertyValue(name)||undefined),configurable:true});
-  for(const [node,name] of [[controls["#mini-title-viewport"],"clientWidth"],[controls["#mini-title"],"scrollWidth"]] as const) Object.defineProperty(node,name,{value:0,writable:true,configurable:true});
   const listeners = new Map();
   const emitted: { name: string; payload: unknown }[] = [];
   const readyNodes: (Element | null)[] = [];
@@ -80,12 +79,9 @@ function setup({ stored = null, failStorage = false, failSetPosition = false, in
   const availableMonitors = () => Promise.resolve([{ position: { x: 0, y: 0 }, size: { width: 1920, height: 1080 } }]);
   const dpi = { PhysicalPosition: class PhysicalPosition { declare x: number; declare y: number; constructor(x: number, y: number) { this.x = x; this.y = y; } } };
   const window = dom.window;
-  const controller = vm.runInNewContext(`${source}\ncreateMiniPlayerController`, {
-    EventTarget,
-    Event,
-    window,
-    console: { warn() {} },
-  })({
+  const runtime = await loadMiniFactory(dom.window.document);
+  closeWindows.push(runtime.restore);
+  const controller = runtime.create({
     eventApi,
     invoke: (command: string) => { invoked.push(command); startupOrder.push("invoke:"+command); if(command === "mini_player_ready") readyNodes.push(dom.window.document.getElementById("mini-title")); return Promise.resolve(); },
     windowApi,
@@ -96,6 +92,9 @@ function setup({ stored = null, failStorage = false, failSetPosition = false, in
     window,
     console: { warn(...args:unknown[]) {warnings.push(args);} },
   });
+  for(const key of Object.keys(controls)) controls[key]=dom.window.document.querySelector(key) as unknown as MiniElement;
+  for(const [node,names] of [[root,["--accent-r"]],[controls["#mini-title"],["--mini-title-distance","--mini-title-duration"]]] as const) for(const name of names) Object.defineProperty(node.style,name,{get:()=>((node.style as unknown as CSSStyleDeclaration).getPropertyValue(name)||undefined),set:(value:string)=>{if(value)(node.style as unknown as CSSStyleDeclaration).setProperty(name,value);},configurable:true});
+  for(const [node,name] of [[controls["#mini-title-viewport"],"clientWidth"],[controls["#mini-title"],"scrollWidth"]] as const) Object.defineProperty(node,name,{value:0,writable:true,configurable:true});
   return {
     controls, root, document, window, listeners, emitted, invoked, writes, storage, windowApi, controller, readyNodes, startupOrder, warnings,
     fire: (name: string, payload: unknown) => listeners.get(name)?.({ payload }),
@@ -103,7 +102,7 @@ function setup({ stored = null, failStorage = false, failSetPosition = false, in
 }
 
 test("mini displays and clears host notices without disabling navigation", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   app.fire("mini-player-state", { notice: "暂无可播放的歌曲", canPrevious: true, canNext: true });
   assert.equal(app.controls["#mini-notice"].textContent, "暂无可播放的歌曲");
@@ -114,7 +113,7 @@ test("mini displays and clears host notices without disabling navigation", async
 });
 
 test("long notices offer a full-text entry, sync updates, and clear together", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   const long = "解析失败：上游返回 502，已重试 3 次仍未成功，队列中没有可继续播放的内容。";
   app.fire("mini-player-state", { notice: long });
@@ -146,7 +145,7 @@ test("long notices offer a full-text entry, sync updates, and clear together", a
 });
 
 test("full text pointer interaction does not drag; blank space still drags", async () => {
-  const app = setup();
+  const app = await setup();
   let drags = 0;
   app.windowApi.startDragging = () => { drags++; return Promise.resolve(); };
   await app.controller.start();
@@ -163,7 +162,7 @@ test("full text pointer interaction does not drag; blank space still drags", asy
 });
 
 test("full text supports Escape and focus recovery when an open notice expires", async () => {
-  const app = setup();
+  const app = await setup();
   const more = app.controls["#mini-notice-more"];
   const full = app.controls["#mini-notice-full"];
   more.focus = () => { app.document.activeElement = more; };
@@ -183,7 +182,7 @@ test("full text supports Escape and focus recovery when an open notice expires",
 });
 
 test("start restores a valid position, signals both handshake channels, and renders state", async () => {
-  const app = setup({ stored: JSON.stringify({ x: 2500, y: 1400 }) });
+  const app = await setup({ stored: JSON.stringify({ x: 2500, y: 1400 }) });
   await app.controller.start();
   await settle();
   const restoredPosition = app.windowApi.position;
@@ -208,7 +207,7 @@ test("start restores a valid position, signals both handshake channels, and rend
 });
 
 test("long titles scroll by their measured overflow", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   await settle();
   app.controls["#mini-title-viewport"].clientWidth = 100;
@@ -221,7 +220,7 @@ test("long titles scroll by their measured overflow", async () => {
 });
 
 test("titles that fit do not scroll, including before the viewport has a width", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   await settle();
   app.controls["#mini-title"].scrollWidth = 180;
@@ -243,7 +242,7 @@ test("short titles are not covered by the scrolling edge mask", () => {
 });
 
 test("controls emit commands, restore invokes the backend, and drag uses the native window", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   await settle();
   for (const [selector, action] of [
@@ -267,7 +266,7 @@ test("controls emit commands, restore invokes the backend, and drag uses the nat
 });
 
 test("storage failures do not block the mini window handshake", async () => {
-  const app = setup({ failStorage: true });
+  const app = await setup({ failStorage: true });
   await app.controller.start();
   await settle();
   if (!app.windowApi.moved) throw new Error("Moved callback is missing");
@@ -278,7 +277,7 @@ test("storage failures do not block the mini window handshake", async () => {
 });
 
 test("moved payload is persisted synchronously and flushed before unload", async () => {
-  const app = setup();
+  const app = await setup();
   await app.controller.start();
   await settle();
 
@@ -294,7 +293,7 @@ test("moved payload is persisted synchronously and flushed before unload", async
   assert.deepEqual(JSON.parse(lastWrite2[1]), { x: 777, y: 333 });
 });
 test("position restore failures do not block the mini window handshake", async () => {
-  const app = setup({ stored: JSON.stringify({ x: 410, y: 220 }), failSetPosition: true });
+  const app = await setup({ stored: JSON.stringify({ x: 410, y: 220 }), failSetPosition: true });
   await app.controller.start();
   await settle();
   assert.deepEqual(app.invoked, ["mini_player_ready"]);
@@ -302,7 +301,7 @@ test("position restore failures do not block the mini window handshake", async (
 });
 
 test("mini real DOM is ready before either handshake channel and early snapshots are synchronous", async () => {
-  const app = setup({initial:{title:"握手前快照",notice:"握手前提示",hasCurrent:true,canNext:true}});
+  const app = await setup({initial:{title:"握手前快照",notice:"握手前提示",hasCurrent:true,canNext:true}});
   await app.controller.start();
   assert.deepEqual(app.startupOrder,["listen:mini-player-state","emit:mini-player-ready","invoke:mini_player_ready"]);
   assert.equal(app.readyNodes.length,2);
@@ -316,7 +315,7 @@ test("mini real DOM is ready before either handshake channel and early snapshots
 });
 
 test("mini repeated snapshots retain real control identities and open notice state", async () => {
-  const app=setup(); await app.controller.start();
+  const app=await setup(); await app.controller.start();
   const title=app.controls["#mini-title"],more=app.controls["#mini-notice-more"];
   app.fire("mini-player-state",{title:"同一标题",notice:"详细提示",hasCurrent:true});
   more.dispatchEvent(new Event("click"));
@@ -328,11 +327,24 @@ test("mini repeated snapshots retain real control identities and open notice sta
 });
 
 test("mini move listener failures and failed ready events still reach backend handshake", async () => {
-  const app=setup({failReadyEvent:true}); app.windowApi.onMoved=async()=>{throw Error("move unavailable");};
+  const app=await setup({failReadyEvent:true}); app.windowApi.onMoved=async()=>{throw Error("move unavailable");};
   await app.controller.start();
   assert.deepEqual(app.invoked,["mini_player_ready"]);
   assert.ok(app.warnings.some(args=>args[0]==="mini player move listener failed:"));
   assert.ok(app.warnings.some(args=>args[0]==="mini player ready event failed:"));
   app.window.dispatchEvent(new Event("beforeunload"));
   assert.equal(app.listeners.size,0);
+});
+
+test("mini root renders synchronously once mounted and keeps controls inert before binding", async () => {
+  const app=await setup();
+  assert.equal(app.window.document.querySelectorAll("main.mini-shell").length,1);
+  app.controls["#mini-restore"].dispatchEvent(new Event("click"));
+  assert.deepEqual(app.invoked,[]);
+  await app.controller.start();
+  for(const title of ["同步一","同步二"]) {
+    app.fire("mini-player-state",{title,hasCurrent:true,isPlaying:true});
+    assert.equal(app.controls["#mini-title"].textContent,title);
+    assert.equal(app.controls["#mini-play-pause"].getAttribute("aria-label"),"暂停");
+  }
 });

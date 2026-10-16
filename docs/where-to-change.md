@@ -20,7 +20,7 @@
 | 设置主题/背景/三滑块 | settings | SettingsPanel | features/settings/appearance.ts、features/settings/settings-state.ts、features/settings/settings-controls.ts、features/settings/settings-adapter.ts | settings-characterization、controls-settings-characterization.dom、dynamic-background.dom、accent-color.dom |
 | 设置AI/Key | settings.ai（不含Key） | SettingsPanel 非受控Key输入 | features/settings/appearance.ts 临时参数、features/settings/settings-state.ts；Rust ai.rs | settings-actions、settings-privacy.dom、controls-settings-characterization.dom |
 | 设置快捷键/缓存/备份 | settings | SettingsPanel | features/settings/appearance.ts、features/settings/settings-state.ts；Rust shortcuts/audio_cache/library::backup | shortcut-settings、settings-privacy.dom、controls-settings-characterization.dom、Rust backup隐私测试 |
-| 迷你窗 | 主窗快照→跨窗payload | mini.html、mini.ts（独立原生入口） | mini/mini-player-host.ts、mini/mini-player-projection.ts、commands、Rust mini window | mini-host-characterization、mini-snapshot.dom、mini-player-config.dom |
+| 迷你窗 | 主窗快照→跨窗payload | mini/components/MiniApp.vue（独立同步根） | mini.ts→mini/window-controller.ts、mini/root-mount.ts；主窗mini/mini-player-host.ts与mini-player-projection.ts；Rust mini window | mini-player-window.dom、mini-host-characterization、mini-snapshot.dom、mini-player-config.dom |
 | 启动/watchdog | application-store组合；Rust ReadyGate | App/AppShell、WindowTitlebar、Sidebar、ResizeHotspots | app.ts→app/root-mount.ts→app/startup-before-main.ts→app/main.ts；app/main-window-ready.ts、Rust main_window.rs | root-shell.dom、real-module-startup.dom、playback-startup-installation.dom、main-window-ready、Rust ReadyGate |
 
 文件无后缀的测试在 `tests/*.test.ts`；`.dom` 在 `tests/dom/*.dom.ts`。输入草稿不加 v-model，异步结果不得捕获旧分页草稿；Key、cookie、直链不进显示状态/日志。新节点一旦动态绑定，原控制器的同属性写入必须同时退出。

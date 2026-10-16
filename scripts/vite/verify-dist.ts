@@ -111,15 +111,15 @@ async function checkStartup() {
 }
 
 function checkCounterexamples() {
-  const ordinary = scripts(sourceHtml("mini.html")).find((script) => script.src && !script.module);
-  if (ordinary === undefined || ordinary.src === undefined) throw new Error("Counterexample ordinary script entry is missing");
+  const ordinary = scripts(fs.readFileSync(path.join(output,"mini.html"),"utf8")).find((script) => script.src && script.module);
+  if (ordinary === undefined || ordinary.src === undefined) throw new Error("Counterexample mini module entry is missing");
   const file = localFile(output, ordinary.src);
   const bytes = fs.readFileSync(file);
   fs.unlinkSync(file);
   try {
     assert.throws(() => checkPage("mini.html"), (error: Error) => {
       assert.match(error.message, /Missing HTML reference/);
-      console.log(`PASS counterexample missing ordinary script: ${error.message}`);
+      console.log(`PASS counterexample missing mini module: ${error.message}`);
       return true;
     });
   } finally { fs.writeFileSync(file, bytes); }

@@ -1,3 +1,4 @@
+import { miniWindowBundle } from "./scripts/vite/mini-bundle.ts";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
@@ -12,7 +13,7 @@ export default defineConfig({
   base: "./",
   publicDir: false,
   clearScreen: false,
-  plugins: [preserveHtmlScripts(), ordinaryTypeScriptScripts(), vue()],
+  plugins: [preserveHtmlScripts(), ordinaryTypeScriptScripts(), vue(), miniWindowBundle()],
   define: vueFeatureFlags,
   server: {
     port: 1420,
@@ -30,7 +31,7 @@ export default defineConfig({
     target: "esnext",
     sourcemap: false,
     rolldownOptions: {
-      input: { main: `${ui}index.html`, mini: `${ui}mini.html` },
+      input: { main: `${ui}index.html` },
     },
   },
 });

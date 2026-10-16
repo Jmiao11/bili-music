@@ -9,6 +9,7 @@
 - Tauri v2、Rust Cargo workspace、TypeScript、Vue 单一 `App.vue` 根组件。迷你窗保持独立入口。Vue 3.5.43、Vite 8.3.2、TypeScript 6.0.3、@vitejs/plugin-vue 6.0.10、@vue/test-utils 2.5.1、jsdom 26.1.0、vue-tsc 3.3.12 精确锁定；不增加 Pinia、Vitest 或其他状态库。TS 升级须等 Vue 工具链支持。
 - `app.ts` 首先静态导入根挂载模块；先同步首屏挂载，再求值控制器与 DOM 端口。唯一应用 store 在无 DOM 的组合模块创建，根订阅最先安装，随后才能交给业务模块。首页 getter 仍在首次调用时安装首页订阅并首投影。
 - 每次 store 提交用完整只读快照、稳定回调与 Vue 公开 `render()` 同步渲染。action 返回前 DOM、disabled、焦点契约必须成立；不能把 nextTick、watch、RAF 合批用作主渲染路径。禁止 Vue 私有调度 API。
+- 迷你窗由独立 MiniApp.vue 根组件同步渲染主窗快照及本地显示变化；首次挂载完成后才发出双通道就绪。位置、原生拖动、焦点与标题测量/动画留在控制器。两个窗口分别构建并各自内联Vue，禁止公共运行时chunk改变主入口；根HTML主题/CSS变量是登记的平台端口。
 - 子组件只接切片 props、稳定显示模型与回调，不访问 window、__TAURI__、invoke、actions，不订阅 store。未变切片靠结构共享与浅比较跳过。列表高亮只重绘旧、新行，收藏变化只重绘受影响行，纯进度不重绘列表或行。
 - store 公开 getState、subscribe（返回取消订阅函数）、领域 actions；subscribe 不立即回调，首屏显式 getState。快照深只读，只复制改变路径；Map/Set 写入新集合。测试开启深冻结，生产不冻结。订阅者异常须报告并隔离，不能阻断其他订阅者及动作后续阶段。
 - 状态与纯投影不引用 DOM、window、Tauri 或平台时钟；副作用经适配器/控制器。同步完整阶段提交一次，异步开始、成功、失败分别提交。不提供任意运行期写状态接口。
