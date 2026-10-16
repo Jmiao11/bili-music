@@ -23,7 +23,7 @@ function assertQueueSnapshotReads(source: string): void {
 }
 
 test("queue ownership removes migrated request-state fields and rejects direct and aliased snapshot writes", () => {
-  const root = path.join(import.meta.dirname, "../ui"), request = fs.readFileSync(path.join(root, "shared/player-state.ts"), "utf8");
+  const root = path.join(import.meta.dirname, "../ui"), request = fs.readFileSync(path.join(root, "shared/controller-runtime.ts"), "utf8");
   for (const field of queueFields) assert.doesNotMatch(request, new RegExp(String.raw`\b${field}\s*:`));
   for (const file of ["features/playback/playback-core.ts", "app/main.ts", "features/library/library-ui.ts"]) {
     const source = fs.readFileSync(path.join(root, file), "utf8"); assertQueueSnapshotReads(source);

@@ -1,5 +1,5 @@
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistMeta, playlistTitle, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "../../platform/player-dom.ts";
+import { favoritesCount, favoritesList, favoritesStatus, libraryModal, libraryModalBody, libraryModalStatus, libraryModalSubtitle, libraryModalTitle, playlistMeta, playlistTitle, playlistsList, playlistsStatus, purgeAppearanceStatus, purgeUnavailableTracksButton } from "../../platform/main-window-dom.ts";
 import { trapFocus } from "../../shared/focus-trap.ts";
 type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type LibraryBindings = {

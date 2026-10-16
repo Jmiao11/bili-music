@@ -1,4 +1,4 @@
-import { result, resumePlayPauseButton } from "../../platform/player-dom.ts";
+import { result, resumePlayPauseButton } from "../../platform/main-window-dom.ts";
 import { getPlaybackMessages, getPlaybackMessagesActions } from "./playback-messages.ts";
 
 const SKIP_NOTICE_DURATION_MS: number = 3200;

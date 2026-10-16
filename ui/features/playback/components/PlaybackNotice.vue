@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { projectPlaybackMessages } from "../playback-messages-view.ts";
+import { projectPlaybackMessages } from "../playback-messages-projection.ts";
 import type { PlaybackMessagesSnapshot } from "../playback-messages-state.ts";
 const props = defineProps<{ messages: PlaybackMessagesSnapshot }>();
 const model = () => projectPlaybackMessages(props.messages);

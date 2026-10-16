@@ -1,6 +1,6 @@
 import type { HomeSnapshot } from "../../store/app-state.ts";
 import { isHomePopular } from "../../store/app-state.ts";
-import { homeCacheNote, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "../../platform/player-dom.ts";
+import { homeCacheNote, homeListLabel, homeModeTabs, homePanel, homeRankingError, homeRankingList, homeRankingStatus, homeSourceLabel, homeSubtitle, homeTitle, refreshRankingButton } from "../../platform/main-window-dom.ts";
 type HomeRowsRenderer = (videos: HomeSnapshot["ranking"], source: string, skeleton: boolean) => void;
 
 function renderHomeMode(homeState: HomeSnapshot): void {

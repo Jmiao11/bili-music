@@ -74,7 +74,7 @@ async function createPlaybackControlFixture() {
     pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
     playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.
-  for (const declaration of moduleDeclarations(source, "ui/features/settings/appearance.ts")) if (declaration.kind === "import" && /(?:playback-.*-(?:state|view)|media-adapter|playback-commands)\.ts$/.test(declaration.specifier)) {
+  for (const declaration of moduleDeclarations(source, "ui/features/settings/appearance.ts")) if (declaration.kind === "import" && /(?:playback-.*-(?:state|view|projection)|media-adapter|playback-commands)\.ts$/.test(declaration.specifier)) {
     Object.assign(context, await import(pathToFileURL(path.join(ui, "features/settings", declaration.specifier)).href));
   }
   const erased = stripModuleSyntax(source, "ui/features/settings/appearance.ts");

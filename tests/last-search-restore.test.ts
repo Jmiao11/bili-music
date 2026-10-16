@@ -9,10 +9,10 @@ import vm from "node:vm";
 
 const source = readFileSync(path.join(import.meta.dirname, "../ui/app/main.ts"), "utf8");
 const searchSource = readFileSync(path.join(import.meta.dirname, "../ui/features/search/search.ts"), "utf8");
-const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/shared/player-state.ts"), "utf8");
+const stateSource = readFileSync(path.join(import.meta.dirname, "../ui/shared/controller-runtime.ts"), "utf8");
 
 // 切片：关键词持久化助手 + 恢复搜索状态与提示（注入应用 store 动作）。
-const helpers = sourceSlice(stateSource, "ui/shared/player-state.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
+const helpers = sourceSlice(stateSource, "ui/shared/controller-runtime.ts", "const LAST_SEARCH_KEY", ";", { endAfterStart: true, includeEnd: true }) + "\n"
   + sourceSlice(searchSource, "ui/features/search/search.ts", "function readLastSearchKeyword(", "function getSearchActions(");
 assert.ok(helpers.includes("function saveLastSearchKeyword"));
 

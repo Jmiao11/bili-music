@@ -1,5 +1,5 @@
 import type { SearchSnapshot } from "./search-state.ts";
-import { result, searchStatus } from "../../platform/player-dom.ts";
+import { result, searchStatus } from "../../platform/main-window-dom.ts";
 type SearchRowBindings = { renderRows(search: SearchSnapshot): void };
 
 function renderSearchSnapshot(search: SearchSnapshot, previous: SearchSnapshot | null, bindings: SearchRowBindings): boolean {

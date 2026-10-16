@@ -1,6 +1,6 @@
 import { readSearchDraft } from "../../platform/draft-ports.ts";
 import type { SearchPageCommit } from "./search-state.ts";
-import { LAST_SEARCH_KEY } from "../../shared/player-state.ts";
+import { LAST_SEARCH_KEY } from "../../shared/controller-runtime.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { renderSearchSnapshot } from "./search-view.ts";
 import { appendSearchResults, updateQueueUi } from "../playback/playback-core.ts";

@@ -1,7 +1,7 @@
 import { installModalBindings } from "../../app/root-modals.ts";
 import { invoke } from "../../platform/runtime-api.ts";
-import { playerPagesButton } from "../../platform/player-dom.ts";
-import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "../../shared/player-state.ts";
+import { playerPagesButton } from "../../platform/main-window-dom.ts";
+import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "../../shared/controller-runtime.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge } from "./pages-view.ts";
 import { currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage } from "../playback/playback-core.ts";

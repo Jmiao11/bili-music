@@ -41,8 +41,8 @@
     "../../ui/app/mascot.ts",
     "../../ui/app/main.ts",
     "../../ui/platform/draft-ports.ts",
-    "../../ui/platform/player-dom.ts",
-    "../../ui/shared/player-state.ts",
+    "../../ui/platform/main-window-dom.ts",
+    "../../ui/shared/controller-runtime.ts",
     "../../ui/features/playback/playback-notice.ts",
     "../../ui/features/playback/playback-messages.ts",
     "../../ui/features/home/home.ts",
@@ -65,7 +65,7 @@
     "../../ui/features/playback/playback-diagnostics.ts",
     "../../ui/features/immersive/lyrics.ts",
     "../../ui/mini/mini-player-host.ts",
-    "../../ui/mini/playback-mini-view.ts",
+    "../../ui/mini/mini-player-projection.ts",
     "../../ui/app/main-window-ready.ts"
   ]
 }

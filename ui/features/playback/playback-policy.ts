@@ -1,5 +1,5 @@
 import { readSettingsCollectionPrefs } from "../settings/settings-adapter.ts";
-import { MAX_AUDIO_RECOVERIES } from "../../shared/player-state.ts";
+import { MAX_AUDIO_RECOVERIES } from "../../shared/controller-runtime.ts";
 
 function readShuffleCollectionPrefs(): ReturnType<typeof readSettingsCollectionPrefs> { return readSettingsCollectionPrefs(); }
 

@@ -3,7 +3,7 @@ import type { TrackListTarget } from "./root-lists.ts";
 import type { createApplicationStore } from "../../store/app-state.ts";
 import { formatPlayCount, formatPubdate } from "../../shared/track-utils.ts";
 import type { SearchSnapshot } from "../search/search-state.ts";
-import { homeRankingList } from "../../platform/player-dom.ts";
+import { homeRankingList } from "../../platform/main-window-dom.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
 import { getHomeSnapshot } from "../home/home.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite } from "../library/library-ui.ts";

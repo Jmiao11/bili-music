@@ -3,7 +3,7 @@ import {attachSettingsControlPorts} from "./settings-controls-fixture.ts";
 import type vm from "node:vm";
 import type { createApplicationStore } from "../../ui/store/app-state.ts";
 import { projectPlaybackControls, projectPlaybackProgress } from "../../ui/features/playback/playback-display-view.ts";
-import { projectPlaybackMessages } from "../../ui/features/playback/playback-messages-view.ts";
+import { projectPlaybackMessages } from "../../ui/features/playback/playback-messages-projection.ts";
 import type { PlaybackCallbacks } from "../../ui/features/playback/root-playback.ts";
 
 const legacyPlaybackNodeNames = ["duration", "favoriteCurrentButton", "immersiveFavoriteButton", "immersiveResumeCurrentTimeLabel", "immersiveResumeDurationLabel", "immersiveResumeProgressSlider", "loopModeButton", "nextButton", "playbackNotice", "playerPagesGroup", "previousButton", "queuePosition", "resumeCurrentTimeLabel", "resumeProgressSlider", "shuffleToggle", "skipVideoButton", "status", "thumbnail", "title", "uploader"];

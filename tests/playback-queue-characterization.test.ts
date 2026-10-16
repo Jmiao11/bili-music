@@ -34,7 +34,7 @@ async function fixture() {
   let saved: unknown = null;
   const invoke = async (command: string, args: Record<string, unknown> = {}) => { calls.push({ command, args: plain(args) }); return command === "get_playback_state" ? saved : []; };
   const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report(level, message, error) { fixtureErrors.push({ level, message, error }); } }, { onSubscriberError: error => fixtureErrors.push(error) });
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/player-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/main-window-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
   const nodes = Object.fromEntries(names.map(name => [name, new QueueNode()]));
   const audio = { paused: true, currentSrc: "", currentTime: 0, play: async () => { audio.paused = false; }, pause() {}, load() {} };
   const search = { results: [] as ReturnType<typeof track>[], requestVersion: 8 };
@@ -48,11 +48,11 @@ async function fixture() {
   });
   wirePlaybackMessagesContext(context);
   // Load actual pure dependencies; new queue modules are picked up through the real core imports.
-  for (const declaration of moduleDeclarations(source, "ui/features/playback/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view)\.ts$/.test(declaration.specifier)) {
+  for (const declaration of moduleDeclarations(source, "ui/features/playback/playback-core.ts")) if (declaration.kind === "import" && /(?:state|policy|selection|utils|view|projection)\.ts$/.test(declaration.specifier)) {
     Object.assign(context, await import(pathToFileURL(path.join(ui, "features/playback", declaration.specifier)).href));
   }
   // Each fixture owns the original mutable request state; imported singleton state must not leak between tests.
-  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, "shared/player-state.ts"), "utf8"), "ui/shared/player-state.ts"), context);
+  vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, "shared/controller-runtime.ts"), "utf8"), "ui/shared/controller-runtime.ts"), context);
   for (const file of ["features/settings/settings-adapter.ts", "features/playback/playback-policy.ts"]) vm.runInContext(stripModuleSyntax(fs.readFileSync(path.join(ui, file), "utf8"), "ui/" + file), context);
   vm.runInContext(stripModuleSyntax(source, "ui/features/playback/playback-core.ts"), context);
   context.loadCurrentTrack = (options: unknown = {}) => loads.push(plain(options));

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/store/app-state.ts";
 import { createMessagesFixture } from "./helpers/playback-messages-fixture.ts";
-import { selectMiniPlayerMessages } from "../ui/mini/playback-mini-view.ts";
+import { selectMiniPlayerMessages } from "../ui/mini/mini-player-projection.ts";
 import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 
 const create = () => createApplicationStore({ invoke: async () => { throw Error("Unexpected command"); }, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });

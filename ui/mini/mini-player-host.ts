@@ -1,7 +1,7 @@
 import { getApplicationStore } from "../features/home/home.ts";
 import { toggleCurrentFavorite } from "../features/library/library-ui.ts";
 import { getPlaybackCommands } from "../features/settings/appearance.ts";
-import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "./playback-mini-view.ts";
+import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "./mini-player-projection.ts";
 import { setPlaybackStatus } from "../features/playback/playback-messages.ts";
 
 function subscribeMiniPlayerTheme(listener: () => void) {

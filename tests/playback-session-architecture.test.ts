@@ -12,7 +12,7 @@ function assertSessionOwnership(source: string) {
 }
 test("session ownership rejects all legacy data reads and writes and removes the player object", () => {
   const ui = path.join(import.meta.dirname, "../ui");
-  for (const file of ["features/playback/playback-core.ts", "app/main.ts", "shared/player-state.ts", "features/pages/video-pages.ts"]) assertSessionOwnership(fs.readFileSync(path.join(ui, file), "utf8"));
+  for (const file of ["features/playback/playback-core.ts", "app/main.ts", "shared/controller-runtime.ts", "features/pages/video-pages.ts"]) assertSessionOwnership(fs.readFileSync(path.join(ui, file), "utf8"));
   for (const field of fields) for (const example of [`playerState.${field};`, `playerState.${field} = input;`]) assert.throws(() => assertSessionOwnership(example));
   for (const field of fields.slice(2)) for (const example of [field + ";", field + " = input;"]) assert.throws(() => assertSessionOwnership(example));
 });

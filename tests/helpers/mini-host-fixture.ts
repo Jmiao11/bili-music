@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/mini/playback-mini-view.ts";
+import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/mini/mini-player-projection.ts";
 import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 import { createPlaybackControlFixture } from "./playback-control-fixture.ts";

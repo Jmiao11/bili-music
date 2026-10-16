@@ -10,7 +10,7 @@ import { sourceSlice } from "./helpers/source-slice.ts";
 const read = (file: string) => readFileSync(path.join(import.meta.dirname, "../ui", file), "utf8");
 const main = read("features/playback/playback-core.ts");
 const search = read("features/search/search.ts");
-const state = read("shared/player-state.ts");
+const state = read("shared/controller-runtime.ts");
 const policy = read("features/playback/playback-policy.ts");
 const settingsAdapterSource = read("features/settings/settings-adapter.ts");
 const slice = (start: string, end: string) => sourceSlice(main, "ui/features/playback/playback-core.ts", start, end);

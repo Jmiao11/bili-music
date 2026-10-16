@@ -4,7 +4,7 @@ import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 import { afterEach } from "node:test";
-import { projectPlaybackMessages } from "../../ui/features/playback/playback-messages-view.ts";
+import { projectPlaybackMessages } from "../../ui/features/playback/playback-messages-projection.ts";
 import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
 

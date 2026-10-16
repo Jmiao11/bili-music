@@ -1,4 +1,4 @@
-import { homeHintInput, searchKeyword } from "./player-dom.ts";
+import { homeHintInput, searchKeyword } from "./main-window-dom.ts";
 function readSearchDraft(): string { return searchKeyword.value; }
 function writeSearchDraft(value: string): void { searchKeyword.value = value; }
 function readHomeHintDraft(): string { return homeHintInput?.value ?? ""; }

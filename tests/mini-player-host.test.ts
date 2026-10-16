@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 import vm from "node:vm";
 import { createApplicationStore } from "../ui/store/app-state.ts";
-import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "../ui/mini/playback-mini-view.ts";
+import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "../ui/mini/mini-player-projection.ts";
 import { createMiniHostFixture } from "./helpers/mini-host-fixture.ts";
 
 const source = stripModuleSyntax(readFileSync(path.join(import.meta.dirname, "../ui/mini/mini-player-host.ts"), "utf8"), "ui/mini/mini-player-host.ts");

@@ -4,8 +4,8 @@ import { readHomeHintDraft, readSearchDraft, writeSearchDraft } from "../platfor
 import { installPlaybackCallbacks } from "../features/playback/root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "../features/search/search-state.ts";
 import { invoke } from "../platform/runtime-api.ts";
-import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/player-dom.ts";
-import { LOAD_MORE_THRESHOLD_PX } from "../shared/player-state.ts";
+import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-dom.ts";
+import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
 import { initializeRootLists } from "../features/tracks/track-list-ui.ts";

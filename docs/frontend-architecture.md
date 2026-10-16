@@ -8,7 +8,7 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 ## 启动与同步边界
 
-`index.html` 中的 audio 在 `#app` 外。`app.ts` 第一个静态导入是 `app/root-mount.ts`：启动适配先应用平台与侧栏宽度，组合模块创建唯一 store、立即安装根订阅、读取快照，用公开 `render(h(App, props), host)` 完成首屏；之后其他控制器与 player-dom 才求值。业务订阅不能抢在根订阅之前，尤其不能在嵌套提交后让外层旧快照成为最后一帧。
+`index.html` 中的 audio 在 `#app` 外。`app.ts` 第一个静态导入是 `app/root-mount.ts`：启动适配先应用平台与侧栏宽度，组合模块创建唯一 store、立即安装根订阅、读取快照，用公开 `render(h(App, props), host)` 完成首屏；之后其他控制器与 main-window-dom 才求值。业务订阅不能抢在根订阅之前，尤其不能在嵌套提交后让外层旧快照成为最后一帧。
 
 每次提交都同步走根投影，组件收到完整只读快照中的切片、稳定显示模型与稳定转交回调。业务回调在原控制器阶段安装，提前存在的组件事件不会提前开展业务。首页 getter 的首次订阅与首投影时机保持。主路径无 nextTick/watch/RAF 合批；RAF 只用于原有动画、焦点阶段、主题同步及音量过渡等平台行为。
 
@@ -35,7 +35,7 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 - audio唯一且在宿主外；原生播放恢复capture监听、媒体身份保护、系统命令仍走commands/adapter。bindTrackActivation保留给现有特征测试，真实行使用生命周期会话，保证计时器、observer、拖拽与ref释放。
 - AppShell仍有静态模板部分：常量标记、桌宠宿主、原生导航/窗口/动画外壳，以及少量首页/搜索/资料库状态文字端口。这些由控制器承担语义/平台I/O，Vue不为其受控属性建立动态绑定；不是第二套列表或浮层内容renderer。home-view/search-view/library-view/settings-view仍有实际的文字/外壳/平台职责，不能按文件名整删。
 
-### player-dom 原生端口登记
+### main-window-dom 原生端口登记
 
 只保留产品控制器实际导入的44项；原来仅冻结fixture需要的13项已移到测试选择器。测试选择器只在真实挂载后查询节点，不参与产品初始化。下表逐项登记，新增端口须说明用途并检查Vue写权。
 

@@ -5,8 +5,8 @@ import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "../../shared/track-utils.ts";
 import type { SearchPageCommit } from "../search/search-state.ts";
 import { invoke } from "../../platform/runtime-api.ts";
-import { audio, queueCount, result, resumePlayPauseButton } from "../../platform/player-dom.ts";
-import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "../../shared/player-state.ts";
+import { audio, queueCount, result, resumePlayPauseButton } from "../../platform/main-window-dom.ts";
+import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "../../shared/controller-runtime.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import type { PageSelection } from "../tracks/track-list-model.ts";

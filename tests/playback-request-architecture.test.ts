@@ -15,7 +15,7 @@ function assertRequestOwnership(source: string) {
 test("request ownership rejects every legacy field read and write including aliases", () => {
   const ui = path.join(import.meta.dirname, "../ui");
   for (const name of fs.readdirSync(ui, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter(name => name.endsWith(".ts"))) assertRequestOwnership(fs.readFileSync(path.join(ui, name), "utf8"));
-  const player = maskCommentsAndStrings(fs.readFileSync(path.join(ui, "shared/player-state.ts"), "utf8"));
+  const player = maskCommentsAndStrings(fs.readFileSync(path.join(ui, "shared/controller-runtime.ts"), "utf8"));
   assert.doesNotMatch(player, /\b(?:requestVersion|activeAudioVersion|activeAudioUrl|audioActivatedAt|consecutiveResolveFailures)\s*:/);
   for (const field of ["requestVersion", "activeAudioVersion", "activeAudioUrl", "audioActivatedAt", "consecutiveResolveFailures"]) for (const example of [`playerState.${field};`, `playerState.${field} = value;`, `const old = playerState; old.${field};`]) assert.throws(() => assertRequestOwnership(example));
   assert.doesNotThrow(() => assertRequestOwnership("playerState.currentPages; playerState.lastEmittedTrackIdentity;"));

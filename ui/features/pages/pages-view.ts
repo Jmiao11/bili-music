@@ -1,4 +1,4 @@
-import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "../../platform/player-dom.ts";
+import { pagesModal, pagesModalClose, pagesModalList, pagesModalRestoreAll, pagesModalStatus, pagesModalSub, pagesModalTitle } from "../../platform/main-window-dom.ts";
 import type { PagesSnapshot } from "./pages-state.ts";
 import type { LibrarySnapshot } from "../library/library-state.ts";
 import { trapFocus } from "../../shared/focus-trap.ts";

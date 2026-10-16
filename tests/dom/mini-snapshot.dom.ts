@@ -7,7 +7,7 @@ import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/s
 import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 import { test } from "node:test";
 import { createApplicationStore } from "../../ui/store/app-state.ts";
-import { selectMiniPlayerSnapshot } from "../../ui/mini/playback-mini-view.ts";
+import { selectMiniPlayerSnapshot } from "../../ui/mini/mini-player-projection.ts";
 
 const create = () => createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
 test("mini snapshot projection preserves displayed track independently of pending queue and media observations", () => {
