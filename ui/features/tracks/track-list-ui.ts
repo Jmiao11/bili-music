@@ -1,9 +1,10 @@
+import {pagesUiVersion,pagesTriggerVersion,observedPagesBvid} from "../pages/pages-ui-state.ts";
 import { installRootListProjection, setRootTrackList } from "./root-lists.ts";
 import type { TrackListTarget } from "./root-lists.ts";
 import type { createApplicationStore } from "../../store/app-state.ts";
 import { formatPlayCount, formatPubdate } from "../../shared/track-utils.ts";
 import type { SearchSnapshot } from "../search/search-state.ts";
-import { homeRankingList } from "../../platform/main-window-dom.ts";
+import { homeRankingList } from "../../platform/main-window-refs.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
 import { getHomeSnapshot } from "../home/home.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite } from "../library/library-ui.ts";
@@ -13,7 +14,7 @@ import { playListItem, playSearchResult } from "../playback/playback-core.ts";
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
 type Play = (index: number, selection?: PageSelection) => void;
-type RowSession = { model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
+type RowSession = { model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
 type Projection = { library?: { playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
 let homeProjection: Projection | null = null;
 let searchProjection: Projection | null = null;
@@ -33,7 +34,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
     : queue.queueSource === (state.home.mode === "recommendation" ? "recommendation" : "ranking") ? queue.currentIndex : -1;
-  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, projection.library?.playlistId, projection.library?.visual];
+  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual];
   if (inputs.length === projection.inputs.length && inputs.every((value, index) => Object.is(value, projection.inputs[index]))) return;
   projection.inputs = inputs;
   const duplicates = new Map<string, number>();
@@ -42,7 +43,8 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     const key = `${projection.library ? projection.source === "playlist" ? projection.library.playlistId : "favorites" : projection.generation}:${video.bvid}:${duplicate}`;
     let session = projection.sessions.get(key);
     if (!session) {
-      const current: RowSession = { model: null, index, playlistId: "", drag: null, item: null, button: null, activation: null, video, play: selection => projection.play(current.index, selection), callbacks: {
+      const current: RowSession = { model: null, index, playlistId: "", drag: null, item: null, button: null,badge:null, activation: null, video, play: selection => projection.play(current.index, selection), callbacks: {
+        onBadgeNode(node) {current.badge=node;},
         onNodes(item, button) {
           if (!item || !button) {
             if (current.item) { unobserveTrackRow(current.item); }
@@ -75,14 +77,15 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     const active = index === activeIndex, pageCount = state.pages.videoPageCounts.get(video.bvid) ?? 0;
     const favorited = state.library.favoriteBvids.has(video.bvid.toLowerCase());
     const unavailableReason = search ? "" : projection.unavailable.get(video.bvid.toLowerCase()) ?? "";
+    const playPagesVersion=pagesTriggerVersion(session.button),badgePagesVersion=pagesTriggerVersion(session.badge),pageCountBvid=observedPagesBvid(session.item);
     const previous = session.model;
     const rowVideo = video as TrackRowModel["video"];
     const sameVideo = previous && (previous.video === video || previous.video.bvid === video.bvid && previous.video.title === video.title && previous.video.uploader === video.uploader && previous.video.thumbnailUrl === video.thumbnailUrl && previous.video.durationSeconds === video.durationSeconds && previous.video.playCount === rowVideo.playCount && previous.video.pubdate === rowVideo.pubdate);
-    if (previous && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass) return previous;
+    if (previous && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
     return session.model = { key, index, search, video, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active,
       playCountText: formatPlayCount((video as Readonly<CommandContract.TrackSnapshotInput & { playCount?: number | null }>).playCount),
       pubdateText: formatPubdate((video as Readonly<CommandContract.TrackSnapshotInput & { pubdate?: number | null }>).pubdate),
-      pageCount,
+      pageCount,playPagesVersion,badgePagesVersion,pageCountBvid,
       favorited,
       unavailableReason, ...session.callbacks };
   });

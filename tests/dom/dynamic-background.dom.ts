@@ -26,7 +26,7 @@ function setup(theme = "dynamic", reduced = true) {
       toggle(value: unknown, on: boolean) { on ? values.add(value) : values.delete(value); },
     };
   };
-  const layer: () => { classList: ReturnType<typeof classes>; style: Record<string, unknown> } = () => ({ classList: classes(), style: { setProperty(this: Record<string, unknown>, key: string, value: unknown) { this[key] = value; } } });
+  const layer: () => { classList: ReturnType<typeof classes>; style: Record<string, unknown> & {setProperty(key:string,value:string):void} } = () => ({ classList: classes(), style: { setProperty(this: Record<string, unknown>, key: string, value: unknown) { this[key] = value; } } });
   const layers = [layer(), layer()];
   layers[0].classList.add("is-visible");
   const backdrop = { children: layers, classList: classes() };
@@ -50,7 +50,7 @@ function setup(theme = "dynamic", reduced = true) {
   type MockImage = { crossOrigin?: string; referrerPolicy?: string; onload?: () => Promise<void>; onerror?: () => void; decode(): Promise<void> };
   const images: MockImage[] = [];
   const context = vm.createContext({
-    document, window, setTimeout: later, clearTimeout: cancel,
+    refreshPresentation:()=>{const model=vm.runInContext("readDynamicBackgroundPresentation()",context);backdrop.classList.toggle("is-paused",model.paused);model.palettes.forEach((palette:string[]|null,index:number)=>{layers[index].classList.toggle("is-visible",index === model.front);palette?.forEach((color,colorIndex)=>layers[index].style.setProperty("--dynamic-color-"+(colorIndex+1),color));});},document, window, setTimeout: later, clearTimeout: cancel,
     Image: class { declare crossOrigin?: string; declare referrerPolicy?: string; declare onload?: () => Promise<void>; declare onerror?: () => void; constructor() { images.push(this); } decode() { return Promise.resolve(); } },
     MutationObserver: class { constructor(fn: () => void) { observers.push(fn); } observe() {} },
   });

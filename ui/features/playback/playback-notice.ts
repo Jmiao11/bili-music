@@ -1,4 +1,4 @@
-import { result, resumePlayPauseButton } from "../../platform/main-window-dom.ts";
+import { playbackBarNode, resumePlayPauseButton } from "../../platform/main-window-refs.ts";
 import { getPlaybackMessages, getPlaybackMessagesActions } from "./playback-messages.ts";
 
 const SKIP_NOTICE_DURATION_MS: number = 3200;
@@ -21,7 +21,7 @@ function positionPlaybackNotice(): void {
 
 function initPlaybackNotice(): void {
 positionPlaybackNotice();
-new ResizeObserver(positionPlaybackNotice).observe(result);
+new ResizeObserver(positionPlaybackNotice).observe(playbackBarNode);
 }
 
 function showPlaybackNotice(message: string, { persistent = false, kind = "error" }: { persistent?: boolean; kind?: "error" | "info" } = {}): void {

@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import type {mainWindowRefs} from "../../../platform/main-window-refs.ts";
 import type { ApplicationSnapshot } from "../../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../root-playback.ts";
 import { projectPlaybackProgress } from "../playback-display-view.ts";
-const props = defineProps<{ display: ApplicationSnapshot["playbackDisplay"]; settings: ApplicationSnapshot["playbackSettings"]; controls: PlaybackControls; callbacks: PlaybackCallbacks; status: string }>();
+const props = defineProps<{mainWindowRefs:typeof mainWindowRefs; display: ApplicationSnapshot["playbackDisplay"]; settings: ApplicationSnapshot["playbackSettings"]; controls: PlaybackControls; callbacks: PlaybackCallbacks; status: string }>();
 const timeline = () => projectPlaybackProgress(props.display);
 const playing = () => props.display.view.buttonVersion ? String(props.display.buttonPlaying) : undefined;
 </script>
 <template>
-<footer id="result" class="player-bar panel" aria-label="当前播放">
+<footer id="result" :ref="element => mainWindowRefs.result(element as HTMLElement|null)" class="player-bar panel" aria-label="当前播放">
       <div class="now-playing">
         <button id="open-immersive-button" class="cover-button" type="button" aria-label="打开沉浸播放页" @click="callbacks.openImmersive()" >
           <img id="thumbnail" alt="视频封面" width="54" height="54" referrerpolicy="no-referrer"  :src="display.presentation.thumbnailSet ? display.renderedTrack.thumbnailUrl : undefined" />
@@ -27,7 +28,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
           <button id="previous-button" class="icon-button" type="button" aria-label="上一首" @click="callbacks.previous()" >
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2v14H6Zm3 7 9-7v14Z" /></svg>
           </button>
-          <button id="play-pause-button" class="play-button" type="button" @click="callbacks.toggle()"  :data-playing="playing()" :aria-label="display.buttonPlaying ? '暂停' : '播放'" >
+          <button id="play-pause-button" :ref="element => mainWindowRefs.resumePlayPauseButton(element as HTMLButtonElement|null)" class="play-button" type="button" @click="callbacks.toggle()"  :data-playing="playing()" :aria-label="display.buttonPlaying ? '暂停' : '播放'" >
             <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.6v12.8a1 1 0 0 0 1.53.85l9.6-6.4a1 1 0 0 0 0-1.7l-9.6-6.4A1 1 0 0 0 8 5.6Z" /></svg>
             <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
           </button>
@@ -51,7 +52,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
 
       <div class="right-tools">
         <span class="player-pages-group" :hidden="controls.pagesHidden">
-          <button id="player-pages-button" class="page-count-badge player-pages-button" type="button" title="查看分P" :hidden="controls.pagesHidden" :aria-label="controls.pagesLabel" @click="callbacks.pages()" >{{ controls.pagesText }}</button>
+          <button id="player-pages-button" :ref="element => mainWindowRefs.playerPagesButton(element as HTMLButtonElement|null)" class="page-count-badge player-pages-button" type="button" title="查看分P" :hidden="controls.pagesHidden" :aria-label="controls.pagesLabel" @click="callbacks.pages()" >{{ controls.pagesText }}</button>
           <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本次合集" aria-label="跳过本次合集，播放下一首" @click="callbacks.skip()" >
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 6l7 6-7 6zM11 6l7 6-7 6zM18 6h2v12h-2z" /></svg>
           </button>

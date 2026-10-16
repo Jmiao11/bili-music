@@ -1,3 +1,4 @@
+import {nativeTrackFixtureSource} from "./native-track-fixture.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -107,13 +108,14 @@ async function fixture() {
       const bodies: Record<string, string> = { currentPlayableTrack: 'return globalThis.__pagesFixture.current;', currentVideoPage: 'return globalThis.__pagesFixture.pages[0];', hasMultipleCurrentPages: 'return globalThis.__pagesFixture.pages.length > 1;', playCurrentVideoPage: 'globalThis.__pagesFixture.onPlay(arguments[0]);', isLoudnessNormalizationEnabled: 'return false;' };
       fs.writeFileSync(path.join(root, name), exports.map(x => 'function '+x+'() {'+(bodies[x] ?? '')+'}').join("\n")+'\nexport { '+exports.join(", ")+' };');
     }
+    fs.writeFileSync(path.join(root,"native-track.fixture.ts"),nativeTrackFixtureSource);
     fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
-    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./app/root-mount.ts"; import "./app/main.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; export * as pages from "./features/pages/video-pages.ts"; export * as library from "./features/library/library-ui.ts"; export * as home from "./features/home/home.ts"; import { render } from "vue"; export function disposeVue() { render(null, document.getElementById("pages-modal-list")); }');
-    await build({ configFile: false, root, plugins: [vue()], logLevel: "silent", define: vueFeatureFlags,
+    fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'export * from "./native-track.fixture.ts";import {refreshFixtureRows,disposeFixtureRows} from "./native-track.fixture.ts";import {installFixtureRefresh} from "./app/presentation-refresh.ts";installFixtureRefresh(refreshFixtureRows);import "./app/root-mount.ts"; import "./app/main.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; export * as pages from "./features/pages/video-pages.ts"; export * as library from "./features/library/library-ui.ts"; export * as home from "./features/home/home.ts"; import { render } from "vue"; export function disposeVue() { disposeFixtureRows(); render(null, document.getElementById("pages-modal-list")); }');
+    await build({ configFile: false, root, plugins: [vue(),{name:"native-row-fixture-refresh",transform(code,id){if(id.replaceAll("\\","/").endsWith("/app/presentation-refresh.ts"))return code.replace('renderPresentation?.();','renderPresentation?.();fixtureRefresh?.();')+'\nlet fixtureRefresh;export function installFixtureRefresh(callback){fixtureRefresh=callback;}';}}], logLevel: "silent", define: vueFeatureFlags,
       resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } },
       build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } },
     });
-    const compiled = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as { nodes: PageNodes; pages: Pages; library: { loadLibrary(): Promise<void> }; home: { getApplicationStore(): Store }; disposeVue(): void };
+    const compiled = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as { nodes: PageNodes; pages: Pages; library: { loadLibrary(): Promise<void> }; home: { getApplicationStore(): Store }; disposeVue(): void; mountFixtureRow(video:ReturnType<typeof track>,play:(selection?:unknown)=>void,store:Store):{item:HTMLElement;button:HTMLButtonElement;actions:HTMLElement};disposeFixtureRows():void };
     const { nodes, pages, library, home } = compiled;
     disposeVue = compiled.disposeVue;
     const store = home.getApplicationStore(); store.actions.playbackSession.setCurrentPages(bridge.pages);
@@ -132,7 +134,7 @@ async function fixture() {
       raf() { const pending = [...frames]; frames.clear(); for (const [id, callback] of pending) { platform.push({ operation: "animationFrame", detail: id }); callback(now); } },
       async flush() { await microtasks(); while (frames.size) h.raf(); },
       async advance(delay: number) { const end = now + delay; while (true) { const next = [...timers].filter(([, timer]) => timer.at <= end).sort((a, b) => a[1].at - b[1].at || a[0] - b[0])[0]; if (!next) break; now = next[1].at; timers.delete(next[0]); next[1].callback(); await h.flush(); } now = end; await h.flush(); },
-      row(i: number, played: unknown[] = []) { const item = doc.createElement("li"), button = doc.createElement("button"), actions = doc.createElement("div"); button.className = "track"; actions.className = "track-actions"; item.append(button, actions); doc.body.append(item); pages.bindTrackActivation(item, button, track(i), selection => played.push(selection ?? "play")); return { item, button, actions, played }; },
+      row(i:number,played:unknown[]=[]){return {...compiled.mountFixtureRow(track(i),selection=>played.push(selection ?? "play"),store),played};},
       escape: () => fire(window, "keydown", { key: "Escape" }),
     };
     await h.flush(); calls.length = 0; platform.length = 0; return h;

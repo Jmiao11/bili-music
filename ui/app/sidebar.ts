@@ -1,3 +1,4 @@
+import {setSidebarPresentation} from "./shell-stages.ts";
 type SidebarState = { width: number; collapsed: boolean };
 const SIDEBAR_KEY = "bilibili-music.sidebar";
 const SIDEBAR_DEFAULT = 220;
@@ -59,14 +60,7 @@ function initializeSidebar() {
     root.style.setProperty("--sidebar-width", `${width}px`);
     root.dataset.sidebarCollapsed = String(state.collapsed);
     if (!toggle || !handle) return;
-    const label = state.collapsed ? "展开侧栏" : "收起侧栏";
-    toggle.title = label;
-    toggle.setAttribute("aria-label", label);
-    toggle.setAttribute("aria-expanded", String(!state.collapsed));
-    const span = toggle.querySelector("span");
-    if (span) span.textContent = label;
-    handle.setAttribute("aria-valuenow", String(width));
-    handle.setAttribute("aria-valuetext", state.collapsed ? "已折叠，按右方向键展开" : `${width} 像素`);
+    setSidebarPresentation(width,state.collapsed);
   }
 
   function save() {
@@ -100,13 +94,6 @@ function initializeSidebar() {
     const currentHandle = (document.querySelector("#sidebar-resize") as HTMLDivElement);
     toggle = currentToggle;
     handle = currentHandle;
-    for (const item of (sidebar.querySelectorAll(".nav-item:not(#sidebar-toggle)") as NodeListOf<HTMLElement>)) {
-      const span = item.querySelector("span");
-      if (!span) continue;
-      const label = span.textContent;
-      item.setAttribute("aria-label", label);
-      item.title = label;
-    }
     render();
     currentToggle.addEventListener("click", toggleSidebar);
     currentHandle.addEventListener("pointerdown", (event) => {

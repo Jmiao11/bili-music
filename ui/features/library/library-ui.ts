@@ -2,7 +2,7 @@ import { installModalBindings } from "../../app/root-modals.ts";
 import { refreshRootLists, setRootPlaylistList } from "../tracks/root-lists.ts";
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
-import { favoritesList, playlistTracks, playlistsList } from "../../platform/main-window-dom.ts";
+import { favoritesList, playlistTracks, playlistsList } from "../../platform/main-window-refs.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PlaylistRowModel } from "../tracks/track-list-model.ts";
 import { renderLibraryTrackRows } from "../tracks/track-list-ui.ts";
 import { getApplicationStore } from "../home/home.ts";

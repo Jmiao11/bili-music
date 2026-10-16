@@ -47,6 +47,7 @@ function createMessagesFixture(beforeMount?: (store: ReturnType<typeof createApp
   });
   const read = (file: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", file), "utf8"), "ui/" + file);
   vm.runInContext(read("features/playback/playback-messages.ts"), context);
+  context.playbackBarNode=context.result;
   mountMessagePort(context, store);
   beforeMount?.(store);
   context.getPlaybackMessagesActions();

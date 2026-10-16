@@ -1,3 +1,8 @@
+import { refreshPresentation } from "../../app/presentation-refresh.ts";
+type DynamicBackgroundPresentation = Readonly<{ paused:boolean; front:number; palettes:readonly (readonly string[] | null)[] }>;
+let backgroundPresentation:DynamicBackgroundPresentation={paused:false,front:0,palettes:[null,null]};
+function readDynamicBackgroundPresentation():DynamicBackgroundPresentation { return backgroundPresentation; }
+function updateBackdrop(fields:Partial<DynamicBackgroundPresentation>):void { backgroundPresentation={...backgroundPresentation,...fields}; refreshPresentation(); }
 const DYNAMIC_DEFAULT_PALETTE = ["rgb(28, 32, 40)", "rgb(38, 32, 42)", "rgb(28, 39, 39)"];
 
 // H 为角度，S / L 为 0–1；只在一次取色任务中转换，不参与逐帧动画。
@@ -65,9 +70,6 @@ function extractDynamicPalette(pixels: Uint8ClampedArray | Uint8Array) {
 
 function initializeDynamicBackground() {
   const root = document.documentElement;
-  const backdrop = document.querySelector(".dynamic-background");
-  if (!backdrop) return;
-  const layers = ([...backdrop.children] as HTMLElement[]);
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let source = "";
   let cachedSource: string | null = null;
@@ -81,8 +83,8 @@ function initializeDynamicBackground() {
   let queuedPalette: string[] | null = null;
   let front = 0;
 
-  function paint(layer: HTMLElement, palette: string[]) {
-    palette.forEach((color, index) => layer.style.setProperty(`--dynamic-color-${index + 1}`, color));
+  function paint(layer: number, palette: string[]) {
+    const palettes=[...backgroundPresentation.palettes]; palettes[layer]=palette; updateBackdrop({palettes});
   }
 
   function finishFade() {
@@ -99,7 +101,7 @@ function initializeDynamicBackground() {
     if (reducedMotion.matches) {
       queuedPalette = null;
       finishFade();
-      paint(layers[front], palette);
+      paint(front, palette);
       return;
     }
     if (fadeTimer !== null) {
@@ -107,9 +109,8 @@ function initializeDynamicBackground() {
       return;
     }
     const next = 1 - front;
-    paint(layers[next], palette);
-    layers[next].classList.add("is-visible");
-    layers[front].classList.remove("is-visible");
+    paint(next, palette);
+    updateBackdrop({front:next});
     front = next;
     // 双层只交叉淡化 opacity；连续切歌时只保留最新待显示配色。
     fadeTimer = setTimeout(finishFade, 2500);
@@ -200,7 +201,7 @@ function initializeDynamicBackground() {
 
   function updateAvailability() {
     const next = root.dataset.theme === "dynamic" && !document.hidden;
-    if (backdrop) backdrop.classList.toggle("is-paused", !next);
+    updateBackdrop({paused:!next});
     if (next === active) return;
     active = next;
     refresh();
@@ -221,4 +222,5 @@ function initializeDynamicBackground() {
   updateAvailability();
 }
 
-export { initializeDynamicBackground };
+export { readDynamicBackgroundPresentation, initializeDynamicBackground };
+export type { DynamicBackgroundPresentation };

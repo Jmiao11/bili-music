@@ -25,7 +25,7 @@ class RequestNode {
 }
 async function fixture({ count = 3, pageCount = 1, mode = "sequence", shuffle = false } = {}) {
   const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "features/playback/playback-core.ts"), "utf8");
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/main-window-dom.ts"), "utf8"))![1].split(",").map(n => n.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/main-window-refs.ts"), "utf8"))![1].split(",").map(n => n.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
   const nodes = Object.fromEntries(names.map(n => [n, new RequestNode()]));
   const pending: { resolve(value: unknown): void; reject(reason: unknown): void }[] = [], commands: string[] = [], events: string[] = [], notices: string[] = [], writes: boolean[] = [];
   const audio = Object.assign(new RequestNode(), { paused: true, ended: false, currentTime: 0, duration: 80, currentSrc: "", readyState: 1, error: { code: 2 },

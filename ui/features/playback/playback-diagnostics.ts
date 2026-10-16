@@ -1,4 +1,4 @@
-import { audio } from "../../platform/main-window-dom.ts";
+import { audio } from "../../platform/main-window-refs.ts";
 
 function initPlaybackDiagnostics(): void {
 window.__playbackDiagLog = [];

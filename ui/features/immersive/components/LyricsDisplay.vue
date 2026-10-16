@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import type {ComponentPublicInstance} from "vue";
+import type {draftBindings} from "../../../platform/draft-ports.ts";
 import type { LyricsDisplaySnapshot } from "../lyrics-display-state.ts";
 import type { PlaybackCallbacks } from "../../playback/root-playback.ts";
-defineProps<{ model: LyricsDisplaySnapshot; callbacks: PlaybackCallbacks }>();
+const props=defineProps<{draftBindings:typeof draftBindings; model: LyricsDisplaySnapshot; callbacks: PlaybackCallbacks }>();
+function draftRef(value:Element|ComponentPublicInstance|null):void {const input=value as HTMLInputElement|null;props.draftBindings.lyrics(input ? {read:()=>input.value,write:value=>{input.value=value;}} : null);}
 </script>
 <template>
 <div class="lyrics-pane">
@@ -13,7 +16,7 @@ defineProps<{ model: LyricsDisplaySnapshot; callbacks: PlaybackCallbacks }>();
                 <button id="lyrics-match-rematch" class="small-button quiet" type="button">重新匹配</button>
               </div>
               <div id="lyrics-manual-row" class="lyrics-manual-row" :hidden="model.manualHidden" >
-                <input id="lyrics-manual-input" type="text" placeholder="搜索歌名手动匹配，如：晴天 周杰伦" />
+                <input id="lyrics-manual-input" :ref="draftRef" type="text" placeholder="搜索歌名手动匹配，如：晴天 周杰伦" />
                 <button id="lyrics-manual-search" class="small-button" type="button" :disabled="model.manualBusy" >{{ model.manualBusy ? '搜索中…' : '搜索' }}</button>
               </div>
               <div id="lyrics-manual-results" class="lyrics-manual-results" :hidden="model.resultsHidden" ><p v-if="model.resultMessage !== null" class="lyrics-manual-empty">{{ model.resultMessage }}</p><button v-for="(candidate, index) in model.results" :key="index" type="button" class="lyrics-manual-result" @click="callbacks.bindManualLyrics(candidate)"><span>{{ candidate.name }}</span><span v-if="candidate.metadata" class="lyrics-manual-result-meta">{{ candidate.metadata }}</span></button></div>

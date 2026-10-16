@@ -8,7 +8,7 @@ function assertSettingsRenderer(source: string): void {
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|getSettingsActions|createApplicationStore)\b|\.\s*actions\b/);
   assert.doesNotMatch(code, /\b(?:state|previous)\s*(?:\.\s*\w+|\s*\[[^\]]+\])+\s*(?:=(?!=|>)|\+=|-=|\+\+|--)/);
-  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["./settings-state.ts", "./appearance.ts"].includes(match[1]));
+  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["./settings-state.ts", "./appearance.ts","../../app/shell-stages.ts"].includes(match[1]));
 }
 test("settings renderer is readonly and owns migrated settings and page session output", () => {
   assertSettingsRenderer(fs.readFileSync(path.join(ui, "features/settings/settings-view.ts"), "utf8"));

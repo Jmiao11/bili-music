@@ -1,3 +1,4 @@
+import {revealPlaybackBar} from "../../app/shell-stages.ts";
 import { installPageCallbacks } from "../../app/root-controls.ts";
 import { readSearchDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "./root-playback.ts";
@@ -5,7 +6,7 @@ import { findEnabledPageIndex, isPageDisabled, pickRandomEnabledPageIndex } from
 import { buildDisplayTrack, displayThumbnailUrl, formatDuration, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, unavailableTrackReason } from "../../shared/track-utils.ts";
 import type { SearchPageCommit } from "../search/search-state.ts";
 import { invoke } from "../../platform/runtime-api.ts";
-import { audio, queueCount, result, resumePlayPauseButton } from "../../platform/main-window-dom.ts";
+import { audio, resumePlayPauseButton } from "../../platform/main-window-refs.ts";
 import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLAYBACK_STATE_SAVE_INTERVAL_MS } from "../../shared/controller-runtime.ts";
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
@@ -269,7 +270,7 @@ function appendSearchResults(videos: readonly CommandContract.SearchVideo[], pag
 }
 
 function updateQueueUi() {
-  queueCount.textContent = `${getSearchSnapshot().results.length} 首`;
+  void getSearchSnapshot();
 }
 
 
@@ -478,7 +479,7 @@ async function loadCurrentTrack({
   const requestVersion = getRequestActions().beginRequest();
   stopAudioElement();
   setSearchPlaybackBusy(true);
-  result.hidden = false;
+  revealPlaybackBar();
   setPlaybackStatus("正在解析音频…");
 
   try {

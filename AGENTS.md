@@ -13,7 +13,8 @@
 - 子组件只接切片 props、稳定显示模型与回调，不访问 window、__TAURI__、invoke、actions，不订阅 store。未变切片靠结构共享与浅比较跳过。列表高亮只重绘旧、新行，收藏变化只重绘受影响行，纯进度不重绘列表或行。
 - store 公开 getState、subscribe（返回取消订阅函数）、领域 actions；subscribe 不立即回调，首屏显式 getState。快照深只读，只复制改变路径；Map/Set 写入新集合。测试开启深冻结，生产不冻结。订阅者异常须报告并隔离，不能阻断其他订阅者及动作后续阶段。
 - 状态与纯投影不引用 DOM、window、Tauri 或平台时钟；副作用经适配器/控制器。同步完整阶段提交一次，异步开始、成功、失败分别提交。不提供任意运行期写状态接口。
-- Vue 独占动态绑定节点的写入权；原生控制器端口在架构文档逐项登记，模板不得再动态绑定同一属性。焦点、几何测量、滚动、RAF/transitionend、窗口与媒体副作用保持控制器所有权。
+- 两个窗口的界面全部由 Vue 渲染。Vue宿主内节点只有组件一个写入方，控制器/投影不得写textContent、innerHTML、classList、style、属性或增删节点；原生读取/事件端口通过类型化ref回传，逐项登记于架构文档。焦点、几何测量、滚动、RAF/transitionend、窗口与媒体副作用保持控制器所有权。
+- 精确例外：Vue宿主外的唯一audio；html/body的文档级属性、dataset和CSS变量；原生窗口拖动/缩放与指针捕获；控制器的焦点/选择、测量、滚动和observer；不挂载的Image/canvas取色。非受控输入只由组件内部directive/ref端口写入，Key不经props或store。scripts/vue/native-writes.ts按文件和完整表达式检查原生写入例外，新增项须说明理由并配反例；不能以宽泛文件白名单绕过。
 - audio 永久在 index.html 的 Vue 宿主外；不得重建、复制或重复监听。不建立第二套播放器。分P列表每次投影整体替换并保留重绘焦点规则；资料库内容按 session.version 替换，同 session 输入框复用，generic 为空。隐藏设置、沉浸页与歌词继续投影，保留 hidden/is-open/aria-hidden 的阶段，不用 v-if/Transition 重写开关阶段。
 - 搜索、首页提示、歌词手动搜索使用非受控草稿读写端口；保留各调用方 trim、恢复与分页执行时回读的时机。恢复不发 input、不提交、不记历史；切歌不写搜索草稿。API Key 不绑定任何来自 store/props 的 value。
 - 构建与组件测试统一将 __VUE_OPTIONS_API__、__VUE_PROD_DEVTOOLS__、__VUE_PROD_HYDRATION_MISMATCH_DETAILS__ 定义为 false。strict、erasableSyntaxOnly、isolatedModules 等不放宽，不写显式 any 或宽泛 declare module '*.vue'。生产 JS（含 inline）直接 eval/new Function 的 AST 计数均为0。
@@ -56,7 +57,7 @@
 - 当前 G0 为193/140，Git/LF SHA256 `c9858fc2d6c2d3b21764127c07cb1c3462e5e6738f91c1468c5340871cd24948`。新增或重建须存档旧 fixture 到仓库外。
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
 - 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件迁移/fixture 登记不触发全套。
-- 跨平台完整回归只在指定阶段（F2b、F6）及发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
+- 跨平台完整回归只在指定阶段（F2b、F6、F8）及发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
 - 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单及 GitHub 操作次数。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过，必须等用户明确“手测通过，允许合并”。发布前最新 master 远程 CI 与发布前全应用回归都必须通过。
 
 ## Git 与 GitHub

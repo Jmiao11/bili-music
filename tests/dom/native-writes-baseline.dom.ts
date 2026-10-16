@@ -20,6 +20,7 @@ test("native writes baseline: mascot SVG fallback hide persistence bubbles and p
   const h = await fixture({ playback:true,nativeWrites:true }); t.after(h.dispose);
   const api=h.mascot.getMascotApi()!, stage=h.doc.getElementById("mascot-stage")!, slot=h.doc.getElementById("mascot-slot")!, bubble=h.doc.getElementById("mascot-bubble")!;
   assert.equal(api.getActive(),"kuro"); assert.ok(slot.querySelector("svg")); assert.equal(bubble.hidden,false);
+  const originalSvg=slot.firstElementChild;api.setActive("kuro");assert.notEqual(slot.firstElementChild,originalSvg);
   for(const id of ["nuomi","juzi","kuro"]) {
     assert.equal(api.setActive(id),id); assert.equal(stage.dataset.mascotId,id);
     assert.equal(h.window.localStorage.getItem("bili-music-mascot"),id); assert.equal(bubble.textContent,""); assert.equal(bubble.hidden,true);
@@ -34,4 +35,29 @@ test("native writes baseline: mascot SVG fallback hide persistence bubbles and p
   await h.fire(stage,"mouseleave"); assert.equal(stage.classList.contains("is-hovered"),false);
   h.doc.documentElement.dataset.sidebarCollapsed="true";
   assert.equal(stage.dataset.mascotId,"juzi"); assert.equal(h.doc.getElementById("mascot-stage"),stage);
+});
+
+test("native writes baseline: unchanged appearance text does not overwrite a later purge write", async t => {
+  const h=await fixture({playback:true});t.after(h.dispose);
+  const status=h.doc.getElementById("appearance-status")!;
+  h.store.actions.settings.setNotice("外观");
+  h.reply(async command=>{if(command === "list_unavailable_tracks")throw "合成失败";return null;});
+  await h.store.actions.library.showPurge();
+  assert.equal(status.textContent,"读取失效曲目失败：合成失败");
+  h.store.actions.settings.setNotice("外观");
+  assert.equal(status.textContent,"读取失效曲目失败：合成失败");
+});
+
+test("dynamic background component paints both layers and preserves pause without rebuilding nodes", async t => {
+  const h=await fixture({playback:true,nativeWrites:true});t.after(h.dispose);
+  Object.defineProperty(h.doc,"hidden",{configurable:true,value:false});
+  const backdrop=h.doc.querySelector(".dynamic-background")!,layers=[...backdrop.children];
+  h.doc.documentElement.dataset.theme="dynamic";await h.microtasks();
+  assert.equal(backdrop.classList.contains("is-paused"),false);
+  assert.equal(layers.filter(layer=>layer.classList.contains("is-visible")).length,1);
+  const visible=layers.find(layer=>layer.classList.contains("is-visible")) as HTMLElement;
+  assert.equal(visible.style.getPropertyValue("--dynamic-color-1"),"rgb(28, 32, 40)");
+  h.doc.documentElement.dataset.theme="dark";await h.microtasks();
+  assert.equal(backdrop.classList.contains("is-paused"),true);
+  assert.deepEqual([...backdrop.children],layers);
 });

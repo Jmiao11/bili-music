@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type {draftBindings} from "../../../platform/draft-ports.ts";
 import LyricsDisplay from "./LyricsDisplay.vue";
 import type { ApplicationSnapshot } from "../../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../../playback/root-playback.ts";
 import { projectPlaybackProgress } from "../../playback/playback-display-view.ts";
-const props = defineProps<{ display: ApplicationSnapshot["playbackDisplay"]; controls: PlaybackControls; lyrics: ApplicationSnapshot["lyricsDisplay"]; callbacks: PlaybackCallbacks }>();
+const props = defineProps<{draftBindings:typeof draftBindings; display: ApplicationSnapshot["playbackDisplay"]; controls: PlaybackControls; lyrics: ApplicationSnapshot["lyricsDisplay"]; callbacks: PlaybackCallbacks }>();
 const timeline = () => projectPlaybackProgress(props.display);
 const playing = () => props.display.view.buttonVersion ? String(props.display.buttonPlaying) : undefined;
 </script>
@@ -27,7 +28,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
             <p id="immersive-uploader">{{ display.currentTrack.uploader || '—' }}</p>
           </div>
 
-          <LyricsDisplay :model="lyrics" :callbacks="callbacks" />
+          <LyricsDisplay :draft-bindings="draftBindings" :model="lyrics" :callbacks="callbacks" />
 
           <div class="immersive-controls">
             <div class="transport-controls" aria-label="沉浸播放控制">

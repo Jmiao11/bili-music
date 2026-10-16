@@ -1,3 +1,4 @@
+import {readLyricsDraft,writeLyricsDraft} from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../playback/root-playback.ts";
 import { getApplicationStore } from "../home/home.ts";
 function initializeLyrics() {
@@ -43,7 +44,7 @@ function initializeLyrics() {
   let matchIdleTimer = 0;
   let matchCanIdle = false;
   const display = getApplicationStore().actions.lyricsDisplay;
-  const manualDraft = { read: () => manualInputElement?.value ?? "", write: (value: string) => { if (manualInputElement) manualInputElement.value = value; } };
+  const manualDraft = { read:readLyricsDraft,write:writeLyricsDraft };
 
   function parseLrc(text: unknown) {
     if (typeof text !== "string") return [];

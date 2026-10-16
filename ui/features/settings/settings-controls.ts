@@ -55,10 +55,5 @@ function createSettingsControlsProjection() {
     previous = state; model = next; return model;
   };
 }
-// A value write is explicit; unrelated attribute updates must preserve native drafts.
-function applySettingsField(element: { value: string; checked?: boolean }, value: SettingsControl, previous?: SettingsControl): void {
-  if (value.valueVersion && value.valueVersion !== previous?.valueVersion) element.value = value.value ?? "";
-  if (value.checkedVersion && value.checkedVersion !== previous?.checkedVersion) element.checked = value.checked ?? false;
-}
-export { applySettingsField, createSettingsControlsProjection, shortcutDisplayLabel };
+export { createSettingsControlsProjection, shortcutDisplayLabel };
 export type { SettingsControl, SettingsControls };

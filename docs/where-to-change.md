@@ -1,11 +1,13 @@
 # 改功能指南
 
-先在对应领域 actions 改状态/流程，再让组件接收稳定显示 props。组件不直接调 IPC；命令形状同步维护 `types/command-contract.d.ts`。原生端口、焦点与开关阶段见 [架构](frontend-architecture.md)。
+两个窗口的界面全部由Vue渲染。先在对应领域 actions 改状态/流程，再让组件接收稳定显示 props。组件不直接调 IPC；命令形状同步维护 `types/command-contract.d.ts`。原生端口、焦点与开关阶段见 [架构](frontend-architecture.md)。
 
 路径以 `ui/` 为基准：应用组合在 `store/`，原生端口在 `platform/`，功能在 `features/`。下表组件名在对应功能的 `components/`；外壳在 `app/components/`，共用曲目行在 `features/tracks/components/`。
 
 | 功能 | 状态切片 | 界面 | 流程/副作用 | 主要测试 |
 |---|---|---|---|---|
+| 桌宠/气泡/动态背景 | 组件本地显示投影，不新增业务store切片 | app/components/Mascot.vue、features/settings/components/DynamicBackground.vue；选择器SettingsPanel | app/mascot.ts计时/随机/选择、features/settings/dynamic-background.ts取色/取消 | native-writes-baseline.dom、dynamic-background.dom、sidebar、startup-api-fixture |
+| 页面导航/外壳/提示优先级 | 现有home/search/library/settings；本地动画阶段 | AppShell、Sidebar、WindowTitlebar | app/shell-projection.ts、app/shell-stages.ts、app/sidebar.ts、app/window-controls.ts；platform/main-window-refs.ts只回传节点 | native-writes-baseline.dom、controls-settings-characterization.dom、pages/library浮层测试 |
 | 首页榜单/推荐 | home | AppShell、TrackList/TrackRow、HomeHint/HomeSetupHint | features/home/home.ts、features/home/home-view.ts；榜单 Rust ranking.rs | home-characterization.dom、root-lists.dom、home-actions |
 | 搜索/BV/分页 | search；播放另属 playbackQueue | SearchForm、SearchTabs、TrackList | features/search/search.ts、app/main.ts、platform/draft-ports.ts；BV入口 features/playback/playback-core.ts | search-characterization.dom、search-restore-characterization.dom、pasted-bv-pages |
 | 收藏 | library | TrackList/TrackRow | features/library/library-ui.ts、features/library/library-state.ts；Rust library | library-characterization.dom、library-actions、library-lists-baseline.dom |
@@ -24,3 +26,5 @@
 | 启动/watchdog | application-store组合；Rust ReadyGate | App/AppShell、WindowTitlebar、Sidebar、ResizeHotspots | app.ts→app/root-mount.ts→app/startup-before-main.ts→app/main.ts；app/main-window-ready.ts、Rust main_window.rs | root-shell.dom、real-module-startup.dom、playback-startup-installation.dom、main-window-ready、Rust ReadyGate |
 
 文件无后缀的测试在 `tests/*.test.ts`；`.dom` 在 `tests/dom/*.dom.ts`。输入草稿不加 v-model，异步结果不得捕获旧分页草稿；Key、cookie、直链不进显示状态/日志。新节点一旦动态绑定，原控制器的同属性写入必须同时退出。
+
+例外只有架构登记的audio、文档根主题、窗口/几何/焦点副作用与离屏取色。组件内非受控草稿端口保持唯一写入；新增控制器原生显示写入由scripts/vue/native-writes.ts拒绝。

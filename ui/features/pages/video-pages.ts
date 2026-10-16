@@ -1,9 +1,10 @@
+import {observePagesRow, observedPagesBvid} from "./pages-ui-state.ts";
 import { installModalBindings } from "../../app/root-modals.ts";
 import { invoke } from "../../platform/runtime-api.ts";
-import { playerPagesButton } from "../../platform/main-window-dom.ts";
+import { playerPagesButton } from "../../platform/main-window-refs.ts";
 import { PAGE_COUNT_LOOKUP_CONCURRENCY, PAGE_COUNT_LOOKUP_INTERVAL_MS, observedPageCountTargets, pageCountLookupQueue, pageModalOpeners, pendingPageCacheTargets, visiblePageCountTargets } from "../../shared/controller-runtime.ts";
 import { getApplicationStore } from "../home/home.ts";
-import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger, updatePageCountBadge } from "./pages-view.ts";
+import { preparePagesModal, renderPagesSnapshot, renderPagesTrigger } from "./pages-view.ts";
 import { currentPlayableTrack, currentVideoPage, hasMultipleCurrentPages, playCurrentVideoPage } from "../playback/playback-core.ts";
 
 import { getPlaybackMessagesActions } from "../playback/playback-messages.ts";
@@ -17,7 +18,6 @@ let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
 let pageCountLookupTimer: ReturnType<typeof window.setTimeout> | null = null;
 let pageCacheLookupScheduled = false;
 let pagesMounted = false;
-let legacyTrackButtons: Map<string, Set<HTMLButtonElement>> | null = null;
 let modalPlayCallback: ((selection: Required<PageSelection>) => void) | null = null;
 
 function queueCachedVideoPagesLookup(item: HTMLElement, bvid: string): void {
@@ -166,7 +166,7 @@ function observePageCount(item: HTMLElement, bvid: string): void {
     pageCountObserver = typeof window.IntersectionObserver === "function"
       ? new window.IntersectionObserver((entries: IntersectionObserverEntry[]) => {
           for (const entry of entries) {
-            const targetBvid = (entry.target as HTMLElement).dataset.pageCountBvid;
+            const targetBvid = observedPagesBvid(entry.target as HTMLElement);
             if (!targetBvid) {
               continue;
             }
@@ -202,7 +202,7 @@ function observePageCount(item: HTMLElement, bvid: string): void {
   if (!pageCountObserver) {
     return;
   }
-  item.dataset.pageCountBvid = bvid;
+  observePagesRow(item,bvid);
   let observedTargets = observedPageCountTargets.get(bvid);
   if (!observedTargets) {
     observedTargets = new Set();
@@ -279,29 +279,8 @@ function unobserveTrackRow(item: HTMLElement): void {
     for (const [bvid, elements] of targets) { elements.delete(item); if (elements.size === 0) targets.delete(bvid); }
   }
 }
-function registerLegacyTrackButton(button: HTMLButtonElement, bvid: string): void {
-  if (!legacyTrackButtons) {
-    legacyTrackButtons = new Map();
-    let previous = getPagesSnapshot().view.badges;
-    getApplicationStore().subscribe(state => {
-      const badge = state.pages.view.badges;
-      if (!badge || badge === previous) return;
-      previous = badge;
-      const buttons = legacyTrackButtons?.get(badge.bvid);
-      for (const target of buttons ?? []) {
-        if (target.isConnected) updatePageCountBadge(target, badge.bvid, state.pages, pagesBindings());
-        else buttons?.delete(target);
-      }
-    });
-  }
-  let buttons = legacyTrackButtons.get(bvid);
-  if (!buttons) { buttons = new Set(); legacyTrackButtons.set(bvid, buttons); }
-  buttons.add(button);
-}
 function bindTrackActivation(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void): void {
   const activation = createTrackActivationSession(item, playButton, video, onPlay);
-  registerLegacyTrackButton(playButton, video.bvid);
-  updatePageCountBadge(playButton, video.bvid, getPagesSnapshot(), pagesBindings());
   playButton.addEventListener("click", activation.handleClick);
   item.addEventListener("dblclick", activation.doubleClick);
   queueCachedVideoPagesLookup(item, video.bvid);

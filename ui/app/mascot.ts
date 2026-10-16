@@ -1,3 +1,11 @@
+import { refreshPresentation } from "./presentation-refresh.ts";
+type MascotPresentation = Readonly<{ initialized:boolean; svg:string;svgVersion:number; id?:string; name?:string; state?:string; classes:Readonly<Record<string,boolean>>; bubble:string; bubbleHidden:boolean }>;
+let mascotPresentation:MascotPresentation={initialized:false,svg:"",svgVersion:0,classes:{},bubble:"",bubbleHidden:true};
+let mascotStage:HTMLDivElement|null=null;
+function captureMascotStage(stage:HTMLDivElement|null):void { mascotStage=stage; }
+function readMascotPresentation():MascotPresentation { return mascotPresentation; }
+function updateMascot(fields:Partial<MascotPresentation>):void { mascotPresentation={...mascotPresentation,...fields}; refreshPresentation(); }
+function mascotClass(name:string,active:boolean):void { updateMascot({classes:{...mascotPresentation.classes,[name]:active}}); }
 type MascotApi = { list(): { id: string; name: string; svg: string }[]; getActive(): string; setActive(id: string): string };
 let mascotApi: MascotApi | undefined;
 function getMascotApi() { return mascotApi; }
@@ -148,15 +156,14 @@ function initializeMascot() {
   const BUBBLE_SHOW_MS = 4000;
   const BUBBLE_COOLDOWN_MS = 90000;
 
-  const stage = (document.querySelector("#mascot-stage") as HTMLDivElement);
-  const slot = (document.querySelector("#mascot-slot") as HTMLDivElement);
-  const bubble = document.querySelector<HTMLDivElement>("#mascot-bubble");
+  const capturedStage = mascotStage;
   const audio = document.querySelector<HTMLAudioElement>("#audio");
 
-  if (!stage || !slot) {
+  if (!capturedStage) {
     return;
   }
 
+  const stage=capturedStage;
   let currentMascot: (typeof MASCOTS)[string] | null = null;
   let hasCurrentTrack = false;
   let currentState = "";
@@ -171,7 +178,7 @@ function initializeMascot() {
   let bubbleTimer = 0;
   let lastBubbleAt = 0;
 
-  stage.style.pointerEvents = "auto";
+  updateMascot({initialized:true});
 
   function listen(target: EventTarget | null, eventName: string, handler: (event: Event & { detail?: CurrentTrackDetail }) => void) {
     try {
@@ -188,33 +195,24 @@ function initializeMascot() {
   }
 
   function renderMascot(mascot: (typeof MASCOTS)[string]) {
-    stage.classList.remove("is-hidden");
+    mascotClass("is-hidden",false);
     currentMascot = mascot;
-    slot.innerHTML = mascot.svg;
-    stage.dataset.mascotId = mascot.id;
-    stage.dataset.mascotName = mascot.name;
+    updateMascot({svg:mascot.svg,svgVersion:mascotPresentation.svgVersion+1});
+    updateMascot({id:mascot.id});
+    updateMascot({name:mascot.name});
     window.clearTimeout(bubbleTimer);
-    if (bubble) {
-      bubble.hidden = true;
-      bubble.textContent = "";
-    }
+    updateMascot({bubbleHidden:true,bubble:""});
   }
 
   function hideMascot() {
     currentMascot = null;
-    slot.innerHTML = "";
-    stage.classList.add("is-hidden");
+    updateMascot({svg:"",svgVersion:mascotPresentation.svgVersion+1});
+    mascotClass("is-hidden",true);
     window.clearTimeout(bubbleTimer);
-    if (bubble) {
-      bubble.hidden = true;
-      bubble.textContent = "";
-    }
+    updateMascot({bubbleHidden:true,bubble:""});
   }
 
   function speak(category: string, { force = false } = {}) {
-    if (!bubble) {
-      return;
-    }
     const pool = currentMascot?.lines?.[category];
     if (!Array.isArray(pool) || pool.length === 0) {
       return;
@@ -224,22 +222,20 @@ function initializeMascot() {
       return;
     }
     lastBubbleAt = now;
-    bubble.textContent = pool[Math.floor(Math.random() * pool.length)];
-    bubble.hidden = false;
+    updateMascot({bubble:pool[Math.floor(Math.random() * pool.length)],bubbleHidden:false});
     window.clearTimeout(bubbleTimer);
     bubbleTimer = window.setTimeout(() => {
-      bubble.hidden = true;
-      bubble.textContent = "";
+      updateMascot({bubbleHidden:true,bubble:""});
     }, BUBBLE_SHOW_MS);
   }
 
   function setState(state: string) {
     const changed = currentState !== state;
     currentState = state;
-    stage.dataset.state = state;
-    stage.classList.toggle("is-playing", state === "playing");
-    stage.classList.toggle("is-paused", state === "paused");
-    stage.classList.toggle("is-idle", state === "idle");
+    updateMascot({state:state});
+    mascotClass("is-playing", state === "playing");
+    mascotClass("is-paused", state === "paused");
+    mascotClass("is-idle", state === "idle");
     updateLongListenClock();
     if (changed) {
       markActivity();
@@ -261,8 +257,8 @@ function initializeMascot() {
     if (!currentMascot || document.hidden) {
       return;
     }
-    stage.classList.add("is-blinking");
-    window.setTimeout(() => stage.classList.remove("is-blinking"), BLINK_DURATION_MS);
+    mascotClass("is-blinking",true);
+    window.setTimeout(() => mascotClass("is-blinking",false), BLINK_DURATION_MS);
   }
 
   function scheduleBlink() {
@@ -276,29 +272,29 @@ function initializeMascot() {
 
   function triggerTrackChange() {
     window.clearTimeout(trackchangeTimer);
-    stage.classList.add("is-trackchanging");
+    mascotClass("is-trackchanging",true);
     triggerBlink();
     trackchangeTimer = window.setTimeout(() => {
-      stage.classList.remove("is-trackchanging");
+      mascotClass("is-trackchanging",false);
       syncState();
     }, TRACKCHANGE_DURATION_MS);
   }
 
   function triggerPoke() {
     window.clearTimeout(pokeTimer);
-    stage.classList.remove("is-poked");
+    mascotClass("is-poked",false);
     void stage.offsetWidth;
-    stage.classList.add("is-poked");
+    mascotClass("is-poked",true);
     speak("poke", { force: true });
-    pokeTimer = window.setTimeout(() => stage.classList.remove("is-poked"), POKE_DURATION_MS);
+    pokeTimer = window.setTimeout(() => mascotClass("is-poked",false), POKE_DURATION_MS);
   }
 
   function triggerEarTwitch() {
     window.clearTimeout(earTwitchTimer);
-    stage.classList.remove("is-ear-twitch");
+    mascotClass("is-ear-twitch",false);
     void stage.offsetWidth;
-    stage.classList.add("is-ear-twitch");
-    earTwitchTimer = window.setTimeout(() => stage.classList.remove("is-ear-twitch"), EAR_TWITCH_DURATION_MS);
+    mascotClass("is-ear-twitch",true);
+    earTwitchTimer = window.setTimeout(() => mascotClass("is-ear-twitch",false), EAR_TWITCH_DURATION_MS);
   }
 
   function updateLongListenClock() {
@@ -307,11 +303,11 @@ function initializeMascot() {
       longListenElapsed += Date.now() - longListenStartedAt;
       longListenStartedAt = 0;
     }
-    if (currentState !== "playing" || document.hidden || stage.classList.contains("is-long-listen")) {
+    if (currentState !== "playing" || document.hidden || mascotPresentation.classes["is-long-listen"]) {
       return;
     }
     if (longListenElapsed >= LONG_LISTEN_MS) {
-      stage.classList.add("is-long-listen");
+      mascotClass("is-long-listen",true);
       speak("longListen");
       return;
     }
@@ -319,7 +315,7 @@ function initializeMascot() {
     longListenTimer = window.setTimeout(() => {
       longListenElapsed = LONG_LISTEN_MS;
       longListenStartedAt = 0;
-      stage.classList.add("is-long-listen");
+      mascotClass("is-long-listen",true);
       speak("longListen");
     }, LONG_LISTEN_MS - longListenElapsed);
   }
@@ -329,11 +325,11 @@ function initializeMascot() {
     if (document.hidden) {
       return;
     }
-    dozeTimer = window.setTimeout(() => stage.classList.add("is-dozing"), DOZE_MS);
+    dozeTimer = window.setTimeout(() => mascotClass("is-dozing",true), DOZE_MS);
   }
 
   function markActivity() {
-    stage.classList.remove("is-dozing");
+    mascotClass("is-dozing",false);
     scheduleDoze();
   }
 
@@ -397,12 +393,12 @@ function initializeMascot() {
 
   listen(stage, "mouseenter", () => {
     markActivity();
-    stage.classList.add("is-hovered");
+    mascotClass("is-hovered",true);
     triggerBlink();
   });
   listen(stage, "mouseleave", () => {
     markActivity();
-    stage.classList.remove("is-hovered");
+    mascotClass("is-hovered",false);
   });
   listen(stage, "click", () => {
     markActivity();
@@ -427,7 +423,7 @@ function initializeMascot() {
   listen(window, "bilibili-music-favorite", () => speak("favorite"));
 
   listen(document, "visibilitychange", () => {
-    stage.classList.toggle("is-document-hidden", document.hidden);
+    mascotClass("is-document-hidden", document.hidden);
     updateLongListenClock();
     if (document.hidden) {
       window.clearTimeout(blinkTimer);
@@ -442,4 +438,5 @@ function initializeMascot() {
   });
 }
 
-export { getMascotApi, initializeMascot };
+export { captureMascotStage, readMascotPresentation, getMascotApi, initializeMascot };
+export type { MascotPresentation };

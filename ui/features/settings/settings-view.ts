@@ -1,7 +1,8 @@
+import {setModalStage} from "../../app/shell-stages.ts";
 import {accentChannels} from "./settings-state.ts";
 import type {SettingsSnapshot} from "./settings-state.ts";
 import type {SettingsDom} from "./appearance.ts";
-function prepareSettingsPanel(dom:SettingsDom):void { dom.settingsModal.hidden=false; }
+function prepareSettingsPanel(dom:SettingsDom):void { setModalStage("settings",{hidden:false}); }
 function renderSettingsSnapshot(state:SettingsSnapshot,previous:SettingsSnapshot|null,dom:SettingsDom):void {
   const before=previous?.view,view=state.view;
   if(view.themeVersion && view.themeVersion !== before?.themeVersion) {
@@ -20,35 +21,19 @@ function renderSettingsSnapshot(state:SettingsSnapshot,previous:SettingsSnapshot
     else dom.root.style.removeProperty("--app-background");
   }
   const session = state.session;
-  if (session.navigationVersion && session.navigationVersion !== previous?.session.navigationVersion) {
-    for (const item of dom.navItems) item.classList.toggle("active", item.dataset.view === session.currentView);
-    const realViews: Partial<Record<string, HTMLElement>> = {
-      home: dom.homeView, search: dom.searchView, favorites: dom.favoritesView, playlists: dom.playlistsView
-    };
-    for (const [name, element] of Object.entries(realViews)) {
-      if (!element) continue;
-      element.hidden = name !== session.currentView;
-      element.classList.toggle("is-active", name === session.currentView);
-    }
-    const real = session.currentView ? realViews[session.currentView] : null;
-    dom.placeholderView.hidden = Boolean(real);
-    if (!real) dom.placeholderTitle.textContent = session.placeholderTitle;
-  }
   if (session.panelVersion && session.panelVersion !== previous?.session.panelVersion) {
     if (session.panelOpen) requestAnimationFrame(() => {
-      dom.settingsModal.classList.add("is-open");
-      dom.settingsModal.setAttribute("aria-hidden", "false");
+      setModalStage("settings",{open:true});
     });
     else {
       if (dom.settingsModal.contains(document.activeElement)) dom.openSettingsButton.focus({
         preventScroll: true
       });
-      dom.settingsModal.classList.remove("is-open");
-      dom.settingsModal.setAttribute("aria-hidden", "true");
+      setModalStage("settings",{open:false});
     }
   }
 }
 function finishSettingsPanelTransition(event: TransitionEvent, dom: SettingsDom): void {
-  if (event.target === dom.settingsModal && !dom.settingsModal.classList.contains("is-open")) dom.settingsModal.hidden = true;
+  if (event.target === dom.settingsModal && !dom.settingsModal.classList.contains("is-open")) setModalStage("settings",{hidden:true});
 }
 export { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsSnapshot };

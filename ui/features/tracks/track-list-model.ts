@@ -2,6 +2,7 @@ export type PageSelection = { startPage?: CommandContract.VideoPage; pages?: Com
 export type TrackRowModel = Readonly<{
   key: string; index: number; search: boolean; video: Readonly<CommandContract.TrackSnapshotInput & { playCount?: number | null; pubdate?: number | null }>;
   playCountText: string; pubdateText: string; active: boolean; favorited: boolean; pageCount: number; unavailableReason: string;
+  playPagesVersion?:number;badgePagesVersion?:number;pageCountBvid?:string;onBadgeNode?(node:HTMLButtonElement|null):void;
   showPlayCount?: boolean; playlistId?: string; draggable?: boolean; dragClass?: string;
   onRemove?(): void; onCapture?(event: MouseEvent): void;
   onDragStart?(event: DragEvent): void; onDragOver?(event: DragEvent): void; onDragLeave?(event: DragEvent): void; onDrop?(event: DragEvent): void; onDragEnd?(): void;

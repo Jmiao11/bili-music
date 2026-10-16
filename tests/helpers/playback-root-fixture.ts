@@ -1,4 +1,4 @@
-import {applySettingsField} from "../../ui/features/settings/settings-controls.ts";
+import {applySettingsField} from "../../ui/features/settings/components/field-directive.ts";
 import {attachSettingsControlPorts} from "./settings-controls-fixture.ts";
 import type vm from "node:vm";
 import type { createApplicationStore } from "../../ui/store/app-state.ts";
@@ -10,6 +10,8 @@ const legacyPlaybackNodeNames = ["duration", "favoriteCurrentButton", "immersive
 
 // Installation-before fixtures use native output ports; installed tests mount the real App.
 function mountPlaybackFixtureRoot(context: vm.Context, store: ReturnType<typeof createApplicationStore>): void {
+  context.playbackBarNode ??= context.result;
+  context.revealPlaybackBar ??= ()=>{if(context.result)context.result.hidden=false;};
   const settingsPort=attachSettingsControlPorts(context);
   store.subscribe(state=>settingsPort(state.settings));
   context.readSearchDraft ??= () => context.searchKeyword?.value ?? "";

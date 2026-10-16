@@ -1,3 +1,4 @@
+import {setMaximizedPresentation} from "./shell-stages.ts";
 function initializeWindowControls() {
 const tauriWindowApi = window.__TAURI__?.window;
 const appWindow = tauriWindowApi?.getCurrentWindow?.();
@@ -30,11 +31,7 @@ async function updateMaximizedState() {
   try {
     const isMaximized = await appWindow.isMaximized();
     document.documentElement.dataset.windowMaximized = String(isMaximized);
-    if (maximizeButton) {
-      const label = isMaximized ? "还原" : "最大化";
-      maximizeButton.setAttribute("aria-label", label);
-      maximizeButton.title = label;
-    }
+    setMaximizedPresentation(isMaximized);
   } catch (error) {
     console.warn("window maximize state unavailable:", error);
   }

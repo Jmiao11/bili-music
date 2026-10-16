@@ -1,13 +1,23 @@
 <script setup lang="ts">
+import type {ComponentPublicInstance} from "vue";
+import type {draftBindings} from "../../../platform/draft-ports.ts";
 import type {ObjectDirective} from 'vue';
-import {applySettingsField} from '../settings-controls.ts';
+import {applySettingsField} from './field-directive.ts';
 import type {SettingsControl,SettingsControls} from '../settings-controls.ts';
 import type {SettingsSnapshot} from '../settings-state.ts';
 import type {SettingsCallbacks} from '../root-settings.ts';
-const props=defineProps<{state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
+const props=defineProps<{draftBindings:typeof draftBindings;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
 const empty:SettingsControl={};
 const field=(name:string)=>props.model[name]??empty;
 const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>={mounted:(element,binding)=>applySettingsField(element,binding.value),updated:(element,binding)=>applySettingsField(element,binding.value,binding.oldValue ?? undefined)};
+function draftRef(value:Element|ComponentPublicInstance|null):void {
+ const input=value as HTMLInputElement|null;
+ props.draftBindings.key(input ? {read:()=>input.value,write:value=>{input.value=value;}} : null);
+}
+function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
+ const details=value as HTMLDetailsElement|null;
+ props.draftBindings.aiDetails(details ? ()=>{details.open=true;} : null);
+}
 </script>
 <template>
       <div class="settings-panel panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -176,7 +186,7 @@ const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>
           </div>
         </details>
 
-        <details class="setting-group ai-settings collapsible-group">
+        <details class="setting-group ai-settings collapsible-group" :ref="aiDetailsRef">
           <summary><h3>AI 推荐</h3></summary>
           <label class="settings-field" for="ai-api-format-select">
             <span>接口规范</span>
@@ -192,7 +202,7 @@ const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>
           </label>
           <label class="settings-field" for="ai-api-key-input">
             <span>API Key</span>
-            <input id="ai-api-key-input" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" />
+            <input id="ai-api-key-input" :ref="draftRef" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" />
           </label>
           <label class="settings-field" for="ai-base-url-input">
             <span>Base URL<span
@@ -284,12 +294,12 @@ const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>
           <div class="setting-subgroup">
             <h4>失效曲目</h4>
             <div class="setting-actions">
-              <button id="purge-unavailable-tracks-button" @click="callbacks.purge()" class="small-button quiet" type="button">清理失效曲目</button>
+              <button id="purge-unavailable-tracks-button" :disabled="purgeBusy" @click="callbacks.purge()" class="small-button quiet" type="button">清理失效曲目</button>
             </div>
           </div>
           <small class="setting-note">导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图，但不包含 AI API Key，在新设备导入后需要重新填写；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。清理失效曲目会从收藏和所有歌单中移除这些歌曲。</small>
         </details>
 
-        <p id="appearance-status" class="appearance-status" role="status">{{ field('appearanceStatus').text ?? "" }}</p>
+        <p id="appearance-status" class="appearance-status" role="status">{{ appearanceStatus }}</p>
       </div>
 </template>

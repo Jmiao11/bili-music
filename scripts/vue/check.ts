@@ -1,3 +1,4 @@
+import {checkNativeWrites} from "./native-writes.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -7,6 +8,10 @@ import { compileTemplate, parse } from "vue/compiler-sfc";
 const productSfc = (file: string) => /^ui\/(?:app|mini|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const vueImports: Record<string, string[]> = {
+ "ui/app/components/Mascot.vue":["vue"],
+ "ui/features/immersive/components/LyricsDisplay.vue":["vue"],
+  "ui/features/home/components/HomeHint.vue":["vue"],
+  "ui/features/search/components/SearchForm.vue":["vue"],
   "ui/mini/root-mount.ts": ["vue"],
   "ui/features/settings/components/SettingsPanel.vue": ["vue"],
   "ui/features/tracks/components/ListHost.vue": ["vue"],
@@ -96,4 +101,5 @@ for (const file of ["ui/features/library/components/PlaylistList.vue", "ui/featu
   assert.throws(() => checkSfc(`<script setup lang="ts">${expression};</script>`, file), /forbidden component access/);
 }
 checkRepository(path.resolve(import.meta.dirname, "../.."));
+checkNativeWrites(path.resolve(import.meta.dirname,"../.."));
 console.log("PASS Vue import and SFC content guards");

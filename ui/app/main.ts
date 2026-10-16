@@ -1,10 +1,11 @@
+import {finishPagesTransition} from "../features/pages/pages-view.ts";
 import { installPageCallbacks } from "./root-controls.ts";
 import { installSettingsCallbacks } from "../features/settings/root-settings.ts";
-import { readHomeHintDraft, readSearchDraft, writeSearchDraft } from "../platform/draft-ports.ts";
+import { openAiSettingsDetails, readHomeHintDraft, readSearchDraft, writeSearchDraft } from "../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../features/playback/root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "../features/search/search-state.ts";
 import { invoke } from "../platform/runtime-api.ts";
-import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-dom.ts";
+import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
@@ -118,7 +119,7 @@ installPageCallbacks({
   document.querySelector<HTMLButtonElement>("#open-settings-button")?.click();
   const ai = document.querySelector<HTMLDetailsElement>(".ai-settings");
   if (ai) {
-    ai.setAttribute("open", "");
+    openAiSettingsDetails();
     ai.scrollIntoView({ block: "center" });
   }
   },
@@ -164,7 +165,7 @@ pagesModal?.addEventListener("click", (event) => {
 pagesModal?.addEventListener("keydown", keepFocusInPagesModal);
 pagesModal?.addEventListener("transitionend", (event) => {
   if (event.target === pagesModal && !pagesModal.classList.contains("is-open")) {
-    pagesModal.hidden = true;
+    finishPagesTransition();
   }
 });
 window.addEventListener("keydown", (event) => {

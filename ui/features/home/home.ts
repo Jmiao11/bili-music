@@ -1,7 +1,7 @@
 import { readHomeHintDraft } from "../../platform/draft-ports.ts";
 import { readApplicationStore } from "../../store/application-store.ts";
 import type { createApplicationStore } from "../../store/app-state.ts";
-import { homeHintInput } from "../../platform/main-window-dom.ts";
+import { homeHintInput } from "../../platform/main-window-refs.ts";
 import { renderHomeSnapshot } from "./home-view.ts";
 import { updateQueueUi } from "../playback/playback-core.ts";
 let homeMounted = false;

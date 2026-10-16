@@ -33,7 +33,7 @@ function assertHomeRenderer(source: string): void {
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|playListItem|createApplicationStore)\b|\.\s*actions\b/, "renderer cannot call actions or platform commands");
   for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) {
-    assert.ok(["../../store/app-state.ts", "../../platform/main-window-dom.ts"].includes(match[1]), `renderer dependency is not readonly: ${match[1]}`);
+    assert.ok(["../../store/app-state.ts", "../../platform/main-window-refs.ts"].includes(match[1]), `renderer dependency is not readonly: ${match[1]}`);
   }
 }
 
@@ -81,7 +81,7 @@ test("search renderer is readonly and exclusively owns the search submit button"
   const source = fs.readFileSync(path.join(root, "features/search/search-view.ts"), "utf8");
   const code = maskCommentsAndStrings(source);
   assert.doesNotMatch(code, /\b(?:invoke|getSearchActions|createApplicationStore)\b|\.\s*actions\b/);
-  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["../../shared/track-utils.ts", "./search-state.ts", "../../platform/main-window-dom.ts"].includes(match[1]));
+  for (const match of source.matchAll(/\bimport\b[^;]*?["']([^"']+)["']/g)) assert.ok(["../../shared/track-utils.ts", "./search-state.ts", "../../platform/main-window-refs.ts"].includes(match[1]));
   for (const file of fs.readdirSync(root, { recursive: true }).map(name => String(name).replace(/\\/g, "/")).filter(name => name.endsWith(".ts") && name !== "features/search/search-view.ts")) {
     assert.doesNotMatch(maskCommentsAndStrings(fs.readFileSync(path.join(root, file), "utf8")), /\bsearchButton\s*\.\s*(?:disabled|textContent)\s*=/, `${file}: search submit button belongs to renderer`);
   }

@@ -94,7 +94,7 @@ test("page count observer disconnect handling preserves native unobserve and ign
   const removed: unknown[] = [];
   class Observer { constructor(fn: (...args: unknown[]) => unknown) { callback = fn; } observe() {} unobserve(target: unknown) { removed.push(target); } }
   const context = createQueueContext({ window: { IntersectionObserver: Observer }, pageCountObserver: undefined,
-    videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
+    observePagesRow:(item:{dataset:Record<string,string>},bvid:string)=>{item.dataset.pageCountBvid=bvid;},observedPagesBvid:(item:{dataset:Record<string,string>})=>item.dataset.pageCountBvid,videoPageCounts: new Map(), failedPageCountBvids: new Set(), visiblePageCountTargets: new Map(),
     observedPageCountTargets: new Map(), stopObservingPageCountBvid() {}, queuePageCountLookup() {},
   });
   vm.runInContext(slice("features/pages/video-pages.ts", "function observePageCount(", "async function loadVideoPagesForModal("), context);

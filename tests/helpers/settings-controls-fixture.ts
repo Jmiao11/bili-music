@@ -1,5 +1,6 @@
 import type vm from "node:vm";
-import { applySettingsField, createSettingsControlsProjection } from "../../ui/features/settings/settings-controls.ts";
+import {createSettingsControlsProjection} from "../../ui/features/settings/settings-controls.ts";
+import {applySettingsField} from "../../ui/features/settings/components/field-directive.ts";
 import type { SettingsSnapshot } from "../../ui/features/settings/settings-state.ts";
 import type { SettingsCallbacks } from "../../ui/features/settings/root-settings.ts";
 
@@ -7,6 +8,7 @@ import type { SettingsCallbacks } from "../../ui/features/settings/root-settings
 function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
   const project = createSettingsControlsProjection();
   let previous: ReturnType<typeof project> = {};
+  let navigationVersion=0;
   let previousMascots: SettingsSnapshot["controls"]["mascots"] | null = null;
   const node = (name: string) => context[name] ?? context.document?.querySelector?.("#" + name.replace(/[A-Z]/g, letter => "-" + letter.toLowerCase()));
   const handlers: Partial<SettingsCallbacks> = context.__settingsFixtureHandlers ??= {};
@@ -58,6 +60,12 @@ function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
         context.mascotPicker.replaceChildren(...tiles); previousMascots=state.controls.mascots;
       }
       for(const tile of context.mascotPicker.children) tile.classList.toggle("is-selected",tile.dataset.mascotId === state.controls.activeMascot);
+    }
+    if(state.session.navigationVersion && state.session.navigationVersion !== navigationVersion) {
+      navigationVersion=state.session.navigationVersion;const current=state.session.currentView;
+      for(const item of context.navItems??[])item.classList.toggle("active",item.dataset.view === current);
+      for(const name of ["home","search","favorites","playlists"]) {const view=node(name+"View");if(view){view.hidden=name !== current;view.classList.toggle("is-active",name === current);}}
+      const placeholder=node("placeholderView"),title=node("placeholderTitle");if(placeholder)placeholder.hidden=["home","search","favorites","playlists"].includes(current??"");if(title && !placeholder?.hidden)title.textContent=state.session.placeholderTitle;
     }
     previous = model;
   };

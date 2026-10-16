@@ -25,11 +25,11 @@ function createMascotFixture(saved: string | null = null) {
   }
   const stage = element(), slot = element(), bubble = element(), picker = element();
   const writes: [string, string][] = [], window = { addEventListener() {}, setTimeout: () => 0, clearTimeout() {}, BiliMascot: undefined as MascotApi | undefined };
-  const context = vm.createContext({ window, mascotPicker: picker, document: { hidden: false,
+  const context = vm.createContext({ stageForTest:stage,refreshPresentation:()=>{const model=vm.runInContext("readMascotPresentation()",context);slot.innerHTML=model.svg;bubble.textContent=model.bubble;bubble.hidden=model.bubbleHidden;Object.assign(stage.dataset,{mascotId:model.id,mascotName:model.name,state:model.state});for(const [name,value] of Object.entries(model.classes))stage.classList.toggle(name,Boolean(value));},window, mascotPicker: picker, document: { hidden: false,
     createElement: element, querySelector: (selector: string) => ({ "#mascot-stage": stage, "#mascot-slot": slot, "#mascot-bubble": bubble } as Record<string, unknown>)[selector] ?? null },
     localStorage: { getItem: () => saved, setItem: (key: string, value: string) => writes.push([key, value]) } });
   const read = (name: string) => stripModuleSyntax(fs.readFileSync(path.join(import.meta.dirname, "../../ui", name), "utf8"), "ui/" + name);
-  const api: MascotApi | undefined = vm.runInContext(read("app/mascot.ts") + "\ninitializeMascot(); getMascotApi();", context);
+  const api: MascotApi | undefined = vm.runInContext(read("app/mascot.ts") + "\ncaptureMascotStage(stageForTest);initializeMascot(); getMascotApi();", context);
   if (!api) throw Error("Mascot API is missing");
   attachSettingsVm(context);
   const appearance = read("features/settings/appearance.ts");

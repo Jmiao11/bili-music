@@ -57,7 +57,7 @@ type SidebarElement = {
   listeners: Record<string, (event?: Record<string, unknown>) => void>;
   attributes: Record<string, unknown>; dataset: Record<string, unknown>; textContent: string;
   style?: Record<string, unknown>; querySelector?: () => SidebarElement;
-  capture?: number | null; hidden?: boolean; innerHTML?: string;
+  title?:string;capture?: number | null; hidden?: boolean; innerHTML?: string;
   setPointerCapture?: (id: number) => void; hasPointerCapture?: (id: number) => boolean; releasePointerCapture?: () => void;
   classList?: { add(name: string): unknown; remove(name: string): unknown; contains(name: string): boolean; toggle(name: string, force: boolean): unknown };
   BiliMascot?: { list(): { id: string }[]; getActive(): string; setActive(id: string): string };
@@ -112,7 +112,7 @@ function setup(saved?: string | null, faults: { access?: boolean; read?: boolean
       },
     };
   } });
-  vm.runInNewContext(source + "\ninitializeSidebar();", { document, window, console: { warn: (...args: unknown[]) => warnings.push(args) } });
+  vm.runInNewContext(source + "\ninitializeSidebar();", {setSidebarPresentation:(width:number,collapsed:boolean)=>{const label=collapsed ? "展开侧栏" : "收起侧栏";toggle.title=label;toggle.setAttribute("aria-label",label);toggle.setAttribute("aria-expanded",String(!collapsed));text.textContent=label;handle.setAttribute("aria-valuenow",String(width));handle.setAttribute("aria-valuetext",collapsed ? "已折叠，按右方向键展开" : `${width} 像素`);}, document, window, console: { warn: (...args: unknown[]) => warnings.push(args) } });
   const beforeMount = { width: root.style["--sidebar-width"], collapsed: root.dataset.sidebarCollapsed };
   document.emit("DOMContentLoaded");
   return { root, toggle, handle, window, stored, writes, warnings, beforeMount };
@@ -208,9 +208,8 @@ test("unchanged mascot API and bubble cleanup work while the sidebar is collapse
     setTimeout(fn: (event?: Record<string, unknown>) => void, ms: number) { timers.set(++timerId, { fn, ms }); return timerId; },
     clearTimeout(id: number) { timers.delete(id); },
   });
-  const api = vm.runInNewContext(readFileSync(path.join(import.meta.dirname, "../ui/app/mascot.ts"), "utf8") + "\ninitializeMascot(); getMascotApi();", {
-    document, window, localStorage: { getItem: () => null, setItem() {} },
-  });
+  const mascotContext=vm.createContext({stageForTest:stage,document,window,localStorage:{getItem:()=>null,setItem(){}},refreshPresentation:()=>{const model=vm.runInContext("readMascotPresentation()",mascotContext);slot.innerHTML=model.svg;bubble.hidden=model.bubbleHidden;bubble.textContent=model.bubble;for(const [name,value] of Object.entries(model.classes))stage.classList!.toggle(name,Boolean(value));Object.assign(stage.dataset,{mascotId:model.id,mascotName:model.name,state:model.state});}});
+  const api=vm.runInContext(readFileSync(path.join(import.meta.dirname,"../ui/app/mascot.ts"),"utf8")+"\ncaptureMascotStage(stageForTest);initializeMascot();getMascotApi();",mascotContext);
   if (!api) throw new Error("Mascot API is missing");
   assert.deepEqual(Object.keys(api), ["list", "getActive", "setActive"]);
   assert.ok(bubble.textContent); // Greeting still has its normal lifetime, even when CSS hides it.

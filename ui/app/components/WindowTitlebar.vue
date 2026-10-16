@@ -1,3 +1,6 @@
+<script setup lang="ts">
+defineProps<{maximized:boolean|null}>();
+</script>
 <template>
 <header class="window-titlebar" aria-label="窗体标题栏">
       <div class="window-titlebar-brand">
@@ -15,7 +18,7 @@
           <button id="window-minimize-button" class="window-control-button" type="button" aria-label="最小化" title="最小化">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10v1.4H3Z" /></svg>
           </button>
-          <button id="window-maximize-button" class="window-control-button" type="button" aria-label="最大化" title="最大化">
+          <button id="window-maximize-button" class="window-control-button" type="button" :aria-label="maximized ? '还原' : '最大化'" :title="maximized ? '还原' : '最大化'">
             <svg class="window-icon-maximize" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4h8v8H4Zm1.4 1.4v5.2h5.2V5.4Z" /></svg>
             <svg class="window-icon-restore" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5h7v7H11v-5H5.5Zm-2 3h7v6h-7Zm1.4 1.4v3.2h4.2V7.9Z" /></svg>
           </button>

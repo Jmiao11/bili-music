@@ -34,7 +34,7 @@ async function fixture() {
   let saved: unknown = null;
   const invoke = async (command: string, args: Record<string, unknown> = {}) => { calls.push({ command, args: plain(args) }); return command === "get_playback_state" ? saved : []; };
   const store = createApplicationStore({ invoke: invoke as Parameters<typeof createApplicationStore>[0]["invoke"], setTimeout: () => 0, clearTimeout() {}, report(level, message, error) { fixtureErrors.push({ level, message, error }); } }, { onSubscriberError: error => fixtureErrors.push(error) });
-  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/main-window-dom.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
+  const names = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(ui, "platform/main-window-refs.ts"), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean).concat(legacyPlaybackNodeNames);
   const nodes = Object.fromEntries(names.map(name => [name, new QueueNode()]));
   const audio = { paused: true, currentSrc: "", currentTime: 0, play: async () => { audio.paused = false; }, pause() {}, load() {} };
   const search = { results: [] as ReturnType<typeof track>[], requestVersion: 8 };
