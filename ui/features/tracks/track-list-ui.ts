@@ -10,6 +10,7 @@ import { getHomeSnapshot } from "../home/home.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite } from "../library/library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "../pages/video-pages.ts";
 import { playListItem, playSearchResult } from "../playback/playback-core.ts";
+import { playCollectionItem } from "../collections/collection-controller.ts";
 
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
@@ -18,6 +19,7 @@ type RowSession = { model: TrackRowModel | null; index: number; playlistId: stri
 type Projection = { library?: { playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
 let homeProjection: Projection | null = null;
 let searchProjection: Projection | null = null;
+let collectionProjection: Projection | null = null;
 let favoritesProjection: Projection | null = null;
 let playlistProjection: Projection | null = null;
 let committedSearchVersion: number | null = null;
@@ -29,7 +31,9 @@ function createProjection(state: Snapshot, source: string, play: Play): Projecti
 }
 function projectRows(target: TrackListTarget, projection: Projection, state: Snapshot, search: boolean): void {
   const queue = state.playbackQueue;
-  const activeIndex = search
+  const activeIndex = projection.source === "collection"
+    ? queue.queueSource === "collection" && queue.queueSearchVersion === state.collection.requestVersion ? queue.currentIndex : -1
+    : search
     ? queue.queueSearchVersion === state.search.requestVersion ? queue.currentIndex : -1
     : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
@@ -136,6 +140,12 @@ function projectApplicationLists(state: Snapshot): void {
     renderSearchRows(state, state.search, playSearchResult);
   }
   refreshSearchRows(state);
+  if (state.collection.active) {
+    collectionProjection ??= createProjection(state, "collection", playCollectionItem);
+    if (collectionProjection.generation !== state.collection.requestVersion) collectionProjection.generation = state.collection.requestVersion;
+    collectionProjection.videos = state.collection.items;
+    projectRows("collection", collectionProjection, state, true);
+  }
   projectLibraryLists(state);
 }
 function initializeRootLists(): void { installRootListProjection(projectApplicationLists); }

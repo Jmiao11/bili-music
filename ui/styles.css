@@ -2984,6 +2984,9 @@ svg {
   transform: translateY(0);
 }
 
+.playback-notice.has-action { pointer-events: auto; border-radius: 14px; }
+.playback-notice.has-action button { margin-left: 8px; }
+
 :root:has(#immersive-player.is-open) .playback-notice {
   top: 34px;
   right: 48px;

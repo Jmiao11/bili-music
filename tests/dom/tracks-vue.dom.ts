@@ -94,3 +94,61 @@ test("Vue duplicate BV rows retain independent playback indexes", () => run(asyn
   await h.fire(list.children[1].querySelector("button.track")!, "click", { detail: 0 });
   assert.equal(h.store.getState().playbackQueue.currentIndex, 1);
 }));
+
+test("multi-BV prompt waits for click, then paginates and plays through the existing queue", () => run(async h => {
+  const bvid = "BV0000000001", items = Array.from({ length: 20 }, (_, index) => track(index + 1));
+  h.reply(async (command, args) => {
+    if (command === "get_video_meta") return { ...videoMeta, collection: { id: 42, title: "测试合集", total: 22 } };
+    if (command === "get_collection_page") return args.page === 1 ? { items, total: 22, hasMore: true } : { items: [track(21), track(22)], total: 22, hasMore: false };
+    return responses([track(1)])(command);
+  });
+  const draft = h.doc.querySelector<HTMLInputElement>("#search-keyword")!; draft.value = bvid;
+  await h.fire(h.doc.querySelector("#search-form")!, "submit"); await h.microtasks();
+  assert.match(h.doc.querySelector("#playback-notice")!.textContent ?? "", /共 22 个视频的合集「测试合集」/);
+  assert.equal(h.calls.filter(call => call.command === "get_collection_page").length, 0);
+  await h.fire(h.doc.querySelector("#playback-notice button")!, "click");
+  assert.equal(h.doc.querySelector("#view-collection")!.hasAttribute("hidden"), false);
+  assert.equal(h.doc.querySelectorAll("#collection-results li").length, 20);
+  await h.fire(h.doc.querySelector("#collection-results")!, "scroll");
+  assert.equal(h.doc.querySelectorAll("#collection-results li").length, 22);
+  assert.match(h.doc.querySelector("#view-collection .search-status")!.textContent ?? "", /没有更多了/);
+  await h.fire(h.doc.querySelector("#collection-results li button.track")!, "click", { detail: 0 });
+  assert.equal(h.store.getState().playbackQueue.queueSource, "collection");
+  assert.equal(h.store.getState().playbackQueue.queue.length, 22);
+  assert.equal(h.doc.querySelector("#collection-results li button.track")?.getAttribute("aria-current"), "true");
+  await h.fire(h.doc.querySelector("#view-collection .list-head button")!, "click");
+  assert.equal(h.doc.querySelector("#view-collection"), null);
+  assert.equal(h.doc.querySelector("#view-home")!.hasAttribute("hidden"), false);
+}));
+
+test("ordinary BV has no collection prompt and stale collection requests cannot reopen a closed view", () => run(async h => {
+  h.reply(async command => command === "get_video_meta" ? { ...videoMeta, collection: null } : responses([track(1)])(command));
+  const draft = h.doc.querySelector<HTMLInputElement>("#search-keyword")!; draft.value = "BV0000000001";
+  await h.fire(h.doc.querySelector("#search-form")!, "submit"); await h.microtasks();
+  assert.equal(h.doc.querySelector("#playback-notice button"), null);
+  const gate = deferred();
+  h.reply(async (command) => command === "get_collection_page" ? gate.promise : responses([track(1)])(command));
+  h.store.actions.collection.open({ kind: "collection", bvid: "BV0000000001", id: 42 }, "测试合集", 2, "search", 0);
+  h.store.actions.collection.close(); gate.resolve({ items: [track(1)], total: 2, hasMore: false }); await h.microtasks();
+  assert.equal(h.store.getState().collection.active, false);
+  assert.equal(h.store.getState().collection.items.length, 0);
+}));
+
+test("collection list failure shows a manual retry without advancing the page", () => run(async h => {
+  let attempts = 0;
+  h.reply(async command => {
+    if (command === "get_collection_page") {
+      if (++attempts === 1) throw new Error("离线");
+      return { items: [track(1)], total: 1, hasMore: false };
+    }
+    return responses([track(1)])(command);
+  });
+  h.store.actions.collection.open({ kind: "collection", bvid: "BV0000000001", id: 42 }, "测试合集", 1, "home", 0);
+  await h.microtasks();
+  assert.equal(h.store.getState().collection.page, 0);
+  assert.match(h.doc.querySelector("#view-collection .search-status")!.textContent ?? "", /离线/);
+  await h.fire(h.doc.querySelector("#view-collection > button")!, "click");
+  assert.equal(attempts, 2);
+  assert.equal(h.store.getState().collection.page, 1);
+  assert.equal(h.doc.querySelectorAll("#collection-results li").length, 1);
+}));

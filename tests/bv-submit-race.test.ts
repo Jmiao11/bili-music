@@ -32,6 +32,7 @@ test("reverse cancellation completion plays only the latest submitted BV", async
     recognizeSearchBv(bvid: string): void { searchStatus.textContent = `已识别 BV 号：${bvid}`; }, runSearch() { assert.fail("BV submit must not search"); },
     cancelCurrentPlayback() { const gate = deferred(); cancellations.push(gate); return gate.promise; },
     playBvId: (bvid: string) => played.push(bvid),
+    invoke: async () => ({ collection: null }),
   });
   vm.runInContext(code + "\ninitPlaybackSearch();", context);
   if (submit === undefined) throw new Error("Submit handler is missing");

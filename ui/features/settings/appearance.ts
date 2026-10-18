@@ -482,6 +482,7 @@ async function saveAudioCacheSettings() { await getSettingsActions().saveCache(a
 function closeSettings() { getSettingsActions().panel(false); }
 
 function setActiveView(view: string) {
+  if (getApplicationStore().getState().collection.active) getApplicationStore().actions.collection.close();
   getSettingsActions().navigate(view);
   window.dispatchEvent(new CustomEvent("bilibili-music-viewchange", { detail: { view } }));
 }

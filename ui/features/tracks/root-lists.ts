@@ -3,7 +3,7 @@ import type { PlaylistRowModel, TrackRowModel } from "./track-list-model.ts";
 
 type TrackListModel = Readonly<{ kind: "tracks"; rows: readonly TrackRowModel[]; skeleton: boolean }>;
 type PlaylistListModel = Readonly<{ kind: "playlists"; rows: readonly PlaylistRowModel[] }>;
-type TrackListTarget = "home" | "search" | "favorites" | "playlist";
+type TrackListTarget = "home" | "search" | "favorites" | "playlist" | "collection";
 type RootLists = Readonly<Record<TrackListTarget, TrackListModel> & { directories: PlaylistListModel }>;
 let rootLists: RootLists | null = null;
 let listProjection: ((snapshot: ApplicationSnapshot) => void) | null = null;
@@ -12,7 +12,7 @@ let refreshRoot: (() => void) | null = null;
 function readRootLists(): RootLists {
   if (!rootLists) {
     const empty: TrackListModel = { kind: "tracks", rows: [], skeleton: false };
-    rootLists = { home: empty, search: empty, favorites: empty, playlist: empty, directories: { kind: "playlists", rows: [] } };
+    rootLists = { home: empty, search: empty, favorites: empty, playlist: empty, collection: empty, directories: { kind: "playlists", rows: [] } };
   }
   return rootLists;
 }

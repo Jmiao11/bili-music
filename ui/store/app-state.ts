@@ -15,6 +15,7 @@ import type { DeepReadonly, StoreOptions } from "./state-store.ts";
 import { normalizeTrack } from "../shared/track-utils.ts";
 import { createSearchActions, initialSearchState } from "../features/search/search-state.ts";
 import { createLibraryActions, initialLibraryState } from "../features/library/library-state.ts";
+import { createCollectionActions, initialCollectionState } from "../features/collections/collection-state.ts";
 import type { LibraryCommand } from "../features/library/library-state.ts";
 
 type HomeState = {
@@ -43,7 +44,7 @@ type ApplicationStoreOptions = StoreOptions & { playbackRequest?: PlaybackReques
 
 type HomeAdapter = {
   settings?: SettingsPlatform;
-  invoke: <K extends "get_ai_config" | "get_music_ranking" | "get_saved_recommendations" | "get_recommendations" | "search_videos" | "record_search_history" | LibraryCommand | SettingsCommand | "get_video_meta" | "get_cached_video_pages">(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>;
+  invoke: <K extends "get_ai_config" | "get_music_ranking" | "get_saved_recommendations" | "get_recommendations" | "search_videos" | "record_search_history" | LibraryCommand | SettingsCommand | "get_video_meta" | "get_cached_video_pages" | "get_collection_page">(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>;
   setTimeout: (callback: () => void, delay: number) => number;
   clearTimeout: (id: number) => void;
   report: (level: "warn" | "error", message: string, error: unknown) => void;
@@ -54,7 +55,7 @@ function isHomePopular(home: HomeSnapshot): boolean {
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
-  const initial: { lyricsDisplay: ReturnType<typeof initialLyricsDisplayState>; playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState> } = { lyricsDisplay: initialLyricsDisplayState(), playbackMessages: initialPlaybackMessagesState(), home: {
+  const initial: { lyricsDisplay: ReturnType<typeof initialLyricsDisplayState>; playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState>; collection: ReturnType<typeof initialCollectionState> } = { lyricsDisplay: initialLyricsDisplayState(), playbackMessages: initialPlaybackMessagesState(), collection: initialCollectionState(), home: {
     mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
@@ -173,6 +174,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     const playbackSession = createPlaybackSessionActions(() => getState().playbackSession, next => commit({ ...getState(), playbackSession: next }));
     const playbackRequest = createPlaybackRequestActions(() => getState().playbackRequest, next => commit({ ...getState(), playbackRequest: next }));
     const search = createSearchActions(() => getState().search, next => commit({ ...getState(), search: next }), adapter);
+    const collection = createCollectionActions(() => getState().collection, next => commit({ ...getState(), collection: next }), adapter);
     const playbackQueue = createPlaybackQueueActions(() => getState().playbackQueue, next => commit({ ...getState(), playbackQueue: next }));
     const playbackDisplay = createPlaybackDisplayActions(() => getState().playbackDisplay, next => commit({ ...getState(), playbackDisplay: next }));
     const playbackSettings = createPlaybackSettingsActions(() => getState().playbackSettings, next => commit({ ...getState(), playbackSettings: next }));
@@ -190,7 +192,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         ...(disabledResult ? { pages: pagesWithDisabledError(current.pages, disabledResult.bvid, disabledResult.error) } : {}) });
     }, adapter);
     const playbackMessages = createPlaybackMessagesActions(() => getState().playbackMessages, next => commit({ ...getState(), playbackMessages: next }));
-    return { lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    return { lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, collection, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
   }, options);
 }
 

@@ -734,7 +734,7 @@ function playListItem(
     getQueueSnapshot().queueSource === source &&
     getQueueSnapshot().currentIndex === index &&
     String(currentVideo?.bvid ?? "").toLowerCase() === targetBvid &&
-    (source !== "search" || getQueueSnapshot().queueSearchVersion === searchVersion) &&
+    (source !== "search" && source !== "collection" || getQueueSnapshot().queueSearchVersion === searchVersion) &&
     (source !== "playlist" || getQueueSnapshot().playlistId === playlistId);
   if (isCurrentQueueItem) {
     if (audio.paused) {
@@ -765,6 +765,7 @@ function playQueueIndex(
   if (index < 0 || index >= getQueueSnapshot().queue.length) {
     return;
   }
+  getApplicationStore().actions.collection.setPrompt("", null);
   clearPendingResume();
 
   if (!preserveFailureStreak) {
@@ -860,6 +861,7 @@ installPageCallbacks({submit: async event => {
   }
 
   if (isBvId(query)) {
+    getApplicationStore().actions.collection.setPrompt(query, null);
     getSessionActions().setPendingPastedPages(null);
     const pasteVersion = resetSearchForBv();
     await cancelCurrentPlayback();
@@ -869,6 +871,12 @@ installPageCallbacks({submit: async event => {
     }
     playBvId(query);
     recognizeSearchBv(query);
+    const requestVersion = getRequestSnapshot().requestVersion;
+    void invoke("get_video_meta", { bvid: query }).then(meta => {
+      if (getRequestSnapshot().requestVersion === requestVersion && currentPlayableTrack()?.bvid.toLowerCase() === query.toLowerCase()) {
+        getApplicationStore().actions.collection.setPrompt(query, meta.collection);
+      }
+    }).catch(() => {});
     return;
   }
 

@@ -57,6 +57,8 @@ function createShellProjection() {
       view.currentView=settings.session.currentView ?? "";
       if(!["home","search","favorites","playlists"].includes(view.currentView)) view.placeholderTitle=settings.session.placeholderTitle;
     }
+    if (snapshot.collection.active) view.currentView="collection";
+    else if (previous?.collection.active) view.currentView=settings.session.currentView ?? "home";
     previous=snapshot;
     return {...view};
   };

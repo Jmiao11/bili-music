@@ -371,7 +371,7 @@ test("pagination extends the playback queue only when it belongs to this search"
     h.searchState.requestVersion = 3; h.searchState.requestKeyword = "音乐"; h.searchState.userKeyword = "音乐";
     h.searchState.page = 1; h.searchState.hasMore = true; h.context.searchKeyword.value = "音乐";
     h.context.seedQueue({queue:[track("BV0000000001")]}); h.context.seedQueue({currentIndex:0}); h.context.seedQueue({shuffle:true});
-    h.context.seedQueue({queueSearchVersion:sameSearch ? 3 : null});
+    h.context.seedQueue({queueSource:"search",queueSearchVersion:sameSearch ? 3 : null});
     const loading = h.context.loadMoreSearchResults();
     (await h.request("search_videos")).resolve([track("BV0000000001"), track("BV0000000002")]);
     await loading;
@@ -389,7 +389,7 @@ test("appending search results preserves per-track flags and still broadcasts", 
   h.context.seedQueue({currentIndex:0});
   h.context.getSessionActions().setCurrentPages(pages(11));
   h.searchState.results = [...h.playerState.queue];
-  h.context.seedQueue({queueSearchVersion:h.searchState.requestVersion});
+  h.context.seedQueue({queueSource:"search",queueSearchVersion:h.searchState.requestVersion});
   h.context.emitCurrentTrackChanged();
   const pendingCache = Promise.resolve();
   h.context.getSessionActions().setPlayRecorded(true); h.context.getSessionActions().setLoudnessAnalyzed(true); h.context.getSessionActions().setCacheRequested(true); h.context.cacheRequestPromise=pendingCache;

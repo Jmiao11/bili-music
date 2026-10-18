@@ -24,6 +24,7 @@ import PlaybackNotice from "../../features/playback/components/PlaybackNotice.vu
 import type { HomeControls, PageCallbacks } from "../root-controls.ts";
 import type { ApplicationSnapshot } from "../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../../features/playback/root-playback.ts";
+import type { collectionCallbacks } from "../../features/collections/collection-port.ts";
 import ListHost from "../../features/tracks/components/ListHost.vue";
 import type { RootLists } from "../../features/tracks/root-lists.ts";
 import Mascot from "./Mascot.vue";
@@ -31,7 +32,7 @@ import DynamicBackground from "../../features/settings/components/DynamicBackgro
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
-defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;mascot:MascotPresentation; captureMascotStage:(stage:HTMLDivElement|null)=>void; background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; playback: PlaybackControls }>();
+defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;mascot:MascotPresentation; captureMascotStage:(stage:HTMLDivElement|null)=>void; background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
     <DynamicBackground :model="background" />
@@ -137,7 +138,20 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           </div>
         </section>
 
-        <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','playlists'].includes(shell.currentView)">
+        <section v-if="snapshot.collection.active" id="view-collection" class="view library-view is-active" :hidden="shell.currentView !== 'collection'">
+          <header class="list-head">
+            <div>
+              <button type="button" class="secondary-button" @click="collectionCallbacks.close">返回</button>
+              <h1>{{ snapshot.collection.title }}</h1>
+              <p class="search-status" role="status">{{ snapshot.collection.error || (snapshot.collection.loading ? '正在加载…' : snapshot.collection.hasMore ? `已加载 ${snapshot.collection.items.length} 个视频` : '没有更多了') }}</p>
+            </div>
+            <span class="queue-count">{{ snapshot.collection.total }} 个视频</span>
+          </header>
+          <button v-if="snapshot.collection.error" type="button" class="secondary-button" @click="collectionCallbacks.retry">重试</button>
+          <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
+        </section>
+
+        <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','playlists','collection'].includes(shell.currentView)">
           <div class="empty-state">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 5h8v2H8Zm0 4h5v2H8Z" /></svg>
             <h2 id="placeholder-title">{{ shell.placeholderTitle }}</h2>
@@ -148,7 +162,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     </div>
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
-    <PlaybackNotice :messages="snapshot.playbackMessages" />
+    <PlaybackNotice :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
     <PlaybackBar :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
     <Mascot :model="mascot" :on-stage="captureMascotStage" />

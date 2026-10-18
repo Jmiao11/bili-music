@@ -29,7 +29,7 @@ function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (
   const update = (fields: Partial<PlaybackQueueSnapshot>) => commit({ ...read(), ...fields });
   const remaining = (random: () => number) => shuffledQueueIndexes(read().queue.map((_, index) => index).filter(index => index !== read().currentIndex), random);
   function replaceQueue(videos: readonly CommandContract.TrackSnapshotInput[], source = "direct", searchVersion: number | null = null, playlistId: string | null = null): void {
-    update({ queue: videos.map(normalizeTrack), queueSource: source, queueSearchVersion: source === "search" ? searchVersion : null, playlistId: source === "playlist" ? playlistId : null, currentIndex: -1, history: [] });
+    update({ queue: videos.map(normalizeTrack), queueSource: source, queueSearchVersion: source === "search" || source === "collection" ? searchVersion : null, playlistId: source === "playlist" ? playlistId : null, currentIndex: -1, history: [] });
   }
   function restoreSelection(index: number): void { update({ queueSource: "restored", currentIndex: Math.max(0, Math.min(Math.round(Number(index) || 0), read().queue.length - 1)) }); }
   function resetPage(): void { update({ currentPageIndex: 0, currentDisplayTrack: null }); }
@@ -39,8 +39,8 @@ function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (
     update({ randomPageRound: null, currentIndex: index, ...(recordCurrent && previous >= 0 && previous !== index ? { history: [...read().history, { index: previous, cid }] } : {}) });
   }
   function resetRandom(random: () => number): void { update({ randomRemaining: remaining(random) }); }
-  function appendSearchQueue(videos: readonly CommandContract.TrackSnapshotInput[], version: number, random: () => number): boolean {
-    if (read().queueSearchVersion !== version) return false;
+  function appendSearchQueue(videos: readonly CommandContract.TrackSnapshotInput[], version: number, random: () => number, source = "search"): boolean {
+    if (read().queueSource !== source || read().queueSearchVersion !== version) return false;
     const start = read().queue.length, indexes = Array.from({ length: videos.length }, (_, offset) => start + offset).filter(index => index !== read().currentIndex);
     update({ queue: [...read().queue, ...videos.map(normalizeTrack)], ...(read().shuffle && videos.length > 0 ? { randomRemaining: [...read().randomRemaining, ...shuffledQueueIndexes(indexes, random)] } : {}) }); return true;
   }
