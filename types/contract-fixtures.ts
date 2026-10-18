@@ -100,6 +100,7 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   clear_loudness_data: null,
   get_video_pages: [fixtureVideoPage],
   get_video_meta: fixtureVideoMetaSome,
+  get_collection_page: { items: [fixtureSearchVideoSome], total: 1, hasMore: false },
   get_cached_video_pages: { BV1234567890: fixtureCachedVideoPages },
   clear_video_pages_cache: 1,
   cancel_prepare_audio: null,

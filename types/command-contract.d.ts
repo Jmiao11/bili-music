@@ -28,7 +28,9 @@ declare namespace CommandContract {
   interface Lyrics { lrc: string; trans: string; hasLyric: boolean; }
   interface PageMeta { cid: number; page: number; part: string; duration: number; }
   interface CachedVideoPages { videos: number; pages: PageMeta[]; cached_at: number; }
-  interface VideoMeta { title: string; desc: string; duration: number; videos: number; bgm_name: string | null; pages: PageMeta[]; }
+  interface CollectionSummary { id: number; title: string; total: number; }
+  interface CollectionPage { items: SearchVideo[]; total: number; hasMore: boolean; }
+  interface VideoMeta { title: string; desc: string; duration: number; videos: number; bgm_name: string | null; pages: PageMeta[]; collection: CollectionSummary | null; }
   interface LyricsBinding { song_id: string; song_name: string; singer: string; source: string; confidence: number; checked_at: number; }
   interface ResolveOutcome { status: string; song_id: string; song_name: string; singer: string; lyrics: Lyrics | null; offset_ms: number; used_keyword: string; candidates: ScoredCandidate[]; }
   interface Candidate { song_id: string; name: string; singer: string; duration: number; }
@@ -54,6 +56,7 @@ interface CommandMap {
   clear_loudness_data: { args: undefined; result: null };
   get_video_pages: { args: { bvId: string }; result: CommandContract.VideoPage[] };
   get_video_meta: { args: { bvid: string }; result: CommandContract.VideoMeta };
+  get_collection_page: { args: { bvid: string; collectionId: number; page: number }; result: CommandContract.CollectionPage };
   get_cached_video_pages: { args: { bvids: string[] }; result: Record<string, CommandContract.CachedVideoPages> };
   clear_video_pages_cache: { args: undefined; result: number };
   cancel_prepare_audio: { args: undefined; result: null };

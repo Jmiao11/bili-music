@@ -16,6 +16,8 @@ pub(super) struct AppState {
     pub(crate) favorite_import: fav_import::FavoriteImportClient,
     pub(crate) ranking_cache: Arc<RwLock<Option<Vec<RankingTrack>>>>,
     pub(crate) guest: Arc<GuestPlayurlClient>,
+    pub(crate) collection_cache:
+        Arc<RwLock<Option<(i64, String, Vec<crate::search::SearchVideo>)>>>,
     pub(crate) resolver: Arc<ResolveCoordinator>,
     pub(crate) stream_source: Arc<RwLock<StreamSource>>,
 }

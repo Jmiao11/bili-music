@@ -27,7 +27,7 @@ struct CachedWbiKey {
     fetched_at: Instant,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchVideo {
     pub bvid: String,

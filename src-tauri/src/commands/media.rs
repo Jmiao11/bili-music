@@ -15,7 +15,10 @@ pub(crate) async fn get_video_meta(
     bvid: String,
 ) -> Result<lyrics::VideoMeta, String> {
     let cookie_header = state.guest.guest_cookie_header().await?;
-    let meta = lyrics::fetch_video_meta(&bvid, &cookie_header).await?;
+    let meta =
+        lyrics::fetch_video_meta_with_client(state.guest.http_client(), &bvid, &cookie_header)
+            .await
+            .map_err(|error| crate::ai::safe_error(&error, &cookie_header))?;
     if meta.videos >= 1 {
         let videos = meta.videos;
         let pages = meta.pages.clone();
@@ -26,6 +29,38 @@ pub(crate) async fn get_video_meta(
         });
     }
     Ok(meta)
+}
+
+#[tauri::command]
+pub(crate) async fn get_collection_page(
+    state: tauri::State<'_, AppState>,
+    bvid: String,
+    collection_id: i64,
+    page: u32,
+) -> Result<lyrics::CollectionPage, String> {
+    if page == 0 {
+        return Err("合集页码必须大于 0".to_owned());
+    }
+    {
+        let cache = state.collection_cache.read().await;
+        if let Some((id, origin, items)) = cache.as_ref() {
+            if *id == collection_id && origin == &bvid {
+                return lyrics::collection_page(items, page);
+            }
+        }
+    }
+    let cookie_header = state.guest.guest_cookie_header().await?;
+    let (_, items) = lyrics::fetch_collection(
+        state.guest.http_client(),
+        &bvid,
+        collection_id,
+        &cookie_header,
+    )
+    .await
+    .map_err(|error| crate::ai::safe_error(&error, &cookie_header))?;
+    let result = lyrics::collection_page(&items, page)?;
+    *state.collection_cache.write().await = Some((collection_id, bvid, items));
+    Ok(result)
 }
 
 #[tauri::command]

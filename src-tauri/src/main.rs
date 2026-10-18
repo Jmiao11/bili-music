@@ -95,6 +95,7 @@ fn main() {
             favorite_import,
             ranking_cache: Arc::new(RwLock::new(None)),
             guest,
+            collection_cache: Arc::new(RwLock::new(None)),
             resolver: Arc::new(ResolveCoordinator::default()),
             stream_source: Arc::new(RwLock::new(StreamSource::Guest)),
         })
@@ -133,6 +134,7 @@ fn main() {
             library::loudness_store::clear_loudness_data,
             commands::media::get_video_pages,
             commands::media::get_video_meta,
+            commands::media::get_collection_page,
             lyrics::get_cached_video_pages,
             lyrics::clear_video_pages_cache,
             resolve::cancel_prepare_audio,

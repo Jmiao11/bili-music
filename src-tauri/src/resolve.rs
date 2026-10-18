@@ -621,6 +621,7 @@ mod prepare_tests {
             favorite_import: FavoriteImportClient::new(guest.clone()).unwrap(),
             ranking_cache: Arc::new(RwLock::new(None)),
             guest,
+            collection_cache: Arc::new(RwLock::new(None)),
             resolver: Arc::new(ResolveCoordinator::default()),
             stream_source: Arc::new(RwLock::new(source)),
         })

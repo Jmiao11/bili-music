@@ -179,6 +179,11 @@ mod tests {
                     videos: 1,
                     bgm_name: some.then(|| "音乐".into()),
                     pages: vec![page_meta()],
+                    collection: some.then(|| crate::lyrics::CollectionSummary {
+                        id: 42,
+                        title: "合集".into(),
+                        total: 2,
+                    }),
                 },
             );
             assert_fixture(

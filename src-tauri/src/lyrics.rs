@@ -110,6 +110,23 @@ pub struct VideoMeta {
     pub videos: i64,
     pub bgm_name: Option<String>,
     pub pages: Vec<PageMeta>,
+    pub collection: Option<CollectionSummary>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionSummary {
+    pub id: i64,
+    pub title: String,
+    pub total: usize,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionPage {
+    pub items: Vec<crate::search::SearchVideo>,
+    pub total: usize,
+    pub has_more: bool,
 }
 
 pub struct MatchOutcome {
@@ -210,6 +227,49 @@ struct ViewDetail {
     videos: Option<i64>,
     #[serde(default)]
     pages: Option<Vec<ViewPage>>,
+    #[serde(default)]
+    ugc_season: Option<ViewSeason>,
+    #[serde(default)]
+    owner: Option<ViewOwner>,
+}
+
+#[derive(Deserialize)]
+struct ViewOwner {
+    name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ViewSeason {
+    id: i64,
+    title: String,
+    ep_count: usize,
+    #[serde(default)]
+    sections: Vec<ViewSection>,
+}
+
+#[derive(Deserialize)]
+struct ViewSection {
+    episodes: Vec<ViewEpisode>,
+}
+
+#[derive(Deserialize)]
+struct ViewEpisode {
+    bvid: String,
+    title: String,
+    arc: ViewEpisodeArc,
+}
+
+#[derive(Deserialize)]
+struct ViewEpisodeArc {
+    pic: Option<String>,
+    duration: Option<u64>,
+    pubdate: Option<u64>,
+    stat: Option<ViewEpisodeStat>,
+}
+
+#[derive(Deserialize)]
+struct ViewEpisodeStat {
+    view: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -396,59 +456,157 @@ pub async fn fetch_video_meta(bvid: &str, cookie_header: &str) -> Result<VideoMe
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(8))
         .build()
-        .map_err(|error| format!("无法创建视频元数据请求客户端：{error}"))?;
+        .map_err(|_| "无法创建视频详情请求客户端".to_owned())?;
+    fetch_video_meta_with_client(&client, bvid, cookie_header).await
+}
+
+pub async fn fetch_video_meta_with_client(
+    client: &reqwest::Client,
+    bvid: &str,
+    cookie_header: &str,
+) -> Result<VideoMeta, String> {
+    video_meta_from_response(fetch_view_detail(client, bvid, cookie_header).await?)
+}
+
+pub async fn fetch_collection(
+    client: &reqwest::Client,
+    bvid: &str,
+    id: i64,
+    cookie_header: &str,
+) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>), String> {
+    let response = fetch_view_detail(client, bvid, cookie_header).await?;
+    collection_from_response(response, id)
+}
+
+fn collection_from_response(
+    response: ViewDetailResponse,
+    id: i64,
+) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>), String> {
+    let view = response
+        .data
+        .and_then(|data| data.view)
+        .ok_or("视频详情缺少 View")?;
+    let season = view.ugc_season.ok_or("该视频没有合集")?;
+    if season.id != id {
+        return Err("合集已变化，请重新展开".to_owned());
+    }
+    let summary = season.summary();
+    if summary.total
+        != season
+            .sections
+            .iter()
+            .map(|section| section.episodes.len())
+            .sum::<usize>()
+    {
+        return Err("合集详情未返回完整列表，请稍后重试".to_owned());
+    }
+    let uploader = view.owner.and_then(|owner| owner.name).unwrap_or_default();
+    let items: Result<Vec<_>, String> = season
+        .sections
+        .into_iter()
+        .flat_map(|section| section.episodes)
+        .map(|episode| {
+            if !episode.bvid.starts_with("BV") || episode.bvid.len() != 12 {
+                return Err("合集详情包含无效的 BV 号".to_owned());
+            }
+            Ok(crate::search::SearchVideo {
+                bvid: episode.bvid,
+                title: episode.title,
+                uploader: uploader.clone(),
+                thumbnail_url: episode.arc.pic.unwrap_or_default(),
+                duration_seconds: episode.arc.duration.unwrap_or_default(),
+                play_count: episode.arc.stat.and_then(|stat| stat.view),
+                pubdate: episode.arc.pubdate,
+            })
+        })
+        .collect();
+    Ok((summary, items?))
+}
+
+pub fn collection_page(
+    items: &[crate::search::SearchVideo],
+    page: u32,
+) -> Result<CollectionPage, String> {
+    if page == 0 {
+        return Err("合集页码必须大于 0".to_owned());
+    }
+    let start = (page as usize - 1).saturating_mul(20);
+    let end = start.saturating_add(20).min(items.len());
+    Ok(CollectionPage {
+        items: items.get(start..end).unwrap_or(&[]).to_vec(),
+        total: items.len(),
+        has_more: end < items.len(),
+    })
+}
+
+async fn fetch_view_detail(
+    client: &reqwest::Client,
+    bvid: &str,
+    cookie_header: &str,
+) -> Result<ViewDetailResponse, String> {
+    if bvid.len() != 12
+        || !bvid.starts_with("BV")
+        || !bvid[2..].bytes().all(|byte| byte.is_ascii_alphanumeric())
+    {
+        return Err("无效的 BV 号".to_owned());
+    }
     let url = format!(
         "{VIEW_DETAIL_URL}?bvid={}",
         utf8_percent_encode(bvid, NON_ALPHANUMERIC)
     );
+    fetch_view_detail_url(client, &url, cookie_header).await
+}
 
-    let response = {
-        let mut retried = false;
-        loop {
-            match client
-                .get(&url)
-                .header(
-                    reqwest::header::USER_AGENT,
-                    bilibili_music_core::DESKTOP_USER_AGENT,
-                )
-                .header(
-                    reqwest::header::REFERER,
-                    bilibili_music_core::BILIBILI_REFERER,
-                )
-                .header(reqwest::header::COOKIE, cookie_header)
-                .send()
-                .await
+async fn fetch_view_detail_url(
+    client: &reqwest::Client,
+    url: &str,
+    cookie_header: &str,
+) -> Result<ViewDetailResponse, String> {
+    let mut retried = false;
+    let response = loop {
+        match client
+            .get(url)
+            .header(
+                reqwest::header::USER_AGENT,
+                bilibili_music_core::DESKTOP_USER_AGENT,
+            )
+            .header(
+                reqwest::header::REFERER,
+                bilibili_music_core::BILIBILI_REFERER,
+            )
+            .header(reqwest::header::COOKIE, cookie_header)
+            .send()
+            .await
+        {
+            Ok(response) => break response,
+            Err(error)
+                if !retried && (error.is_timeout() || error.is_connect() || error.is_request()) =>
             {
-                Ok(response) if response.status().is_success() => {
-                    match response.json::<ViewDetailResponse>().await {
-                        Ok(response) => break response,
-                        Err(error)
-                            if !retried
-                                && (error.is_timeout()
-                                    || error.is_connect()
-                                    || error.is_body()) =>
-                        {
-                            retried = true;
-                        }
-                        Err(error) => {
-                            return Err(format!("视频元数据响应解析失败：{error}"));
-                        }
-                    }
-                }
-                Ok(response) => {
-                    return Err(format!("视频元数据请求失败：HTTP {}", response.status()));
-                }
-                Err(error)
-                    if !retried
-                        && (error.is_timeout() || error.is_connect() || error.is_request()) =>
-                {
-                    retried = true;
-                }
-                Err(error) => return Err(format!("视频元数据请求失败：{error}")),
+                retried = true
             }
+            Err(_) => return Err("视频详情请求失败，请检查网络后重试".to_owned()),
         }
     };
-    video_meta_from_response(response)
+    if response.status().as_u16() == 412 {
+        return Err("B站拒绝了视频详情请求（HTTP 412），请稍后再试".to_owned());
+    }
+    if !response.status().is_success() {
+        return Err(format!("视频详情请求失败：HTTP {}", response.status()));
+    }
+    let envelope = response
+        .json::<ViewDetailResponse>()
+        .await
+        .map_err(|_| "视频详情响应无法解析".to_owned())?;
+    if envelope.code == Some(-412) {
+        return Err("B站拒绝了视频详情请求（code -412），请稍后再试".to_owned());
+    }
+    if envelope.code != Some(0) {
+        return Err(format!(
+            "B站视频详情接口返回错误（code {}）",
+            envelope.code.unwrap_or(-1)
+        ));
+    }
+    Ok(envelope)
 }
 
 #[tauri::command]
@@ -551,6 +709,11 @@ fn video_meta_from_response(response: ViewDetailResponse) -> Result<VideoMeta, S
                 .filter(|name| !name.is_empty())
                 .map(str::to_owned)
         });
+    let collection = view
+        .ugc_season
+        .as_ref()
+        .map(ViewSeason::summary)
+        .filter(|season| season.total > 1);
     let pages = view
         .pages
         .unwrap_or_default()
@@ -570,7 +733,18 @@ fn video_meta_from_response(response: ViewDetailResponse) -> Result<VideoMeta, S
         videos: view.videos.unwrap_or_default(),
         bgm_name,
         pages,
+        collection,
     })
+}
+
+impl ViewSeason {
+    fn summary(&self) -> CollectionSummary {
+        CollectionSummary {
+            id: self.id,
+            title: self.title.clone(),
+            total: self.ep_count,
+        }
+    }
 }
 
 async fn search_songs(keyword: &str) -> Result<Vec<Candidate>, String> {
@@ -1125,6 +1299,80 @@ mod tests {
         )
         .unwrap();
         assert!(video_meta_from_response(no_bgm).unwrap().bgm_name.is_none());
+    }
+
+    #[test]
+    fn collection_summary_and_in_memory_page_use_sanitized_detail() {
+        let response: ViewDetailResponse = serde_json::from_value(serde_json::json!({
+            "code": 0,
+            "data": { "View": { "title": "普通视频", "videos": 1, "owner": { "name": "作者" },
+                "ugc_season": { "id": 42, "title": "合集", "ep_count": 2, "sections": [
+                    { "episodes": [
+                        { "bvid": "BV0000000001", "title": "第一首", "arc": { "pic": "https://example.invalid/1", "duration": 60, "pubdate": 123, "stat": { "view": 7 } } },
+                        { "bvid": "BV0000000002", "title": "第二首", "arc": { "pic": "https://example.invalid/2", "duration": 90 } }
+                    ] }
+                ] }
+            } }
+        })).unwrap();
+        let summary = video_meta_from_response(serde_json::from_value(serde_json::json!({
+            "code": 0, "data": { "View": { "ugc_season": { "id": 42, "title": "合集", "ep_count": 2, "sections": [] } } }
+        })).unwrap()).unwrap().collection.unwrap();
+        assert_eq!(
+            (summary.id, summary.title.as_str(), summary.total),
+            (42, "合集", 2)
+        );
+        let (_, items) = collection_from_response(response, 42).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].uploader, "作者");
+        assert_eq!(items[0].play_count, Some(7));
+        assert_eq!(items[1].duration_seconds, 90);
+        let page = collection_page(&items, 1).unwrap();
+        assert_eq!(page.items.len(), 2);
+        assert!(!page.has_more);
+        assert!(collection_page(&items, 0).is_err());
+        assert!(collection_page(&items, 2).unwrap().items.is_empty());
+    }
+
+    #[test]
+    fn incomplete_collection_is_rejected_without_fetching_more() {
+        let response: ViewDetailResponse = serde_json::from_value(serde_json::json!({
+            "code": 0, "data": { "View": { "ugc_season": { "id": 42, "title": "合集", "ep_count": 2, "sections": [{ "episodes": [] }] } } }
+        })).unwrap();
+        assert!(collection_from_response(response, 42)
+            .err()
+            .unwrap()
+            .contains("未返回完整列表"));
+    }
+
+    #[tokio::test]
+    async fn detail_rate_limit_is_not_retried() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/detail", listener.local_addr().unwrap());
+        let requests = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&requests);
+        let server = tokio::spawn(async move {
+            while let Ok(Ok((mut stream, _))) =
+                tokio::time::timeout(Duration::from_millis(300), listener.accept()).await
+            {
+                counted.fetch_add(1, Ordering::SeqCst);
+                let mut buffer = [0; 512];
+                let _ = stream.read(&mut buffer).await;
+                stream.write_all(b"HTTP/1.1 412 Precondition Failed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
+            }
+        });
+        let client = reqwest::Client::new();
+        assert!(fetch_view_detail_url(&client, &url, "")
+            .await
+            .err()
+            .unwrap()
+            .contains("HTTP 412"));
+        server.await.unwrap();
+        assert_eq!(requests.load(Ordering::SeqCst), 1);
     }
 
     #[test]
