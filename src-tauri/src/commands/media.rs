@@ -10,15 +10,8 @@ pub(crate) async fn get_video_pages(
 }
 
 #[tauri::command]
-pub(crate) async fn get_video_meta(
-    state: tauri::State<'_, AppState>,
-    bvid: String,
-) -> Result<lyrics::VideoMeta, String> {
-    let cookie_header = state.guest.guest_cookie_header().await?;
-    let meta =
-        lyrics::fetch_video_meta_with_client(state.guest.http_client(), &bvid, &cookie_header)
-            .await
-            .map_err(|error| crate::ai::safe_error(&error, &cookie_header))?;
+pub(crate) async fn get_video_meta(bvid: String) -> Result<lyrics::VideoMeta, String> {
+    let meta = lyrics::fetch_video_meta(&bvid).await?;
     if meta.videos >= 1 {
         let videos = meta.videos;
         let pages = meta.pages.clone();
@@ -49,15 +42,9 @@ pub(crate) async fn get_collection_page(
             }
         }
     }
-    let cookie_header = state.guest.guest_cookie_header().await?;
-    let (_, items) = lyrics::fetch_collection(
-        state.guest.http_client(),
-        &bvid,
-        collection_id,
-        &cookie_header,
-    )
-    .await
-    .map_err(|error| crate::ai::safe_error(&error, &cookie_header))?;
+    let (_, items) = lyrics::fetch_collection(&bvid, collection_id)
+        .await
+        .map_err(|error| crate::ai::safe_error(&error, ""))?;
     let result = lyrics::collection_page(&items, page)?;
     *state.collection_cache.write().await = Some((collection_id, bvid, items));
     Ok(result)
@@ -65,11 +52,9 @@ pub(crate) async fn get_collection_page(
 
 #[tauri::command]
 pub(crate) async fn resolve_lyrics(
-    state: tauri::State<'_, AppState>,
     bvid: String,
     cid: i64,
     force: Option<bool>,
 ) -> Result<lyrics::ResolveOutcome, String> {
-    let cookie_header = state.guest.guest_cookie_header().await?;
-    lyrics::resolve_lyrics(&bvid, cid, force.unwrap_or(false), &cookie_header).await
+    lyrics::resolve_lyrics(&bvid, cid, force.unwrap_or(false)).await
 }

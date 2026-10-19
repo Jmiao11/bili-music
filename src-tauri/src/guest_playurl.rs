@@ -64,9 +64,6 @@ struct CachedWbiKey {
 }
 
 impl GuestPlayurlClient {
-    pub(crate) fn http_client(&self) -> &reqwest::Client {
-        &self.client
-    }
     pub fn new() -> Result<Self, String> {
         Ok(Self {
             client: build_client()?,
