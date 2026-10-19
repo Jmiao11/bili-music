@@ -174,7 +174,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     const playbackSession = createPlaybackSessionActions(() => getState().playbackSession, next => commit({ ...getState(), playbackSession: next }));
     const playbackRequest = createPlaybackRequestActions(() => getState().playbackRequest, next => commit({ ...getState(), playbackRequest: next }));
     const search = createSearchActions(() => getState().search, next => commit({ ...getState(), search: next }), adapter);
-    const collection = createCollectionActions(() => getState().collection, next => commit({ ...getState(), collection: next }), adapter);
+    const collection = createCollectionActions(() => getState().collection, next => commit({ ...getState(), collection: next }), adapter, (reference, snapshot) => library.refreshCollectionEntry(reference, snapshot));
     const playbackQueue = createPlaybackQueueActions(() => getState().playbackQueue, next => commit({ ...getState(), playbackQueue: next }));
     const playbackDisplay = createPlaybackDisplayActions(() => getState().playbackDisplay, next => commit({ ...getState(), playbackDisplay: next }));
     const playbackSettings = createPlaybackSettingsActions(() => getState().playbackSettings, next => commit({ ...getState(), playbackSettings: next }));

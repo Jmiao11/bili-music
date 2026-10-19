@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import type { LibrarySnapshot } from "../library-state.ts";
 import { displayThumbnailUrl } from "../../../shared/track-utils.ts";
+import { libraryVideos } from "../library-entry.ts";
 
 const props = defineProps<{
   kind: Exclude<LibrarySnapshot["session"]["kind"], "generic">;
@@ -40,12 +41,14 @@ function submit() {
   else if (props.kind === "favoriteImport") props.onSubmitImport(linkInput.value?.value ?? "", name);
   else (props.kind === "delete" ? props.onSubmitDelete : props.onSubmitPurge)();
 }
-const choices = props.playlists.map(playlist => ({ id: playlist.id, name: playlist.name, count: playlist.items.length, alreadyIn: playlist.items.some(item => String(item?.bvid ?? "").toLowerCase() === props.data.track?.bvid.toLowerCase()) }));
+const choices = props.playlists.map(playlist => ({ id: playlist.id, name: playlist.name, count: playlist.items.length,
+  alreadyIn: props.data.collectionChoose ? !props.data.collectionChoose.split && playlist.items.some(entry => entry.kind === "collection" && entry.collectionId === props.data.collectionChoose?.collection.collectionId)
+    : libraryVideos(playlist.items).some(item => item.bvid.toLowerCase() === props.data.track?.bvid.toLowerCase()) }));
 const nameLabel = props.data.mode === "rename" ? "保存" : props.data.track ? "新建并加入" : "创建";
 const rows = (() => {
-  const snapshots = new Map<string, LibrarySnapshot["favorites"][number]>();
-  for (const track of props.favorites) snapshots.set(track.bvid.toLowerCase(), track);
-  for (const playlist of props.playlists) for (const track of playlist.items ?? []) {
+  const snapshots = new Map<string, ReturnType<typeof libraryVideos>[number]>();
+  for (const track of libraryVideos(props.favorites)) snapshots.set(track.bvid.toLowerCase(), track);
+  for (const playlist of props.playlists) for (const track of libraryVideos(playlist.items ?? [])) {
     const key = track.bvid.toLowerCase();
     if (!snapshots.has(key)) snapshots.set(key, track);
   }

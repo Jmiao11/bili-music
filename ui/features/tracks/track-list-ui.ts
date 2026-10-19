@@ -7,7 +7,7 @@ import type { SearchSnapshot } from "../search/search-state.ts";
 import { homeRankingList } from "../../platform/main-window-refs.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
 import { getHomeSnapshot } from "../home/home.ts";
-import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite } from "../library/library-ui.ts";
+import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite, toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist } from "../library/library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "../pages/video-pages.ts";
 import { playListItem, playSearchResult } from "../playback/playback-core.ts";
 import { playCollectionItem } from "../collections/collection-controller.ts";
@@ -15,8 +15,8 @@ import { playCollectionItem } from "../collections/collection-controller.ts";
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
 type Play = (index: number, selection?: PageSelection) => void;
-type RowSession = { model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
-type Projection = { library?: { playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
+type RowSession = { entry: Snapshot["library"]["favorites"][number] | undefined; model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
+type Projection = { library?: { entries: Snapshot["library"]["favorites"]; playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
 let homeProjection: Projection | null = null;
 let searchProjection: Projection | null = null;
 let collectionProjection: Projection | null = null;
@@ -31,23 +31,28 @@ function createProjection(state: Snapshot, source: string, play: Play): Projecti
 }
 function projectRows(target: TrackListTarget, projection: Projection, state: Snapshot, search: boolean): void {
   const queue = state.playbackQueue;
-  const activeIndex = projection.source === "collection"
+  const queueIndex = projection.source === "collection"
     ? queue.queueSource === "collection" && queue.queueSearchVersion === state.collection.requestVersion ? queue.currentIndex : -1
     : search
     ? queue.queueSearchVersion === state.search.requestVersion ? queue.currentIndex : -1
     : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
     : queue.queueSource === (state.home.mode === "recommendation" ? "recommendation" : "ranking") ? queue.currentIndex : -1;
-  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual];
+  const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
+  const activeIndex = projection.library ? projection.library.entries.findIndex(entry => entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
+  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, state.library.favorites, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual];
   if (inputs.length === projection.inputs.length && inputs.every((value, index) => Object.is(value, projection.inputs[index]))) return;
   projection.inputs = inputs;
   const duplicates = new Map<string, number>();
   const rows: TrackRowModel[] = projection.videos.map((video, index) => {
-    const duplicate = duplicates.get(video.bvid) ?? 0; duplicates.set(video.bvid, duplicate + 1);
-    const key = `${projection.library ? projection.source === "playlist" ? projection.library.playlistId : "favorites" : projection.generation}:${video.bvid}:${duplicate}`;
+    const entry = projection.library?.entries[index];
+    const identity = entry?.entryId ?? video.bvid;
+    const duplicate = duplicates.get(identity) ?? 0; duplicates.set(identity, duplicate + 1);
+    const collection = entry?.kind === "collection" ? entry : undefined;
+    const key = entry ? `${projection.library?.playlistId || "favorites"}:${entry.entryId}:${duplicate}` : `${projection.generation}:${video.bvid}:${duplicate}`;
     let session = projection.sessions.get(key);
     if (!session) {
-      const current: RowSession = { model: null, index, playlistId: "", drag: null, item: null, button: null,badge:null, activation: null, video, play: selection => projection.play(current.index, selection), callbacks: {
+      const current: RowSession = { model: null, index, playlistId: "", drag: null, item: null, button: null,badge:null, activation: null, entry, video, play: selection => projection.play(current.index, selection), callbacks: {
         onBadgeNode(node) {current.badge=node;},
         onNodes(item, button) {
           if (!item || !button) {
@@ -56,15 +61,16 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
           }
           if (current.item === item) return;
           current.item = item; current.button = button;
+          if (current.entry?.kind === "collection") return;
           current.activation = createTrackActivationSession(item, button, current.video, current.play);
           observeTrackRow(item, current.video.bvid);
         },
-        onClick: event => current.activation?.handleClick(event),
-        onDoubleClick: event => current.activation?.doubleClick(event),
-        onBadge() { const trigger = current.button?.parentElement?.querySelector<HTMLButtonElement>(".page-count-badge"); if (trigger) current.activation?.badge(trigger); },
-        onFavorite: () => { void toggleFavorite(current.video); },
-        onAdd: () => choosePlaylistAndAdd(current.video),
-        onRemove: () => { void removeTrackFromPlaylist(current.playlistId, current.video.bvid); },
+        onClick: event => current.entry?.kind === "collection" ? current.play() : current.activation?.handleClick(event),
+        onDoubleClick: event => current.entry?.kind === "collection" ? current.play() : current.activation?.doubleClick(event),
+        onBadge() { if (current.entry?.kind === "collection") { current.play(); return; } const trigger = current.button?.parentElement?.querySelector<HTMLButtonElement>(".page-count-badge"); if (trigger) current.activation?.badge(trigger); },
+        onFavorite: () => { void (current.entry?.kind === "collection" ? toggleFavoriteCollection(current.entry) : toggleFavorite(current.video)); },
+        onAdd: () => current.entry?.kind === "collection" ? choosePlaylistAndAddCollection(current.entry) : choosePlaylistAndAdd(current.video),
+        onRemove: () => { void (current.entry?.kind === "collection" ? removeCollectionFromPlaylist(current.playlistId, current.entry.entryId) : removeTrackFromPlaylist(current.playlistId, current.video.bvid)); },
         onCapture: event => current.drag?.capture(event),
         onDragStart: event => current.drag?.start(event, current.index, key),
         onDragOver: event => current.drag?.over(event, current.index, key),
@@ -74,19 +80,19 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
       } };
       session = current; projection.sessions.set(key, session);
     }
-    session.video = video; session.index = index; session.playlistId = projection.library?.playlistId ?? ""; session.drag = projection.library?.handlers ?? null;
+    session.entry = entry; session.video = video; session.index = index; session.playlistId = projection.library?.playlistId ?? ""; session.drag = projection.library?.handlers ?? null;
     session.activation?.update(video, session.play);
     const visual = projection.library?.visual;
     const dragClass = visual?.sourceKey === key ? "is-dragging" : visual?.targetKey === key ? "is-drop-" + visual.direction : "";
-    const active = index === activeIndex, pageCount = state.pages.videoPageCounts.get(video.bvid) ?? 0;
-    const favorited = state.library.favoriteBvids.has(video.bvid.toLowerCase());
-    const unavailableReason = search ? "" : projection.unavailable.get(video.bvid.toLowerCase()) ?? "";
+    const active = index === activeIndex, pageCount = collection ? 0 : state.pages.videoPageCounts.get(video.bvid) ?? 0;
+    const favorited = collection ? state.library.favorites.some(entry => entry.kind === "collection" && entry.collectionId === collection.collectionId) : state.library.favoriteBvids.has(video.bvid.toLowerCase());
+    const unavailableReason = collection ? collection.sourceStatus === "invalid" ? "合集来源已失效" : "" : search ? "" : projection.unavailable.get(video.bvid.toLowerCase()) ?? "";
     const playPagesVersion=pagesTriggerVersion(session.button),badgePagesVersion=pagesTriggerVersion(session.badge),pageCountBvid=observedPagesBvid(session.item);
     const previous = session.model;
     const rowVideo = video as TrackRowModel["video"];
     const sameVideo = previous && (previous.video === video || previous.video.bvid === video.bvid && previous.video.title === video.title && previous.video.uploader === video.uploader && previous.video.thumbnailUrl === video.thumbnailUrl && previous.video.durationSeconds === video.durationSeconds && previous.video.playCount === rowVideo.playCount && previous.video.pubdate === rowVideo.pubdate);
-    if (previous && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
-    return session.model = { key, index, search, video, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active,
+    if (previous && previous.collection === collection && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
+    return session.model = { key, index, search, video, collection, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active,
       playCountText: formatPlayCount((video as Readonly<CommandContract.TrackSnapshotInput & { playCount?: number | null }>).playCount),
       pubdateText: formatPubdate((video as Readonly<CommandContract.TrackSnapshotInput & { pubdate?: number | null }>).pubdate),
       pageCount,playPagesVersion,badgePagesVersion,pageCountBvid,
@@ -113,9 +119,10 @@ function renderSearchRows(state: Snapshot, search: SearchSnapshot, play: Play): 
   projectRows("search", searchProjection, state, true);
 }
 function refreshSearchRows(state: Snapshot): void { if (searchProjection) projectRows("search", searchProjection, state, true); }
-function renderLibraryTrackRows(_host: HTMLElement, state: Snapshot, videos: Videos, source: "favorites" | "playlist", playlistId: string, unavailable: Snapshot["library"]["unavailableBvids"], visual: LibraryDragVisual | null, handlers: LibraryDragHandlers, play: Play): void {
+function renderLibraryTrackRows(_host: HTMLElement, state: Snapshot, videos: Snapshot["library"]["favorites"], source: "favorites" | "playlist", playlistId: string, unavailable: Snapshot["library"]["unavailableBvids"], visual: LibraryDragVisual | null, handlers: LibraryDragHandlers, play: Play): void {
   const projection = source === "favorites" ? favoritesProjection ??= createProjection(state, source, play) : playlistProjection ??= createProjection(state, source, play);
-  projection.videos = videos; projection.unavailable = unavailable; projection.play = play; projection.library = { playlistId, visual, handlers };
+  if (projection.library?.entries !== videos) projection.videos = videos.map(entry => entry.kind === "video" ? entry.video : { ...entry.snapshot.items[0], title: entry.title, thumbnailUrl: entry.thumbnailUrl, durationSeconds: 0 });
+  projection.unavailable = unavailable; projection.play = play; projection.library = { entries: videos, playlistId, visual, handlers };
   projectRows(source === "favorites" ? "favorites" : "playlist", projection, state, false);
 }
 function projectApplicationLists(state: Snapshot): void {

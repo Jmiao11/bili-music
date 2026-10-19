@@ -1,17 +1,21 @@
 import type { DeepReadonly } from "../../store/state-store.ts";
-import { normalizeTrack, snapshotForLibrary } from "../../shared/track-utils.ts";
+import { snapshotForLibrary } from "../../shared/track-utils.ts";
+import { normalizeLibraryEntry, libraryVideos, libraryVideoBvids, sameCollection, collectionInput } from "./library-entry.ts";
 
-type LibraryCommand = "list_favorites" | "list_playlists" | "list_unavailable_tracks" | "list_disabled_pages" | "toggle_favorite" | "create_playlist" | "rename_playlist" | "delete_playlist" | "add_to_playlist" | "remove_from_playlist" | "reorder_favorite" | "reorder_playlist_item" | "reorder_playlist" | "read_public_favorite_page" | "create_imported_playlist" | "purge_unavailable_tracks" | "set_page_disabled" | "clear_disabled_pages";
+type VideoLibraryCommand = "list_favorites" | "list_playlists" | "list_unavailable_tracks" | "list_disabled_pages" | "toggle_favorite" | "create_playlist" | "rename_playlist" | "delete_playlist" | "add_to_playlist" | "remove_from_playlist" | "reorder_favorite" | "reorder_playlist_item" | "reorder_playlist" | "read_public_favorite_page" | "create_imported_playlist" | "purge_unavailable_tracks" | "set_page_disabled" | "clear_disabled_pages";
+type LibraryCommand = VideoLibraryCommand | "toggle_collection_favorite" | "add_collection_to_playlist" | "add_collection_videos_to_playlist" | "update_collection_entry" | "remove_collection_entry";
+
 type LibraryAdapter = { invoke: <K extends LibraryCommand>(command: K, ...args: CommandArguments<K>) => Promise<CommandMap[K]["result"]>; report: (level: "warn" | "error", message: string, error: unknown) => void };
 type ModalKind = "generic" | "name" | "delete" | "choose" | "favoriteImport" | "purge" | "loudness";
+type CollectionChoose = { collection: DeepReadonly<CommandContract.LibraryCollection>; split: boolean };
 type LibraryDragKind = "favorites" | "playlistItems" | "playlists";
 type LibraryDragState = { drag: { index: number; playlistId?: string } | null; saving: boolean; suppressClickUntil: number };
 type LibraryState = {
   disabledPages: Map<string, Set<number>>; disabledPagePending: Map<string, number | null>;
   drags: Record<LibraryDragKind, LibraryDragState>;
-  favorites: CommandContract.TrackSnapshot[]; favoriteBvids: Set<string>; playlists: CommandContract.Playlist[]; selectedPlaylistId: string; unavailableBvids: Map<string, string>; loadError: string;
+  favorites: CommandContract.LibraryEntry[]; favoriteBvids: Set<string>; playlists: CommandContract.Playlist[]; selectedPlaylistId: string; unavailableBvids: Map<string, string>; loadError: string;
   session: { kind: ModalKind; open: boolean; title: string; subtitle: string; version: number; busy: boolean; status: string;
-    data: { mode?: string; playlist?: CommandContract.Playlist | null; track?: CommandContract.TrackSnapshotInput | null; unavailable?: CommandMap["list_unavailable_tracks"]["result"]; firstPage?: CommandMap["read_public_favorite_page"]["result"] | null; name?: string; link?: string; nameVisible?: boolean; linkDisabled?: boolean; focusName?: number; primaryLabel?: string } };
+    data: { collectionChoose?: CollectionChoose; mode?: string; playlist?: CommandContract.Playlist | null; track?: CommandContract.TrackSnapshotInput | null; unavailable?: CommandMap["list_unavailable_tracks"]["result"]; firstPage?: CommandMap["read_public_favorite_page"]["result"] | null; name?: string; link?: string; nameVisible?: boolean; linkDisabled?: boolean; focusName?: number; primaryLabel?: string } };
   view: { rowsVersion: number | null; rowsKind: "all" | "playlists"; playbackVersion: number; playbackStatus: string | null; playlistsStatus: string | null; purgeStatus: string | null; purgeBusy: boolean | null };
 };
 type LibrarySnapshot = DeepReadonly<LibraryState>;
@@ -23,6 +27,8 @@ function initialLibraryState(): LibraryState {
 function isLibraryDragClickSuppressed(state: LibrarySnapshot, kind: LibraryDragKind, now: number): boolean { return state.drags[kind].drag !== null || now < state.drags[kind].suppressClickUntil; }
 function createLibraryActions(read: () => LibrarySnapshot, commit: (next: LibrarySnapshot, disabledResult?: { bvid: string; error: string | null }) => void, adapter: LibraryAdapter) {
   const update = (fields: Partial<LibrarySnapshot>, view: Partial<LibrarySnapshot["view"]> = {}) => {
+    if (fields.favorites) { const favorites = fields.favorites.map(normalizeLibraryEntry); fields = { ...fields, favorites, favoriteBvids: libraryVideoBvids(favorites) }; }
+    if (fields.playlists) fields = { ...fields, playlists: fields.playlists.map(p => ({ ...p, items: p.items.map(normalizeLibraryEntry) })) };
     const current = read(); const next = { ...current, ...fields, view: Object.keys(view).length ? { ...current.view, ...view, ...(Object.hasOwn(view, "playbackStatus") ? { playbackVersion: current.view.playbackVersion + 1 } : {}) } : current.view };
     if (fields.playlists || fields.selectedPlaylistId !== undefined) next.selectedPlaylistId = next.playlists.find(p => p.id === next.selectedPlaylistId)?.id ?? next.playlists[0]?.id ?? "";
     commit(next);
@@ -57,8 +63,8 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
         adapter.invoke("list_disabled_pages").catch(error => { adapter.report("warn", "disabled pages load failed:", error); return {}; }),
       ]);
       onDisabledPages(disabled);
-      const items = favorites.map(normalizeTrack);
-      return { disabledPages: new Map(Object.entries(disabled).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)])), favorites: items, favoriteBvids: new Set(items.map(t => t.bvid.toLowerCase())), playlists: playlists.map(p => ({ ...p, items: (p.items ?? []).map(normalizeTrack) })), unavailableBvids: new Map(unavailable.map(t => [t.bvid.toLowerCase(), t.reason])), loadError: "" };
+      const items = favorites.map(normalizeLibraryEntry);
+      return { disabledPages: new Map(Object.entries(disabled).map(([bvid, cids]) => [bvid.toLowerCase(), new Set(cids)])), favorites: items, favoriteBvids: libraryVideoBvids(items), playlists: playlists.map(p => ({ ...p, items: (p.items ?? []).map(normalizeLibraryEntry) })), unavailableBvids: new Map(unavailable.map(t => [t.bvid.toLowerCase(), t.reason])), loadError: "" };
     } catch (error) {
       onDisabledPages({});
       adapter.report("error", "library load failed:", error);
@@ -70,8 +76,8 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     const track = video ? snapshotForLibrary(video) : null;
     if (!track?.bvid) { update({}, { playbackStatus: "请先选择一首歌曲。" }); return null; }
     try {
-      const result = await adapter.invoke("toggle_favorite", { track }); const favorites = result.items.map(normalizeTrack);
-      update({ favorites, favoriteBvids: new Set(favorites.map(t => t.bvid.toLowerCase())) }, { ...refreshFields(), playbackStatus: result.favorited ? "已加入收藏。" : "已取消收藏。" });
+      const result = await adapter.invoke("toggle_favorite", { track }); const favorites = result.items.map(normalizeLibraryEntry);
+      update({ favorites, favoriteBvids: libraryVideoBvids(favorites) }, { ...refreshFields(), playbackStatus: result.favorited ? "已加入收藏。" : "已取消收藏。" });
       return { track, favorited: result.favorited };
     } catch (error) { update({}, { playbackStatus: `收藏操作失败：${error}` }); return { track, failed: true as const }; }
   }
@@ -118,14 +124,16 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
   }
   async function submitChoose(id: string): Promise<void> {
     if (read().session.busy) return;
+    if (read().session.data.collectionChoose) { await submitCollectionChoose(id); return; }
     const p = read().playlists.find(p => p.id === id), track = read().session.data.track; if (!p || !track) return;
-    if (p.items.some(t => t.bvid.toLowerCase() === track.bvid.toLowerCase())) { modal({ status: `该歌曲已在歌单“${p.name}”中，无需重复加入。` }); return; }
+    if (libraryVideos(p.items).some(t => t.bvid.toLowerCase() === track.bvid.toLowerCase())) { modal({ status: `该歌曲已在歌单“${p.name}”中，无需重复加入。` }); return; }
     const version = read().session.version; modal({ busy: true });
     try { await addTrack(p, track, undefined, version); }
     finally { if (read().session.version === version || !read().session.open) modal({ busy: false }); }
   }
   async function createAndAdd(name: string): Promise<void> {
     if (read().session.busy) return;
+    if (read().session.data.collectionChoose) { await createCollectionPlaylist(name); return; }
     const track = read().session.data.track; if (!track) return; const validation = validateModalName(name); if (!validation.ok) return;
     const version = read().session.version; modal({ busy: true, status: "正在创建…" });
     try { const known = new Set(read().playlists.map(p => p.id)); const playlists = await adapter.invoke("create_playlist", { name: validation.name }); const p = playlists.find(p => !known.has(p.id)) ?? playlists.at(-1); if (p) await addTrack(p, track, playlists, version); else update({ playlists, session: { ...read().session, busy: false } }); }
@@ -166,6 +174,59 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     catch (error) { update({}, { purgeBusy: false, purgeStatus: `读取失效曲目失败：${error}` }); return; }
     update({ session: openedSession("purge", "清理失效曲目", "以下歌曲已无法播放，确认后会从收藏和所有歌单中移除。", { unavailable }) }, { purgeBusy: false });
   }
+  async function toggleCollectionFavorite(collection: DeepReadonly<CommandContract.LibraryCollection>): Promise<void> {
+    try {
+      const result = await adapter.invoke("toggle_collection_favorite", { collection: collectionInput(collection) });
+      update({ favorites: result.items }, { ...refreshFields(), playbackStatus: result.favorited ? "已收藏整个合集。" : "已取消收藏合集。" });
+    } catch (error) { update({}, { playbackStatus: `收藏合集失败：${error}` }); }
+  }
+  function showCollectionChoose(collection: DeepReadonly<CommandContract.LibraryCollection>, split = false): void {
+    open("choose", split ? `加入 ${collection.videoCount} 个视频（拆成单曲）` : "加入整个合集", `「${collection.title}」${split ? " · 复制当前完整快照，以后不跟随合集更新。" : " · 后续打开时跟随 B站更新。"}`,
+      { collectionChoose: { collection, split }, name: "" });
+  }
+  async function addCollectionChoice(id: string, version: number): Promise<void> {
+    const choice = read().session.data.collectionChoose; if (!choice) return;
+    const collection = collectionInput(choice.collection);
+    const result = choice.split ? await adapter.invoke("add_collection_videos_to_playlist", { id, collection })
+      : { playlists: await adapter.invoke("add_collection_to_playlist", { id, collection }), added: 1, duplicates: 0 };
+    const message = choice.split ? `已加入 ${result.added} 个视频，重复 ${result.duplicates} 个。` : "已将整个合集加入歌单。";
+    if (read().session.version === version) finish({ playlists: result.playlists, selectedPlaylistId: id }, { playbackStatus: message });
+    else update({ playlists: result.playlists }, { ...refreshFields(), playbackStatus: message });
+  }
+  async function submitCollectionChoose(id: string): Promise<void> {
+    const choice = read().session.data.collectionChoose, playlist = read().playlists.find(p => p.id === id); if (!choice || !playlist) return;
+    if (!choice.split && playlist.items.some(entry => sameCollection(entry, choice.collection.collectionId))) { modal({ status: "该合集已在歌单中，无需重复加入。" }); return; }
+    const version = read().session.version; modal({ busy: true, status: "正在加入…" });
+    try { await addCollectionChoice(id, version); }
+    catch (error) { if (read().session.version === version) modal({ busy: false, status: `加入歌单失败：${error}` }); }
+  }
+  async function createCollectionPlaylist(name: string): Promise<void> {
+    const validation = validateModalName(name); if (!validation.ok) return;
+    const version = read().session.version, known = new Set(read().playlists.map(p => p.id)); modal({ busy: true, status: "正在创建…" });
+    try {
+      const playlists = await adapter.invoke("create_playlist", { name: validation.name });
+      const created = playlists.find(p => !known.has(p.id)); update({ playlists });
+      if (created && read().session.version === version) await addCollectionChoice(created.id, version);
+    } catch (error) { if (read().session.version === version) modal({ busy: false, status: `新建并加入失败：${error}` }); }
+    finally { if (read().session.version === version && read().session.busy) modal({ busy: false }); }
+  }
+  async function removeCollection(entryId: string, playlistId: string | null): Promise<void> {
+    try {
+      await adapter.invoke("remove_collection_entry", { entryId, playlistId });
+      update(playlistId ? { playlists: read().playlists.map(p => p.id === playlistId ? { ...p, items: p.items.filter(entry => entry.entryId !== entryId) } : p) }
+        : { favorites: read().favorites.filter(entry => entry.entryId !== entryId) }, refreshFields());
+    } catch (error) { update({}, { playbackStatus: `移除合集失败：${error}` }); }
+  }
+  async function refreshCollectionEntry(reference: { entryId: string; playlistId: string | null }, collection: DeepReadonly<CommandContract.LibraryCollection>): Promise<boolean> {
+    const entries = () => reference.playlistId ? read().playlists.find(p => p.id === reference.playlistId)?.items ?? [] : read().favorites;
+    const exists = () => entries().some(entry => entry.entryId === reference.entryId && sameCollection(entry, collection.collectionId));
+    if (!exists()) return false;
+    if (!await adapter.invoke("update_collection_entry", { ...reference, collection: collectionInput(collection) }) || !exists()) return false;
+    const replace = (entry: LibrarySnapshot["favorites"][number]) => entry.entryId === reference.entryId && entry.kind === "collection" ? { ...entry, ...collection, addedAt: entry.addedAt } : entry;
+    update(reference.playlistId ? { playlists: read().playlists.map(p => p.id === reference.playlistId ? { ...p, items: p.items.map(replace) } : p) }
+      : { favorites: read().favorites.map(replace) }, refreshFields());
+    return true;
+  }
   async function submitPurge(onDisabledPages: Parameters<typeof load>[0] = () => {}): Promise<void> {
     const version = read().session.version; modal({ busy: true, status: "正在清理…" });
     try { const result = await adapter.invoke("purge_unavailable_tracks"); const fields = await readLibrary(onDisabledPages); update({ ...fields, session: finishedSession() }, { ...refreshFields(), purgeStatus: `已清理 ${result.clearedMarks} 首失效曲目。` }); }
@@ -191,7 +252,7 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
       else update(fields);
     } catch (error) { finishDragSave(kind); throw error; }
   }
-  function reorderFavorites(fromIndex: number, toIndex: number): Promise<void> { return persistOrder("favorites", async () => { const favorites = (await adapter.invoke("reorder_favorite", { fromIndex, toIndex })).map(normalizeTrack); return { favorites, favoriteBvids: new Set(favorites.map(t => t.bvid.toLowerCase())) }; }); }
+  function reorderFavorites(fromIndex: number, toIndex: number): Promise<void> { return persistOrder("favorites", async () => { const favorites = (await adapter.invoke("reorder_favorite", { fromIndex, toIndex })).map(normalizeLibraryEntry); return { favorites, favoriteBvids: libraryVideoBvids(favorites) }; }); }
   function reorderPlaylistItems(id: string, fromIndex: number, toIndex: number): Promise<void> { return persistOrder("playlistItems", async () => ({ playlists: await adapter.invoke("reorder_playlist_item", { id, fromIndex, toIndex }) })); }
   function reorderPlaylists(fromIndex: number, toIndex: number): Promise<void> { return persistOrder("playlists", async () => ({ playlists: await adapter.invoke("reorder_playlist", { fromIndex, toIndex }) })); }
   async function saveDisabledPages(bvid: string, cid: number | null, disabled = false): Promise<void> {
@@ -208,7 +269,7 @@ function createLibraryActions(read: () => LibrarySnapshot, commit: (next: Librar
     if (errorText) { if (before.size) values.set(key, before); else values.delete(key); }
     commit({ ...read(), disabledPages: errorText ? values : read().disabledPages, disabledPagePending: completed }, { bvid, error: errorText || null });
   }
-  return { changeDisabledPages: saveDisabledPages, beginDragSave, finishDrag, finishDragSave, startDrag, choosePlaylist, clearUnavailable, closeModal: close, createAndAdd, loadLibrary: load, markUnavailable, openModal: open, refreshViews: () => refresh(), removeTrack, reorderFavorites, reorderPlaylistItems, reorderPlaylists, setModalName: (name: string) => modalData({ name }), setModalLink: (link: string) => modalData({ link }), showChoose, showDelete, showImport, showName, showPurge, submitChoose, submitDelete, submitImport, submitName, submitPurge, toggleFavorite: toggle, validatePlaylistName: validateName };
+  return { toggleCollectionFavorite, showCollectionChoose, removeCollection, refreshCollectionEntry, changeDisabledPages: saveDisabledPages, beginDragSave, finishDrag, finishDragSave, startDrag, choosePlaylist, clearUnavailable, closeModal: close, createAndAdd, loadLibrary: load, markUnavailable, openModal: open, refreshViews: () => refresh(), removeTrack, reorderFavorites, reorderPlaylistItems, reorderPlaylists, setModalName: (name: string) => modalData({ name }), setModalLink: (link: string) => modalData({ link }), showChoose, showDelete, showImport, showName, showPurge, submitChoose, submitDelete, submitImport, submitName, submitPurge, toggleFavorite: toggle, validatePlaylistName: validateName };
 }
 
 export { createLibraryActions, initialLibraryState, isLibraryDragClickSuppressed };

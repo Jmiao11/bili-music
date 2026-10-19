@@ -1,3 +1,4 @@
+import { expectVideo } from "../helpers/library-entry.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fixture } from "./library-characterization-fixture.ts";
@@ -25,7 +26,7 @@ test("library add chooser prevents duplicates and creates then adds a new playli
     await seed(h); h.library.choosePlaylistAndAdd(track(1)); const choices = h.nodes.libraryModalBody.querySelectorAll(".playlist-choice"); await choices[0].fire("click"); assert.match(h.nodes.libraryModalStatus.textContent, /无需重复/); assert.equal(h.calls.length, 0);
     h.library.choosePlaylistAndAdd(track(3)); h.input().value = "新建并加入";
     h.reply(async command => command === "create_playlist" ? [playlist("a"), { ...playlist("c", []), name: "新建并加入" }] : [playlist("a"), { ...playlist("c", [track(3)]), name: "新建并加入" }]);
-    await h.primary().fire("click"); assert.deepEqual(h.calls.map(c => c.command), ["create_playlist", "add_to_playlist"]); assert.equal(h.calls[1].args.id, "c"); assert.equal(h.state().selectedPlaylistId, "c"); assert.equal(h.state().playlists[1].items[0].bvid, track(3).bvid); assert.equal(h.nodes.status.textContent, "已加入歌单“新建并加入”。");
+    await h.primary().fire("click"); assert.deepEqual(h.calls.map(c => c.command), ["create_playlist", "add_to_playlist"]); assert.equal(h.calls[1].args.id, "c"); assert.equal(h.state().selectedPlaylistId, "c"); assert.equal(expectVideo(h.state().playlists[1].items[0]).bvid, track(3).bvid); assert.equal(h.nodes.status.textContent, "已加入歌单“新建并加入”。");
   } finally { h.dispose(); }
 });
 test("library modal preserves animation and existing focus behavior including loudness explanation", async () => {

@@ -2,6 +2,7 @@ import type { ApplicationSnapshot } from "../store/application-store.ts";
 import type { LibraryBindings } from "../features/library/library-view.ts";
 import type { PagesBindings } from "../features/pages/pages-view.ts";
 import { unavailableTrackLocations } from "../shared/track-utils.ts";
+import { libraryVideos } from "../features/library/library-entry.ts";
 
 let pagesBindings: PagesBindings | null = null, libraryBindings: LibraryBindings | null = null;
 function installModalBindings(pages: PagesBindings | null, library: LibraryBindings | null): void {
@@ -37,7 +38,7 @@ function createModalProjection() {
     if (session.kind !== "generic" && (session.open || library) && state !== previous?.library) {
       const unavailable = session.data.unavailable ?? [];
       library = {key:libraryKey,kind:session.kind,data:session.data,busy:session.busy,primaryLabel:session.data.primaryLabel,unavailable,
-        locations:unavailableTrackLocations(unavailable,state.favorites,state.playlists),favorites:state.favorites,playlists:state.playlists};
+        locations:unavailableTrackLocations(unavailable,libraryVideos(state.favorites),state.playlists.map(p => ({ ...p, items: libraryVideos(p.items) }))),favorites:state.favorites,playlists:state.playlists};
     }
     previous = snapshot;
     return {pages,library};

@@ -35,10 +35,10 @@ function createShellProjection() {
     if(revealVersion !== readPlaybackRevealVersion()) {revealVersion=readPlaybackRevealVersion();view.resultHidden=false;}
     view.queueCount=`${search.results.length} 首`;
     if(library.view.rowsVersion !== null && library.view.rowsVersion !== previous?.library.view.rowsVersion) {
-      if(library.view.rowsKind === "all") { view.favoritesCount=`${library.favorites.length} 首`;view.favoritesStatus=library.loadError || (library.favorites.length ? "点击歌曲即可从收藏开始播放。" : "收藏的歌曲会显示在这里。"); }
+      if(library.view.rowsKind === "all") { const mixed=library.favorites.some(entry=>entry.kind === "collection"); view.favoritesCount=`${library.favorites.length} ${mixed ? "项" : "首"}`;view.favoritesStatus=library.loadError || (mixed ? "点击视频播放，点击合集展开；整体播放暂不包含合集。" : library.favorites.length ? "点击歌曲即可从收藏开始播放。" : "收藏的歌曲会显示在这里。"); }
       view.playlistsStatus=library.playlists.length ? `${library.playlists.length} 个歌单` : "还没有歌单。";
       const selected=library.playlists.find(item=>item.id === library.selectedPlaylistId) ?? library.playlists[0];
-      view.playlistTitle=selected?.name ?? "选择一个歌单";view.playlistMeta=selected ? `${selected.items.length} 首歌曲` : "歌单里的歌曲会显示在这里。";
+      view.playlistTitle=selected?.name ?? "选择一个歌单";view.playlistMeta=selected ? selected.items.some(entry=>entry.kind === "collection") ? `${selected.items.length} 项 · 合集需展开播放` : `${selected.items.length} 首歌曲` : "歌单里的歌曲会显示在这里。";
     }
     const session=library.session, prior=previous?.library.session;
     if(session.open && session.version !== prior?.version) { view.libraryTitle=session.title; view.librarySubtitle=session.subtitle; view.libraryStatus=""; }

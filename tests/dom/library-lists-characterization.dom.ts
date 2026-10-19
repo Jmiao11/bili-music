@@ -1,3 +1,4 @@
+import { libraryVideos } from "../../ui/features/library/library-entry.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -50,9 +51,9 @@ test("library favorite add remove and failure publish existing mini and mascot e
 test("library playback failure marks unavailable and successful retry clears through existing playback", async () => {
   const h = await fixture(); try {
     await seed(h, [track(1)], []); h.reply(async command => { if (command === "prepare_audio") throw Error("failed with code 62002"); return command === "get_video_pages" ? [{ page: 1, cid: 1, part: "P1", durationSeconds: 60 }] : []; });
-    h.core.playListItem("favorites", h.state().favorites, 0); await h.flush(); assert.equal(h.state().unavailableBvids.get(track(1).bvid.toLowerCase()), "该视频已被删除或设为私密"); assert.equal(h.calls.some(c => c.command === "mark_track_unavailable"), true);
+    h.core.playListItem("favorites", libraryVideos(h.state().favorites), 0); await h.flush(); assert.equal(h.state().unavailableBvids.get(track(1).bvid.toLowerCase()), "该视频已被删除或设为私密"); assert.equal(h.calls.some(c => c.command === "mark_track_unavailable"), true);
     h.reply(async command => command === "prepare_audio" ? { audioUrl: "http://127.0.0.1/audio/fixture", title: "恢复", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 } : command === "get_video_pages" ? [{ page: 1, cid: 1, part: "P1", durationSeconds: 60 }] : []);
-    h.core.playListItem("playlist", h.state().favorites, 0); await h.flush(); assert.equal(h.state().unavailableBvids.has(track(1).bvid.toLowerCase()), false, h.calls.map(c => c.command).join(",")); assert.equal(h.calls.some(c => c.command === "clear_track_unavailable"), true);
+    h.core.playListItem("playlist", libraryVideos(h.state().favorites), 0); await h.flush(); assert.equal(h.state().unavailableBvids.has(track(1).bvid.toLowerCase()), false, h.calls.map(c => c.command).join(",")); assert.equal(h.calls.some(c => c.command === "clear_track_unavailable"), true);
   } finally { h.dispose(); }
 });
 for (const kind of ["favorites", "playlistItems", "playlists"] as const) for (const outcome of ["success", "failure"] as const) {

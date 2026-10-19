@@ -31,7 +31,7 @@ async function createMiniHostFixture() {
       favorited = !favorited;
       const track = (args[0] as CommandMap["toggle_favorite"]["args"]).track;
       // src-tauri/src/library.rs:329–331: Unix milliseconds serialized as a string.
-      return { favorited, items: favorited ? [{ ...track, addedAt: "1700000000000" }] : [] } as CommandMap[typeof command]["result"];
+      return { favorited, items: favorited ? [{ kind: "video", entryId: `video:${track.bvid.toLowerCase()}`, video: { ...track, addedAt: "1700000000000" } }] : [] } as CommandMap[typeof command]["result"];
     }, setTimeout: () => 0, clearTimeout() {}, report() {},
   });
   h.context.getLibraryActions = () => library.actions.library;

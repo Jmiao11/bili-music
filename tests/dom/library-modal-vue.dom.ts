@@ -1,3 +1,4 @@
+import { normalizeLibraryEntry } from "../../ui/features/library/library-entry.ts";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -65,7 +66,8 @@ test("library Vue content matches every old renderer HTML baseline and only adds
   for (const entry of baseline.cases.filter(entry => ["delete", "loudness", "purge"].includes(entry.kind))) {
     const h = await fixture({captureWarnings:true}); try {
       await h.seed(entry.playlists, entry.favorites);
-      h.store.actions.library.openModal(entry.kind, entry.kind, "", entry.data);
+      const { playlist: oldPlaylist, ...data } = entry.data;
+      h.store.actions.library.openModal(entry.kind, entry.kind, "", { ...data, ...(oldPlaylist ? { playlist: { ...oldPlaylist, items: oldPlaylist.items.map(normalizeLibraryEntry) } } : {}) });
       if (entry.busy) { h.reply(async () => new Promise(() => {})); h.primary().click(); }
       const body = h.nodes.libraryModalBody;
       assert.equal(body.innerHTML, entry.innerHTML, `${entry.kind}/${entry.variant}/${entry.busy}`);

@@ -1,3 +1,4 @@
+import { expectVideo } from "./helpers/library-entry.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/store/app-state.ts";
@@ -25,7 +26,7 @@ test("library actions load without DOM in one immutable phase and isolate other 
   assert.equal(before.library.favorites.length, 0); assert.equal(h.read().favoriteBvids.has(track(1).bvid.toLowerCase()), true);
   assert.equal(h.read().selectedPlaylistId, "a"); assert.equal(h.store.getState().home, before.home); assert.equal(h.store.getState().search, before.search);
   assert.throws(() => (h.read().favoriteBvids as Set<string>).add("bad"), TypeError);
-  assert.throws(() => (h.read().favorites as unknown as { title: string }[])[0].title = "bad", TypeError);
+  assert.throws(() => (expectVideo(h.read().favorites[0]) as { title: string }).title = "bad", TypeError);
 });
 
 test("library actions never persist empty fallback after read errors", async () => {
@@ -90,7 +91,7 @@ test("library reorder actions preserve old order on failure and publish success 
     const reorder = () => kind === "favorites" ? h.actions.reorderFavorites(0, 1) : kind === "items" ? h.actions.reorderPlaylistItems("a", 0, 1) : h.actions.reorderPlaylists(0, 1);
     await assert.rejects(reorder(), /保存失败/); assert.equal(h.read(), before);
     h.reply(async () => kind === "favorites" ? [track(2), track(1)] : [playlist("b"), playlist("a")]); await reorder();
-    assert.equal(before.favorites[0].bvid, track(1).bvid); assert.equal(h.read().selectedPlaylistId, "a");
+    assert.equal(expectVideo(before.favorites[0]).bvid, track(1).bvid); assert.equal(h.read().selectedPlaylistId, "a");
     assert.deepEqual(h.calls.at(-1)?.args, kind === "items" ? { id: "a", fromIndex: 0, toIndex: 1 } : { fromIndex: 0, toIndex: 1 });
   }
 });

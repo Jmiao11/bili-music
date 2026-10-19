@@ -28,6 +28,7 @@
     "../../ui/store/state-store.ts",
     "../../ui/features/search/search-state.ts",
     "../../ui/features/library/library-state.ts",
+    "../../ui/features/library/library-entry.ts",
     "../../ui/features/collections/collection-state.ts",
     "../../ui/features/settings/dynamic-background.ts",
     "../../ui/app/mascot.ts",

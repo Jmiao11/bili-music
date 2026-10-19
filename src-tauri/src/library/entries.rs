@@ -517,4 +517,46 @@ pub(crate) mod tests {
         drop(guard);
         fs::remove_dir_all(root).unwrap();
     }
+
+    #[test]
+    fn purging_an_unavailable_member_keeps_the_collection_and_its_snapshot() {
+        let root = root();
+        let data = collection();
+        let input = || super::super::TrackSnapshotInput {
+            bvid: data.anchor_bvid.clone(),
+            title: "单视频".to_owned(),
+            uploader: "作者".to_owned(),
+            thumbnail_url: String::new(),
+            duration_seconds: 60,
+        };
+        favorites::toggle_favorite(input()).unwrap();
+        collections::toggle_collection_favorite(data.clone()).unwrap();
+        let id = playlists::create_playlist("测试".to_owned()).unwrap()[0]
+            .id
+            .clone();
+        playlists::add_to_playlist(id.clone(), input()).unwrap();
+        collections::add_collection_to_playlist(id, data.clone()).unwrap();
+        super::super::unavailable::mark_track_unavailable(
+            data.anchor_bvid,
+            "成员已删除".to_owned(),
+        )
+        .unwrap();
+        let removed = super::super::unavailable::purge_unavailable_tracks().unwrap();
+        assert_eq!(
+            (removed.removed_favorites, removed.removed_playlist_items),
+            (1, 1)
+        );
+        let favorites = favorites::list_favorites().unwrap();
+        let playlists = playlists::list_playlists().unwrap();
+        assert_eq!(favorites.len(), 1);
+        assert_eq!(playlists[0].items.len(), 1);
+        for entry in [&favorites[0], &playlists[0].items[0]] {
+            let LibraryEntry::Collection { collection, .. } = entry else {
+                panic!("collection must survive");
+            };
+            assert_eq!(collection.snapshot.items.len(), 2);
+            assert_eq!(collection.source_status, CollectionSourceStatus::Active);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
 }

@@ -26,6 +26,7 @@ import type { ApplicationSnapshot } from "../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../../features/playback/root-playback.ts";
 import type { collectionCallbacks } from "../../features/collections/collection-port.ts";
 import ListHost from "../../features/tracks/components/ListHost.vue";
+import CollectionToolbar from "../../features/collections/components/CollectionToolbar.vue";
 import type { RootLists } from "../../features/tracks/root-lists.ts";
 import Mascot from "./Mascot.vue";
 import DynamicBackground from "../../features/settings/components/DynamicBackground.vue";
@@ -147,6 +148,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             </div>
             <span class="queue-count">{{ snapshot.collection.total }} 个视频</span>
           </header>
+          <CollectionToolbar :state="snapshot.collection" :favorited="snapshot.library.favorites.some(entry => entry.kind === 'collection' && entry.collectionId === snapshot.collection.fullSnapshot?.collectionId)" :callbacks="collectionCallbacks" />
           <button v-if="snapshot.collection.error" type="button" class="secondary-button" @click="collectionCallbacks.retry">重试</button>
           <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
         </section>
@@ -177,6 +179,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           <div>
             <h2 id="library-modal-title">{{ shell.libraryTitle }}</h2>
             <p id="library-modal-subtitle" :hidden="!shell.librarySubtitle">{{ shell.librarySubtitle }}</p>
+            <p v-if="modals.library?.kind === 'choose' && modals.library.data.track" class="modal-sub">加入单视频「{{ modals.library.data.track.title }}」</p>
           </div>
           <button id="close-library-modal-button" :ref="element => mainWindowRefs.closeLibraryModalButton(element as HTMLButtonElement|null)" class="tool-button" type="button" aria-label="关闭">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" /></svg>
