@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { nextDomEventTurn } from "./event-turn.ts";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -96,6 +97,7 @@ async function fixture() {
   const microtasks = async () => { for (let i = 0; i < 80; i++) await Promise.resolve(); };
   const requests: Promise<unknown>[] = [];
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & Omit<InputEventInit, "dataTransfer"> & CompositionEventInit & { dataTransfer?: unknown; relatedTarget?: EventTarget | null; preventDefault?: () => void } = {}) => {
+    if (["click", "dblclick"].includes(type)) await nextDomEventTurn();
     const { dataTransfer, relatedTarget, preventDefault, ...init } = fields;
     const options = { bubbles: true, cancelable: true, ...init };
     const event = type.startsWith("composition") ? new window.CompositionEvent(type, options) : type === "input" ? new window.InputEvent(type, options) : type.startsWith("key") ? new window.KeyboardEvent(type, options) : ["click", "dblclick"].includes(type) ? new window.MouseEvent(type, options) : new window.Event(type, options);

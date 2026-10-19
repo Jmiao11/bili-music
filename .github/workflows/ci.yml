@@ -36,7 +36,7 @@ jobs:
           failures=0
           for iteration in {1..20}; do
             echo "DOM diagnostic iteration $iteration/20"
-            if ! node --test tests/dom/search-characterization.dom.ts tests/dom/tracks-baseline.dom.ts; then
+            if ! node --test tests/dom/search-characterization.dom.ts tests/dom/tracks-baseline.dom.ts tests/dom/library-lists-baseline.dom.ts tests/dom/library-lists-characterization.dom.ts tests/dom/library-lists-vue.dom.ts tests/dom/vue-smoke.dom.ts; then
               failures=$((failures + 1))
             fi
           done

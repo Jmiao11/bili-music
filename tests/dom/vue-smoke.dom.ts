@@ -8,8 +8,9 @@ import { build } from "vite";
 import { JSDOM } from "jsdom";
 import type { Component } from "vue";
 import { vueFeatureFlags } from "../../scripts/vue/features.ts";
+import { nextDomEventTurn } from "./event-turn.ts";
 
-test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in jsdom", async () => {
+test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in jsdom", async context => {
   const output = fs.mkdtempSync(path.join(os.tmpdir(), "bili-vue-smoke-"));
   const dom = new JSDOM("<html><body></body></html>");
   const globals = { window: dom.window, document: dom.window.document, Node: dom.window.Node, Element: dom.window.Element, HTMLElement: dom.window.HTMLElement, SVGElement: dom.window.SVGElement };
@@ -43,6 +44,35 @@ test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in 
     wrapper.unmount();
     unmount = undefined;
     assert.equal(dom.window.document.querySelector("button"), null);
+    await context.test("later synthetic input reaches its target without bypassing Vue timestamp protection", async () => {
+      const { h, render } = await import("vue");
+      const root = dom.window.document.createElement("div");
+      dom.window.document.body.append(root);
+      let captures = 0, clicks = 0, bubbles = 0, lateClicks = 0;
+      const nativeNow = Date.now, mountedAt = nativeNow();
+      const bubble = () => bubbles++;
+      dom.window.addEventListener("click", bubble);
+      try {
+        Date.now = () => mountedAt;
+        render(h("div", { onClickCapture: () => captures++ }, [h("button", { onClick: (event: MouseEvent) => { clicks++; event.stopPropagation(); } })]), root);
+        root.querySelector("button")!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+        assert.deepEqual([captures, clicks, bubbles], [1, 0, 1], "same-millisecond synthetic dispatch reproduces both old failures");
+        Date.now = nativeNow;
+        await nextDomEventTurn();
+        root.querySelector("button")!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+        assert.deepEqual([captures, clicks, bubbles], [2, 1, 1]);
+        render(null, root);
+        const child = () => h("button", {}, "child");
+        render(h("div", { onClickCapture: () => render(h("div", { onClick: () => lateClicks++ }, [child()]), root) }, [child()]), root);
+        await nextDomEventTurn();
+        root.querySelector("button")!.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+        assert.equal(lateClicks, 0, "a listener attached during this event is still protected");
+      } finally {
+        Date.now = nativeNow;
+        render(null, root); root.remove();
+        dom.window.removeEventListener("click", bubble);
+      }
+    });
   } finally {
     unmount?.();
     dom.window.close();

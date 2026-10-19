@@ -1,4 +1,5 @@
 import { instrumentComponentRender } from "./render-counter.ts";
+import { nextDomEventTurn } from "./event-turn.ts";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -111,6 +112,7 @@ async function fixture(options: { nativeWrites?: boolean; homeSpy?: boolean; sav
   for (const [name, value] of Object.entries({ __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & InputEventInit & CompositionEventInit = {}) => {
+    if (["click", "dblclick"].includes(type)) await nextDomEventTurn();
     const options = { bubbles: true, cancelable: true, ...fields };
     const event = type.startsWith("composition") ? new window.CompositionEvent(type, options) : type === "input" ? new window.InputEvent(type, options) : type.startsWith("key") ? new window.KeyboardEvent(type, options) : ["click", "dblclick"].includes(type) ? new window.MouseEvent(type, options) : new window.Event(type, options);
     target.dispatchEvent(event); await microtasks(); return event;
