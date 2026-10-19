@@ -12,7 +12,7 @@ function renderHomeSnapshot(home:HomeSnapshot,previous:HomeSnapshot|null,renderR
     renderRows(home.ranking,"ranking",false);return true;
   }
   if(home.recommendationLoading) {renderRows([],source,true);return false;}
-  if(home.recommendationError || !home.recommendations.length) return false;
+  if(!home.recommendations.length) return false;
   renderRows(home.recommendations,"recommendation",false);return true;
 }
 export {renderHomeSnapshot};

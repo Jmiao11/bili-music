@@ -62,6 +62,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
   }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState(), playbackDisplay: initialPlaybackDisplayState(), playbackQueue: initialPlaybackQueueState(), playbackRequest: options.playbackRequest ?? initialPlaybackRequestState(), playbackSession: options.playbackSession ?? initialPlaybackSessionState() };
   return createStateStore(initial, (getState, commit) => {
+    let recommendationRequestVersion = 0;
     const home = () => getState().home;
     const update = (fields: Partial<HomeSnapshot>, view: Partial<HomeSnapshot["view"]> = {}) => {
       const current = getState();
@@ -100,17 +101,20 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       if (home().recommendationLoaded || home().recommendationLoading) {
         update({}, { content: content("recommendations") }); return;
       }
+      const version = ++recommendationRequestVersion;
       update({ recommendationLoading: true, recommendationError: "" }, {
         hintDisabled: true, refreshDisabled: true, status: "正在读取上次推荐…", content: content("recommendations"),
       });
       try {
         const recommendations = (await adapter.invoke("get_saved_recommendations")).map(normalizeTrack);
+        if (version !== recommendationRequestVersion) return;
         update({ recommendations, recommendationLoaded: true, recommendationLoading: false }, {
           status: recommendations.length > 0 ? `已加载 ${recommendations.length} 首上次推荐。` : "点击「生成推荐」获取你的专属推荐",
           hintDisabled: false, refreshDisabled: false,
           ...(recommendationVisible() ? { content: content("recommendations") } : {}),
         });
       } catch (_error) {
+        if (version !== recommendationRequestVersion) return;
         update({ recommendationLoaded: true, recommendationError: "", recommendationLoading: false }, {
           status: "", hintDisabled: false, refreshDisabled: false,
           ...(recommendationVisible() ? { content: content("recommendations") } : {}),
@@ -129,9 +133,11 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     }
 
     async function generateRecommendations({ forceRefresh = false, userHint = home().userHint }: { forceRefresh?: boolean; userHint?: string } = {}): Promise<void> {
+      if (home().recommendationLoading) return;
       if (!forceRefresh && home().recommendationLoaded) {
         update({ userHint }, { content: content("recommendations") }); return;
       }
+      const version = ++recommendationRequestVersion;
       update({ userHint, recommendationLoading: true, recommendationError: "" }, {
         hintDisabled: true, hintText: "生成中…", refreshDisabled: true,
         status: forceRefresh ? "正在重新生成推荐…" : "正在根据搜索与收藏生成推荐…",
@@ -141,10 +147,11 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       try {
         const hint = home().userHint.trim();
         const timeout: Promise<never> = new Promise((_, reject) => {
-          timeoutId = adapter.setTimeout(() => reject(new Error("request timeout")), 95000);
+          timeoutId = adapter.setTimeout(() => reject(new Error("推荐耗时较长，请稍后重试。")), 95000);
         });
         const tracks = await Promise.race([adapter.invoke("get_recommendations", hint ? { userHint: hint } : {}), timeout])
           .finally(() => adapter.clearTimeout(timeoutId));
+        if (version !== recommendationRequestVersion) return;
         const recommendations = tracks.map(normalizeTrack);
         update({ recommendations, recommendationLoaded: true, recommendationError: "", recommendationLoading: false }, {
           status: recommendations.length > 0 ? `已生成 ${recommendations.length} 首推荐。` : "暂无推荐结果。",
@@ -152,6 +159,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
           ...(home().mode === "recommendation" ? { content: content("recommendations") } : {}),
         });
       } catch (error) {
+        if (version !== recommendationRequestVersion) return;
         update({ recommendationError: String((error as { message?: unknown } | null | undefined)?.message ?? error), recommendationLoading: false }, {
           status: "为你推荐生成失败。", refreshDisabled: false, hintDisabled: false, hintText: "生成推荐",
           ...(home().mode === "recommendation" ? { content: content("recommendations") } : {}),

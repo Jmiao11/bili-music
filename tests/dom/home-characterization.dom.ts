@@ -114,7 +114,9 @@ test("home generation trims the hint caches success and times out after 95000ms"
     const timeout = [...h.timers.values()].find(timer => timer.delay === 95000);
     assert.ok(timeout); timeout.callback(); await pending;
     assert.equal(h.nodes.homeSetupTitle.textContent, "推荐生成失败");
-    assert.match(h.nodes.homeSetupSub.textContent, /^request timeout｜/);
+    assert.equal(h.nodes.homeSetupSub.textContent, "推荐耗时较长，请稍后重试。");
+    assert.equal(h.nodes.homeSetupSettings.hidden, true);
+    assert.equal(h.nodes.homeRankingList.children.length, 1, "a failed regeneration restores the last successful list");
     assert.equal(h.nodes.homeHintApply.textContent, "生成推荐");
     assert.equal(h.nodes.homeHintApply.disabled, false);
     assert.equal(h.nodes.refreshRankingButton.disabled, false);
@@ -138,6 +140,26 @@ test("home mode switches preserve tab labels and do not let a pending hidden ran
     assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 0 首音乐区热门视频。", "shared status retains the existing completion order");
     h.module.setHomeMode("unexpected"); await h.flush();
     assert.equal(h.nodes.homeTitle.textContent, "音乐飙升榜");
+  } finally { h.dispose(); }
+});
+
+test("home only offers settings for configuration errors and restores controls after a retry", async () => {
+  const h = await loadHomeFixture();
+  try {
+    h.setResponse(async () => { throw new Error("HTTP 401：推荐模型请求失败，请稍后重试。"); });
+    await h.module.loadRecommendations({ forceRefresh: true });
+    assert.equal(h.nodes.homeSetupHint.hidden, false);
+    assert.equal(h.nodes.homeSetupSettings.hidden, false);
+    assert.match(h.nodes.homeSetupSub.textContent, /API Key/);
+    h.setResponse(async () => { throw new Error("推荐关键词生成超时，请稍后重试。"); });
+    await h.module.loadRecommendations({ forceRefresh: true });
+    assert.equal(h.nodes.homeSetupSettings.hidden, true);
+    assert.doesNotMatch(h.nodes.homeSetupSub.textContent, /API Key/);
+    h.setResponse(async () => [track]);
+    await h.module.loadRecommendations({ forceRefresh: true });
+    assert.equal(h.nodes.homeSetupHint.hidden, true);
+    assert.equal(h.nodes.homeRankingList.children.length, 1);
+    assert.equal(h.nodes.homeHintApply.disabled, false);
   } finally { h.dispose(); }
 });
 
