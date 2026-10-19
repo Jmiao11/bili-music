@@ -86,6 +86,8 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 controller-context 用真实冻结store/actions与显式场景准备；保留的断言别名只读当前快照，没有业务调用/事件/Promise的进入退出回填，也不包装事件监听器或Promise。真实DOM测试直接挂App；控制器单元测试的原生输出端口复用实际纯投影，不能复制产品业务实现。
 
+C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collection` 切片承载当前完整快照、引用 entryId、刷新版本与快照回退标志；同 id 的在途请求由 actions 私有 Promise Map 合并。CollectionToolbar 只接只读切片与稳定回调；合集行复用 TrackRow，不登记 BV/分P观察端口。资料库控制器在调用现有 playListItem 前过滤合集并换算索引，队列状态机与取流链路不变。新增 DOM 用例与纯模块已同步登记到测试组、类型项目和原有守卫；未新增原生写入例外，G0 保持 193/140。
+
 | 保留的保护 | 覆盖/反例 |
 |---|---|
 | 组件隔离、runtime-only与零eval | scripts/vue/check.ts内置反例；javascript-guard.ts内置AST反例 |

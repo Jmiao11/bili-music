@@ -12,6 +12,7 @@
 | 搜索/BV/分页 | search；播放另属 playbackQueue | SearchForm、SearchTabs、TrackList | features/search/search.ts、app/main.ts、platform/draft-ports.ts；BV入口 features/playback/playback-core.ts | search-characterization.dom、search-restore-characterization.dom、pasted-bv-pages |
 | 多 BV 合集/通用视频列表 | collection；播放沿用 playbackQueue | AppShell、PlaybackNotice、TrackList/TrackRow | features/collections/collection-state.ts、collection-controller.ts；Rust lyrics.rs、commands/media.rs；详情使用独立8秒无cookie客户端，合集附加字段宽松解析；本批仅合集来源 | tracks-vue.dom、Rust lyrics/detail_tests.rs 与合集测试 |
 | 收藏 | library | TrackList/TrackRow | features/library/library-ui.ts、features/library/library-state.ts；Rust library | library-characterization.dom、library-actions、library-lists-baseline.dom |
+| 合集进入资料库（C1） | library 的 video/collection 条目；collection 的完整快照、引用与刷新版本 | CollectionToolbar、TrackRow 的合集角标、LibraryModalBody 的三种加入意图 | features/library/library-entry.ts、library-state.ts；features/collections/collection-state.ts、collection-controller.ts；Rust library/entries.rs、collections.rs、favorites.rs、playlists.rs、backup.rs | collections-library-actions、collections-library.dom；Rust entries 与 backup 的 v1/v2/备份/回滚回归 |
 | 歌单/三处拖拽 | library、library.drags | PlaylistList、PlaylistActions/PlaylistCreateActions、TrackList | features/library/library-ui.ts、features/library/library-state.ts；Rust playlists | library-lists-vue.dom、library-lists-characterization.dom、library-drag-null.dom |
 | 分P/禁用恢复 | pages、library.disabledPages/disabledPagePending | PagesList；AppShell外壳 | features/pages/video-pages.ts、features/pages/pages-view.ts、app/root-modals.ts、features/pages/page-selection.ts | pages-characterization.dom、pages-real-dom.dom、pages-list.dom、disabled-page-navigation |
 | 资料库全部浮层 | library.session | LibraryModalBody | features/library/library-ui.ts、features/library/library-view.ts、app/root-modals.ts；shared/focus-trap.ts | library-modal-actions/focus/input/render.dom、library-modal-vue.dom、favorite-import.dom |
@@ -29,3 +30,5 @@
 文件无后缀的测试在 `tests/*.test.ts`；`.dom` 在 `tests/dom/*.dom.ts`。输入草稿不加 v-model，异步结果不得捕获旧分页草稿；Key、cookie、直链不进显示状态/日志。新节点一旦动态绑定，原控制器的同属性写入必须同时退出。
 
 例外只有架构登记的audio、文档根主题、窗口/几何/焦点副作用与离屏取色。组件内非受控草稿端口保持唯一写入；新增控制器原生显示写入由scripts/vue/native-writes.ts拒绝。
+
+C1 的普通视频点击在资料库控制器中过滤合集、换算队列索引；合集行使用真实 `entryId`，不伪造 BV、不查询分P。播放器、取流与播放状态存储保持原链路。合集被收藏及其中成员被单独收藏互不影响。

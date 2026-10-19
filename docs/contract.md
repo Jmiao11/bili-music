@@ -2,10 +2,10 @@
 
 ## 文件与边界
 
-- `types/command-contract.d.ts`：30 个 DTO 的 JSON 类型、74 个命令的 Args/Result 映射及 invoke 签名。
+- `types/command-contract.d.ts`：38 项 DTO/输入类型声明、81 个命令的 Args/Result 映射及 invoke 签名。
 - `types/event-contract.d.ts`：本项目 Tauri 事件及第三方/框架边界。
 - `types/tauri.d.ts`：将上述声明接到现有 `window.__TAURI__`，主窗口、迷你窗共用。
-- `tests/fixtures/contract/`：37 份输出金样（29 个 DTO，含 Some/None 和嵌套可空样例）及 1 份仅输入样例。
+- `tests/fixtures/contract/`：41 份输出金样（含 Some/None、联合条目及嵌套可空样例）及 1 份仅输入样例。
 - `src-tauri/src/contract_tests.rs` 与各 DTO 所属模块的测试区：Rust 序列化和输入反序列化检查。
 - `types/contract-fixtures.ts`：编译期 JSON 样例赋值、全部命令结果覆盖、正确调用和 `@ts-expect-error` 反例。
 - `tests/command-contract.test.cjs`：注册/映射/前端调用集合，以及播放进度快照的取整特征。
@@ -21,6 +21,14 @@
 5. Rust String 保持 string，不把取流方式、歌词状态、AI 接口规范擅自收窄为业务联合类型。
 6. invoke 只能使用 CommandMap 的键。无参数/只有可选参数的命令允许省略参数对象；必填参数有负向类型用例。
 7. DTO 只声明真实字段。歌词兼容性探测的 camelCase 别名不是 Rust 输出字段，不能为消除诊断而补进 DTO。
+
+### C1 资料库条目
+
+`list_favorites`、`FavoriteToggleResult.items`、`reorder_favorite` 与 `Playlist.items` 改为 `LibraryEntry` 联合：`kind=video` 携带 entryId 与原 video 快照；`kind=collection` 携带 entryId、合集摘要、完整 snapshot 与 sourceStatus。kind/sourceStatus 的字面量来自真实 Rust enum，未收窄原 Rust String 字段。原 TrackSnapshot、播放状态与取流命令不变。
+
+新增 `toggle_collection_favorite`、`add_collection_to_playlist`、`add_collection_videos_to_playlist`、`update_collection_entry`、`remove_collection_entry`。合集输入必须包含完整 LibraryCollection；更新/删除以 entryId 与可选 playlistId 定位，更新返回 false 表示引用已移除。批量拆分返回 playlists、added、duplicates，一次原子写入。`get_collection_page` 新增可选 refresh，首屏刷新可带完整 snapshot，分页/缓存返回中的 snapshot 可以为 null。
+
+`library-entry-video`、`library-entry-collection`、`library-collection`、`collection-page` 由真实 DTO 生成；JSON 模块把枚举判别字段推宽为 string，因此类型样例用带运行时校验的字面量转换，另有 Node 回归检查真实 fixture 的判别值。资料库文件 v1/v2 与按需写出规则见 [存储](storage.md)。
 
 ### DTO 方向（按命令传输用途分类）
 
