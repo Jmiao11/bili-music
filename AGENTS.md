@@ -51,6 +51,7 @@
 
 - 合并前依次全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist；类型零诊断，验证 G0、windows/darwin 产物字节一致及 AST 0/0。改 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；纯换行不算改 Rust。
 - 安装前测试及其依赖只用 Node 内置/本地模块；安装后精确登记 tests/dom/*.dom.ts，用 test:dom，不能被 node --test 默认重复发现。优先直接测真实 store/控制器或挂载后的 SFC，不复制产品业务实现。公共 helper 新能力显式选择，默认行为保持。
+- DOM 测试在挂载或重渲染后派发合成事件，须使用 `tests/dom/event-turn.ts` 等待下一个真实毫秒，避免触发 Vue 事件时间戳保护；不得修改或绕过该保护。最早一次 macOS“旧搜索测试”失败未复现，如再出现须单独排查，不能直接归因于已修复的冒泡问题。
 - 日常仅受影响测试、typecheck 与必要构建，不要求报告。未改冻结文件以 git diff 证明，仅修改/新建的冻结文件报告 SHA。
 - 业务断言原文、含义或预期值改变须申请；任何保留断言次数变0立即停止。真实 App 挂载、SFC 扫描、冻结 helper 的纯环境接线预先授权，原断言/预期/执行次数保持，以短表登记；不做常规全量断言次数统计。不能用接线掩盖行为变化。
 - 每批 verify:dist 照跑；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。

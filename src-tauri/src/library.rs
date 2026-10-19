@@ -1,5 +1,7 @@
 pub(crate) mod backup;
+pub(crate) mod collections;
 pub(crate) mod disabled_pages;
+pub(crate) mod entries;
 pub(crate) mod favorites;
 pub(crate) mod history;
 pub(crate) mod loudness_store;
@@ -326,7 +328,7 @@ fn now_millis() -> u128 {
         .as_millis()
 }
 
-fn now_string() -> String {
+pub(crate) fn now_string() -> String {
     now_millis().to_string()
 }
 

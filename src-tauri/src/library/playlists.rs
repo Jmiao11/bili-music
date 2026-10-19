@@ -1,7 +1,10 @@
+use super::entries::{
+    backup_before_v2, decode_entries, entries_json, entries_version, LibraryEntry,
+};
 use super::{
     library_file_path, normalize_bvid, normalize_playlist_name, now_millis, now_string,
-    read_json_or_default, snapshot_from_input, write_json_atomic, TrackSnapshot,
-    TrackSnapshotInput, Versioned, PLAYLISTS_FILE, VERSION,
+    read_json_or_default, snapshot_from_input, TrackSnapshot, TrackSnapshotInput, Versioned,
+    PLAYLISTS_FILE, VERSION,
 };
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -13,13 +16,83 @@ pub struct Playlist {
     pub id: String,
     pub name: String,
     pub created_at: String,
-    pub items: Vec<TrackSnapshot>,
+    pub items: Vec<LibraryEntry>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "PlaylistsWire")]
 pub(super) struct PlaylistsFile {
     pub(super) version: u32,
     pub(super) playlists: Vec<Playlist>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaylistWire {
+    id: String,
+    name: String,
+    created_at: String,
+    items: Vec<serde_json::Value>,
+}
+#[derive(Deserialize)]
+struct PlaylistsWire {
+    version: u32,
+    playlists: Vec<PlaylistWire>,
+}
+impl TryFrom<PlaylistsWire> for PlaylistsFile {
+    type Error = String;
+    fn try_from(wire: PlaylistsWire) -> Result<Self, String> {
+        let playlists = wire
+            .playlists
+            .into_iter()
+            .map(|playlist| {
+                Ok(Playlist {
+                    id: playlist.id,
+                    name: playlist.name,
+                    created_at: playlist.created_at,
+                    items: decode_entries(wire.version, playlist.items)?,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(Self {
+            version: wire.version,
+            playlists,
+        })
+    }
+}
+impl Serialize for PlaylistsFile {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let version = if self
+            .playlists
+            .iter()
+            .any(|p| entries_version(&p.items) == 2)
+        {
+            2
+        } else {
+            1
+        };
+        let playlists = self.playlists.iter().map(|playlist| {
+            let items = entries_json(&playlist.items, version)?;
+            Ok(serde_json::json!({"id":playlist.id,"name":playlist.name,"createdAt":playlist.created_at,"items":items}))
+        }).collect::<Result<Vec<serde_json::Value>, serde_json::Error>>().map_err(serde::ser::Error::custom)?;
+        serde_json::json!({"version":version,"playlists":playlists}).serialize(serializer)
+    }
+}
+pub(super) fn write_playlists(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+    file: &PlaylistsFile,
+) -> Result<(), String> {
+    let bytes = serde_json::to_vec(file).map_err(|_| "无法编码歌单资料库。")?;
+    validate_import_json("playlists.json", &bytes)?;
+    if file
+        .playlists
+        .iter()
+        .any(|p| entries_version(&p.items) == 2)
+    {
+        backup_before_v2(guard, path)?;
+    }
+    super::write_json_atomic(guard, path, file)
 }
 
 impl Default for PlaylistsFile {
@@ -53,7 +126,7 @@ fn reorder_playlist_at(
     }
     let playlist = file.playlists.remove(from_index);
     file.playlists.insert(to_index, playlist);
-    write_json_atomic(guard, path, &file)?;
+    write_playlists(guard, path, &file)?;
     Ok(file.playlists)
 }
 
@@ -77,7 +150,7 @@ pub fn create_playlist(name: String) -> Result<Vec<Playlist>, String> {
         created_at: now,
         items: Vec::new(),
     });
-    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
+    write_playlists(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
@@ -89,7 +162,7 @@ pub fn rename_playlist(id: String, name: String) -> Result<Vec<Playlist>, String
     let name = normalize_playlist_name(&name)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
     playlist.name = name;
-    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
+    write_playlists(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
@@ -103,7 +176,7 @@ pub fn delete_playlist(id: String) -> Result<Vec<Playlist>, String> {
     if file.playlists.len() == original_len {
         return Err("歌单不存在。".to_owned());
     }
-    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
+    write_playlists(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
@@ -126,12 +199,12 @@ fn add_to_playlist_at(
     if playlist
         .items
         .iter()
-        .any(|item| item.bvid.eq_ignore_ascii_case(&snapshot.bvid))
+        .any(|item| item.is_video(&snapshot.bvid))
     {
         return Err(format!("歌曲已在歌单“{}”中。", playlist.name));
     }
-    playlist.items.push(snapshot);
-    write_json_atomic(guard, path, &file)?;
+    playlist.items.push(snapshot.into());
+    write_playlists(guard, path, &file)?;
     Ok(file.playlists)
 }
 
@@ -143,13 +216,11 @@ pub fn remove_from_playlist(id: String, bvid: String) -> Result<Vec<Playlist>, S
     let bvid = normalize_bvid(&bvid)?;
     let playlist = find_playlist_mut(&mut file, &id)?;
     let original_len = playlist.items.len();
-    playlist
-        .items
-        .retain(|item| !item.bvid.eq_ignore_ascii_case(&bvid));
+    playlist.items.retain(|item| !item.is_video(&bvid));
     if playlist.items.len() == original_len {
         return Err("歌曲不在这个歌单中。".to_owned());
     }
-    write_json_atomic(guard, &playlists_path(guard)?, &file)?;
+    write_playlists(guard, &playlists_path(guard)?, &file)?;
     Ok(file.playlists)
 }
 
@@ -181,17 +252,30 @@ fn reorder_playlist_item_at(
     }
     let item = playlist.items.remove(from_index);
     playlist.items.insert(to_index, item);
-    write_json_atomic(guard, path, &file)?;
+    write_playlists(guard, path, &file)?;
     Ok(file.playlists)
 }
 
-fn read_playlists(guard: &crate::storage::StorageGuard) -> Result<PlaylistsFile, String> {
+pub(super) fn read_playlists(
+    guard: &crate::storage::StorageGuard,
+) -> Result<PlaylistsFile, String> {
     read_json_or_default(guard, &playlists_path(guard)?)
 }
 
 impl Versioned for PlaylistsFile {
     fn version(&self) -> u32 {
         self.version
+    }
+    fn ensure_supported_version(&self, path: &Path) -> Result<(), String> {
+        if self.version == 1 || self.version == 2 {
+            Ok(())
+        } else {
+            Err(format!(
+                "{} 的数据版本 {} 暂不支持。",
+                path.display(),
+                self.version
+            ))
+        }
     }
 }
 
@@ -238,10 +322,10 @@ fn create_imported_playlist_at(
         id: format!("{}-{}", now_millis(), Uuid::new_v4().simple()),
         name,
         created_at: now_string(),
-        items,
+        items: items.into_iter().map(LibraryEntry::from).collect(),
     };
     file.playlists.push(playlist.clone());
-    write_json_atomic(guard, path, &file)?;
+    write_playlists(guard, path, &file)?;
     Ok(playlist)
 }
 
@@ -288,6 +372,7 @@ mod tests {
                         bvid: bvid.to_owned(),
                         ..track(bvid)
                     })
+                    .map(super::LibraryEntry::from)
                     .collect(),
                 },
                 Playlist {
@@ -444,7 +529,7 @@ mod tests {
         let mut expected: Vec<_> = original.playlists[0]
             .items
             .iter()
-            .map(|item| &item.bvid)
+            .map(|item| &item.video().unwrap().bvid)
             .collect();
         expected.sort();
         for from in 0..expected.len() {
@@ -458,7 +543,11 @@ mod tests {
                 )
                 .unwrap();
                 assert_eq!(result[0].items.len(), expected.len());
-                let mut actual: Vec<_> = result[0].items.iter().map(|item| &item.bvid).collect();
+                let mut actual: Vec<_> = result[0]
+                    .items
+                    .iter()
+                    .map(|item| &item.video().unwrap().bvid)
+                    .collect();
                 actual.sort();
                 // Comparing sorted lists also verifies multiplicity, not just set membership.
                 assert_eq!(actual, expected);
@@ -480,11 +569,12 @@ mod tests {
                         Vec::new()
                     } else {
                         vec![
-                            track(&format!("{id} first")),
+                            track(&format!("{id} first")).into(),
                             TrackSnapshot {
                                 bvid: "BV1gB7m6eEHm".to_owned(),
                                 ..track(&format!("{id} second"))
-                            },
+                            }
+                            .into(),
                         ]
                     },
                 })
@@ -705,10 +795,10 @@ mod tests {
         .unwrap();
         assert_eq!(created.name, "新歌单");
         assert_eq!(created.items.len(), 1);
-        assert_eq!(created.items[0].title, "歌名");
-        assert_eq!(created.items[0].uploader, "未知 UP 主");
+        assert_eq!(created.items[0].video().unwrap().title, "歌名");
+        assert_eq!(created.items[0].video().unwrap().uploader, "未知 UP 主");
         assert_eq!(
-            created.items[0].thumbnail_url,
+            created.items[0].video().unwrap().thumbnail_url,
             "https://example.com/cover.jpg"
         );
         let file: PlaylistsFile =

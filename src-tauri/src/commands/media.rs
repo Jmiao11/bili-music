@@ -30,11 +30,12 @@ pub(crate) async fn get_collection_page(
     bvid: String,
     collection_id: i64,
     page: u32,
+    refresh: Option<bool>,
 ) -> Result<lyrics::CollectionPage, String> {
     if page == 0 {
         return Err("合集页码必须大于 0".to_owned());
     }
-    {
+    if !refresh.unwrap_or(false) {
         let cache = state.collection_cache.read().await;
         if let Some((id, origin, items)) = cache.as_ref() {
             if *id == collection_id && origin == &bvid {
@@ -42,10 +43,48 @@ pub(crate) async fn get_collection_page(
             }
         }
     }
-    let (_, items) = lyrics::fetch_collection(&bvid, collection_id)
+    let (summary, items, cover) = lyrics::fetch_collection(&bvid, collection_id)
         .await
         .map_err(|error| crate::ai::safe_error(&error, ""))?;
-    let result = lyrics::collection_page(&items, page)?;
+    let mut result = lyrics::collection_page(&items, page)?;
+    if page == 1 {
+        use crate::library::entries::{
+            CollectionSnapshot, CollectionSourceStatus, LibraryCollection,
+        };
+        let fetched_at = crate::library::now_string();
+        let snapshot = LibraryCollection {
+            collection_id: summary.id,
+            anchor_bvid: bvid.clone(),
+            title: summary.title,
+            thumbnail_url: if cover.is_empty() {
+                items
+                    .first()
+                    .map(|item| item.thumbnail_url.clone())
+                    .unwrap_or_default()
+            } else {
+                cover
+            },
+            video_count: summary.total,
+            added_at: fetched_at.clone(),
+            snapshot: CollectionSnapshot {
+                fetched_at: fetched_at.clone(),
+                items: items
+                    .iter()
+                    .map(|item| crate::library::TrackSnapshot {
+                        bvid: item.bvid.clone(),
+                        title: item.title.clone(),
+                        uploader: item.uploader.clone(),
+                        thumbnail_url: item.thumbnail_url.clone(),
+                        duration_seconds: item.duration_seconds,
+                        added_at: fetched_at.clone(),
+                    })
+                    .collect(),
+            },
+            source_status: CollectionSourceStatus::Active,
+        };
+        snapshot.validate()?;
+        result.snapshot = Some(snapshot);
+    }
     *state.collection_cache.write().await = Some((collection_id, bvid, items));
     Ok(result)
 }

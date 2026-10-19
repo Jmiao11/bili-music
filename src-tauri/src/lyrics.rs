@@ -127,6 +127,7 @@ pub struct CollectionPage {
     pub items: Vec<crate::search::SearchVideo>,
     pub total: usize,
     pub has_more: bool,
+    pub snapshot: Option<crate::library::entries::LibraryCollection>,
 }
 
 pub struct MatchOutcome {
@@ -511,7 +512,7 @@ async fn fetch_video_meta_url(client: &reqwest::Client, url: &str) -> Result<Vid
 pub async fn fetch_collection(
     bvid: &str,
     id: i64,
-) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>), String> {
+) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>, String), String> {
     let client = video_detail_client().map_err(|_| "无法创建视频详情请求客户端".to_owned())?;
     let response = fetch_view_detail(&client, bvid).await?;
     collection_from_response(response, id)
@@ -520,13 +521,19 @@ pub async fn fetch_collection(
 fn collection_from_response(
     response: ViewDetailResponse,
     id: i64,
-) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>), String> {
+) -> Result<(CollectionSummary, Vec<crate::search::SearchVideo>, String), String> {
     let view = response
         .data
         .and_then(|data| data.view)
         .ok_or("视频详情缺少 View")?;
-    let season: ViewSeason = serde_json::from_value(view.ugc_season.ok_or("该视频没有合集")?)
-        .map_err(|_| "合集详情格式异常".to_owned())?;
+    let raw_season = view.ugc_season.ok_or("该视频没有合集")?;
+    let cover = raw_season
+        .get("cover")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let season: ViewSeason =
+        serde_json::from_value(raw_season).map_err(|_| "合集详情格式异常".to_owned())?;
     if season.id != id {
         return Err("合集已变化，请重新展开".to_owned());
     }
@@ -559,7 +566,7 @@ fn collection_from_response(
             })
         })
         .collect();
-    Ok((summary, items?))
+    Ok((summary, items?, cover))
 }
 
 pub fn collection_page(
@@ -575,6 +582,7 @@ pub fn collection_page(
         items: items.get(start..end).unwrap_or(&[]).to_vec(),
         total: items.len(),
         has_more: end < items.len(),
+        snapshot: None,
     })
 }
 
@@ -1361,7 +1369,7 @@ mod tests {
             (summary.id, summary.title.as_str(), summary.total),
             (42, "合集", 2)
         );
-        let (_, items) = collection_from_response(response, 42).unwrap();
+        let (_, items, _) = collection_from_response(response, 42).unwrap();
         assert_eq!(items.len(), 2);
         assert_eq!(items[0].uploader, "作者");
         assert_eq!(items[0].play_count, Some(7));
@@ -1371,6 +1379,29 @@ mod tests {
         assert!(!page.has_more);
         assert!(collection_page(&items, 0).is_err());
         assert!(collection_page(&items, 2).unwrap().items.is_empty());
+    }
+
+    #[test]
+    fn collection_cover_is_optional_and_does_not_affect_the_metadata_or_lyrics_path() {
+        for cover in [
+            serde_json::json!("https://example.invalid/collection.jpg"),
+            serde_json::json!(42),
+            serde_json::Value::Null,
+        ] {
+            let value = serde_json::json!({"code":0,"data":{"View":{"title":"原视频","desc":"原简介","ugc_season":{
+                "id":42,"title":"合集","cover":cover,"ep_count":2,"sections":[{"episodes":[
+                    {"bvid":"BV0000000001","title":"一","arc":{}},{"bvid":"BV0000000002","title":"二","arc":{}}
+                ]}]
+            }}}});
+            let meta =
+                video_meta_from_response(serde_json::from_value(value.clone()).unwrap()).unwrap();
+            assert_eq!(meta.title, "原视频");
+            assert_eq!(meta.desc, "原简介");
+            assert_eq!(meta.collection.unwrap().total, 2);
+            let (_, _, parsed_cover) =
+                collection_from_response(serde_json::from_value(value).unwrap(), 42).unwrap();
+            assert_eq!(parsed_cover, cover.as_str().unwrap_or_default());
+        }
     }
 
     #[test]

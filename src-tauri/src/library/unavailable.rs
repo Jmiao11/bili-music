@@ -1,5 +1,5 @@
-use super::favorites::{favorites_path, FavoritesFile};
-use super::playlists::{playlists_path, PlaylistsFile};
+use super::favorites::{favorites_path, write_favorites, FavoritesFile};
+use super::playlists::{playlists_path, write_playlists, PlaylistsFile};
 use super::{
     library_file_path, normalize_bvid, now_millis, read_json_or_default, write_json_atomic,
     Versioned, UNAVAILABLE_TRACKS_FILE, VERSION,
@@ -143,25 +143,27 @@ fn purge_unavailable_tracks_at(
     let mut playlists: PlaylistsFile = read_json_or_default(guard, playlists_path)?;
 
     let favorites_before = favorites.items.len();
-    favorites
-        .items
-        .retain(|item| !unavailable_bvids.contains(&item.bvid.to_lowercase()));
+    favorites.items.retain(|item| {
+        item.video()
+            .is_none_or(|video| !unavailable_bvids.contains(&video.bvid.to_lowercase()))
+    });
     let removed_favorites = favorites_before - favorites.items.len();
 
     let mut removed_playlist_items = 0;
     for playlist in &mut playlists.playlists {
         let items_before = playlist.items.len();
-        playlist
-            .items
-            .retain(|item| !unavailable_bvids.contains(&item.bvid.to_lowercase()));
+        playlist.items.retain(|item| {
+            item.video()
+                .is_none_or(|video| !unavailable_bvids.contains(&video.bvid.to_lowercase()))
+        });
         removed_playlist_items += items_before - playlist.items.len();
     }
 
     if removed_favorites > 0 {
-        write_json_atomic(guard, favorites_path, &favorites)?;
+        write_favorites(guard, favorites_path, &favorites)?;
     }
     if removed_playlist_items > 0 {
-        write_json_atomic(guard, playlists_path, &playlists)?;
+        write_playlists(guard, playlists_path, &playlists)?;
     }
 
     write_json_atomic(guard, unavailable_path, &UnavailableTracksFile::default())?;
@@ -396,12 +398,15 @@ mod tests {
             read_json_or_default(&crate::storage::lock_storage().unwrap(), &favorites_path)
                 .unwrap();
         assert_eq!(favorites.items.len(), 1);
-        assert_eq!(favorites.items[0].bvid, kept_bvid);
+        assert_eq!(favorites.items[0].video().unwrap().bvid, kept_bvid);
         let playlists: PlaylistsFile =
             read_json_or_default(&crate::storage::lock_storage().unwrap(), &playlists_path)
                 .unwrap();
         assert_eq!(playlists.playlists[0].items.len(), 1);
-        assert_eq!(playlists.playlists[0].items[0].bvid, kept_bvid);
+        assert_eq!(
+            playlists.playlists[0].items[0].video().unwrap().bvid,
+            kept_bvid
+        );
         assert!(playlists.playlists[1].items.is_empty());
         let unavailable: super::UnavailableTracksFile =
             read_json_or_default(&crate::storage::lock_storage().unwrap(), &unavailable_path)
@@ -494,10 +499,11 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    fn track_with_bvid(bvid: &str, title: &str) -> TrackSnapshot {
+    fn track_with_bvid(bvid: &str, title: &str) -> crate::library::entries::LibraryEntry {
         TrackSnapshot {
             bvid: bvid.into(),
             ..track(title)
         }
+        .into()
     }
 }

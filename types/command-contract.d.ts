@@ -11,8 +11,12 @@ declare namespace CommandContract {
   interface AudioCacheUsage { bytes: number; items: number; }
   interface TrackSnapshot { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; addedAt: string; }
   interface TrackSnapshotInput { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
-  interface FavoriteToggleResult { favorited: boolean; items: TrackSnapshot[]; }
-  interface Playlist { id: string; name: string; createdAt: string; items: TrackSnapshot[]; }
+  interface CollectionSnapshot { fetchedAt: string; items: TrackSnapshot[]; }
+  interface LibraryCollection { collectionId: number; anchorBvid: string; title: string; thumbnailUrl: string; videoCount: number; addedAt: string; snapshot: CollectionSnapshot; sourceStatus: "active" | "invalid"; }
+  type LibraryEntry = { kind: "video"; entryId: string; video: TrackSnapshot } | ({ kind: "collection"; entryId: string } & LibraryCollection);
+  interface FavoriteToggleResult { favorited: boolean; items: LibraryEntry[]; }
+  interface Playlist { id: string; name: string; createdAt: string; items: LibraryEntry[]; }
+  interface BatchAddResult { playlists: Playlist[]; added: number; duplicates: number; }
   interface ImportPage { mediaId: string; title: string; total: number; items: TrackSnapshot[]; skipped: number; duplicates: number; scanned: number; hasMore: boolean; truncated: boolean; }
   interface SearchHistoryItem { keyword: string; searchedAt: string; count: number; }
   interface PlayHistoryItem { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; lastPlayedAt: string; count: number; }
@@ -29,7 +33,7 @@ declare namespace CommandContract {
   interface PageMeta { cid: number; page: number; part: string; duration: number; }
   interface CachedVideoPages { videos: number; pages: PageMeta[]; cached_at: number; }
   interface CollectionSummary { id: number; title: string; total: number; }
-  interface CollectionPage { items: SearchVideo[]; total: number; hasMore: boolean; }
+  interface CollectionPage { items: SearchVideo[]; total: number; hasMore: boolean; snapshot: LibraryCollection | null; }
   interface VideoMeta { title: string; desc: string; duration: number; videos: number; bgm_name: string | null; pages: PageMeta[]; collection: CollectionSummary | null; }
   interface LyricsBinding { song_id: string; song_name: string; singer: string; source: string; confidence: number; checked_at: number; }
   interface ResolveOutcome { status: string; song_id: string; song_name: string; singer: string; lyrics: Lyrics | null; offset_ms: number; used_keyword: string; candidates: ScoredCandidate[]; }
@@ -56,7 +60,7 @@ interface CommandMap {
   clear_loudness_data: { args: undefined; result: null };
   get_video_pages: { args: { bvId: string }; result: CommandContract.VideoPage[] };
   get_video_meta: { args: { bvid: string }; result: CommandContract.VideoMeta };
-  get_collection_page: { args: { bvid: string; collectionId: number; page: number }; result: CommandContract.CollectionPage };
+  get_collection_page: { args: { bvid: string; collectionId: number; page: number; refresh?: boolean | null }; result: CommandContract.CollectionPage };
   get_cached_video_pages: { args: { bvids: string[] }; result: Record<string, CommandContract.CachedVideoPages> };
   clear_video_pages_cache: { args: undefined; result: number };
   cancel_prepare_audio: { args: undefined; result: null };
@@ -69,10 +73,15 @@ interface CommandMap {
   open_bilibili_video: { args: { bvId: string }; result: null };
   choose_background_image: { args: undefined; result: CommandContract.BackgroundImage | null };
   load_background_image: { args: { path: string }; result: CommandContract.BackgroundImage };
-  list_favorites: { args: undefined; result: CommandContract.TrackSnapshot[] };
+  list_favorites: { args: undefined; result: CommandContract.LibraryEntry[] };
   is_favorite: { args: { bvid: string }; result: boolean };
   toggle_favorite: { args: { track: CommandContract.TrackSnapshotInput }; result: CommandContract.FavoriteToggleResult };
-  reorder_favorite: { args: { fromIndex: number; toIndex: number }; result: CommandContract.TrackSnapshot[] };
+  reorder_favorite: { args: { fromIndex: number; toIndex: number }; result: CommandContract.LibraryEntry[] };
+  toggle_collection_favorite: { args: { collection: CommandContract.LibraryCollection }; result: CommandContract.FavoriteToggleResult };
+  add_collection_to_playlist: { args: { id: string; collection: CommandContract.LibraryCollection }; result: CommandContract.Playlist[] };
+  add_collection_videos_to_playlist: { args: { id: string; collection: CommandContract.LibraryCollection }; result: CommandContract.BatchAddResult };
+  update_collection_entry: { args: { entryId: string; playlistId?: string | null; collection: CommandContract.LibraryCollection }; result: boolean };
+  remove_collection_entry: { args: { entryId: string; playlistId?: string | null }; result: null };
   list_playlists: { args: undefined; result: CommandContract.Playlist[] };
   create_playlist: { args: { name: string }; result: CommandContract.Playlist[] };
   rename_playlist: { args: { id: string; name: string }; result: CommandContract.Playlist[] };

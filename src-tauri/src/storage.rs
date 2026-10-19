@@ -140,6 +140,30 @@ pub(crate) fn create_file(_: &StorageGuard, path: impl AsRef<Path>) -> std::io::
     File::create(path)
 }
 
+pub(crate) fn backup_once(_: &StorageGuard, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut file = match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
+        Ok(file) => file,
+        Err(error)
+            if error.kind() == std::io::ErrorKind::AlreadyExists
+                && fs::symlink_metadata(path)
+                    .is_ok_and(|metadata| metadata.file_type().is_file()) =>
+        {
+            return Ok(())
+        }
+        Err(error) => return Err(error),
+    };
+    if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
+        drop(file);
+        let _ = fs::remove_file(path);
+        return Err(error);
+    }
+    Ok(())
+}
+
 enum AtomicWriteError {
     Write(std::io::Error),
     Sync(std::io::Error),

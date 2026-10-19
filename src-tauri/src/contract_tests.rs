@@ -68,10 +68,34 @@ mod tests {
         );
         assert_fixture("track-snapshot", &track());
         assert_fixture(
+            "library-entry-video",
+            &crate::library::entries::LibraryEntry::from(track()),
+        );
+        assert_fixture(
+            "library-collection",
+            &crate::library::entries::tests::collection(),
+        );
+        assert_fixture(
+            "library-entry-collection",
+            &crate::library::entries::LibraryEntry::Collection {
+                entry_id: "collection-reference-31".to_owned(),
+                collection: crate::library::entries::tests::collection(),
+            },
+        );
+        assert_fixture(
+            "collection-page",
+            &crate::lyrics::CollectionPage {
+                items: Vec::new(),
+                total: 2,
+                has_more: false,
+                snapshot: Some(crate::library::entries::tests::collection()),
+            },
+        );
+        assert_fixture(
             "favorite-toggle-result",
             &favorites::FavoriteToggleResult {
                 favorited: true,
-                items: vec![track()],
+                items: vec![track().into()],
             },
         );
         assert_fixture(
@@ -80,7 +104,7 @@ mod tests {
                 id: "playlist-1".into(),
                 name: "歌单".into(),
                 created_at: "1700000000000".into(),
-                items: vec![track()],
+                items: vec![track().into()],
             },
         );
         assert_fixture(

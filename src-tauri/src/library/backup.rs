@@ -108,6 +108,10 @@ fn export_snapshot(
             if file_name.contains(".tmp")
                 || file_name.ends_with(".backup")
                 || file_name.starts_with("ai-config.json.bak-")
+                || matches!(
+                    file_name.as_str(),
+                    "favorites.v1.bak.json" | "playlists.v1.bak.json"
+                )
             {
                 continue;
             }
@@ -200,6 +204,25 @@ fn read_import_files<R: Read + Seek>(input: R) -> Result<(Vec<(String, Vec<u8>)>
                 .map_err(|error| format!("备份条目 {name} 的 JSON 格式损坏：{error}"))?;
             if name != AI_CONFIG_FILE || json.get("api_key").is_some() || !json.is_object() {
                 validate_backup_json(&name, &bytes)?;
+            }
+            if matches!(name.as_str(), FAVORITES_FILE | PLAYLISTS_FILE)
+                && json.get("version").and_then(serde_json::Value::as_u64) == Some(2)
+            {
+                let normalized = if name == FAVORITES_FILE {
+                    serde_json::from_slice::<super::favorites::FavoritesFile>(&bytes)
+                        .and_then(serde_json::to_value)
+                } else {
+                    serde_json::from_slice::<super::playlists::PlaylistsFile>(&bytes)
+                        .and_then(serde_json::to_value)
+                }
+                .map_err(|_| "无法处理资料库备份格式。")?;
+                if normalized
+                    .get("version")
+                    .and_then(serde_json::Value::as_u64)
+                    == Some(1)
+                {
+                    bytes = serde_json::to_vec(&normalized).map_err(|_| "无法编码资料库备份。")?;
+                }
             }
         }
         files.push((name, bytes));
@@ -299,6 +322,16 @@ fn import_files_at(
     }
     fs::create_dir_all(root)
         .map_err(|error| format!("无法创建数据目录 {}：{error}", root.display()))?;
+    for (name, bytes) in &files {
+        if matches!(name.as_str(), FAVORITES_FILE | PLAYLISTS_FILE)
+            && serde_json::from_slice::<serde_json::Value>(bytes)
+                .ok()
+                .and_then(|value| value.get("version").and_then(serde_json::Value::as_u64))
+                == Some(2)
+        {
+            super::entries::backup_before_v2(guard, &root.join(name))?;
+        }
+    }
     let snapshot = root.join(format!(".import-rollback-{}", Uuid::new_v4()));
     fs::create_dir(&snapshot).map_err(|error| format!("无法创建回滚快照：{error}"))?;
     let mut existed = HashSet::new();
@@ -1199,6 +1232,112 @@ mod backup_tests {
         assert!(error.starts_with("本机 AI 配置格式损坏："));
         assert!(!error.contains("damaged-local-secret"));
         assert_eq!(disk_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn collection_v2_zip_preflight_roundtrip_and_v1_backup_are_atomic() {
+        use super::super::entries::{tests::collection, LibraryEntry};
+        let root = temp_root();
+        let old = br#"{"version":1,"items":[]}"#;
+        fs::write(root.join(FAVORITES_FILE), old).unwrap();
+        let entry = LibraryEntry::Collection {
+            entry_id: "saved-reference".to_owned(),
+            collection: collection(),
+        };
+        let bytes = serde_json::to_vec(&serde_json::json!({"version":2,"items":[entry]})).unwrap();
+        let zip = backup(&[(FAVORITES_FILE, &bytes)]);
+        import_data_at(&root, zip, crate::storage::write_bytes_atomic).unwrap();
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), bytes);
+        assert_eq!(fs::read(root.join("favorites.v1.bak.json")).unwrap(), old);
+        let exported = export_snapshot(&crate::storage::lock_storage().unwrap(), &root).unwrap();
+        assert!(!exported
+            .iter()
+            .any(|(name, _)| name.ends_with(".v1.bak.json")));
+        let mut invalid: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        invalid["items"][0]["snapshot"]["items"] = serde_json::json!([]);
+        let invalid = serde_json::to_vec(&invalid).unwrap();
+        let before = disk_snapshot(&root);
+        assert!(import_data_at(
+            &root,
+            backup(&[(FAVORITES_FILE, &invalid)]),
+            crate::storage::write_bytes_atomic
+        )
+        .is_err());
+        assert_eq!(disk_snapshot(&root), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn collection_v2_import_rolls_back_files_and_failed_backup_writes_nothing() {
+        use super::super::entries::{tests::collection, LibraryEntry};
+        let root = temp_root();
+        let old = br#"{"version":1,"items":[]}"#;
+        fs::write(root.join(FAVORITES_FILE), old).unwrap();
+        fs::write(
+            root.join(PLAYLISTS_FILE),
+            br#"{"version":1,"playlists":[]}"#,
+        )
+        .unwrap();
+        let entry = LibraryEntry::Collection {
+            entry_id: "saved-reference".to_owned(),
+            collection: collection(),
+        };
+        let bytes = serde_json::to_vec(&serde_json::json!({"version":2,"items":[entry]})).unwrap();
+        let zip = backup(&[
+            (FAVORITES_FILE, &bytes),
+            (PLAYLISTS_FILE, br#"{"version":1,"playlists":[]}"#),
+        ]);
+        let result = import_data_at(&root, zip, |guard, path, bytes| {
+            if path.ends_with(PLAYLISTS_FILE) {
+                return Err(std::io::Error::other("injected write failure"));
+            }
+            crate::storage::write_bytes_atomic(guard, path, bytes)
+        });
+        assert!(result.unwrap_err().contains("已回滚"));
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), old);
+        assert_eq!(fs::read(root.join("favorites.v1.bak.json")).unwrap(), old);
+        fs::remove_file(root.join("favorites.v1.bak.json")).unwrap();
+        fs::create_dir(root.join("favorites.v1.bak.json")).unwrap();
+        assert!(import_data_at(
+            &root,
+            backup(&[(FAVORITES_FILE, &bytes)]),
+            crate::storage::write_bytes_atomic
+        )
+        .unwrap_err()
+        .contains("自动备份"));
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), old);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn video_only_v2_import_writes_v1_but_existing_v1_import_keeps_exact_bytes() {
+        let root = temp_root();
+        let video =
+            super::super::entries::LibraryEntry::from(super::super::test_support::track("旧视频"));
+        let favorites =
+            serde_json::to_vec(&serde_json::json!({"version":2,"items":[video]})).unwrap();
+        let playlists = serde_json::to_vec(&serde_json::json!({"version":2,"playlists":[{"id":"p","name":"p","createdAt":"1","items":[video]}]})).unwrap();
+        import_data_at(
+            &root,
+            backup(&[(FAVORITES_FILE, &favorites), (PLAYLISTS_FILE, &playlists)]),
+            crate::storage::write_bytes_atomic,
+        )
+        .unwrap();
+        for name in [FAVORITES_FILE, PLAYLISTS_FILE] {
+            let value: serde_json::Value =
+                serde_json::from_slice(&fs::read(root.join(name)).unwrap()).unwrap();
+            assert_eq!(value["version"], 1);
+        }
+        assert!(!root.join("favorites.v1.bak.json").exists());
+        let v1 = b"{ \"version\" : 1, \"items\" : [] }";
+        import_data_at(
+            &root,
+            backup(&[(FAVORITES_FILE, v1)]),
+            crate::storage::write_bytes_atomic,
+        )
+        .unwrap();
+        assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), v1);
         fs::remove_dir_all(root).unwrap();
     }
 }

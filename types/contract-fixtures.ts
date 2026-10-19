@@ -8,7 +8,7 @@ import fixtureAudioResponse from "../tests/fixtures/contract/audio-response.json
 import fixtureBackgroundImage from "../tests/fixtures/contract/background-image.json";
 import fixtureCachedVideoPages from "../tests/fixtures/contract/cached-video-pages.json";
 import fixtureCandidate from "../tests/fixtures/contract/candidate.json";
-import fixtureFavoriteToggleResult from "../tests/fixtures/contract/favorite-toggle-result.json";
+import rawFavoriteToggleResult from "../tests/fixtures/contract/favorite-toggle-result.json";
 import fixtureImportPage from "../tests/fixtures/contract/import-page.json";
 import fixtureInputTrackSnapshot from "../tests/fixtures/contract/input-track-snapshot.json";
 import fixtureLyricsBinding from "../tests/fixtures/contract/lyrics-binding.json";
@@ -17,7 +17,7 @@ import fixturePageMeta from "../tests/fixtures/contract/page-meta.json";
 import fixturePlayHistoryItem from "../tests/fixtures/contract/play-history-item.json";
 import fixturePlaybackStateNone from "../tests/fixtures/contract/playback-state-none.json";
 import fixturePlaybackStateSome from "../tests/fixtures/contract/playback-state-some.json";
-import fixturePlaylist from "../tests/fixtures/contract/playlist.json";
+import rawPlaylist from "../tests/fixtures/contract/playlist.json";
 import fixturePurgeResult from "../tests/fixtures/contract/purge-result.json";
 import fixtureRankingTrackNone from "../tests/fixtures/contract/ranking-track-none.json";
 import fixtureRankingTrackSome from "../tests/fixtures/contract/ranking-track-some.json";
@@ -37,6 +37,21 @@ import fixtureVideoMetaNone from "../tests/fixtures/contract/video-meta-none.jso
 import fixtureVideoMetaSome from "../tests/fixtures/contract/video-meta-some.json";
 import fixtureVideoPage from "../tests/fixtures/contract/video-page.json";
 import fixtureYtDlpAvailability from "../tests/fixtures/contract/yt-dlp-availability.json";
+import rawLibraryVideo from "../tests/fixtures/contract/library-entry-video.json";
+import rawLibraryCollection from "../tests/fixtures/contract/library-collection.json";
+import rawLibraryCollectionEntry from "../tests/fixtures/contract/library-entry-collection.json";
+import rawCollectionPage from "../tests/fixtures/contract/collection-page.json";
+// JSON modules widen discriminants to string; validate the literal instead of casting the payload.
+function fixtureLiteral<T extends string>(value: string, expected: T): T {
+  if (value !== expected) throw Error("Unexpected contract fixture discriminant");
+  return expected;
+}
+const fixtureLibraryVideo = { ...rawLibraryVideo, kind: fixtureLiteral(rawLibraryVideo.kind, "video") };
+const fixtureLibraryCollection: CommandContract.LibraryCollection = { ...rawLibraryCollection, sourceStatus: fixtureLiteral(rawLibraryCollection.sourceStatus, "active") };
+const fixtureLibraryCollectionEntry: CommandContract.LibraryEntry = { ...rawLibraryCollectionEntry, kind: fixtureLiteral(rawLibraryCollectionEntry.kind, "collection"), sourceStatus: fixtureLiteral(rawLibraryCollectionEntry.sourceStatus, "active") };
+const fixtureFavoriteToggleResult = { ...rawFavoriteToggleResult, items: rawFavoriteToggleResult.items.map(item => ({ ...item, kind: fixtureLiteral(item.kind, "video") })) };
+const fixturePlaylist = { ...rawPlaylist, items: rawPlaylist.items.map(item => ({ ...item, kind: fixtureLiteral(item.kind, "video") })) };
+const fixtureCollectionPage: CommandContract.CollectionPage = { ...rawCollectionPage, snapshot: { ...rawCollectionPage.snapshot, sourceStatus: fixtureLiteral(rawCollectionPage.snapshot.sourceStatus, "active") } };
 const fixtureAiConfigViewNoneOutput: CommandContract.AiConfigView = fixtureAiConfigViewNone;
 const fixtureAiConfigViewSomeOutput: CommandContract.AiConfigView = fixtureAiConfigViewSome;
 const fixtureAiConnectionTestResultOutput: CommandContract.AiConnectionTestResult = fixtureAiConnectionTestResult;
@@ -100,7 +115,7 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   clear_loudness_data: null,
   get_video_pages: [fixtureVideoPage],
   get_video_meta: fixtureVideoMetaSome,
-  get_collection_page: { items: [fixtureSearchVideoSome], total: 1, hasMore: false },
+  get_collection_page: fixtureCollectionPage,
   get_cached_video_pages: { BV1234567890: fixtureCachedVideoPages },
   clear_video_pages_cache: 1,
   cancel_prepare_audio: null,
@@ -113,10 +128,15 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   open_bilibili_video: null,
   choose_background_image: fixtureBackgroundImage,
   load_background_image: fixtureBackgroundImage,
-  list_favorites: [fixtureTrackSnapshot],
+  list_favorites: [fixtureLibraryVideo, fixtureLibraryCollectionEntry],
   is_favorite: true,
   toggle_favorite: fixtureFavoriteToggleResult,
-  reorder_favorite: [fixtureTrackSnapshot],
+  reorder_favorite: [fixtureLibraryVideo],
+  toggle_collection_favorite: fixtureFavoriteToggleResult,
+  add_collection_to_playlist: [fixturePlaylist],
+  add_collection_videos_to_playlist: { playlists: [fixturePlaylist], added: 1, duplicates: 0 },
+  update_collection_entry: true,
+  remove_collection_entry: null,
   list_playlists: [fixturePlaylist],
   create_playlist: [fixturePlaylist],
   rename_playlist: [fixturePlaylist],
@@ -160,6 +180,13 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   import_data: "sample",
 } satisfies { [K in keyof CommandMap]: CommandMap[K]["result"] };
 declare const invoke: CommandInvoke;
+invoke("toggle_collection_favorite", { collection: fixtureLibraryCollection });
+invoke("add_collection_to_playlist", { id: "p", collection: fixtureLibraryCollection });
+invoke("add_collection_videos_to_playlist", { id: "p", collection: fixtureLibraryCollection });
+invoke("update_collection_entry", { entryId: "reference", playlistId: null, collection: fixtureLibraryCollection });
+invoke("remove_collection_entry", { entryId: "reference", playlistId: "p" });
+// @ts-expect-error A summary cannot replace a complete collection snapshot.
+invoke("toggle_collection_favorite", { collection: { collectionId: 31, title: "summary only" } });
 invoke("get_ai_config");
 invoke("record_play", trackInput);
 invoke("save_playback_state", playbackSomeInput);

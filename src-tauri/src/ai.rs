@@ -509,6 +509,7 @@ fn build_taste_profile() -> String {
     let favorites: Vec<String> = list_favorites()
         .unwrap_or_default()
         .into_iter()
+        .filter_map(|entry| entry.video().cloned())
         .take(12)
         .map(|track| format!("{} - {}", track.title, track.uploader))
         .collect();
@@ -521,6 +522,7 @@ fn build_taste_profile() -> String {
         .unwrap_or_default()
         .into_iter()
         .flat_map(|playlist| playlist.items)
+        .filter_map(|entry| entry.video().cloned())
         .filter(|track| seen_playlist_bvids.insert(track.bvid.to_lowercase()))
         .take(12)
         .map(|track| format!("{} - {}", track.title, track.uploader))
