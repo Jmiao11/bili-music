@@ -103,6 +103,9 @@ test("multi-BV prompt waits for click, then paginates and plays through the exis
     return responses([track(1)])(command);
   });
   const draft = h.doc.querySelector<HTMLInputElement>("#search-keyword")!; draft.value = bvid;
+  const previousList = h.doc.querySelector<HTMLElement>("#view-home .tracklist")!;
+  Object.defineProperty(previousList, "scrollTo", { value: (options: ScrollToOptions) => { previousList.scrollTop = options.top ?? 0; } });
+  previousList.scrollTop = 117;
   await h.fire(h.doc.querySelector("#search-form")!, "submit"); await h.microtasks();
   assert.match(h.doc.querySelector("#playback-notice")!.textContent ?? "", /共 22 个视频的合集「测试合集」/);
   assert.equal(h.calls.filter(call => call.command === "get_collection_page").length, 0);
@@ -119,6 +122,7 @@ test("multi-BV prompt waits for click, then paginates and plays through the exis
   await h.fire(h.doc.querySelector("#view-collection .list-head button")!, "click");
   assert.equal(h.doc.querySelector("#view-collection"), null);
   assert.equal(h.doc.querySelector("#view-home")!.hasAttribute("hidden"), false);
+  assert.equal(previousList.scrollTop, 117);
 }));
 
 test("ordinary BV has no collection prompt and stale collection requests cannot reopen a closed view", () => run(async h => {
