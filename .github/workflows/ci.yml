@@ -29,20 +29,6 @@ jobs:
       - name: 安装前端开发依赖
         run: npm ci
 
-      - name: 临时诊断 macOS DOM 事件时序（20 次）
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          failures=0
-          for iteration in {1..20}; do
-            echo "DOM diagnostic iteration $iteration/20"
-            if ! node --test tests/dom/search-characterization.dom.ts tests/dom/tracks-baseline.dom.ts tests/dom/library-lists-baseline.dom.ts tests/dom/library-lists-characterization.dom.ts tests/dom/library-lists-vue.dom.ts tests/dom/vue-smoke.dom.ts; then
-              failures=$((failures + 1))
-            fi
-          done
-          echo "DOM diagnostic failures: $failures/20"
-          test "$failures" -eq 0
-
       - name: 运行安装后 DOM 测试
         run: npm run test:dom
 
