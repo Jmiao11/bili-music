@@ -1,6 +1,10 @@
 mod protocol;
+mod recommendation;
 
-use protocol::{build_request, extract_content, output_truncated_reason, response_snippet};
+use protocol::{
+    build_request_for_purpose, extract_content, output_truncated_reason, response_snippet,
+    RequestPurpose,
+};
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
@@ -23,7 +27,7 @@ const RECOMMENDATIONS_VERSION: u32 = 1;
 #[cfg(not(debug_assertions))]
 const DATA_SUBDIR: &str = "data";
 const AI_TIMEOUT_SHORT_SECS: u64 = 15;
-const AI_TIMEOUT_LONG_SECS: u64 = 90;
+const AI_RECOMMENDATION_TIMEOUT_SECS: u64 = 20;
 const AI_CONNECT_TIMEOUT_SECS: u64 = 10;
 
 /// 用户可选的 AI 接口规范。存储值用完整规范名（kebab-case），
@@ -316,78 +320,11 @@ pub async fn generate_recommendations(
     search: &SearchClient,
     user_hint: Option<String>,
 ) -> Result<Vec<SearchVideo>, String> {
-    let mut profile = build_taste_profile();
-    if let Some(hint) = user_hint {
-        let hint = hint.trim();
-        if !hint.is_empty() {
-            if !profile.is_empty() {
-                profile.push('\n');
-            }
-            profile.push_str(&format!(
-                "【本次想听】{hint}（请优先按这个方向生成检索关键词）"
-            ));
-        }
-    }
-    if profile.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let intents = match generate_search_intents(&profile).await {
-        Ok(intents) => intents,
-        Err(error) => return Err(error),
-    };
-    if intents.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut candidates_by_bvid = HashMap::new();
-    for intent in intents {
-        if candidates_by_bvid.len() >= 30 {
-            break;
-        }
-        let Ok(videos) = search.search_videos(&intent.keyword).await else {
-            continue;
-        };
-        for video in videos {
-            if candidates_by_bvid.len() >= 30 {
-                break;
-            }
-            candidates_by_bvid
-                .entry(video.bvid.clone())
-                .or_insert(video);
-        }
-    }
-    if candidates_by_bvid.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut baseline: Vec<SearchVideo> = candidates_by_bvid.into_values().collect();
-    baseline.sort_by(|left, right| {
-        right
-            .play_count
-            .unwrap_or(0)
-            .cmp(&left.play_count.unwrap_or(0))
-            .then_with(|| left.title.cmp(&right.title))
-    });
-
-    let ordered_bvids = match rerank_candidates(&profile, &baseline).await {
-        Ok(bvids) => filter_known_bvids(bvids, baseline.iter().map(|video| video.bvid.as_str())),
-        Err(_) => Vec::new(),
-    };
-    if ordered_bvids.is_empty() {
-        return Ok(baseline);
-    }
-
-    Ok(order_videos_by_bvids(baseline, &ordered_bvids))
+    recommendation::generate(search, user_hint).await
 }
 
 fn read_ai_config(guard: &crate::storage::StorageGuard) -> Result<AiConfig, String> {
     read_ai_config_from_path(guard, &ai_config_path(guard)?)
-}
-
-async fn chat_completion(messages: Vec<ChatMessage>, max_tokens: u32) -> Result<String, String> {
-    let config = read_ai_config(&crate::storage::lock_storage()?)?;
-    chat_completion_with_config(&config, messages, max_tokens, AI_TIMEOUT_LONG_SECS).await
 }
 
 async fn chat_completion_with_config(
@@ -396,6 +333,23 @@ async fn chat_completion_with_config(
     max_tokens: u32,
     timeout_secs: u64,
 ) -> Result<String, String> {
+    chat_completion_with_purpose(
+        config,
+        messages,
+        max_tokens,
+        timeout_secs,
+        RequestPurpose::Default,
+    )
+    .await
+}
+
+async fn chat_completion_with_purpose(
+    config: &AiConfig,
+    messages: Vec<ChatMessage>,
+    max_tokens: u32,
+    timeout_secs: u64,
+    purpose: RequestPurpose,
+) -> Result<String, String> {
     if config.base_url.trim().is_empty()
         || config.model.trim().is_empty()
         || config.api_key.is_empty()
@@ -403,7 +357,7 @@ async fn chat_completion_with_config(
         return Err("AI 配置不完整。".to_owned());
     }
 
-    let built = build_request(config, &messages, max_tokens);
+    let built = build_request_for_purpose(config, &messages, max_tokens, purpose);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(AI_CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(timeout_secs))
@@ -442,6 +396,12 @@ async fn chat_completion_with_config(
         )
     })?;
     if !status.is_success() {
+        if purpose == RequestPurpose::Recommendation {
+            return Err(format!(
+                "HTTP {}：推荐模型请求失败，请稍后重试。",
+                status.as_u16()
+            ));
+        }
         // 把服务端返回的真实错误体和请求端点打到终端，否则无法定位网关路径/参数问题。
         let snippet = safe_error(&response_snippet(&body_text), &config.api_key);
         eprintln!(
@@ -454,6 +414,9 @@ async fn chat_completion_with_config(
         return Err(format!("HTTP {}：{}", status.as_u16(), snippet));
     }
     let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|error| {
+        if purpose == RequestPurpose::Recommendation {
+            return "模型未返回有效的推荐 JSON，请稍后重试。".to_owned();
+        }
         let snippet = response_snippet(&body_text);
         eprintln!(
             "[ai] {} 响应不是有效 JSON：{}",
@@ -467,9 +430,17 @@ async fn chat_completion_with_config(
             &config.api_key,
         )
     })?;
+    if purpose == RequestPurpose::Recommendation
+        && output_truncated_reason(config.api_format, &body).is_some()
+    {
+        return Err("模型推荐输出被截断，请稍后重试或更换模型。".to_owned());
+    }
     match extract_content(config.api_format, &body) {
         Some(content) => Ok(content),
         None => {
+            if purpose == RequestPurpose::Recommendation {
+                return Err("模型未返回有效的推荐内容，请稍后重试。".to_owned());
+            }
             // 按所选规范没提取到文本时，打印端点、模型和原始响应体，定位网关路由/模型/参数问题。
             let snippet = safe_error(&response_snippet(&body_text), &config.api_key);
             eprintln!(
@@ -544,7 +515,10 @@ fn build_taste_profile() -> String {
     lines.join("\n")
 }
 
-async fn generate_search_intents(profile: &str) -> Result<Vec<SearchIntent>, String> {
+async fn generate_search_intents(
+    config: &AiConfig,
+    profile: &str,
+) -> Result<Vec<SearchIntent>, String> {
     let messages = vec![
         ChatMessage {
             role: "system",
@@ -555,11 +529,19 @@ async fn generate_search_intents(profile: &str) -> Result<Vec<SearchIntent>, Str
             content: format!("根据以下用户口味生成检索关键词意图，不要推荐具体视频。\n{profile}"),
         },
     ];
-    let content = chat_completion(messages, 2000).await?;
+    let content = chat_completion_with_purpose(
+        config,
+        messages,
+        2000,
+        AI_RECOMMENDATION_TIMEOUT_SECS,
+        RequestPurpose::Recommendation,
+    )
+    .await?;
     Ok(parse_search_intents(&content).into_iter().take(5).collect())
 }
 
 async fn rerank_candidates(
+    config: &AiConfig,
     profile: &str,
     candidates: &[SearchVideo],
 ) -> Result<Vec<String>, String> {
@@ -587,7 +569,14 @@ async fn rerank_candidates(
             content: format!("用户口味:\n{profile}\n\n真实候选(bvid | title | uploader | playCount):\n{candidate_text}"),
         },
     ];
-    let content = chat_completion(messages, 2000).await?;
+    let content = chat_completion_with_purpose(
+        config,
+        messages,
+        2000,
+        AI_RECOMMENDATION_TIMEOUT_SECS,
+        RequestPurpose::Recommendation,
+    )
+    .await?;
     Ok(parse_bvid_list(&content))
 }
 
@@ -1238,6 +1227,105 @@ mod tests {
             assert!(!error.contains(&config.api_key));
             assert!(error.contains("[redacted]"));
         }
+    }
+
+    #[test]
+    fn recommendation_keyword_responses_use_the_real_http_and_protocol_parsers() {
+        let cases = [
+            (
+                ApiFormat::OpenAiChatCompletions,
+                r#"{"choices":[{"finish_reason":"stop","message":{"content":"[{\"keyword\":\"摇滚 现场\",\"reason\":\"测试\"}]"}}]}"#,
+            ),
+            (
+                ApiFormat::OpenAiResponses,
+                r#"{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"[{\"keyword\":\"摇滚 现场\"}]"}]}]}"#,
+            ),
+            (
+                ApiFormat::AnthropicMessages,
+                r#"{"stop_reason":"end_turn","content":[{"type":"thinking","thinking":"","signature":""},{"type":"text","text":"[{\"keyword\":\"摇滚 现场\"}]"}]}"#,
+            ),
+        ];
+        for (format, body) in cases {
+            let base = spawn_mock_server("200 OK", body);
+            let config = chat_config(format, &base);
+            let intents =
+                tauri::async_runtime::block_on(super::generate_search_intents(&config, "合成口味"))
+                    .unwrap();
+            assert_eq!(intents.len(), 1);
+            assert_eq!(intents[0].keyword, "摇滚 现场");
+        }
+    }
+
+    #[test]
+    fn recommendation_errors_do_not_echo_response_content_and_truncation_is_rejected() {
+        for (format, status, body) in [
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "400 Bad Request",
+                r#"{"error":"sk-secret private-profile"}"#,
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "200 OK",
+                "sk-secret private-profile",
+            ),
+            (
+                ApiFormat::OpenAiChatCompletions,
+                "200 OK",
+                r#"{"choices":[{"finish_reason":"length","message":{"content":"[] private-profile"}}]}"#,
+            ),
+            (
+                ApiFormat::OpenAiResponses,
+                "200 OK",
+                r#"{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}"#,
+            ),
+            (
+                ApiFormat::AnthropicMessages,
+                "200 OK",
+                r#"{"stop_reason":"max_tokens","content":[{"type":"text","text":"[] private-profile"}]}"#,
+            ),
+        ] {
+            let base = spawn_mock_server(status, body);
+            let config = chat_config(format, &base);
+            let error =
+                tauri::async_runtime::block_on(super::generate_search_intents(&config, "合成口味"))
+                    .unwrap_err();
+            assert!(!error.contains("sk-secret"));
+            assert!(!error.contains("private-profile"));
+            if body.contains("length") || body.contains("max_tokens") || body.contains("incomplete")
+            {
+                assert!(error.contains("截断"));
+            }
+        }
+    }
+
+    #[test]
+    fn recommendation_http_timeout_covers_stalled_response_body() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (release, wait) = std::sync::mpsc::channel();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.read(&mut [0; 8192]);
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 10000\r\n\r\n{").unwrap();
+            let _ = wait.recv_timeout(std::time::Duration::from_secs(5));
+        });
+        let config = chat_config(ApiFormat::OpenAiChatCompletions, &base);
+        let error = tauri::async_runtime::block_on(super::chat_completion_with_purpose(
+            &config,
+            vec![ChatMessage {
+                role: "user",
+                content: "合成测试".to_owned(),
+            }],
+            2000,
+            1,
+            super::RequestPurpose::Recommendation,
+        ))
+        .unwrap_err();
+        let _ = release.send(());
+        server.join().unwrap();
+        assert!(error.contains("超时"));
     }
 
     #[test]

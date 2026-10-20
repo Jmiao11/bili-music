@@ -28,7 +28,19 @@ F2a：main_window.rs 提供 main_window_ready 与 5000ms 一次性 watchdog。�
 
 resolve 内的测试覆盖缓存命中与损坏、guest/auto 分流、取消/非当前时不 fallback、CDN 拒绝不登记 token、两轮身份核验间替换、旧 finish 不清除新 job。允许的 CDN fixture 只作为字符串校验与登记断言，不发请求或解析 DNS；真实字节传输测试仅用本机回环假上游与临时目录。
 
-## 契约和验证
+## 推荐请求预算
+
+`ai.rs` 保留 AI 配置、HTTP 鉴权、响应提取与推荐提示词；`ai/protocol.rs` 保留三种 API 的消息/token 结构，按内部请求用途选择可选思考参数。仅推荐调用对已验证的“服务商主机 + 模型”关闭思考：阿里云 qwen3.8-27b 的 Chat 使用 enable_thinking=false，DeepSeek 官方 deepseek-flash 的 Chat 使用 thinking.type=disabled；两家的 Responses 使用 reasoning.effort=none，Anthropic 使用 thinking.type=disabled。未知组合和连接测试保持原请求参数，不从模型名猜测网关能力，不改变已保存配置或自动改写 Base URL。
+
+`ai/recommendation.rs` 是推荐编排入口，开始时建立 75 秒绝对截止时间，包含口味/配置读取的时间核算；意图、全部候选搜索、重排阶段分别最多 20/30/20 秒，均受总剩余时间约束。配置在同一任务内只读一次。搜索仍复用既有 SearchClient/游客身份/WBI，最多五个关键词、三十个真实候选；部分搜索超时保留已得到的候选，重排失败/无效/超时则返回播放量默认顺序。无有效关键词或候选返回错误，不覆盖旧缓存。
+
+所有等待都在当前 future 内由 timeout_at 截止，超时丢弃实际 HTTP/检索 future，不 spawn 后台重排；HTTP timeout 同时覆盖响应体读取。成功后仍由 discovery command 保存非空推荐，参数、Vec<SearchVideo> 返回与缓存格式不变。同步文件系统阻塞不能由异步计时器强行中止；本地丢弃 future 也不保证服务商取消生成/计费。新推荐日志仅记录阶段、结果、耗时和数量，推荐错误不回显服务端正文。
+
+前端保留 95 秒最终兜底，推荐有独立请求版本与 busy 防重入；迟到结果不影响重试，失败恢复旧列表。超时/网络错误在首页提示，只有配置/鉴权等错误提供设置入口。复用现有列表投影，不更改播放队列或播放请求版本。
+
+本地测试的 Dependencies 仅替换意图/搜索/重排外部调用，共用真实编排、deadline、候选校验和降级代码；覆盖剩余总预算、部分搜索超时、重排挂起与 future 丢弃。协议测试覆盖六种已验证组合及未知主机/模型；回环 HTTP 测试覆盖三协议关键词解析、截断、错误正文保密和响应体超时。自动测试不读取真实 AI 配置或调用外网业务服务。
+
+## 播放契约和验证
 
 AudioResponse 序列化契约仍由原 JSON fixture 校验，字段命名保持 camelCase。跨模块只开放实际需要的 pub(crate) 项；I/O 和 command 契约守卫扫描实际子模块路径，不通过搬迁绕过规则。
 

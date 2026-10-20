@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createApplicationStore, isHomePopular } from "../ui/store/app-state.ts";
 import type { HomeAdapter, HomeSnapshot } from "../ui/store/app-state.ts";
+import { renderHomeSnapshot } from "../ui/features/home/home-view.ts";
+import { projectHomeControls } from "../ui/app/root-controls.ts";
 
 const track = { bvid: "BV1234567890", title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 };
 function fixture() {
@@ -85,7 +87,7 @@ test("home actions generation trims hint and releases its timer and controls on 
   assert.equal(timer.delay, 95000);
   timer.callback(); await pending;
   const home = h.store.getState().home;
-  assert.equal(home.recommendationError, "request timeout");
+  assert.equal(home.recommendationError, "推荐耗时较长，请稍后重试。");
   assert.equal(home.recommendationLoading, false);
   assert.equal(home.view.hintDisabled, false);
   assert.equal(home.view.refreshDisabled, false);
@@ -116,4 +118,54 @@ test("home actions keep ranking failure semantics and isolate listener failures 
   assert.equal(errors.length, 2);
   assert.equal(store.getState().home.loaded, true);
   assert.deepEqual(seen.slice(-2), [true, false]);
+});
+
+test("recommendation generation ignores duplicate force refresh while busy", async () => {
+  const h = fixture();
+  let resolve!: (tracks: typeof track[]) => void;
+  const response = new Promise<typeof track[]>(done => { resolve = done; });
+  h.reply(() => response);
+  const first = h.store.actions.loadRecommendations({ forceRefresh: true, userHint: "第一次" });
+  const second = h.store.actions.loadRecommendations({ forceRefresh: true, userHint: "重复" });
+  const count = h.calls.length;
+  resolve([track]); await Promise.all([first, second]);
+  assert.equal(count, 1);
+  assert.equal(h.store.getState().home.userHint, "第一次");
+  assert.equal(h.timers.size, 0);
+});
+
+test("failed recommendation generation restores the previous list and timeout copy does not blame credentials", async () => {
+  const h = fixture();
+  await h.store.actions.loadRecommendations();
+  h.reply(async () => { throw new Error("推荐关键词生成超时，请稍后重试。"); });
+  await h.store.actions.loadRecommendations({ forceRefresh: true });
+  const home = h.store.getState().home;
+  let rendered: HomeSnapshot["recommendations"] = [];
+  assert.equal(renderHomeSnapshot(home, null, videos => { rendered = videos; }), true);
+  assert.deepEqual(rendered.map(video => video.bvid), [track.bvid]);
+  const controls = projectHomeControls(home);
+  assert.equal(controls.setupInline, true);
+  assert.doesNotMatch(controls.setupSub, /API Key/);
+  assert.equal(controls.setupSettingsHidden, true);
+  assert.match(controls.setupSub, /超时/);
+});
+
+test("a timed out recommendation cannot overwrite a retry or release its busy controls", async () => {
+  const h = fixture();
+  let resolveOld!: (tracks: typeof track[]) => void;
+  h.reply(() => new Promise<typeof track[]>(resolve => { resolveOld = resolve; }));
+  const old = h.store.actions.loadRecommendations({ forceRefresh: true });
+  [...h.timers.values()][0].callback(); await old;
+  let resolveNext!: (tracks: typeof track[]) => void;
+  h.reply(() => new Promise<typeof track[]>(resolve => { resolveNext = resolve; }));
+  const next = h.store.actions.loadRecommendations({ forceRefresh: true });
+  resolveOld([{ ...track, title: "迟到旧结果" }]);
+  await Promise.resolve(); await Promise.resolve();
+  assert.equal(h.store.getState().home.recommendationLoading, true);
+  assert.equal(h.store.getState().home.view.hintDisabled, true);
+  assert.equal(h.store.getState().home.recommendations.length, 0);
+  resolveNext([{ ...track, title: "新结果" }]); await next;
+  assert.equal(h.store.getState().home.recommendations[0].title, "新结果");
+  assert.equal(h.store.getState().home.recommendationError, "");
+  assert.equal(h.timers.size, 0);
 });

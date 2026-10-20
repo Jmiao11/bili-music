@@ -133,7 +133,7 @@ function projectApplicationLists(state: Snapshot): void {
     if (kind === "ranking" || kind === "recommendations") {
       const source = kind === "ranking" ? "ranking" : "recommendation";
       const skeleton = kind === "ranking" ? home.loading : home.recommendationLoading;
-      const error = kind === "ranking" ? home.error : home.recommendationError;
+      const error = kind === "ranking" ? home.error : "";
       const videos = skeleton || error ? [] : kind === "ranking" ? home.ranking : home.recommendations;
       renderHomeRows(state, videos, source, skeleton, (index, selection) => {
         const current = getHomeSnapshot();

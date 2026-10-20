@@ -53,6 +53,57 @@ pub(super) struct BuiltRequest {
     pub(super) body: serde_json::Value,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum RequestPurpose {
+    Default,
+    Recommendation,
+}
+
+// 只扩展已经实测的服务商/模型组合；同名第三方网关保持原请求结构。
+pub(super) fn build_request_for_purpose(
+    config: &AiConfig,
+    messages: &[ChatMessage],
+    max_tokens: u32,
+    purpose: RequestPurpose,
+) -> BuiltRequest {
+    let mut built = build_request(config, messages, max_tokens);
+    if purpose != RequestPurpose::Recommendation {
+        return built;
+    }
+    let Ok(url) = reqwest::Url::parse(&built.endpoint) else {
+        return built;
+    };
+    if url.scheme() != "https"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.port_or_known_default() != Some(443)
+    {
+        return built;
+    }
+    let host = url.host_str().unwrap_or_default();
+    let qwen = config.model == "qwen3.8-27b"
+        && (host == "dashscope.aliyuncs.com"
+            || host
+                .strip_suffix(".cn-beijing.maas.aliyuncs.com")
+                .is_some_and(|workspace| !workspace.is_empty() && !workspace.contains('.')));
+    let deepseek = config.model == "deepseek-flash" && host == "api.deepseek.com";
+    if !qwen && !deepseek {
+        return built;
+    }
+    match config.api_format {
+        ApiFormat::OpenAiChatCompletions if qwen => {
+            built.body["enable_thinking"] = serde_json::json!(false);
+        }
+        ApiFormat::OpenAiResponses => {
+            built.body["reasoning"] = serde_json::json!({"effort": "none"});
+        }
+        ApiFormat::OpenAiChatCompletions | ApiFormat::AnthropicMessages => {
+            built.body["thinking"] = serde_json::json!({"type": "disabled"});
+        }
+    }
+    built
+}
+
 fn split_system_messages(messages: &[ChatMessage]) -> (String, Vec<&ChatMessage>) {
     let mut system_parts = Vec::new();
     let mut rest = Vec::new();
@@ -248,6 +299,121 @@ mod tests {
                 content: "根据口味生成关键词。".to_owned(),
             },
         ]
+    }
+
+    #[test]
+    fn recommendation_thinking_controls_cover_six_verified_combinations_only() {
+        for provider in ["qwen", "deepseek"] {
+            for format in [
+                ApiFormat::OpenAiChatCompletions,
+                ApiFormat::OpenAiResponses,
+                ApiFormat::AnthropicMessages,
+            ] {
+                let base = match (provider, format) {
+                    ("qwen", ApiFormat::AnthropicMessages) => {
+                        "https://llm-test.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1"
+                    }
+                    ("qwen", _) => {
+                        "https://llm-test.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+                    }
+                    (_, ApiFormat::AnthropicMessages) => "https://api.deepseek.com/anthropic/v1",
+                    _ => "https://api.deepseek.com",
+                };
+                let mut config = chat_config(format, base);
+                config.model = if provider == "qwen" {
+                    "qwen3.8-27b"
+                } else {
+                    "deepseek-flash"
+                }
+                .to_owned();
+                let default = build_request(&config, &sample_messages(), 2000);
+                assert_eq!(
+                    build_request_for_purpose(
+                        &config,
+                        &sample_messages(),
+                        2000,
+                        RequestPurpose::Default
+                    )
+                    .body,
+                    default.body
+                );
+                let fast = build_request_for_purpose(
+                    &config,
+                    &sample_messages(),
+                    2000,
+                    RequestPurpose::Recommendation,
+                );
+                let mut expected = default.body;
+                match format {
+                    ApiFormat::OpenAiChatCompletions if provider == "qwen" => {
+                        expected["enable_thinking"] = serde_json::json!(false)
+                    }
+                    ApiFormat::OpenAiResponses => {
+                        expected["reasoning"] = serde_json::json!({"effort": "none"})
+                    }
+                    _ => expected["thinking"] = serde_json::json!({"type": "disabled"}),
+                }
+                assert_eq!(
+                    fast.body,
+                    expected,
+                    "provider={provider}, format={}",
+                    format.as_str()
+                );
+                assert_eq!(fast.endpoint, default.endpoint);
+                assert_eq!(fast.headers, default.headers);
+            }
+        }
+        // URL 解析检查真实主机，不能靠 contains 或模型名前缀把私有参数送到未知网关。
+        for (base, model) in [
+            ("https://api.example.com/v1", "qwen3.8-27b"),
+            ("https://api.deepseek.com.evil.example", "deepseek-flash"),
+            ("https://api.deepseek.com@evil.example", "deepseek-flash"),
+            ("https://userinfo@api.deepseek.com", "deepseek-flash"),
+            ("https://api.deepseek.com:8443", "deepseek-flash"),
+            ("http://api.deepseek.com", "deepseek-flash"),
+            ("https://api.deepseek.com", "deepseek-v4-pro"),
+            (
+                "https://llm-test.cn-beijing.maas.aliyuncs.com",
+                "qwen3.8-2.4t-a95b",
+            ),
+            (
+                "https://llm-test.cn-beijing.maas.aliyuncs.com.evil.example",
+                "qwen3.8-27b",
+            ),
+            ("https://api.deepseek.com/path/qwen", "qwen3.8-27b"),
+        ] {
+            for format in [
+                ApiFormat::OpenAiChatCompletions,
+                ApiFormat::OpenAiResponses,
+                ApiFormat::AnthropicMessages,
+            ] {
+                let mut config = chat_config(format, base);
+                config.model = model.to_owned();
+                assert_eq!(
+                    build_request_for_purpose(
+                        &config,
+                        &sample_messages(),
+                        2000,
+                        RequestPurpose::Recommendation
+                    )
+                    .body,
+                    build_request(&config, &sample_messages(), 2000).body
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn empty_anthropic_thinking_placeholder_does_not_hide_keywords() {
+        let body = serde_json::json!({"content":[
+            {"type":"thinking","thinking":"","signature":""},
+            {"type":"text","text":"[{\"keyword\":\"摇滚 现场\",\"reason\":\"测试\"}]"}
+        ]});
+        let text = extract_content(ApiFormat::AnthropicMessages, &body).unwrap();
+        assert_eq!(
+            super::super::parse_search_intents(&text)[0].keyword,
+            "摇滚 现场"
+        );
     }
 
     #[test]
