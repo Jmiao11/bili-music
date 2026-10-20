@@ -36,6 +36,7 @@ function createControllerContext(seed: vm.Context, options?: vm.CreateContextOpt
   seed.playerState=player;
   seed.getApplicationStore=()=>store;
   seed.getQueueSnapshot=()=>queueStore.getState(); seed.getQueueActions=()=>queueStore.actions;
+  seed.currentPlayableTrack ??= () => queueStore.actions.activeTrack();
   seed.getRequestSnapshot=()=>store.getState().playbackRequest; seed.getRequestActions=()=>store.actions.playbackRequest;
   seed.getSessionSnapshot=()=>store.getState().playbackSession; seed.getSessionActions=()=>store.actions.playbackSession;
   const context=vm.createContext(seed,options);

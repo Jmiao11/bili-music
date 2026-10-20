@@ -25,12 +25,14 @@ type Modules = {
   library: { loadLibrary(): Promise<void>; toggleFavorite(video?: CommandContract.TrackSnapshotInput): Promise<void>; getLibrarySnapshot(): Snapshot["library"] };
   home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { updateQueueUi(): void; playListItem(source: string, items: readonly CommandContract.TrackSnapshotInput[], index: number): void };
+  core: { updateQueueUi(): void; playListItem(source: string, items: readonly import("../../ui/features/playback/playback-queue-state.ts").QueueInput[], index: number): void;
+    currentPlayableTrack(): CommandContract.TrackSnapshotInput | null; currentVideoPage(): CommandContract.VideoPage | null;
+    playPrevious(): void; playNext(): boolean; savePlaybackState(): void; restorePlaybackState(): Promise<void>; resumePendingPlayback(): Promise<void> };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store;
 };
 
-async function fixture() {
+async function fixture(options: { playback?: boolean } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const regions: { operation: string; host: Element }[] = [], warnings: unknown[][] = [];
@@ -94,6 +96,7 @@ async function fixture() {
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
   Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const pending = reply(command, args); requests.push(pending); return pending; } }, event: { async listen(name: string) { platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); } } } });
   for (const [name, value] of Object.entries({ __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
+  if (options.playback) install("HTMLMediaElement", window.HTMLMediaElement);
   const microtasks = async () => { for (let i = 0; i < 80; i++) await Promise.resolve(); };
   const requests: Promise<unknown>[] = [];
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & Omit<InputEventInit, "dataTransfer"> & CompositionEventInit & { dataTransfer?: unknown; relatedTarget?: EventTarget | null; preventDefault?: () => void } = {}) => {

@@ -172,12 +172,13 @@ mod tests {
                 &format!("playback-state-{suffix}"),
                 &playback_state::PlaybackState {
                     version: 1,
-                    queue: vec![track()],
+                    queue: vec![track().into()],
                     current_index: 0,
                     position_seconds: 12.5,
                     page: some.then_some(1),
                     cid: some.then_some(123),
                     saved_at: 1700000000000,
+                    traversal: None,
                 },
             );
             assert_fixture(&format!("shortcut-bindings-{suffix}"), &bindings(some));

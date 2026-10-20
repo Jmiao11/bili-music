@@ -224,6 +224,14 @@ fn read_import_files<R: Read + Seek>(input: R) -> Result<(Vec<(String, Vec<u8>)>
                     bytes = serde_json::to_vec(&normalized).map_err(|_| "无法编码资料库备份。")?;
                 }
             }
+            if name == PLAYBACK_STATE_FILE
+                && json.get("version").and_then(serde_json::Value::as_u64) == Some(2)
+            {
+                let state = serde_json::from_slice::<super::playback_state::PlaybackState>(&bytes)
+                    .map_err(|_| "无法处理播放状态备份。")?;
+                bytes = serde_json::to_vec(&super::playback_state::normalize_for_write(state)?)
+                    .map_err(|_| "无法编码播放状态备份。")?;
+            }
         }
         files.push((name, bytes));
     }
@@ -323,11 +331,13 @@ fn import_files_at(
     fs::create_dir_all(root)
         .map_err(|error| format!("无法创建数据目录 {}：{error}", root.display()))?;
     for (name, bytes) in &files {
-        if matches!(name.as_str(), FAVORITES_FILE | PLAYLISTS_FILE)
-            && serde_json::from_slice::<serde_json::Value>(bytes)
-                .ok()
-                .and_then(|value| value.get("version").and_then(serde_json::Value::as_u64))
-                == Some(2)
+        if matches!(
+            name.as_str(),
+            FAVORITES_FILE | PLAYLISTS_FILE | PLAYBACK_STATE_FILE
+        ) && serde_json::from_slice::<serde_json::Value>(bytes)
+            .ok()
+            .and_then(|value| value.get("version").and_then(serde_json::Value::as_u64))
+            == Some(2)
         {
             super::entries::backup_before_v2(guard, &root.join(name))?;
         }
@@ -1338,6 +1348,52 @@ mod backup_tests {
         )
         .unwrap();
         assert_eq!(fs::read(root.join(FAVORITES_FILE)).unwrap(), v1);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn playback_v2_import_backs_up_v1_and_rolls_back_partial_writes() {
+        let root = temp_root();
+        let v1 = include_bytes!("../../../tests/fixtures/contract/playback-state-some.json");
+        let v2 = include_bytes!("../../../tests/fixtures/contract/playback-state-collection.json");
+        let state = root.join(PLAYBACK_STATE_FILE);
+        fs::write(&state, v1).unwrap();
+        let zip = backup(&[(PLAYBACK_STATE_FILE, v2)]);
+        import_data_at(&root, zip, |_guard, path, bytes| fs::write(path, bytes)).unwrap();
+        assert_eq!(
+            fs::read(root.join("playback-state.v1.bak.json")).unwrap(),
+            v1
+        );
+        let restored: super::super::playback_state::PlaybackState =
+            serde_json::from_slice(&fs::read(&state).unwrap()).unwrap();
+        assert_eq!(restored.version, 2);
+        assert_eq!(
+            restored.queue[0].collection.as_ref().unwrap().member_index,
+            1
+        );
+        fs::write(&state, v1).unwrap();
+        let zip = backup(&[
+            (PLAYBACK_STATE_FILE, v2),
+            (PLAYLISTS_FILE, br#"{"version":1,"playlists":[]}"#),
+        ]);
+        let mut writes = 0;
+        let result = import_data_at(&root, zip, |_guard, path, bytes| {
+            writes += 1;
+            fs::write(path, bytes)?;
+            if writes == 2 {
+                Err(Error::other("fixture partial write"))
+            } else {
+                Ok(())
+            }
+        });
+        assert!(result.unwrap_err().contains("已回滚"));
+        assert_eq!(fs::read(&state).unwrap(), v1);
+        assert!(!root.join(PLAYLISTS_FILE).exists());
+        let mut invalid: serde_json::Value = serde_json::from_slice(v2).unwrap();
+        invalid["queue"][0]["collection"]["memberIndex"] = 99.into();
+        let invalid = serde_json::to_vec(&invalid).unwrap();
+        assert!(read_import_files(backup(&[(PLAYBACK_STATE_FILE, &invalid)])).is_err());
+        assert_eq!(fs::read(&state).unwrap(), v1);
         fs::remove_dir_all(root).unwrap();
     }
 }

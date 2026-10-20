@@ -1,11 +1,12 @@
 import type { PlaybackDisplaySnapshot, PlaybackSessionTrack } from "./playback-display-state.ts";
 import { formatPlaybackTime } from "./playback-display-state.ts";
 import type { PlaybackQueueSnapshot } from "./playback-queue-state.ts";
+import { activeQueueTrack } from "./playback-queue-state.ts";
 import type { PlaybackSessionState } from "./playback-session-state.ts";
 import type { DeepReadonly } from "../../store/state-store.ts";
 
 function projectPlaybackControls(queue: PlaybackQueueSnapshot, session: DeepReadonly<PlaybackSessionState>, favorites: ReadonlySet<string>) {
-  const current = queue.queue[queue.currentIndex], bvid = current?.bvid ?? "";
+  const current = activeQueueTrack(queue), bvid = current?.bvid ?? "";
   const favorited = favorites.has(bvid.toLowerCase());
   const pageCount = session.currentPages.length, page = Math.min(queue.currentPageIndex + 1, pageCount);
   const pagesHidden = !current || pageCount <= 1;

@@ -222,7 +222,9 @@ pub(super) fn backup_before_v2(
     let version = serde_json::from_slice::<Value>(&saved)
         .ok()
         .and_then(|value| value.get("version").and_then(Value::as_u64));
-    let valid = if path.file_name().and_then(|name| name.to_str()) == Some("playlists.json") {
+    let valid = if path.file_name().and_then(|name| name.to_str()) == Some("playback-state.json") {
+        super::playback_state::validate_import_json("playback-state.json", &saved)
+    } else if path.file_name().and_then(|name| name.to_str()) == Some("playlists.json") {
         super::playlists::validate_import_json("playlists.json", &saved)
     } else {
         super::favorites::validate_import_json("favorites.json", &saved)

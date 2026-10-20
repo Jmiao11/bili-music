@@ -11,6 +11,7 @@ import { LOOP_MODES, MAX_AUDIO_RECOVERIES, MAX_CONSECUTIVE_RESOLVE_FAILURES, PLA
 import { lufsToGain, readShuffleCollectionPrefs, shouldRecoverAudio } from "./playback-policy.ts";
 import { clearPlaybackNotice, showPlaybackNotice } from "./playback-notice.ts";
 import type { PageSelection } from "../tracks/track-list-model.ts";
+import type { QueueInput } from "./playback-queue-state.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { clearLibraryUnavailable, getLibrarySnapshot, markLibraryUnavailable, openLoudnessModal, renderLibraryViews } from "../library/library-ui.ts";
 import { openCurrentPagesModal } from "../pages/video-pages.ts";
@@ -46,7 +47,7 @@ function currentTrackSnapshot() {
     };
   }
 
-  const video = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
+  const video = getQueueActions().activeTrack();
   return {
     bvid: video?.bvid ?? "",
     title: video?.title ?? "尚未播放",
@@ -66,7 +67,7 @@ function currentPlayableTrack(): CommandContract.TrackSnapshotInput | null {
   ) {
     return null;
   }
-  const track = normalizeTrack(getQueueSnapshot().queue[getQueueSnapshot().currentIndex]);
+  const track = normalizeTrack(getQueueActions().activeTrack());
   return track.bvid ? track : null;
 }
 
@@ -172,16 +173,18 @@ function savePlaybackState() {
   const page = currentVideoPage();
   const resume = getSessionSnapshot().pendingResume;
   const currentTime = Number(audio.currentTime);
+  const hasCollections = getQueueSnapshot().queue.some(entry => entry.collection);
   invoke("save_playback_state", {
     state: {
-      version: 1,
-      queue: getQueueSnapshot().queue.map(playbackTrackSnapshot),
+      version: hasCollections ? 2 : 1,
+      queue: hasCollections ? getQueueActions().persistedQueue() : getQueueSnapshot().queue.map(playbackTrackSnapshot),
+      ...(hasCollections ? { traversal: getQueueActions().persistedTraversal() } : {}),
       currentIndex: Math.max(
         0,
         Math.min(getQueueSnapshot().currentIndex, getQueueSnapshot().queue.length - 1),
       ),
       positionSeconds: resume?.positionSeconds ??
-        (Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0),
+        (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection && getRequestSnapshot().activeAudioVersion !== getRequestSnapshot().requestVersion ? 0 : Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0),
       page: resume?.page ?? page?.page ?? null,
       cid: resume?.cid ?? page?.cid ?? null,
       savedAt: Math.floor(Date.now() / 1000),
@@ -219,7 +222,8 @@ async function restorePlaybackState() {
 
     setQueue(state.queue, { save: false });
     getQueueActions().restoreSelection(state.currentIndex);
-    resetRandomRemaining();
+    if (state.version === 2 && state.traversal) getQueueActions().restoreTraversal(state.traversal);
+    else resetRandomRemaining();
     updateQueueUi();
     renderLibraryViews();
     const track = currentPlayableTrack();
@@ -239,7 +243,7 @@ async function restorePlaybackState() {
   }
 }
 
-function setQueue(videos: readonly CommandContract.TrackSnapshotInput[], { save = true } = {}) {
+function setQueue(videos: readonly QueueInput[], { save = true } = {}) {
   clearPendingResume();
   getQueueActions().replaceQueue(videos);
   getRequestActions().resetFailures();
@@ -282,7 +286,9 @@ function playCurrentVideoPage(page: CommandContract.VideoPage) {
   if (pageIndex < 0 || pageIndex === getQueueSnapshot().currentPageIndex) {
     return;
   }
-  getQueueActions().selectPage(pageIndex);
+  if (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection) {
+    getQueueActions().selectCollectionPage(pageIndex, currentAudioCacheCid(), getRequestSnapshot().activeAudioVersion === getRequestSnapshot().requestVersion);
+  } else getQueueActions().selectPage(pageIndex);
 
   loadCurrentTrack({ keepPage: true });
 }
@@ -332,7 +338,8 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
     window.recordPlaybackDiag("audio-recovery", "abandoned before prepare_audio");
     return;
   }
-  const video = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
+  const video = getQueueActions().activeTrack();
+  if (!video) return;
   const page = currentVideoPage();
   getSessionActions().setRecoveryAttempts(getSessionSnapshot().recoveryAttempts + 1);
   window.recordPlaybackDiag("audio-recovery", `start attempt=${getSessionSnapshot().recoveryAttempts} position=${position}`);
@@ -413,7 +420,7 @@ function refreshTrackLoudness() {
   const requestVersion = getRequestSnapshot().requestVersion;
   setNormalizationGain(1);
   if (!isLoudnessNormalizationEnabled()) return;
-  const bvid = getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.bvid;
+  const bvid = getQueueActions().activeTrack()?.bvid;
   const cid = currentVideoPage()?.cid ?? getSessionSnapshot().currentPages[0]?.cid;
   if (!bvid || !cid) {
     console.warn("track loudness unavailable: missing bvid/cid");
@@ -437,7 +444,7 @@ function analyzeCurrentTrackAtThreshold() {
   const dur = Number(audio.duration);
   const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
   if (audio.currentTime < threshold) return;
-  const bvid = getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.bvid;
+  const bvid = getQueueActions().activeTrack()?.bvid;
   const cid = currentVideoPage()?.cid ?? getSessionSnapshot().currentPages[0]?.cid;
   const audioUrl = getRequestSnapshot().activeAudioUrl;
   if (!bvid || !cid || !audioUrl) return;
@@ -471,7 +478,7 @@ async function loadCurrentTrack({
   randomStartPage = false,
 }: { keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
   const index = getQueueSnapshot().currentIndex;
-  const video = getQueueSnapshot().queue[index];
+  let video = getQueueActions().activeTrack();
   if (!video) {
     return;
   }
@@ -483,6 +490,18 @@ async function loadCurrentTrack({
   setPlaybackStatus("正在解析音频…");
 
   try {
+    const entry = getQueueSnapshot().queue[index];
+    if (entry.collection && getQueueSnapshot().collectionNeedsRefresh) {
+      const reference = entry.entryId && (getQueueSnapshot().queueSource === "favorites" || getQueueSnapshot().queueSource === "playlist")
+        ? { entryId: entry.entryId, playlistId: getQueueSnapshot().playlistId } : null;
+      const result = await getApplicationStore().actions.collection.resolveForPlayback(entry.collection.data, reference, () => getRequestActions().isCurrent(requestVersion));
+      if (!result) return;
+      getQueueActions().freezeCollection(result.snapshot, readShuffleCollectionPrefs().order, Math.random);
+      if (result.notice) showPlaybackNotice(result.notice);
+      video = getQueueActions().activeTrack();
+      if (!video) return;
+      randomStartPage = getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random";
+    }
     if (!keepPage) {
       const stillCurrent = await loadPagesForCurrentVideo(video, requestVersion);
       if (!stillCurrent) {
@@ -534,6 +553,7 @@ async function loadCurrentTrack({
     if (!getRequestActions().isCurrent(requestVersion)) {
       return;
     }
+
     getRequestActions().resetFailures();
     const unavailableKey = video.bvid.toLowerCase();
     if (clearLibraryUnavailable(unavailableKey)) {
@@ -617,6 +637,7 @@ async function loadCurrentTrack({
       return;
     }
 
+    if (String(error).includes("audio resolution was cancelled")) return;
     if (resumePosition !== null) {
       clearPendingResume();
       console.warn(`restore playback failed for ${video.bvid}:`, error);
@@ -634,6 +655,7 @@ async function loadCurrentTrack({
       renderLibraryViews();
     }
 
+    getQueueActions().settleCollectionUnit(currentAudioCacheCid());
     getRequestActions().recordFailure();
     if (
       getRequestSnapshot().consecutiveResolveFailures >=
@@ -686,7 +708,7 @@ async function resumePendingPlayback() {
 
 function playBvId(bvId: string) {
   const queueIndex = getQueueSnapshot().queue.findIndex(
-    (video) => video.bvid.toLowerCase() === bvId.toLowerCase(),
+    (video) => !video.collection && video.bvid.toLowerCase() === bvId.toLowerCase(),
   );
   if (queueIndex >= 0) {
     playQueueIndex(queueIndex);
@@ -718,7 +740,7 @@ function playSearchResult(index: number, pageSelection: PageSelection | null = n
 
 function playListItem(
   source: string,
-  videos: readonly CommandContract.TrackSnapshotInput[],
+  videos: readonly QueueInput[],
   index: number,
   { searchVersion = null, playlistId = null, startPage = null, pages = [] }: { searchVersion?: number | null; playlistId?: string | null; startPage?: PlaybackStartPage | null; pages?: CommandContract.VideoPage[] } = {},
 ) {
@@ -734,6 +756,7 @@ function playListItem(
     getQueueSnapshot().queueSource === source &&
     getQueueSnapshot().currentIndex === index &&
     String(currentVideo?.bvid ?? "").toLowerCase() === targetBvid &&
+    currentVideo?.entryId === videos[index]?.entryId &&
     (source !== "search" && source !== "collection" || getQueueSnapshot().queueSearchVersion === searchVersion) &&
     (source !== "playlist" || getQueueSnapshot().playlistId === playlistId);
   if (isCurrentQueueItem) {
@@ -760,7 +783,8 @@ function playQueueIndex(
     pages = [],
     randomStartPage = false,
     historyCid = null,
-  }: { recordCurrent?: boolean; preserveFailureStreak?: boolean; startPage?: PlaybackStartPage | null; pages?: CommandContract.VideoPage[]; randomStartPage?: boolean; historyCid?: number | null } = {},
+    historySelection = false,
+  }: { recordCurrent?: boolean; preserveFailureStreak?: boolean; startPage?: PlaybackStartPage | null; pages?: CommandContract.VideoPage[]; randomStartPage?: boolean; historyCid?: number | null; historySelection?: boolean } = {},
 ) {
   if (index < 0 || index >= getQueueSnapshot().queue.length) {
     return;
@@ -773,7 +797,10 @@ function playQueueIndex(
     clearPlaybackNotice();
   }
 
-  getQueueActions().selectIndex(index, recordCurrent, currentVideoPage()?.cid ?? null);
+  const current = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
+  const recordAudio = !current?.collection || getRequestSnapshot().activeAudioVersion === getRequestSnapshot().requestVersion;
+  const cid = currentVideoPage()?.cid ?? (getQueueSnapshot().queue.some(entry => entry.collection) ? getSessionSnapshot().currentPages[0]?.cid ?? null : null);
+  getQueueActions().selectIndex(index, recordCurrent && recordAudio, cid, !historySelection && historyCid == null);
   resetCurrentPageState();
   if (startPage) {
     const normalizedPages = pages.map(normalizeVideoPage).filter((page) => page.cid > 0);
@@ -799,6 +826,16 @@ function playQueueIndex(
 function takeRandomNext() { return getQueueActions().takeRandomNext(Math.random); }
 
 function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = {}) {
+  if (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection) {
+    if (automatic && getQueueSnapshot().loopMode === "single" && !skipFailed) {
+      loadCurrentTrack({ keepPage: true }); return true;
+    }
+    if (automatic) getQueueActions().settleCollectionUnit(getSessionSnapshot().currentPages[getQueueSnapshot().currentPageIndex]?.cid ?? null);
+    const recordCurrent = getRequestSnapshot().activeAudioVersion === getRequestSnapshot().requestVersion;
+    const navigation = getQueueActions().advanceCollection(getSessionSnapshot().currentPages, getLibrarySnapshot().disabledPages, Math.random, readShuffleCollectionPrefs(), getSessionSnapshot().currentPages[getQueueSnapshot().currentPageIndex]?.cid ?? null, recordCurrent);
+    if (!navigation) return false;
+    loadCurrentTrack({ keepPage: navigation === "page", ...(navigation === "member" ? { randomStartPage: getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random" } : {}) }); return true;
+  }
   if (!hasMultipleCurrentPages()) return false;
   if (automatic && getQueueSnapshot().loopMode === "single" && !skipFailed) {
     loadCurrentTrack({ keepPage: true }); return true;
@@ -810,6 +847,10 @@ function advancePageWithinCurrentBv({ automatic = false, skipFailed = false } = 
 }
 
 function retreatPageWithinCurrentBv() {
+  if (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection) {
+    if (!getQueueSnapshot().history.length) return false;
+    playPrevious(); return true;
+  }
   if (!getQueueActions().retreatPage(getSessionSnapshot().currentPages, getLibrarySnapshot().disabledPages)) return false;
 
   loadCurrentTrack({ keepPage: true });
@@ -817,6 +858,12 @@ function retreatPageWithinCurrentBv() {
 }
 
 function playNext({ automatic = false, skipFailed = false } = {}) {
+  if (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection) {
+    const recordCurrent = getRequestSnapshot().activeAudioVersion === getRequestSnapshot().requestVersion;
+    if (getQueueActions().advanceCollection([], getLibrarySnapshot().disabledPages, Math.random, readShuffleCollectionPrefs(), getSessionSnapshot().currentPages[getQueueSnapshot().currentPageIndex]?.cid ?? null, recordCurrent)) {
+      loadCurrentTrack({ randomStartPage: getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random" }); return true;
+    }
+  }
   const navigation = getQueueActions().nextNavigation(automatic, skipFailed, Math.random);
   if (navigation.kind === "empty") {
     if (!automatic) showPlaybackNotice("暂无可播放的歌曲", { kind: "info" });
@@ -847,7 +894,7 @@ function playPrevious() {
      loadCurrentTrack({ keepPage: true }); return;
   }
   if (navigation.kind === "queue") {
-    playQueueIndex(navigation.index, { recordCurrent: false, ...("cid" in navigation ? { historyCid: navigation.cid } : {}) }); return;
+    playQueueIndex(navigation.index, { recordCurrent: false, ...("cid" in navigation ? { historyCid: navigation.cid, historySelection: true } : {}) }); return;
   }
   showPlaybackNotice(getQueueSnapshot().shuffle ? "暂无上一首播放记录" : "已经是第一首了", { kind: "info" });
 }

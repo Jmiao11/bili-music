@@ -32,6 +32,20 @@ function createCollectionActions(read: () => CollectionSnapshot, commit: (next: 
     if (!summary && !read().prompt) return;
     update({ prompt: summary && summary.total > 1 ? { bvid, summary } : null });
   }
+  async function resolveForPlayback(fallback: FullCollection, reference: CollectionReference | null, stillCurrent: () => boolean) {
+    try {
+      const result = await firstPage({ kind: "collection", bvid: fallback.anchorBvid, id: fallback.collectionId });
+      if (!stillCurrent()) return null;
+      const snapshot = result.snapshot;
+      if (!snapshot || !completeCollection(snapshot, fallback.collectionId)) throw Error("合集详情未返回完整且匹配的列表");
+      if (reference && persist) await persist(reference, snapshot);
+      return stillCurrent() ? { snapshot, notice: "" } : null;
+    } catch (error) {
+      if (!stillCurrent()) return null;
+      if (!completeCollection(fallback, fallback.collectionId)) throw Error("合集没有可用的完整快照");
+      return { snapshot: fallback, notice: `${fallback.sourceStatus === "invalid" ? "合集来源已失效" : "来源无法校验"}，使用本地快照。${String(error)}` };
+    }
+  }
   function open(source: VideoListSource, title: string, total: number, previousView: string, previousScroll: number, fallback: FullCollection | null = null, reference: CollectionReference | null = null): void {
     update({ source, reference, fullSnapshot: fallback, usingSnapshot: !!fallback, title, total, active: true,
       items: fallback ? fallback.snapshot.items.slice(0, 20).map(normalizeTrack) : [], page: fallback ? 1 : 0,
@@ -81,7 +95,7 @@ function createCollectionActions(read: () => CollectionSnapshot, commit: (next: 
     const state = read(); if (state.loading || state.source?.kind !== "collection" || !state.fullSnapshot?.snapshot.items.some(item => item.bvid === bvid)) return;
     update({ source: { ...state.source, bvid } }); void refresh();
   }
-  return { setPrompt, open, close, loadNextPage, refresh, retry, chooseAnchor };
+  return { setPrompt, open, close, loadNextPage, refresh, retry, chooseAnchor, resolveForPlayback };
 }
 export { createCollectionActions, initialCollectionState };
 export type { CollectionSnapshot, VideoListSource, CollectionReference };

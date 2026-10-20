@@ -20,7 +20,11 @@ declare namespace CommandContract {
   interface ImportPage { mediaId: string; title: string; total: number; items: TrackSnapshot[]; skipped: number; duplicates: number; scanned: number; hasMore: boolean; truncated: boolean; }
   interface SearchHistoryItem { keyword: string; searchedAt: string; count: number; }
   interface PlayHistoryItem { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; lastPlayedAt: string; count: number; }
-  interface PlaybackState { version: number; queue: TrackSnapshot[]; currentIndex: number; positionSeconds: number; page: number | null; cid: number | null; savedAt: number; }
+  interface PlaybackCollection { data: LibraryCollection; memberIndex: number; remaining: number[]; playedCount: number; unitCharged: boolean; chargedUnits: string[]; historyTrack?: TrackSnapshot; }
+  interface PlaybackQueueEntry extends TrackSnapshot { entryId?: string; collection?: PlaybackCollection; }
+  interface PlaybackHistory { index: number; cid: number | null; pageLevel?: boolean; entryId?: string; bvid?: string; track?: TrackSnapshot; }
+  interface PlaybackTraversal { randomRemaining: number[]; history: PlaybackHistory[]; randomPageRound: { bvid: string; playedCount: number; remaining: number[] } | null; shuffle: boolean; loopMode: string; }
+  interface PlaybackState { version: number; queue: PlaybackQueueEntry[]; currentIndex: number; positionSeconds: number; page: number | null; cid: number | null; savedAt: number; traversal?: PlaybackTraversal; }
   type PlaybackStateInput = Omit<PlaybackState, "page" | "cid"> & { page?: number | null; cid?: number | null; };
   interface UnavailableTrack { bvid: string; reason: string; markedAt: number; }
   interface PurgeResult { removedFavorites: number; removedPlaylistItems: number; clearedMarks: number; }
