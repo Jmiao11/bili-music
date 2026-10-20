@@ -236,12 +236,12 @@ async function loadVideoPagesForModal(video: CommandContract.TrackSnapshotInput,
   } finally { renderPagesTrigger(trigger, requestVersion, false); }
 }
 
-function createTrackActivationSession(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void) {
+function createTrackActivationSession(item: HTMLElement, playButton: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, onPlay: (selection?: PageSelection) => void, openDetails?: (trigger: HTMLElement) => void) {
   let clickTimer: ReturnType<typeof window.setTimeout> | null = null;
   pageModalOpeners.set(playButton, (trigger: HTMLElement) => {
     void loadVideoPagesForModal(video, onPlay, trigger);
   });
-  getPagesActions();
+  if (!openDetails) getPagesActions();
   const click = (event: MouseEvent) => {
     if (event.detail === 0) {
       onPlay();
@@ -265,11 +265,12 @@ function createTrackActivationSession(item: HTMLElement, playButton: HTMLButtonE
       window.clearTimeout(clickTimer);
       clickTimer = null;
     }
-    pageModalOpeners.get(playButton)?.(playButton);
+    if (openDetails) openDetails(playButton);
+    else pageModalOpeners.get(playButton)?.(playButton);
   };
   return { handleClick: click, doubleClick,
     update(nextVideo: CommandContract.TrackSnapshotInput, nextPlay: (selection?: PageSelection) => void) { video = nextVideo; onPlay = nextPlay; },
-    badge(trigger: HTMLElement) { pageModalOpeners.get(playButton)?.(trigger); },
+    badge(trigger: HTMLElement) { if (openDetails) openDetails(trigger); else pageModalOpeners.get(playButton)?.(trigger); },
   };
 }
 function observeTrackRow(item: HTMLElement, bvid: string): void { queueCachedVideoPagesLookup(item, bvid); }

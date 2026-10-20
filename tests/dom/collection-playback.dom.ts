@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { fixture, deferred, responses } from "./library-lists-fixture.ts";
 import { collection, collectionEntry, collectionPage, videoEntry } from "../helpers/collections.ts";
 import { libraryQueueEntries } from "../../ui/features/playback/playback-queue-state.ts";
+import { selectMiniPlayerSnapshot } from "../../ui/mini/mini-player-projection.ts";
 
 async function setup(count = 12) {
   const h = await fixture({ playback: true }), data = collection(count), entry = collectionEntry(data);
@@ -42,6 +43,59 @@ test("collection controller shares one quota across member pages and displays th
     assert.equal(h.core.currentPlayableTrack()?.bvid, "BV9999999999");
     assert.equal(h.store.getState().playbackQueue.queue[0].collection?.playedCount, 3);
     assert.equal(h.calls.filter(call => call.command === "get_collection_page").length, 1);
+  } finally { h.dispose(); }
+});
+
+test("library collection single click waits 250ms and highlights the parent rather than its standalone member", async () => {
+  const h = await setup(3);
+  try {
+    const entries = [h.entry, videoEntry(h.data.snapshot.items[0])];
+    h.reply(async (command, args) => command === "list_favorites" ? entries : h.baseReply(command, args));
+    await h.library.loadLibrary();
+    const list = h.nodes.favoritesList;
+    await h.fire(list.children[0].querySelector("button.track")!, "click", { detail: 1 });
+    await h.advance(249);
+    assert.equal(h.units().length, 0);
+    assert.equal(h.calls.some(call => call.command === "get_collection_page"), false);
+    await h.advance(1);
+    assert.equal(h.units().length, 1);
+    assert.equal(h.store.getState().playbackQueue.queue.length, 2);
+    assert.ok(h.store.getState().playbackQueue.queue[0].collection);
+    assert.equal(list.children[0].querySelector("button.track")?.getAttribute("aria-current"), "true");
+    assert.notEqual(list.children[1].querySelector("button.track")?.getAttribute("aria-current"), "true");
+    const mini = selectMiniPlayerSnapshot(h.store.getState());
+    assert.equal(mini.title, "P1");
+    assert.equal(mini.isFavorited, true);
+  } finally { h.dispose(); }
+});
+
+test("library collection double click cancels playback and its badge opens without changing the queue", async () => {
+  const h = await setup(3);
+  try {
+    const row = h.nodes.favoritesList.children[0], button = row.querySelector("button.track")!;
+    await h.fire(button, "click", { detail: 1 });
+    await h.fire(button, "click", { detail: 2 });
+    await h.fire(row, "dblclick", { detail: 2 });
+    await h.advance(250);
+    assert.equal(h.store.getState().collection.active, true);
+    assert.equal(h.units().length, 0);
+    assert.equal(h.store.getState().playbackQueue.queue.length, 0);
+    await h.fire(row.querySelector(".page-count-badge")!, "click", { detail: 0 });
+    assert.equal(h.units().length, 0);
+    assert.equal(h.store.getState().playbackQueue.queue.length, 0);
+  } finally { h.dispose(); }
+});
+
+test("playlist keyboard activation includes collection parents and displays actual audio", async () => {
+  const h = await setup(3);
+  try {
+    h.reply(async (command, args) => command === "list_playlists" ? [{ id: "a", name: "混排", createdAt: "1", items: h.entries }] : h.baseReply(command, args));
+    await h.library.loadLibrary();
+    await h.fire(h.nodes.playlistTracks.children[0].querySelector("button.track")!, "click", { detail: 0 });
+    assert.equal(h.store.getState().playbackQueue.queueSource, "playlist");
+    assert.equal(h.store.getState().playbackQueue.queue.length, 2);
+    assert.equal(h.core.currentPlayableTrack()?.bvid, h.data.snapshot.items[0].bvid);
+    assert.equal(h.nodes.playlistTracks.children[0].querySelector("button.track")?.getAttribute("aria-current"), "true");
   } finally { h.dispose(); }
 });
 
@@ -100,6 +154,23 @@ test("cancelled and late collection preparations consume no quota and cannot cha
       assert.notEqual(h.audio.src, "http://127.0.0.1/audio/late");
     } finally { h.dispose(); }
   }
+});
+
+test("view and playback share one collection refresh and a cancelled late list cannot replace the new queue", async () => {
+  const h = await setup(3), gate = deferred();
+  try {
+    h.reply(async (command, args) => command === "get_collection_page" ? gate.promise : h.baseReply(command, args));
+    h.store.actions.collection.open({ kind: "collection", bvid: h.data.anchorBvid, id: h.data.collectionId }, h.data.title, h.data.videoCount, "favorites", 0, h.data, { entryId: h.entry.entryId, playlistId: null });
+    h.start(); await h.microtasks();
+    assert.equal(h.calls.filter(call => call.command === "get_collection_page").length, 1);
+    h.core.playListItem("favorites", libraryQueueEntries(h.entries), 1); await h.microtasks();
+    const queue = h.store.getState().playbackQueue.queue;
+    gate.resolve(collectionPage(h.data)); await h.microtasks();
+    assert.equal(h.store.getState().playbackQueue.queue, queue);
+    assert.equal(h.core.currentPlayableTrack()?.bvid, "BV9999999999");
+    assert.deepEqual(h.units().map(unit => unit[0]), ["BV9999999999"]);
+    assert.equal(h.store.getState().playbackQueue.queue[0].collection?.playedCount, 0);
+  } finally { h.dispose(); }
 });
 
 test("five real failed collection audio units consume five slots and apply the existing brake", async () => {

@@ -10,9 +10,8 @@ import { renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
 import { currentPlayableTrack, playListItem } from "../playback/playback-core.ts";
 import { getPlaybackMessagesActions } from "../playback/playback-messages.ts";
-import { libraryVideos } from "./library-entry.ts";
+import { libraryQueueEntries } from "../playback/playback-queue-state.ts";
 import type { CollectionEntry } from "./library-entry.ts";
-import { openLibraryCollection } from "../collections/collection-controller.ts";
 
 let libraryMounted = false;
 type DragKind = keyof LibrarySnapshot["drags"];
@@ -83,16 +82,12 @@ function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationS
   }
   if (favoritesList) renderLibraryTrackRows(favoritesList, state, library.favorites, "favorites", "", favoritesUnavailable ?? library.unavailableBvids, libraryDragVisuals?.get("favorites") ?? null, libraryDragHandlers("favorites"), (index, selection) => {
     if (isLibraryDragClickSuppressed(getLibrarySnapshot(), "favorites", performance.now())) return;
-    const entry = library.favorites[index];
-    if (entry?.kind === "collection") openLibraryCollection(entry, null);
-    else playListItem("favorites", libraryVideos(library.favorites), library.favorites.slice(0, index).filter(item => item.kind === "video").length, selection);
+    playListItem("favorites", libraryQueueEntries(library.favorites), index, selection);
   });
   const selected = library.playlists.find(p => p.id === library.selectedPlaylistId) ?? library.playlists[0];
   if (playlistTracks) renderLibraryTrackRows(playlistTracks, state, selected?.items ?? (emptyLibraryTracks ??= []), "playlist", selected?.id ?? "", playlistsUnavailable ?? library.unavailableBvids, libraryDragVisuals?.get("playlistItems") ?? null, libraryDragHandlers("playlistItems", selected?.id), (index, selection) => {
     if (!selected || isLibraryDragClickSuppressed(getLibrarySnapshot(), "playlistItems", performance.now())) return;
-    const entry = selected.items[index];
-    if (entry?.kind === "collection") openLibraryCollection(entry, selected.id);
-    else playListItem("playlist", libraryVideos(selected.items), selected.items.slice(0, index).filter(item => item.kind === "video").length, { playlistId: selected.id, ...(selection ?? {}) });
+    playListItem("playlist", libraryQueueEntries(selected.items), index, { playlistId: selected.id, ...(selection ?? {}) });
   });
   if (!playlistsList) return;
   const visual = libraryDragVisuals?.get("playlists"), inputs = [library.playlists, library.selectedPlaylistId, visual];

@@ -10,7 +10,7 @@ import { getHomeSnapshot } from "../home/home.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite, toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist } from "../library/library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "../pages/video-pages.ts";
 import { playListItem, playSearchResult } from "../playback/playback-core.ts";
-import { playCollectionItem } from "../collections/collection-controller.ts";
+import { playCollectionItem, openLibraryCollection } from "../collections/collection-controller.ts";
 
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
@@ -39,7 +39,8 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
     : queue.queueSource === (state.home.mode === "recommendation" ? "recommendation" : "ranking") ? queue.currentIndex : -1;
   const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
-  const activeIndex = projection.library ? projection.library.entries.findIndex(entry => entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
+  const activeEntry = queue.queue[queueIndex];
+  const activeIndex = projection.library ? projection.library.entries.findIndex(entry => activeEntry?.entryId ? entry.entryId === activeEntry.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
   const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, state.library.favorites, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual];
   if (inputs.length === projection.inputs.length && inputs.every((value, index) => Object.is(value, projection.inputs[index]))) return;
   projection.inputs = inputs;
@@ -61,13 +62,12 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
           }
           if (current.item === item) return;
           current.item = item; current.button = button;
-          if (current.entry?.kind === "collection") return;
-          current.activation = createTrackActivationSession(item, button, current.video, current.play);
-          observeTrackRow(item, current.video.bvid);
+          current.activation = createTrackActivationSession(item, button, current.video, current.play, current.entry?.kind === "collection" ? () => { if (current.entry?.kind === "collection") openLibraryCollection(current.entry, current.playlistId || null); } : undefined);
+          if (current.entry?.kind !== "collection") observeTrackRow(item, current.video.bvid);
         },
-        onClick: event => current.entry?.kind === "collection" ? current.play() : current.activation?.handleClick(event),
-        onDoubleClick: event => current.entry?.kind === "collection" ? current.play() : current.activation?.doubleClick(event),
-        onBadge() { if (current.entry?.kind === "collection") { current.play(); return; } const trigger = current.button?.parentElement?.querySelector<HTMLButtonElement>(".page-count-badge"); if (trigger) current.activation?.badge(trigger); },
+        onClick: event => current.activation?.handleClick(event),
+        onDoubleClick: event => current.activation?.doubleClick(event),
+        onBadge() { const trigger = current.button?.parentElement?.querySelector<HTMLButtonElement>(".page-count-badge"); if (trigger) current.activation?.badge(trigger); },
         onFavorite: () => { void (current.entry?.kind === "collection" ? toggleFavoriteCollection(current.entry) : toggleFavorite(current.video)); },
         onAdd: () => current.entry?.kind === "collection" ? choosePlaylistAndAddCollection(current.entry) : choosePlaylistAndAdd(current.video),
         onRemove: () => { void (current.entry?.kind === "collection" ? removeCollectionFromPlaylist(current.playlistId, current.entry.entryId) : removeTrackFromPlaylist(current.playlistId, current.video.bvid)); },

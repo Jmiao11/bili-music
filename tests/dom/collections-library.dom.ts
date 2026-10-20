@@ -90,8 +90,8 @@ test("mixed collection rows open once, preserve queue, page locally, play and re
     assert.equal(row.querySelector(".page-count-badge")?.textContent, "合集 25"); assert.equal(row.querySelector("button.track")?.hasAttribute("data-bvid"), false);
     assert.match(row.textContent!, /更新于/); assert.equal(h.observed.has(row), false); assert.equal(h.calls.some(c => c.command === "get_collection_page"), false);
     await fire(h, list.children[2].querySelector("button.track")!, "click", { detail: 0 });
-    assert.deepEqual(h.store.getState().playbackQueue.queue.map(item => item.bvid), data.snapshot.items.slice(0, 2).map(item => item.bvid));
-    assert.equal(h.store.getState().playbackQueue.currentIndex, 1); assert.equal(list.children[2].querySelector("button.track")?.getAttribute("aria-current"), "true");
+    assert.deepEqual(h.store.getState().playbackQueue.queue.map(item => item.bvid), [data.snapshot.items[0].bvid, data.anchorBvid, data.snapshot.items[1].bvid]);
+    assert.equal(h.store.getState().playbackQueue.currentIndex, 2); assert.equal(list.children[2].querySelector("button.track")?.getAttribute("aria-current"), "true");
     const queue = h.store.getState().playbackQueue.queue; let restored = -1; list.scrollTop = 117; list.scrollTo = options => { if (typeof options === "object") restored = options.top ?? -1; };
     const open = row.querySelector("button.track")!;
     await fire(h, open, "click", { detail: 1 }); await fire(h, open, "click", { detail: 2 }); await fire(h, open, "dblclick", { detail: 2 });
@@ -158,7 +158,7 @@ test("offline collection keeps its dated snapshot, retries only by hand and mixe
     await h.library.loadLibrary(); h.store.actions.settings.navigate("favorites"); const list = h.nodes.favoritesList, original = list.children[1];
     const dataTransfer = transfer(); await fire(h, original, "dragstart", { dataTransfer }); await fire(h, list.children[0], "dragover", { dataTransfer }); await fire(h, list.children[0], "drop", { dataTransfer });
     assert.equal(list.children[0], original); await h.library.loadLibrary(); assert.equal(list.children[0], original);
-    await h.advance(401); await fire(h, original.querySelector("button.track")!, "click", { detail: 0 });
+    await h.advance(401); await fire(h, original.querySelector(".page-count-badge")!, "click", { detail: 0 });
     const view = h.doc.querySelector("#view-collection")!; assert.match(view.textContent!, /来源无法校验/); assert.match(view.textContent!, /本地快照 · 更新于/);
     assert.equal(h.store.getState().playbackQueue.queue.length, 0); assert.equal(h.calls.filter(c => c.command === "get_collection_page").length, 1);
     const select = view.querySelector("select")!; select.value = data.snapshot.items[1].bvid; online = true; await fire(h, select, "change");
@@ -180,7 +180,7 @@ test("reordering mixed video entries preserves the playing queue and highlights 
     await h.library.loadLibrary(); const list = h.nodes.favoritesList;
     await fire(h, list.children[2].querySelector("button.track")!, "click", { detail: 0 }); const queue = h.store.getState().playbackQueue.queue;
     const dataTransfer = transfer(); await fire(h, list.children[2], "dragstart", { dataTransfer }); await fire(h, list.children[0], "dragover", { dataTransfer }); await fire(h, list.children[0], "drop", { dataTransfer });
-    assert.equal(h.store.getState().playbackQueue.queue, queue); assert.equal(h.store.getState().playbackQueue.currentIndex, 1);
+    assert.equal(h.store.getState().playbackQueue.queue, queue); assert.equal(h.store.getState().playbackQueue.currentIndex, 2);
     assert.equal(list.children[0].querySelector("button.track")?.getAttribute("aria-current"), "true");
     assert.equal(list.children[1].querySelector("button.track")?.hasAttribute("aria-current"), false);
   } finally { h.dispose(); }

@@ -48,6 +48,8 @@
     "../../scripts/vite/verify-dist.ts",
     "../../vite.config.ts",
     "../../tests/dom/accent-color.dom.ts",
+    "../../tests/dom/collection-playback.dom.ts",
+    "../../tests/collection-playback-queue.test.ts",
     "../../tests/accent-variants.test.ts",
     "../../tests/appearance-startup.test.ts",
     "../../tests/audio-cache-cid.test.ts",

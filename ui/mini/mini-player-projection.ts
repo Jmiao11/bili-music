@@ -1,8 +1,9 @@
 import { accentChannels } from "../features/settings/settings-state.ts";
 import type { createApplicationStore } from "../store/app-state.ts";
+import { activeQueueTrack } from "../features/playback/playback-queue-state.ts";
 
 function selectMiniPlayerSnapshot(state: ReturnType<ReturnType<typeof createApplicationStore>["getState"]>) {
-  const current = state.playbackQueue.queue[state.playbackQueue.currentIndex];
+  const current = activeQueueTrack(state.playbackQueue);
   const accent = accentChannels(state.settings.accentColor, state.settings.view.accent ? state.settings.view.accent.theme : state.settings.theme);
   const track = state.playbackDisplay.renderedTrack;
   return {

@@ -102,6 +102,9 @@ test("history retains an actually played member removed by a later complete refr
   store.actions.freezeCollection(fresh, "sequential", () => 0);
   assert.deepEqual(store.actions.previousNavigation([]), { kind: "queue", index: 0, cid: 11 });
   assert.equal(activeQueueTrack(store.getState())?.bvid, original.snapshot.items[0].bvid);
+  store.actions.fillTrackMetadata(0, { title: "历史成员的新元数据", uploader: "作者", thumbnailUrl: "", durationSeconds: 70 });
+  assert.equal(activeQueueTrack(store.getState())?.title, "历史成员的新元数据");
+  assert.deepEqual(store.getState().queue[0].collection?.data.snapshot.items, fresh.snapshot.items);
   assert.deepEqual(store.getState().queue[0].collection?.data.snapshot.items.map(item => item.bvid), fresh.snapshot.items.map(item => item.bvid));
 });
 
