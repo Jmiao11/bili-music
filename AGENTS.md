@@ -1,6 +1,6 @@
 # 协作规则
 
-本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。
+本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。后续设计说明保存到 docs/design/，不只保留在系统临时目录。
 
 全面 Vue 化已完成；Windows/Mac 发布前全应用回归于2026-10-16完成，对应 master `d8a7f4bc856b1aa7af23ec81d2c84c4bce9cffaa`，Windows watchdog 故障包亦已验证。后续功能修改仍按任务验收；发布时须核对最新 master CI。
 
@@ -66,6 +66,6 @@
 - Codex 可本地提交、按批推送定稿功能分支；获授权并完成本地 fast-forward 后可推送 master，删除自己推送且已合并的远程功能分支。所有代码经本地 git 提交，不经 API/网页逐文件更新。
 - 每次推送前 fetch，确认远程目标是本地祖先；首次推送确认同名远程分支不存在。分叉、HEAD/基线不符或非预期改动立即停，不 rebase、不 merge 远程、不 reset --hard。永不用 force/force-with-lease，不删除/改写 master、不推 tag、不改 remote、凭证或 git 配置。
 - 顺序：本地验收→推送功能分支→查询最新提交 windows-latest/macos-latest CI并附链接→双平台通过后用户手测与合并授权→核对指定 HEAD/master/工作区/祖先→本地 ff-only→fetch并确认 master 仅领先本批提交→推送 master→查询该提交双平台CI→删除已合并远程分支。
-- gh 只读，仅 run list/run view（可 --log-failed）；其他只读信息请用户提供，不用 gh api。推送后约2分钟首次查询，随后间隔至少2分钟，同一信息串行、每次最多10次；未完报告“CI运行中”及链接。若单项获准用 watch，interval 至少120秒。
+- gh 常规只读，仅 run list/run view（可 --log-failed）；每个提交的分支或 master CI 失败时，可用 gh run rerun --failed 重跑一次失败 job，仍失败则停止并报告；其他只读信息请用户提供，不用 gh api。推送后约2分钟首次查询，随后间隔至少2分钟，同一信息串行、每次最多10次；未完报告“CI运行中”及链接。若单项获准用 watch，interval 至少120秒。
 - fetch/push/gh 网络或服务失败等至少1分钟，只重试1次；仍失败停止并报告原文。403、429、secondary rate limit、abuse、account 提示立即停止全部 GitHub 操作，不重试。报告推送、删除、查询、重试次数。
-- PR/Issue/评论、Release/tag/label、仓库设置/secrets、认证、重跑/取消 CI、手动触发 workflow 全由用户执行，不读取或输出 token。CI 失败报告 job、步骤及脱敏摘要；与改动相关先修再继续下一批，疑似偶发由用户决定重跑。
+- PR/Issue/评论、Release/tag/label、仓库设置/secrets、认证、取消 CI、手动触发 workflow 全由用户执行，不读取或输出 token。CI 失败报告 job、步骤及脱敏摘要；与改动相关先修再继续下一批，疑似偶发可按上述每提交一次限额重跑，报告重跑次数与结果。

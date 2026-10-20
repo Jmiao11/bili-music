@@ -2,7 +2,7 @@
 
 ## 收藏与歌单的按需 v2（C1）
 
-仅 `favorites.json` / `playlists.json` 支持 v1、v2；共用 `VERSION` 及播放状态、历史等其他文件不变。v1 只在内存转成 `LibraryEntry`，读取或无效操作不写回。每次真实修改按内容选择格式：没有合集写 v1 的原视频数组；含合集写 v2，歌单文件的所有 items 统一使用带类型条目。删除最后一个合集后可写回 v1，原保护备份仍保留。
+`favorites.json` / `playlists.json` 分别支持 v1、v2；共用 `VERSION` 不变，播放状态的独立升级见下节。v1 只在内存转成 `LibraryEntry`，读取或无效操作不写回。每次真实修改按内容选择格式：没有合集写 v1 的原视频数组；含合集写 v2，歌单文件的所有 items 统一使用带类型条目。删除最后一个合集后可写回 v1，原保护备份仍保留。
 
 - 视频条目：`{kind:"video",entryId:"video:<小写BV>",video:TrackSnapshot}`；v1 不保存 entryId，按 BV 推导。
 - 合集条目：`{kind:"collection",entryId:<UUID>,collectionId,anchorBvid,title,thumbnailUrl,videoCount,addedAt,snapshot:{fetchedAt,items:TrackSnapshot[]},sourceStatus:"active"|"invalid"}`。
@@ -15,7 +15,13 @@ ZIP 继续使用原白名单和容器：导出只包含当前活动资料库，�
 
 打开合集先显示当前引用的快照并显式刷新，使用 V2 独立无 cookie、8 秒详情客户端。同 id 的前端并发请求共享一个 Promise；首屏强制绕过旧内存缓存，后续分页使用本次完整内存列表。不轮询全库、不自动换成员探测；风控直接报错。成员失效、详情缺失旧合集或网络失败只表示「来源无法校验」，保留快照与日期，用户可明确选择另一快照成员重试；详情接口不能证明合集整体删除时不持久标失效。已有明确的 invalid 状态显示「合集来源已失效」，仍保留可逐个尝试播放的成员。
 
-刷新不改变既有播放队列；C1 整体播放资料库时跳过合集条目，从展开视图播放仍使用普通 BV 列表。AI 偏好与失效视频清理只读取普通视频，不把合集锚点当成独立资料库视频。
+刷新不改变既有播放队列；C2 整体播放资料库包含合集父条目，从展开视图播放仍使用普通 BV 列表。AI 偏好与失效视频清理只读取普通视频，不把合集锚点当成独立资料库视频。
+
+## 播放状态的按需 v2（C2）
+
+`playback-state.json` 仅在 queue 含合集父条目时写 v2；否则写原 v1 字段，不保存 entryId 或 traversal。v1 读取不写回。v2 的 collection 保存独立完整快照、memberIndex、剩余成员、配额计数、已计数音频身份和历史回放成员；traversal 保存顶层随机轮次、entryId/BV/CID 历史、分P轮次及随机/循环模式。恢复冻结列表与游标，不为恢复请求新列表。
+
+首次从 v1 升为 v2 前复用存储锁、backup_before_v2 与原子写入，创建 `playback-state.v1.bak.json`；有效备份不覆盖，备份失败原文件不动。不存在原 v1 时不伪造备份。导入先验证完整快照、游标和历史身份，复用备份与整体失败回滚；导出仍使用现有 ZIP 白名单，不包含保护备份。旧程序无法恢复 v2 播放状态；库文件及独立播放历史格式不因此改变。
 
 ## 全局锁与令牌
 

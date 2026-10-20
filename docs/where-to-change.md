@@ -31,4 +31,6 @@
 
 例外只有架构登记的audio、文档根主题、窗口/几何/焦点副作用与离屏取色。组件内非受控草稿端口保持唯一写入；新增控制器原生显示写入由scripts/vue/native-writes.ts拒绝。
 
-C1 的普通视频点击在资料库控制器中过滤合集、换算队列索引；合集行使用真实 `entryId`，不伪造 BV、不查询分P。播放器、取流与播放状态存储保持原链路。合集被收藏及其中成员被单独收藏互不影响。
+C2 的资料库点击通过 libraryQueueEntries 保留混排父条目与 entryId；合集单击播放、双击或角标展开，父条目按 entryId 高亮。playback-queue-state 统一选择父条目、冻结成员与分P，playback-core 仅接线真实 BV/CID；Rust playback_state.rs 与 backup.rs 管理按需 v2。Rust 取流链路不变。合集被收藏及其中成员被单独收藏互不影响。
+
+合集最终设计见 `docs/design/collections.md`；回归见 collection-playback-queue.test.ts、collection-playback.dom.ts 与 Rust playback_state/backup 测试。
