@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { fixture, deferred, responses, transfer } from "./library-lists-fixture.ts";
 import { nextDomEventTurn } from "./event-turn.ts";
@@ -17,6 +20,65 @@ function singleVideoReply(command: string, args: Record<string, unknown>) {
   if (command === "prepare_audio") return { audioUrl: "http://127.0.0.1/audio/fixture", title: String(args.bvId), uploader: "作者", thumbnailUrl: "", durationSeconds: 60 };
   return responses()(command);
 }
+
+test("collection refresh failure fixtures preserve dated playable snapshots and library file bytes", async t => {
+  const cases: { name: string; error: string }[] = JSON.parse(fs.readFileSync(new URL("../fixtures/collection-refresh-failures.json", import.meta.url), "utf8"));
+  const saved: CommandContract.LibraryCollection = JSON.parse(fs.readFileSync(new URL("../fixtures/contract/library-collection.json", import.meta.url), "utf8"));
+  const checks = cases.flatMap(failure => ["favorites", "playlist"].map(location => ({ ...failure, location, invalid: false })));
+  checks.push({ ...cases[2], name: "previously confirmed invalid source", location: "favorites", invalid: true });
+  for (const check of checks) await t.test(`${check.name}: ${check.location}`, async () => {
+    const h = await fixture(), directory = fs.mkdtempSync(path.join(os.tmpdir(), "bili-collection-fallback-"));
+    try {
+      const data = { ...saved, sourceStatus: check.invalid ? "invalid" as const : "active" as const }, entry = collectionEntry(data);
+      const favorites = [entry], playlists = [{ id: "a", name: "快照歌单", createdAt: "1", items: [entry] }];
+      const files = [path.join(directory, "favorites.json"), path.join(directory, "playlists.json")];
+      fs.writeFileSync(files[0], JSON.stringify({ version: 2, items: favorites }));
+      fs.writeFileSync(files[1], JSON.stringify({ version: 2, playlists }));
+      const originalBytes = files.map(file => fs.readFileSync(file)), gate = deferred();
+      h.reply(async (command, args) => {
+        if (command === "list_favorites") return favorites;
+        if (command === "list_playlists") return playlists;
+        if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
+        if (command === "list_unavailable_tracks") return [];
+        if (command === "get_collection_page") return gate.promise;
+        if (command === "update_collection_entry") {
+          fs.writeFileSync(files[args.playlistId ? 1 : 0], JSON.stringify(args.collection)); return true;
+        }
+        return singleVideoReply(command, args);
+      });
+      await h.library.loadLibrary();
+      const beforeFavorites = h.store.getState().library.favorites, beforePlaylists = h.store.getState().library.playlists;
+      h.store.actions.collection.open({ kind: "collection", bvid: data.anchorBvid, id: data.collectionId }, data.title, data.videoCount, "favorites", 0, data, { entryId: entry.entryId, playlistId: check.location === "playlist" ? "a" : null });
+      const view = h.doc.querySelector("#view-collection")!;
+      const date = () => [...view.querySelectorAll(".search-status")].find(node => node.textContent?.includes("更新于"))?.textContent;
+      const originalDate = date(); assert.match(originalDate!, /本地快照 · 更新于/);
+      const originalSnapshot = h.store.getState().collection.fullSnapshot;
+      gate.reject(Error(check.error)); await h.microtasks();
+      assert.equal(h.store.getState().collection.fullSnapshot, originalSnapshot);
+      assert.equal(h.store.getState().collection.fullSnapshot?.snapshot.fetchedAt, saved.snapshot.fetchedAt);
+      assert.equal(date(), originalDate);
+      assert.match(view.textContent!, check.invalid ? /合集来源已失效/ : /来源无法校验/);
+      if (!check.invalid) assert.doesNotMatch(view.textContent!, /合集来源已失效/);
+      assert.equal(h.store.getState().collection.fullSnapshot?.sourceStatus, data.sourceStatus);
+      assert.equal(h.calls.filter(call => call.command === "get_collection_page").length, 1);
+      const list = h.doc.querySelector("#collection-results")!;
+      assert.equal(list.children.length, saved.snapshot.items.length);
+      await fire(h, list.children[1].querySelector("button.track")!, "click", { detail: 0 });
+      assert.equal(h.store.getState().playbackQueue.queueSource, "collection");
+      assert.deepEqual(h.store.getState().playbackQueue.queue.map(item => item.bvid), saved.snapshot.items.map(item => item.bvid));
+      assert.equal(h.store.getState().playbackQueue.currentIndex, 1);
+      assert.equal(list.children[1].querySelector("button.track")?.getAttribute("aria-current"), "true");
+      assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.bvId, saved.snapshot.items[1].bvid);
+      assert.equal(h.store.getState().library.favorites, beforeFavorites);
+      assert.equal(h.store.getState().library.playlists, beforePlaylists);
+      assert.equal(h.calls.some(call => call.command === "update_collection_entry"), false);
+      assert.equal(date(), originalDate);
+      files.forEach((file, index) => assert.deepEqual(fs.readFileSync(file), originalBytes[index]));
+      assert.deepEqual(fs.readdirSync(directory).sort(), ["favorites.json", "playlists.json"]);
+      assert.equal(h.warnings.length, 0);
+    } finally { h.dispose(); fs.rmSync(directory, { recursive: true, force: true }); }
+  });
+});
 
 test("mixed collection rows open once, preserve queue, page locally, play and return to the original scroll", async () => {
   const h = await fixture(); try {

@@ -1,6 +1,42 @@
 use super::*;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+#[tokio::test]
+async fn collection_refresh_failure_fixtures_reject_unverifiable_details() {
+    let cases: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/collection-refresh-failures.json"
+    ))
+    .unwrap();
+    for case in cases.as_array().unwrap() {
+        let status = case["httpStatus"].as_u64().unwrap();
+        let reply = match status {
+            0 => String::new(),
+            412 => {
+                "HTTP/1.1 412 Precondition Failed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    .to_owned()
+            }
+            200 => response(&serde_json::to_string(&case["body"]).unwrap()),
+            _ => panic!("unexpected fixture HTTP status"),
+        };
+        let (url, requests) = server(vec![reply]).await;
+        let result = fetch_view_detail_url(&video_detail_client().unwrap(), &url)
+            .await
+            .and_then(|detail| collection_from_response(detail, 31));
+        assert_eq!(
+            result.err().as_deref(),
+            case["error"].as_str(),
+            "{}",
+            case["name"]
+        );
+        assert_eq!(
+            requests.await.unwrap().len() as u64,
+            case["requests"].as_u64().unwrap(),
+            "{}",
+            case["name"]
+        );
+    }
+}
+
 fn response(body: &str) -> String {
     format!(
         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",

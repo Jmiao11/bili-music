@@ -1,0 +1,44 @@
+[
+  {
+    "name": "successful detail without ugc_season",
+    "httpStatus": 200,
+    "body": { "code": 0, "data": { "View": { "title": "成员视频仍存在", "videos": 1 } } },
+    "error": "该视频没有合集",
+    "requests": 1
+  },
+  {
+    "name": "changed collection id",
+    "httpStatus": 200,
+    "body": { "code": 0, "data": { "View": { "ugc_season": { "id": 32, "title": "其他合集", "ep_count": 1, "sections": [{ "episodes": [{ "bvid": "BV0000000001", "title": "另一首", "arc": {} }] }] } } } },
+    "error": "合集已变化，请重新展开",
+    "requests": 1
+  },
+  {
+    "name": "network failure",
+    "httpStatus": 0,
+    "body": null,
+    "error": "视频详情请求失败，请检查网络后重试",
+    "requests": 2
+  },
+  {
+    "name": "HTTP 412",
+    "httpStatus": 412,
+    "body": null,
+    "error": "B站拒绝了视频详情请求（HTTP 412），请稍后再试",
+    "requests": 1
+  },
+  {
+    "name": "API code -352",
+    "httpStatus": 200,
+    "body": { "code": -352, "message": "fixture risk control" },
+    "error": "B站视频详情接口返回错误（code -352）",
+    "requests": 1
+  },
+  {
+    "name": "incomplete member list",
+    "httpStatus": 200,
+    "body": { "code": 0, "data": { "View": { "ugc_season": { "id": 31, "title": "不完整的新列表", "ep_count": 2, "sections": [{ "episodes": [{ "bvid": "BV0000000001", "title": "只返回一首", "arc": {} }] }] } } } },
+    "error": "合集详情未返回完整列表，请稍后重试",
+    "requests": 1
+  }
+]
