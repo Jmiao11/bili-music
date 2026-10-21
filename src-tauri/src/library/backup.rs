@@ -650,6 +650,31 @@ mod backup_tests {
     }
 
     #[test]
+    fn import_legacy_selection_field_keeps_other_settings() {
+        let root = temp_root();
+        let zip = backup(&[(
+            SHORTCUTS_FILE,
+            br#"{"version":1,"\u006d\u0061\u0073\u0063\u006f\u0074":"nuomi","bindings":{"previous":"Ctrl+Left","playPause":"Ctrl+P","next":null,"volumeUp":null,"volumeDown":null}}"#,
+        )]);
+        assert_eq!(
+            import_data_at(&root, zip, crate::storage::write_bytes_atomic).unwrap(),
+            (1, 0)
+        );
+        let settings: super::super::shortcut_config::Shortcuts =
+            serde_json::from_slice(&fs::read(root.join(SHORTCUTS_FILE)).unwrap()).unwrap();
+        assert_eq!(settings.bindings.previous.as_deref(), Some("Ctrl+Left"));
+        assert_eq!(settings.bindings.play_pause.as_deref(), Some("Ctrl+P"));
+        assert_eq!(
+            serde_json::to_value(settings).unwrap(),
+            serde_json::json!({"version": 1, "bindings": {
+                "previous": "Ctrl+Left", "playPause": "Ctrl+P", "next": null,
+                "volumeUp": null, "volumeDown": null
+            }})
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn import_skips_unknown_entries_and_counts_them() {
         let root = temp_root();
         let zip = backup(&[

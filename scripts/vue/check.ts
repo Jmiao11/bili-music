@@ -8,7 +8,6 @@ import { compileTemplate, parse } from "vue/compiler-sfc";
 const productSfc = (file: string) => /^ui\/(?:app|mini|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const vueImports: Record<string, string[]> = {
- "ui/app/components/Mascot.vue":["vue"],
  "ui/features/immersive/components/LyricsDisplay.vue":["vue"],
   "ui/features/home/components/HomeHint.vue":["vue"],
   "ui/features/search/components/SearchForm.vue":["vue"],

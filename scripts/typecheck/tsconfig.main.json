@@ -31,7 +31,6 @@
     "../../ui/features/library/library-state.ts",
     "../../ui/features/collections/collection-state.ts",
     "../../ui/features/settings/dynamic-background.ts",
-    "../../ui/app/mascot.ts",
     "../../ui/app/root-controls.ts",
     "../../ui/app/root-modals.ts",
     "../../ui/features/settings/root-settings.ts",

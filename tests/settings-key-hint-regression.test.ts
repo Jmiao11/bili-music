@@ -18,7 +18,7 @@ test("settings reopening preserves Rust key_hint output including short and Unic
     let reads = 0;
     const context = vm.createContext({
       invokeAppearance: async (command: string) => { if (command !== "get_ai_config") throw Error("Unexpected command"); reads++; return { apiFormat: "openai-chat-completions", baseUrl: "", model: "", hasKey: true, keyHint }; },
-      restoreStreamSource() {}, restoreAudioCacheSettings() {}, refreshAudioCacheUsage() {}, renderMascotPicker() {}, readShuffleCollectionPrefs: () => ({ order: "random", limit: 0 }),
+      restoreStreamSource() {}, restoreAudioCacheSettings() {}, refreshAudioCacheUsage() {},  readShuffleCollectionPrefs: () => ({ order: "random", limit: 0 }),
     });
     attachSettingsVm(context); vm.runInContext(controller, context);
     const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };

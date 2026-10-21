@@ -40,7 +40,7 @@ function setup(stored = new Map()) {
     },
     settingsModal: { hidden: true },
     restoreStreamSource() {}, restoreAudioCacheSettings() {},
-    refreshAudioCacheUsage() {}, restoreAiConfig() {}, renderMascotPicker() {},
+    refreshAudioCacheUsage() {}, restoreAiConfig() {},
     requestAnimationFrame() {},
   });
   attachSettingsVm(context);

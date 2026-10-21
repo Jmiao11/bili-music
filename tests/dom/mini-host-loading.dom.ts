@@ -16,7 +16,7 @@ test("mini host classic installation matches G0 and an ESM loading candidate pre
   const after = await loadNativeModules(ui, files, "app.ts", candidate);
   const sequence = after.events.map(({ stack, ...event }) => event);
   assert.deepEqual(sequence, JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../fixtures/playback-startup-installation.json"), "utf8")).sequence);
-  assert.equal(sequence.length, 193);
+  assert.equal(sequence.length, 184);
   assert.equal(sequence.findIndex(event => event.action === "dispatch" && event.type === "bilibili-music-trackchange"), 140);
   const installs = after.events.filter(event => /mini-player-host\.ts:/.test(String(event.stack))).map(({ stack, ...event }) => event);
   assert.deepEqual(installs, [{ action: "listen", target: "window", type: "beforeunload", options: { once: true } }]);

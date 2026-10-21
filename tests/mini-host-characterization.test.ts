@@ -11,7 +11,7 @@ test("mini commands preserve navigation, media and favorite effects exactly once
   await h.fire("mini-player-command", "toggle_favorite");
   assert.deepEqual(h.invoked, ["toggle_favorite"]);
   assert.equal(h.library.getState().library.favoriteBvids.has("bv0000000001"), true);
-  assert.deepEqual(h.changes, ["bilibili-music-favorite-change", "bilibili-music-favorite"]);
+  assert.deepEqual(h.changes, ["bilibili-music-favorite-change"]);
   assert.equal(h.context.document.activeElement, h.focused);
 });
 

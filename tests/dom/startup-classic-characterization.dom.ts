@@ -5,10 +5,10 @@ import vm from "node:vm";
 import { test } from "node:test";
 import { collectBusinessScripts } from "../helpers/module-graph.ts";
 import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
-import { createMascotFixture, wireMiniHostApi } from "../helpers/startup-api-fixture.ts";
+import { wireMiniHostApi } from "../helpers/startup-api-fixture.ts";
 import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 
-test("startup five deferred controllers retain their phases and first trackchange reaches only dynamic background", async () => {
+test("startup four deferred controllers retain their phases and first trackchange reaches only dynamic background", async () => {
   const ui = path.join(import.meta.dirname, "../../ui"), html = fs.readFileSync(path.join(ui, "index.html"), "utf8");
   const scripts = [...html.matchAll(/<script\b([^>]*)>[\s\S]*?<\/script>/gi)].flatMap(tag => {
     const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(tag[1]);
@@ -16,7 +16,7 @@ test("startup five deferred controllers retain their phases and first trackchang
   });
   const loaded = await loadNativeModules(ui, collectBusinessScripts(ui).files, "app.ts", scripts);
   const first = (pattern: RegExp) => loaded.events.findIndex(event => pattern.test(String(event.stack)));
-  const phases = [/window-controls\.ts:/, /dynamic-background\.ts:/, /[/\\]main\.ts:/, /startAppearance .*appearance\.ts/, /lyrics\.ts:/, /mascot\.ts:/, /mini-player-host\.ts:/].map(first);
+  const phases = [/window-controls\.ts:/, /dynamic-background\.ts:/, /[/\\]main\.ts:/, /startAppearance .*appearance\.ts/, /lyrics\.ts:/, /mini-player-host\.ts:/].map(first);
   assert.ok(phases.every(index => index >= 0));
   assert.deepEqual([...phases].sort((a, b) => a - b), phases);
   const dispatch = loaded.events.findIndex(event => event.action === "dispatch" && event.type === "bilibili-music-trackchange");
@@ -25,30 +25,10 @@ test("startup five deferred controllers retain their phases and first trackchang
   assert.equal(receivers.length, 2);
   assert.match(String(receivers[0].stack), /dynamic-background\.ts:/);
   assert.match(String(receivers[1].stack), /playback-core\.ts:/);
-  assert.equal(receivers.filter(event => /(?:window-controls|dynamic-background|lyrics|mascot|mini-player-host)\.ts:/.test(String(event.stack))).length, 1);
-  assert.ok(first(/lyrics\.ts:/) > dispatch && first(/mascot\.ts:/) > dispatch);
+  assert.equal(receivers.filter(event => /(?:window-controls|dynamic-background|lyrics|mini-player-host)\.ts:/.test(String(event.stack))).length, 1);
+  assert.ok(first(/lyrics\.ts:/) > dispatch);
 });
 
-test("startup mascot API and appearance picker retain switching persistence and unknown id fallback", () => {
-  const h = createMascotFixture();
-  assert.equal(h.api.getActive(), "kuro");
-  const ids = h.api.list().map(item => item.id);
-  assert.deepEqual(Array.from(ids), ["kuro", "nuomi", "juzi"]);
-  assert.ok(h.api.list().every(item => item.name && item.svg.includes("<svg")));
-  for (const id of ids) {
-    assert.equal(h.api.setActive(id), id); assert.equal(h.api.getActive(), id);
-    assert.deepEqual(h.writes.at(-1), ["bili-music-mascot", id]);
-  }
-  assert.equal(h.api.setActive("unknown"), "kuro");
-  assert.deepEqual(h.writes.at(-1), ["bili-music-mascot", "kuro"]);
-  assert.equal(h.api.setActive("none"), "none"); assert.equal(h.slot.innerHTML, "");
-  h.renderPicker(); assert.equal(h.picker.children.length, ids.length + 1);
-  h.picker.children[1].click(); assert.equal(h.api.getActive(), ids[1]);
-  assert.deepEqual(h.writes.at(-1), ["bili-music-mascot", ids[1]]);
-  h.picker.children.at(-1)!.click(); assert.equal(h.api.getActive(), "none");
-  assert.equal(createMascotFixture("unknown").api.getActive(), "kuro");
-  assert.equal(createMascotFixture("none").api.getActive(), "none");
-});
 
 test("startup mini host consumes all seven ports with real commands snapshot messages and theme notifications", async () => {
   const h = await createMiniHostFixture(); h.setTrack();

@@ -1109,60 +1109,6 @@
     },
     {
       "action": "listen",
-      "target": "#audio",
-      "type": "play",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#audio",
-      "type": "pause",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#audio",
-      "type": "ended",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#mascot-stage",
-      "type": "mouseenter",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#mascot-stage",
-      "type": "mouseleave",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#mascot-stage",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "window",
-      "type": "bilibili-music-trackchange",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "window",
-      "type": "bilibili-music-favorite",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "document",
-      "type": "visibilitychange",
-      "options": null
-    },
-    {
-      "action": "listen",
       "target": "window",
       "type": "beforeunload",
       "options": {

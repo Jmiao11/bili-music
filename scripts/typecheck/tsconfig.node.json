@@ -140,7 +140,6 @@
     "../../tests/mini-host-architecture.test.ts",
     "../../tests/dom/startup-classic-characterization.dom.ts",
     "../../tests/helpers/startup-api-fixture.ts",
-    "../../tests/startup-api-fixture.test.ts",
     "../../tests/startup-esm-architecture.test.ts",
     "../../ui/mini/mini-player-projection.ts",
     "../../scripts/vue/features.ts",

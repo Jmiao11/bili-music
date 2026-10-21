@@ -1,6 +1,5 @@
 import "./app/root-mount.ts";
 import "./app/startup-before-main.ts";
-import { initializeMascot } from "./app/mascot.ts";
 import "./app/main.ts";
 import { startAppearance } from "./features/settings/appearance.ts";
 import { initializeLyrics } from "./features/immersive/lyrics.ts";
@@ -8,6 +7,5 @@ import { startMiniPlayerHost } from "./mini/mini-player-host.ts";
 import { initializeMainWindowReady } from "./app/main-window-ready.ts";
 startAppearance();
 initializeLyrics();
-initializeMascot();
 startMiniPlayerHost();
 initializeMainWindowReady();

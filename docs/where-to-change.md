@@ -6,7 +6,7 @@
 
 | 功能 | 状态切片 | 界面 | 流程/副作用 | 主要测试 |
 |---|---|---|---|---|
-| 桌宠/气泡/动态背景 | 组件本地显示投影，不新增业务store切片 | app/components/Mascot.vue、features/settings/components/DynamicBackground.vue；选择器SettingsPanel | app/mascot.ts计时/随机/选择、features/settings/dynamic-background.ts取色/取消 | native-writes-baseline.dom、dynamic-background.dom、sidebar、startup-api-fixture |
+| 动态背景 | 组件本地显示投影，不新增业务store切片 | features/settings/components/DynamicBackground.vue | features/settings/dynamic-background.ts取色/取消 | native-writes-baseline.dom、dynamic-background.dom |
 | 页面导航/外壳/提示优先级 | 现有home/search/library/settings；本地动画阶段 | AppShell、Sidebar、WindowTitlebar | app/shell-projection.ts、app/shell-stages.ts、app/sidebar.ts、app/window-controls.ts；platform/main-window-refs.ts只回传节点 | native-writes-baseline.dom、controls-settings-characterization.dom、pages/library浮层测试 |
 | 首页榜单/推荐 | home | AppShell、TrackList/TrackRow、HomeHint/HomeSetupHint | features/home/home.ts、features/home/home-view.ts；推荐请求在 store/app-state.ts，榜单 Rust ranking.rs，推荐预算/降级 ai/recommendation.rs，协议参数 ai/protocol.rs | home-characterization.dom、root-lists.dom、home-actions、Rust ai::recommendation/ai::protocol |
 | 搜索/BV/分页 | search；播放另属 playbackQueue | SearchForm、SearchTabs、TrackList | features/search/search.ts、app/main.ts、platform/draft-ports.ts；BV入口 features/playback/playback-core.ts | search-characterization.dom、search-restore-characterization.dom、pasted-bv-pages |
