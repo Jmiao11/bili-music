@@ -30,7 +30,7 @@ function startup({ failure = "", platform = "Windows" } = {}) {
   context.initializeSidebar = () => {};
   vm.runInContext(inline, context);
   vm.runInContext(readFileSync(path.join(ui, "app/main-window-ready.ts"), "utf8"), context);
-  for (const name of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "initializeMascot", "startMiniPlayerHost"]) {
+  for (const name of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "startMiniPlayerHost"]) {
     context[name] = () => { phases.push(name); if (failure === name) throw Error("startup failed"); };
   }
   const run = () => {
@@ -43,7 +43,7 @@ function startup({ failure = "", platform = "Windows" } = {}) {
 test("main window readiness waits for startup and DOMContentLoaded then invokes once", () => {
   const h = startup(); h.run();
   assert.deepEqual(h.calls, []);
-  assert.deepEqual(h.phases, ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "initializeMascot", "startMiniPlayerHost"]);
+  assert.deepEqual(h.phases, ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "startMiniPlayerHost"]);
   h.fire("DOMContentLoaded");
   assert.deepEqual(h.calls, ["main_window_ready"]);
   assert.equal(h.root.dataset.startupComplete, "true");
@@ -52,7 +52,7 @@ test("main window readiness waits for startup and DOMContentLoaded then invokes 
 });
 
 test("any synchronous startup initializer failure prevents readiness", () => {
-  for (const failure of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "initializeMascot", "startMiniPlayerHost"]) {
+  for (const failure of ["initializeWindowControls", "initializeDynamicBackground", "startAppearance", "initializeLyrics", "startMiniPlayerHost"]) {
     const h = startup({ failure });
     assert.throws(h.run, /startup failed/);
     h.fire("DOMContentLoaded");

@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { maskCommentsAndStrings, topLevelStatements } from "./helpers/js-source.ts";
 
-const controllers = ["app/window-controls.ts", "features/settings/dynamic-background.ts", "features/immersive/lyrics.ts", "app/mascot.ts", "mini/mini-player-host.ts"];
+const controllers = ["app/window-controls.ts", "features/settings/dynamic-background.ts", "features/immersive/lyrics.ts", "mini/mini-player-host.ts"];
 function checkInitializer(source: string) {
   for (const statement of topLevelStatements(source)) {
     assert.match(statement.code, /^(?:function|const|let)\b/, "controllers only declare bindings at module evaluation");

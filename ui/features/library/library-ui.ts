@@ -131,7 +131,6 @@ async function toggleFavorite(video = currentPlayableTrack()) {
     window.dispatchEvent(new CustomEvent("bilibili-music-favorite-change", { detail: { bvid: result.track.bvid, title: result.track.title, failed: true } }));
   } else {
     window.dispatchEvent(new CustomEvent("bilibili-music-favorite-change", { detail: { bvid: result.track.bvid, title: result.track.title, favorited: result.favorited } }));
-    if (result.favorited) window.dispatchEvent(new CustomEvent("bilibili-music-favorite", { detail: { bvid: result.track.bvid, title: result.track.title } }));
   }
 }
 function toggleCurrentFavorite(): Promise<void> | undefined {

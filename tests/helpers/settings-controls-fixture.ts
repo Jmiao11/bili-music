@@ -9,7 +9,6 @@ function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
   const project = createSettingsControlsProjection();
   let previous: ReturnType<typeof project> = {};
   let navigationVersion=0;
-  let previousMascots: SettingsSnapshot["controls"]["mascots"] | null = null;
   const node = (name: string) => context[name] ?? context.document?.querySelector?.("#" + name.replace(/[A-Z]/g, letter => "-" + letter.toLowerCase()));
   const handlers: Partial<SettingsCallbacks> = context.__settingsFixtureHandlers ??= {};
   const bound: Set<string> = context.__settingsFixtureBound ??= new Set<string>();
@@ -54,13 +53,6 @@ function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
     if (clearKey && state.view.ai.clearKeyVersion && state.view.ai.clearKeyVersion !== context.__fixtureKeyCleared) { context.clearAiKeyDraft(); context.__fixtureKeyCleared = state.view.ai.clearKeyVersion; }
     if (state.view.themeVersion) for (const group of context.imageOnlyGroups ?? []) group.classList.toggle("is-disabled", state.theme !== "image");
     if (state.controls) for (const [key, name] of [["backupExport", "exportDataButton"], ["backupImport", "importDataButton"], ["history", "clearSearchHistoryButton"]] as const) { const target = node(name); if (target) target.disabled = state.controls.dataBusy[key]; }
-    if (state.controls && context.mascotPicker && context.document?.createElement) {
-      if(state.controls.mascots !== previousMascots) {
-        const tiles=state.controls.mascots.map(item=>{const tile=context.document.createElement("button");tile.dataset.mascotId=item.id;tile.addEventListener("click",()=>handlers.mascot?.(item.id));return tile;});
-        context.mascotPicker.replaceChildren(...tiles); previousMascots=state.controls.mascots;
-      }
-      for(const tile of context.mascotPicker.children) tile.classList.toggle("is-selected",tile.dataset.mascotId === state.controls.activeMascot);
-    }
     if(state.session.navigationVersion && state.session.navigationVersion !== navigationVersion) {
       navigationVersion=state.session.navigationVersion;const current=state.session.currentView;
       for(const item of context.navItems??[])item.classList.toggle("active",item.dataset.view === current);

@@ -71,24 +71,6 @@ function runtimeElement(): RuntimeElement {
   return element;
 }
 
-test("mascot picker callbacks use the initialized API for selection and hiding", () => {
-  const selected: string[] = [], picker = runtimeElement();
-  const api = { getActive: () => "kuro", list: () => [{ id: "kuro", name: "黑猫", svg: "<svg/>" }], setActive: (id: string) => selected.push(id) };
-  const context = createQueueContext({ mascotPicker: picker, getMascotApi: () => api,
-    document: { createElement: runtimeElement }, syncMascotPickerSelection() {},
-  });
-  attachSettingsVm(context);
-  vm.runInContext(slice("features/settings/appearance.ts", "function renderMascotPicker(", "function openSettings("), context);
-  context.renderMascotPicker();
-  assert.equal(picker.children.length, 2);
-  (picker.children[0] as RuntimeElement).listeners.click();
-  (picker.children[1] as RuntimeElement).listeners.click();
-  assert.deepEqual(selected, ["kuro", "none"]);
-  context.getMascotApi = () => undefined;
-  context.renderMascotPicker();
-  assert.equal(picker.children.length, 2);
-});
-
 test("page count observer disconnect handling preserves native unobserve and ignores a missing observer", () => {
   let callback: ((...args: unknown[]) => unknown) | undefined;
   const removed: unknown[] = [];
@@ -188,17 +170,5 @@ test("queue UI preserves all supported loop labels and ignores an unsupported mi
     context.updateQueueUi();
     const expected = mode === "sequence" ? "关闭循环" : modes.find((item) => item.id === mode)?.label ?? "unchanged";
     assert.equal(button.title, expected);
-  }
-});
-
-test("mascot storage selection preserves null property conversion, defaults and none", () => {
-  const kuro = {}, nullKey = {}, known = {};
-  for (const [id, expected] of [[null, nullKey], ["known", known], ["unknown", kuro], ["none", "hidden"]]) {
-    const rendered: unknown[] = [];
-    const context = createQueueContext({ getSavedMascotId: () => id, MASCOTS: { kuro, null: nullKey, known },
-      renderMascot: (mascot: unknown) => rendered.push(mascot), hideMascot: () => rendered.push("hidden"),
-    });
-    vm.runInContext(slice("app/mascot.ts", "  const savedMascotId =", '  setState("idle");'), context);
-    assert.deepEqual(rendered, [expected]);
   }
 });

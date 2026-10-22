@@ -625,29 +625,6 @@
             ]
           },
           {
-            "tag": "section",
-            "attributes": {
-              "class": "setting-group"
-            },
-            "children": [
-              {
-                "tag": "h3",
-                "attributes": {},
-                "children": [
-                  "桌宠"
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "mascot-picker",
-                  "id": "mascot-picker"
-                },
-                "children": []
-              }
-            ]
-          },
-          {
             "tag": "details",
             "attributes": {
               "class": "setting-group collapsible-group"

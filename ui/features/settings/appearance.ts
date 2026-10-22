@@ -1,7 +1,6 @@
 import { installSettingsCallbacks } from "./root-settings.ts";
 import { clearAiKeyDraft, readAiKeyDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../playback/root-playback.ts";
-import { getMascotApi } from "../../app/mascot.ts";
 import { createPlaybackCommands } from "../playback/playback-commands.ts";
 import { effectivePlaybackVolume } from "../playback/playback-settings-state.ts";
 import { createMediaAdapter, createMediaSessionAdapter } from "../../platform/media-adapter.ts";
@@ -62,7 +61,6 @@ const placeholderTitle = document.querySelector<HTMLHeadingElement>("#placeholde
 const settingsModal = document.querySelector<HTMLDivElement>("#settings-modal")!;
 const openSettingsButton = document.querySelector<HTMLButtonElement>("#open-settings-button")!;
 const closeSettingsButton = document.querySelector<HTMLButtonElement>("#close-settings-button")!;
-const mascotPicker = document.querySelector<HTMLDivElement>("#mascot-picker")!;
 const streamSourceSelect = document.querySelector<HTMLSelectElement>("#stream-source-select")!;
 const audioCacheEnabled = document.querySelector<HTMLInputElement>("#audio-cache-enabled")!;
 const audioCacheCapacity = document.querySelector<HTMLSelectElement>("#audio-cache-capacity")!;
@@ -451,16 +449,6 @@ function closeImmersive() {
   getPlaybackDisplayActions().setImmersiveOpen(false);
 }
 
-function syncMascotPickerSelection() {
-  if (mascotPicker) getSettingsActions().selectMascot(getMascotApi()?.getActive() ?? "");
-}
-function renderMascotPicker() {
-  const api = getMascotApi();
-  if (!mascotPicker || !api) return;
-  getSettingsActions().showMascots([...api.list().map(item => ({...item, svg:item.svg.replace(/\s+id="[^"]*"/g, "")})), {id:"none",name:"不显示",svg:"—"}],api.getActive());
-  installSettingsCallbacks({mascot:id=>{api.setActive(id);syncMascotPickerSelection();}});
-}
-
 function openSettings() {
   prepareSettingsPanel(settingsDom());
   restoreStreamSource();
@@ -469,7 +457,6 @@ function openSettings() {
   const { order, limit } = readShuffleCollectionPrefs();
   getSettingsActions().restoreCollection(order, limit === 0 ? "all" : String(limit));
   restoreAiConfig();
-  renderMascotPicker();
   getSettingsActions().panel(true);
 }
 

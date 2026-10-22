@@ -38,11 +38,11 @@ test("library reads favorites playlists and indexes without writing back after r
     await seed(h); assert.equal(h.state().loadError, ""); assert.equal(h.state().favorites.length, 2);
   } finally { h.dispose(); }
 });
-test("library favorite add remove and failure publish existing mini and mascot events only after results", async () => {
+test("library favorite add remove and failure publish existing mini events only after results", async () => {
   const h = await fixture(); try {
     await seed(h); const gate = deferred(); h.reply(() => gate.promise); const pending = h.library.toggleFavorite(track(3)); await h.flush(); assert.equal(h.events.length, 0);
     gate.resolve({ items: [track(3)], favorited: true }); await pending;
-    assert.deepEqual(h.events, [{ type: "bilibili-music-favorite-change", detail: { bvid: track(3).bvid, title: track(3).title, favorited: true } }, { type: "bilibili-music-favorite", detail: { bvid: track(3).bvid, title: track(3).title } }]);
+    assert.deepEqual(h.events, [{ type: "bilibili-music-favorite-change", detail: { bvid: track(3).bvid, title: track(3).title, favorited: true } }]);
     assert.equal(h.state().favoriteBvids.has(track(3).bvid.toLowerCase()), true); assert.equal(h.nodes.status.textContent, "已加入收藏。");
     h.events.length = 0; h.reply(async () => ({ items: [], favorited: false })); await h.library.toggleFavorite(track(3)); assert.equal(h.events.length, 1); assert.deepEqual(h.events[0].detail, { bvid: track(3).bvid, title: track(3).title, favorited: false });
     h.events.length = 0; h.reply(async () => { throw Error("写入失败"); }); await h.library.toggleFavorite(track(3)); assert.deepEqual(h.events[0].detail, { bvid: track(3).bvid, title: track(3).title, failed: true }); assert.equal(h.state().favorites.length, 0);

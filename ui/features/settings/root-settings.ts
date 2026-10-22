@@ -5,7 +5,7 @@ type SettingsCallbacks = {
   chooseBackground(): void; resetBackground(): void; saveAi(): void; testAi(): void; aiFormat(): void;
   source(value: string): void; cache(): void; collection(kind: "order" | "limit", value: string): void;
   clearCache(): void; clearHistory(): void; exportData(): void; importData(): void; purge(): void;
-  shortcut(action: keyof CommandContract.ShortcutBindings): void; clearShortcut(action: keyof CommandContract.ShortcutBindings): void; normalization(enabled: boolean): void; mascot(id: string): void;
+  shortcut(action: keyof CommandContract.ShortcutBindings): void; clearShortcut(action: keyof CommandContract.ShortcutBindings): void; normalization(enabled: boolean): void;
 };
 const settingsHandlers: Partial<SettingsCallbacks> = {};
 const settingsCallbacks = Object.freeze<SettingsCallbacks>({
@@ -13,7 +13,7 @@ const settingsCallbacks = Object.freeze<SettingsCallbacks>({
   chooseBackground: () => settingsHandlers.chooseBackground?.(), resetBackground: () => settingsHandlers.resetBackground?.(), saveAi: () => settingsHandlers.saveAi?.(), testAi: () => settingsHandlers.testAi?.(), aiFormat: () => settingsHandlers.aiFormat?.(),
   source: value => settingsHandlers.source?.(value), cache: () => settingsHandlers.cache?.(), collection: (kind, value) => settingsHandlers.collection?.(kind, value), clearCache: () => settingsHandlers.clearCache?.(), clearHistory: () => settingsHandlers.clearHistory?.(),
   exportData: () => settingsHandlers.exportData?.(), importData: () => settingsHandlers.importData?.(), purge: () => settingsHandlers.purge?.(), shortcut: action => settingsHandlers.shortcut?.(action), clearShortcut: action => settingsHandlers.clearShortcut?.(action),
-  normalization: enabled => settingsHandlers.normalization?.(enabled), mascot: id => settingsHandlers.mascot?.(id),
+  normalization: enabled => settingsHandlers.normalization?.(enabled),
 });
 function installSettingsCallbacks(next: Partial<SettingsCallbacks>): void { Object.assign(settingsHandlers, next); }
 export { installSettingsCallbacks, settingsCallbacks };

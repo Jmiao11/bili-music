@@ -51,7 +51,7 @@ type AiInput = {
 };
 type ShortcutAction = keyof CommandContract.ShortcutBindings;
 type SettingsState = {
-  controls: { dataBusy: { backupExport: boolean; backupImport: boolean; history: boolean }; mascots: {id:string;name:string;svg:string}[]; activeMascot:string; mascotGeneration:number };
+  controls: { dataBusy: { backupExport: boolean; backupImport: boolean; history: boolean } };
   theme: string | null;
   accentColor: keyof typeof ACCENT_COLORS;
   glassBlur: number;
@@ -129,7 +129,7 @@ type SettingsState = {
 type SettingsSnapshot = DeepReadonly<SettingsState>;
 function initialSettingsState(): SettingsState {
   return {
-    controls: {dataBusy: {backupExport:false, backupImport:false, history:false}, mascots:[], activeMascot:"none", mascotGeneration:0},
+    controls: {dataBusy: {backupExport:false, backupImport:false, history:false}},
     theme: null, accentColor: "pink", glassBlur: 40, panelAlpha: 72, backgroundDim: 90, background: null, ytDlpAvailable: false, streamSource: "auto", audioCacheSettings: null, collection: {
       order: "random", limit: 0
     }, shortcutBindings: {
@@ -677,10 +677,8 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     });
   }
   function setDataBusy(kind: "backupExport" | "backupImport" | "history", busy: boolean): void { update({controls:{...read().controls,dataBusy:{...read().controls.dataBusy,[kind]:busy}}}); }
-  function showMascots(mascots: readonly {id:string;name:string;svg:string}[], activeMascot: string): void { update({controls:{...read().controls,mascots:mascots.map(item=>({...item})),activeMascot,mascotGeneration:read().controls.mascotGeneration+1}}); }
-  function selectMascot(activeMascot: string): void { update({controls:{...read().controls,activeMascot}}); }
   return {
-    setDataBusy, showMascots, selectMascot, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
+    setDataBusy, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
   };
 }
 export { accentChannels, createSettingsActions, initialSettingsState, normalizeSettingsAccent };

@@ -18,7 +18,7 @@ test("initial trackchange recipients retain their installation phases", () => {
     return [...source.matchAll(/(?:window\.addEventListener\(|listen\(window,)\s*["']bilibili-music-trackchange["']/g)]
       .some((match) => code.slice(match.index, match.index + 6).trim());
   });
-  assert.deepEqual(listeners, ["features/settings/dynamic-background.ts", "app/mascot.ts", "features/playback/playback-core.ts", "features/settings/appearance.ts", "mini/mini-player-host.ts"]);
+  assert.deepEqual(listeners, ["features/settings/dynamic-background.ts", "features/playback/playback-core.ts", "features/settings/appearance.ts", "mini/mini-player-host.ts"]);
   const appearance = topLevelStatements(read("features/settings/appearance.ts"));
   assert.ok(appearance.every((statement) => /^(?:const|let|class|(?:async\s+)?function)\b/.test(statement.code)));
 });

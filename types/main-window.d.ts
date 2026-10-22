@@ -35,8 +35,6 @@ interface WindowEventMap {
   "bilibili-music-favorite-change": CustomEvent<
     { bvid: string; title: string } & ({ favorited: boolean } | { failed: true })
   >;
-  // library-ui.js:443 -> mascot.js:424.
-  "bilibili-music-favorite": CustomEvent<{ bvid: string; title: string }>;
   // These are Event, not CustomEvent: main.js:345,367,1733; appearance.js:1049.
   "bilibili-music-notice-change": Event;
   "bilibili-music-audio-cache-updated": Event;

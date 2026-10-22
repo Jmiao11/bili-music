@@ -50,7 +50,6 @@ async function fixture(options: { playback?: boolean } = {}) {
   const listeners: { target: EventTarget; type: string; callback: EventListenerOrEventListenerObject | null; options?: boolean | AddEventListenerOptions }[] = [];
   const events: { type: string; detail?: unknown }[] = [];
   window.addEventListener("bilibili-music-favorite-change", event => events.push({ type: event.type, detail: (event as CustomEvent).detail }));
-  window.addEventListener("bilibili-music-favorite", event => events.push({ type: event.type, detail: (event as CustomEvent).detail }));
   const descriptors = new Map<string, PropertyDescriptor | undefined>([["__VUE__", Object.getOwnPropertyDescriptor(globalThis, "__VUE__")]]);
   const mutations: MutationObserver[] = [];
   class NativeMutationObserver extends window.MutationObserver { constructor(callback: MutationCallback) { super(callback); mutations.push(this); } }

@@ -78,11 +78,6 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
           </label>
         </section>
 
-        <section class="setting-group">
-          <h3>桌宠</h3>
-          <div id="mascot-picker" class="mascot-picker"><button v-for="item in state.controls.mascots" :key="state.controls.mascotGeneration + ':' + item.id" type="button" class="mascot-tile" :class="{ 'is-selected':state.controls.activeMascot === item.id, 'mascot-tile-none':item.id === 'none' }" :data-mascot-id="item.id" :aria-label="item.id === 'none' ? '不显示桌宠' : item.name" :aria-pressed="state.controls.activeMascot === item.id" @click="callbacks.mascot(item.id)"><span class="mascot-tile-preview" v-html="item.svg"></span><span class="mascot-tile-name">{{ item.name }}</span></button></div>
-        </section>
-
         <details class="setting-group collapsible-group">
           <summary><h3>音频</h3></summary>
           <div class="setting-subgroup audio-source-section">

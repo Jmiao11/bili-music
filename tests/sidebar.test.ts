@@ -60,7 +60,6 @@ type SidebarElement = {
   title?:string;capture?: number | null; hidden?: boolean; innerHTML?: string;
   setPointerCapture?: (id: number) => void; hasPointerCapture?: (id: number) => boolean; releasePointerCapture?: () => void;
   classList?: { add(name: string): unknown; remove(name: string): unknown; contains(name: string): boolean; toggle(name: string, force: boolean): unknown };
-  BiliMascot?: { list(): { id: string }[]; getActive(): string; setActive(id: string): string };
   addEventListener(type: string, fn: (event?: Record<string, unknown>) => void): void;
   emit(type: string, extra?: Record<string, unknown>): void; setAttribute(name: string, value: unknown): void;
 };
@@ -185,47 +184,4 @@ test("storage access, read and write failures preserve working session controls"
     assert.equal(app.root.style["--sidebar-width"], "72px");
     if (faults.access || faults.write) assert.equal(app.warnings.length, 1);
   }
-});
-
-test("unchanged mascot API and bubble cleanup work while the sidebar is collapsed", () => {
-  const stage = element();
-  stage.style = {};
-  const classes = new Set();
-  stage.classList = {
-    add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name),
-    contains: (name: string) => classes.has(name),
-    toggle: (name: string, force: boolean) => force ? classes.add(name) : classes.delete(name),
-  };
-  const slot = element();
-  const bubble = element();
-  const document = Object.assign(element(), {
-    documentElement: { dataset: { sidebarCollapsed: "true" } }, hidden: false,
-    querySelector: (selector: string) => ({ "#mascot-stage": stage, "#mascot-slot": slot, "#mascot-bubble": bubble } as Record<string, SidebarElement>)[selector] ?? null,
-  });
-  const timers = new Map<number, { fn: () => void; ms: number }>();
-  let timerId = 0;
-  const window = Object.assign(element(), {
-    setTimeout(fn: (event?: Record<string, unknown>) => void, ms: number) { timers.set(++timerId, { fn, ms }); return timerId; },
-    clearTimeout(id: number) { timers.delete(id); },
-  });
-  const mascotContext=vm.createContext({stageForTest:stage,document,window,localStorage:{getItem:()=>null,setItem(){}},refreshPresentation:()=>{const model=vm.runInContext("readMascotPresentation()",mascotContext);slot.innerHTML=model.svg;bubble.hidden=model.bubbleHidden;bubble.textContent=model.bubble;for(const [name,value] of Object.entries(model.classes))stage.classList!.toggle(name,Boolean(value));Object.assign(stage.dataset,{mascotId:model.id,mascotName:model.name,state:model.state});}});
-  const api=vm.runInContext(readFileSync(path.join(import.meta.dirname,"../ui/app/mascot.ts"),"utf8")+"\ncaptureMascotStage(stageForTest);initializeMascot();getMascotApi();",mascotContext);
-  if (!api) throw new Error("Mascot API is missing");
-  assert.deepEqual(Object.keys(api), ["list", "getActive", "setActive"]);
-  assert.ok(bubble.textContent); // Greeting still has its normal lifetime, even when CSS hides it.
-  const greetingTimer = [...timers.values()].find(({ ms }) => ms === 4000);
-  if (!greetingTimer) throw new Error("Greeting timer is missing");
-  greetingTimer.fn();
-  assert.equal(bubble.hidden, true);
-  assert.equal(bubble.textContent, "");
-  for (const mascot of api.list()) {
-    assert.equal(api.setActive(mascot.id), mascot.id);
-    assert.equal(api.getActive(), mascot.id);
-    assert.equal(bubble.hidden, true);
-    assert.equal(bubble.textContent, "");
-  }
-  assert.equal(api.setActive("none"), "none");
-  assert.equal(api.getActive(), "none");
-  assert.equal(slot.innerHTML, "");
-  assert.ok(classes.has("is-hidden"));
 });
