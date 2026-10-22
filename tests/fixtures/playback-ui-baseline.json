@@ -242,31 +242,6 @@
                         "children": []
                       }
                     ]
-                  },
-                  {
-                    "tag": "svg",
-                    "attributes": {
-                      "aria-hidden": "true",
-                      "class": "ui-icon icon-pause",
-                      "fill": "none",
-                      "focusable": "false",
-                      "height": "16",
-                      "stroke": "currentColor",
-                      "stroke-linecap": "round",
-                      "stroke-linejoin": "round",
-                      "stroke-width": "1.8",
-                      "viewBox": "0 0 24 24",
-                      "width": "16"
-                    },
-                    "children": [
-                      {
-                        "tag": "path",
-                        "attributes": {
-                          "d": "M8 5v14M16 5v14"
-                        },
-                        "children": []
-                      }
-                    ]
                   }
                 ]
               },

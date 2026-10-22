@@ -5021,7 +5021,8 @@ input[type="range"]::-webkit-slider-thumb {
   & :is(.icon-button, .mode-button, .tool-button, .shuffle-control span) { width: var(--icon-hit-size); height: var(--icon-hit-size); flex: none; padding: 0; border-radius: var(--r-sm); color: var(--text2); background: transparent; }
   & :is(.icon-button, .mode-button, .tool-button, .shuffle-control span):hover { background: var(--hover); color: var(--text); }
   & .ui-icon { width: var(--icon-size); height: var(--icon-size); }
-  & .play-button { width: var(--play-size); height: var(--play-size); padding: 0; flex: none; border-radius: var(--r-full); background: var(--play-bg); color: var(--play-fg); }
+  & .play-button { display: grid; place-items: center; width: var(--play-size); height: var(--play-size); padding: 0; flex: none; border-radius: var(--r-full); background: var(--play-bg); color: var(--play-fg); }
+  & .play-button .icon-play { transform: translateX(1px); }
   & .shuffle-control input { inset: 0; width: 32px; height: 32px; margin: 0; }
   & .shuffle-control:has(input:focus-visible) span { outline: 2px solid var(--accent); outline-offset: 2px; }
   & .shuffle-control input:checked + span,

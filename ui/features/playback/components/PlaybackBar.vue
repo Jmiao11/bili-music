@@ -37,8 +37,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
             <Icon name="previous" />
           </button>
           <button id="play-pause-button" :ref="element => mainWindowRefs.resumePlayPauseButton(element as HTMLButtonElement|null)" class="play-button" type="button" @click="callbacks.toggle()"  :data-playing="playing()" :aria-label="display.buttonPlaying ? '暂停' : '播放'" >
-            <Icon name="play" class="icon-play" />
-            <Icon name="pause" class="icon-pause" />
+            <Icon :name="display.buttonPlaying ? 'pause' : 'play'" :class="display.buttonPlaying ? 'icon-pause' : 'icon-play'" />
           </button>
           <button id="next-button" class="icon-button" type="button" aria-label="下一首" @click="callbacks.next()" >
             <Icon name="next" />

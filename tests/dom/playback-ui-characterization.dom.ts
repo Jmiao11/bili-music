@@ -123,3 +123,20 @@ test("playback real DOM restored selection keeps pending resume status and the l
   assert.equal(h.node("status").textContent, "已恢复上次播放，点击播放继续。");
   assert.equal(h.node<HTMLInputElement>("progress-slider").value, "0"); assert.equal(h.node("duration").textContent, "1:40");
 });
+
+test("playback bar renders exactly one icon for each observed playback state", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const button = h.node("play-pause-button");
+  assert.equal(button.querySelectorAll("svg").length, 1);
+  assert.equal(button.querySelector("svg")?.classList.contains("icon-play"), true);
+  assert.equal(button.getAttribute("aria-label"), "播放");
+  h.media.paused = false; h.dispatch(h.audio, "play");
+  assert.equal(h.node("play-pause-button"), button);
+  assert.equal(button.querySelectorAll("svg").length, 1);
+  assert.equal(button.querySelector("svg")?.classList.contains("icon-pause"), true);
+  assert.equal(button.getAttribute("aria-label"), "暂停");
+  h.media.paused = true; h.dispatch(h.audio, "pause");
+  assert.equal(button.querySelectorAll("svg").length, 1);
+  assert.equal(button.querySelector("svg")?.classList.contains("icon-play"), true);
+  assert.equal(button.getAttribute("aria-label"), "播放");
+});
