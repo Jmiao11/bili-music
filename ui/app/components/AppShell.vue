@@ -31,9 +31,12 @@ import DynamicBackground from "../../features/settings/components/DynamicBackgro
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
+const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
+
 defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
+    <link rel="stylesheet" :href="tokensHref" />
     <DynamicBackground :model="background" />
     <WindowTitlebar :maximized="maximized" />
     <ResizeHotspots />
@@ -67,6 +70,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
               <p id="home-ranking-status" class="home-status-live" role="status" aria-live="polite">{{ shell.homeStatus }}</p>
               <p id="home-ranking-error" :ref="element => mainWindowRefs.homeRankingError(element as HTMLParagraphElement|null)" class="home-error" role="status" aria-live="polite">{{ shell.homeError }}</p>
               <HomeSetupHint :model="homeControls" :callbacks="pageCallbacks" />
+              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
               <ListHost id="home-ranking-list" :on-host="mainWindowRefs.homeRankingList" class="tracklist ranking-list" aria-label="推荐列表" :model="lists.home" />
             </section>
           </div>
@@ -98,6 +102,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
                 <span id="queue-count" class="queue-count">{{ shell.queueCount }}</span>
               </header>
 
+              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
               <ListHost id="search-results" :on-host="mainWindowRefs.searchResults" class="tracklist" aria-label="搜索结果和播放队列" :model="lists.search" />
             </section>
           </div>
@@ -111,7 +116,8 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             </div>
             <span id="favorites-count" class="queue-count">{{ shell.favoritesCount }}</span>
           </header>
-          <ListHost id="favorites-list" :on-host="mainWindowRefs.favoritesList" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
+          <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+              <ListHost id="favorites-list" :on-host="mainWindowRefs.favoritesList" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
         </section>
 
         <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'">
@@ -132,6 +138,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
                 </div>
                 <PlaylistActions :visible="snapshot.library.playlists.length > 0" :callbacks="pageCallbacks" />
               </header>
+              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
               <ListHost id="playlist-tracks" :on-host="mainWindowRefs.playlistTracks" class="tracklist library-list" aria-label="歌单歌曲" :model="lists.playlist" />
             </section>
           </div>
@@ -148,7 +155,8 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           </header>
           <CollectionToolbar :state="snapshot.collection" :favorited="snapshot.library.favorites.some(entry => entry.kind === 'collection' && entry.collectionId === snapshot.collection.fullSnapshot?.collectionId)" :callbacks="collectionCallbacks" />
           <button v-if="snapshot.collection.error" type="button" class="secondary-button" @click="collectionCallbacks.retry">重试</button>
-          <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
+          <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+              <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
         </section>
 
         <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','playlists','collection'].includes(shell.currentView)">
@@ -163,7 +171,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
     <PlaybackNotice :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
-    <PlaybackBar :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
+    <PlaybackBar :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
 
     <div id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">
