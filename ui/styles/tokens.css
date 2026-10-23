@@ -1,0 +1,95 @@
+:root {
+  --root: #111214;
+  --bar: #141518;
+  --line: #1c1e22;
+  --line2: #2a2d33;
+  --input: #1a1c1f;
+  --hover: #17191c;
+  --active: #1a1c1f;
+  --nav-active: #1d1f23;
+  --text: #e6e7ea;
+  --text2: #9a9fa8;
+  --text3: #80858e;
+  --play-bg: #e6e7ea;
+  --play-fg: #111214;
+  --accent-text: var(--accent);
+  --fs-xl: 24px;
+  --fs-lg: 18px;
+  --fs-md: 13px;
+  --fs-sm: 12px;
+  --fs-xs: 11px;
+  --fw-xl: 700;
+  --fw-lg: 600;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-full: 50%;
+  --track-height: 44px;
+  --track-cover-size: 32px;
+  --player-height: 64px;
+  --player-cover-size: 40px;
+  --play-size: 36px;
+  --icon-hit-size: 32px;
+  --icon-size: 16px;
+  --icon-stroke: 1.8;
+  --progress-size: 2px;
+  --progress-hover-size: 4px;
+}
+
+:root[data-theme="light"] {
+  --root: #fafafb;
+  --bar: #f4f5f7;
+  --line: #e7e8eb;
+  --line2: #d5d8dd;
+  --input: #fff;
+  --hover: #f1f2f4;
+  --active: #eef0f3;
+  --nav-active: #e7e9ed;
+  --text: #17181b;
+  --text2: #575c66;
+  --text3: #6a6f79;
+  --play-bg: #17181b;
+  --play-fg: #fff;
+  --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+}
+
+:root[data-theme="image"] {
+  --root: rgba(10, 12, 16, .8);
+  --bar: rgba(12, 14, 18, .55);
+  --line: rgba(255, 255, 255, .08);
+  --line2: rgba(255, 255, 255, .16);
+  --input: rgba(0, 0, 0, .25);
+  --hover: rgba(255, 255, 255, .04);
+  --active: rgba(255, 255, 255, .07);
+  --nav-active: rgba(255, 255, 255, .09);
+  --text: #edeff2;
+  --text2: #b0b6bf;
+  --text3: #979da7;
+  --play-bg: #edeff2;
+  --play-fg: #111214;
+}
+
+:root[data-theme="dynamic"] {
+  --root: #0f1418;
+  --bar: color-mix(in srgb, var(--cover-color, rgb(28, 32, 40)) 7%, transparent);
+  --line: #1b252b;
+  --line2: #2b3840;
+  --input: #141d22;
+  --hover: #141d23;
+  --active: #16222a;
+  --nav-active: #18252d;
+  --text: #e8edf1;
+  --text2: #a0abb4;
+  --text3: #86929c;
+  --play-bg: #e8edf1;
+  --play-fg: #0f1418;
+}
+
+:root[data-theme="dynamic"] .player-bar {
+  --bar: color-mix(in srgb, var(--cover-color, rgb(28, 32, 40)) 7%, transparent);
+}
