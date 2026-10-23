@@ -39,6 +39,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
 <template>
     <link rel="stylesheet" :href="tokensHref" />
     <DynamicBackground :model="background" />
+    <div class="window-background-overlay" aria-hidden="true"></div>
     <WindowTitlebar :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
     <div class="app-shell">

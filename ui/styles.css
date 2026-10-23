@@ -210,6 +210,7 @@ body {
 
 body {
   position: relative;
+  isolation: isolate;
   color: var(--text-1);
   background: #0a0a0b;
   font-size: 14px;
@@ -5087,7 +5088,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* UI-2: flat shell; sidebar geometry remains owned by its existing controller. */
 :root #app {
-  & .app-shell { gap: 0; padding: 0; }
+  & .app-shell { position: relative; z-index: 1; gap: 0; padding: 0; }
   & :is(.sidebar, .main-panel) { border: 0; border-radius: 0; box-shadow: none; }
   & .main-panel { background: transparent; backdrop-filter: none; }
   & #sidebar { padding: 12px 10px; border-right: 1px solid var(--line); background: var(--bar); }
@@ -5158,7 +5159,7 @@ input[type="range"]::-webkit-slider-thumb {
   & .playlist-art-grid > span { min-width: 0; min-height: 0; background: var(--line2); }
   & .playlist-art-grid img { width: 100%; height: 100%; object-fit: cover; }
   & :is(.track-columns, .track-row) { grid-template-columns: var(--track-columns); }
-  & .track-columns { position: sticky; z-index: 1; top: 0; height: 32px; min-height: 32px; flex: none; background: var(--root); }
+  & .track-columns { position: static; height: 32px; min-height: 32px; flex: none; border-bottom: 1px solid var(--line); background: transparent; }
   & .track-columns .column-duration { grid-column: 7; }
   & .track-columns > :last-child { grid-column: 8; }
   & :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results) .track-row { grid-template-columns: var(--track-columns); }
@@ -5182,8 +5183,19 @@ input[type="range"]::-webkit-slider-thumb {
   & .titlebar-status.is-error { color: var(--danger); }
 }
 :root[data-sidebar-collapsed="true"] #app #sidebar .nav-group-label { display: none; }
-:root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: var(--bar); }
-:root[data-theme="dynamic"] #app .track-columns { background: var(--root); }
+.window-background-overlay { display: none; position: fixed; z-index: 0; inset: 0; pointer-events: none; }
+/* Keep the image dimmer above the background in every WebView compositing path. */
+:root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, var(--background-dim)); }
+:root[data-theme="image"] body::after { background: transparent; }
+:root[data-theme="image"] #app .window-titlebar { background: var(--bar); }
+:root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
+:root #app #view-search { --track-columns: 24px 32px minmax(0, 1fr) auto minmax(120px, 200px) 64px 64px 68px; }
+:root #app #search-results .track:has(.track-pubdate) .track-up { align-self: center; justify-self: end; max-width: calc(100% - 84px); margin-right: 84px; overflow: hidden; padding-top: 0; text-overflow: ellipsis; white-space: nowrap; }
+:root #app #search-results .track-pubdate { align-self: center; justify-self: end; width: 84px; min-width: 0; overflow: hidden; padding-bottom: 0; color: var(--text3); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+:root #app #search-results .track-pubdate::before { content: " · "; white-space: pre; }
+:root #app #view-playlists .playlist-card:not(.is-selected),
+:root #app #view-search .music-tab:not(.is-active) { color: var(--text2); opacity: 1; }
 @container (max-width: 680px) {
   :root #app :is(.tracklist, .track-columns) { --track-columns: var(--track-columns-compact); }
+  :root #app #search-results .track:has(.track-pubdate) .track-up { justify-self: start; max-width: 100%; margin-right: 0; }
 }
