@@ -5135,7 +5135,8 @@ input[type="range"]::-webkit-slider-thumb {
   & #view-search .search-field { position: relative; display: flex; min-width: 0; max-width: 520px; height: 32px; flex: 1; align-items: center; }
   & #view-search .search-field svg { position: absolute; z-index: 1; left: 10px; width: 16px; height: 16px; color: var(--text3); pointer-events: none; }
   & #view-search #search-keyword { width: 100%; padding-left: 34px; }
-  & #view-search .search-submit { margin-left: auto; }
+  & #view-search .searchbar { max-width: 596px; flex: 0 1 596px; }
+  & #view-search .search-submit { margin-left: 0; }
   & #view-search .search-hint { display: none; }
   & #view-search .search-tabs-row { height: 28px; min-height: 28px; justify-content: flex-start; margin: 0; padding: 0; border: 0; background: transparent; }
   & #view-search .search-tabs-groups { display: flex; gap: 12px; }
@@ -5185,17 +5186,18 @@ input[type="range"]::-webkit-slider-thumb {
 :root[data-sidebar-collapsed="true"] #app #sidebar .nav-group-label { display: none; }
 .window-background-overlay { display: none; position: fixed; z-index: 0; inset: 0; pointer-events: none; }
 /* Keep the image dimmer above the background in every WebView compositing path. */
-:root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, var(--background-dim)); }
+/* Stored 40–95 maps to an effective 84–95% dimmer without changing saved values. */
+:root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, clamp(.84, calc(.84 + (var(--background-dim) - .4) * .2), .95)); }
 :root[data-theme="image"] body::after { background: transparent; }
 :root[data-theme="image"] #app .window-titlebar { background: var(--bar); }
 :root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
 :root #app #view-search { --track-columns: 24px 32px minmax(0, 1fr) auto minmax(120px, 200px) 64px 64px 68px; }
-:root #app #search-results .track:has(.track-pubdate) .track-up { align-self: center; justify-self: end; max-width: calc(100% - 84px); margin-right: 84px; overflow: hidden; padding-top: 0; text-overflow: ellipsis; white-space: nowrap; }
-:root #app #search-results .track-pubdate { align-self: center; justify-self: end; width: 84px; min-width: 0; overflow: hidden; padding-bottom: 0; color: var(--text3); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+:root #app #search-results .track-creator { display: flex; grid-column: 5; grid-row: 1; min-width: 0; align-items: center; overflow: hidden; text-align: left; white-space: nowrap; }
+:root #app #search-results .track:has(.track-pubdate) .track-up { display: block; align-self: center; min-width: 0; flex: 0 1 auto; overflow: hidden; margin: 0; padding: 0; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+:root #app #search-results .track-pubdate { align-self: center; flex: none; min-width: 0; padding: 0; color: var(--text3); line-height: 1.35; text-align: left; white-space: nowrap; }
 :root #app #search-results .track-pubdate::before { content: " · "; white-space: pre; }
 :root #app #view-playlists .playlist-card:not(.is-selected),
 :root #app #view-search .music-tab:not(.is-active) { color: var(--text2); opacity: 1; }
 @container (max-width: 680px) {
   :root #app :is(.tracklist, .track-columns) { --track-columns: var(--track-columns-compact); }
-  :root #app #search-results .track:has(.track-pubdate) .track-up { justify-self: start; max-width: 100%; margin-right: 0; }
 }
