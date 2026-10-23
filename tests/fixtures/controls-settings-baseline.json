@@ -18,40 +18,48 @@
         ]
       },
       {
-        "tag": "svg",
+        "tag": "div",
         "attributes": {
-          "aria-hidden": "true",
-          "viewBox": "0 0 24 24"
+          "class": "search-field"
         },
         "children": [
           {
-            "tag": "path",
+            "tag": "svg",
             "attributes": {
-              "d": "m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z"
+              "aria-hidden": "true",
+              "viewBox": "0 0 24 24"
             },
+            "children": [
+              {
+                "tag": "path",
+                "attributes": {
+                  "d": "m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z"
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "tag": "input",
+            "attributes": {
+              "autocomplete": "off",
+              "id": "search-keyword",
+              "placeholder": "搜索歌曲、歌手，BV 号自动识别",
+              "required": ""
+            },
+            "value": "",
+            "checked": false,
             "children": []
+          },
+          {
+            "tag": "span",
+            "attributes": {
+              "class": "search-hint sr-only"
+            },
+            "children": [
+              "BV 号自动识别"
+            ]
           }
-        ]
-      },
-      {
-        "tag": "input",
-        "attributes": {
-          "autocomplete": "off",
-          "id": "search-keyword",
-          "placeholder": "搜索歌曲、歌手，或粘贴 BV 号直接播放",
-          "required": ""
-        },
-        "value": "",
-        "checked": false,
-        "children": []
-      },
-      {
-        "tag": "span",
-        "attributes": {
-          "class": "search-hint"
-        },
-        "children": [
-          "BV 号自动识别"
         ]
       },
       {

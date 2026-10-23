@@ -5084,3 +5084,106 @@ input[type="range"]::-webkit-slider-thumb {
   #app .track-columns { grid-template-columns: 24px 32px minmax(0, 1fr) auto 80px 0 56px 68px; column-gap: var(--space-2); }
   #app .track-columns .column-play { visibility: hidden; }
 }
+
+/* UI-2: flat shell; sidebar geometry remains owned by its existing controller. */
+:root #app {
+  & .app-shell { gap: 0; padding: 0; }
+  & :is(.sidebar, .main-panel) { border: 0; border-radius: 0; box-shadow: none; }
+  & .main-panel { background: transparent; backdrop-filter: none; }
+  & #sidebar { padding: 12px 10px; border-right: 1px solid var(--line); background: var(--bar); }
+  & .side-nav { gap: 2px; padding: 0; }
+  & .nav-group-label { padding: 12px 12px 6px; color: var(--text3); font-size: var(--fs-xs); }
+  & .nav-item { height: 32px; min-height: 32px; gap: 10px; padding: 0 12px; border-radius: var(--r-sm); font-size: var(--fs-md); font-weight: 400; }
+  & .nav-item svg { width: 16px; height: 16px; }
+  & .nav-item.active::before { content: none; }
+  & .nav-item:hover { background: var(--hover); }
+  & .sidebar-foot { display: grid; gap: 2px; padding-top: 8px; border-top: 1px solid var(--line); }
+  & .view { padding: 0 24px 16px; }
+  & :is(.home-stage, .search-stage, .home-ranking-panel, .search-results-panel, .playlist-layout, .playlist-detail) { gap: 0; min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  & :is(.home-ranking-panel, .search-results-panel) { flex: 1; padding: 0; overflow: hidden; }
+  & :is(.home-head, .list-head) { display: flex; height: 56px; min-height: 56px; flex: none; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  & :is(.home-head h1, .list-head h1, .search-command-head h1) { margin: 0; color: var(--text); font-size: var(--fs-lg); font-weight: var(--fw-lg); line-height: 1.3; white-space: nowrap; }
+  & .list-head > div:first-child { display: flex; min-width: 0; align-items: center; gap: 12px; }
+  & .list-head > :last-child { margin-left: auto; }
+  & #view-favorites .list-head { justify-content: flex-start; }
+  & #view-favorites .queue-count { margin-left: 0; }
+  & :is(.home-subtitle, .home-ranking-bar) { display: none; }
+  & :is(.home-status-live, .home-error):empty { display: none; }
+  & .home-status-live { margin: 0; padding: 0; min-height: 0; font-size: var(--fs-sm); color: var(--text3); }
+  & .home-error { margin: 4px 0; color: var(--danger); font-size: var(--fs-md); }
+  & :is(.queue-count, .search-status, #playlist-meta) { padding: 0; margin: 0; min-height: 0; border: 0; border-radius: 0; background: transparent; color: var(--text3); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  & .queue-count { font-weight: 400; }
+  & :is(.secondary-button, .small-button, .primary-cta, .search-submit) { box-shadow: none; }
+  & .main-panel :is(.secondary-button, .small-button) { display: inline-flex; height: 28px; min-height: 28px; flex: none; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--line2); border-radius: var(--r-sm); background: transparent; color: var(--text); font-size: var(--fs-md); font-weight: 400; }
+  & .main-panel :is(.secondary-button, .small-button):hover { border-color: var(--text3); background: var(--hover); }
+  & .main-panel .danger { color: var(--danger); }
+  & .main-panel :is(.primary-cta, .search-submit) { height: 28px; min-height: 28px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--r-sm); background: var(--accent); color: var(--on-accent); font-size: var(--fs-md); font-weight: 600; }
+  & .main-panel :is(input[type="text"], #search-keyword) { height: 32px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line2); border-radius: var(--r-sm); outline: none; background: var(--input); color: var(--text); font-size: var(--fs-md); }
+  & .main-panel :is(input[type="text"], #search-keyword):focus { border-color: var(--accent); }
+  & .home-hint-row { height: 48px; min-height: 48px; margin: 0; padding: 8px 0; border: 0; background: transparent; box-shadow: none; }
+  & .home-hint-controls { display: flex; width: 100%; gap: 8px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+  & .home-hint-input { width: auto; min-width: 0; flex: 1; }
+  & .home-hint-controls button { align-self: center; }
+  & .home-setup-hint { margin: 0 0 8px; padding: 8px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  & #view-search .search-stage { gap: 0; }
+  & #view-search .search-command-panel { display: flex; height: 56px; min-height: 56px; gap: 20px; flex: none; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+  & #view-search .search-command-head { flex: none; gap: 0; }
+  & #view-search .search-command-copy { display: flex; align-items: center; gap: 12px; }
+  & #view-search .search-command-copy p { max-width: 160px; margin: 0; overflow: hidden; color: var(--text3); font-size: var(--fs-sm); text-overflow: ellipsis; white-space: nowrap; }
+  & #view-search .searchbar { display: flex; min-width: 0; height: 32px; flex: 1; gap: 8px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  & #view-search .search-field { position: relative; display: flex; min-width: 0; max-width: 520px; height: 32px; flex: 1; align-items: center; }
+  & #view-search .search-field svg { position: absolute; z-index: 1; left: 10px; width: 16px; height: 16px; color: var(--text3); pointer-events: none; }
+  & #view-search #search-keyword { width: 100%; padding-left: 34px; }
+  & #view-search .search-submit { margin-left: auto; }
+  & #view-search .search-hint { display: none; }
+  & #view-search .search-tabs-row { height: 28px; min-height: 28px; justify-content: flex-start; margin: 0; padding: 0; border: 0; background: transparent; }
+  & #view-search .search-tabs-groups { display: flex; gap: 12px; }
+  & #view-search .music-tabs { display: flex; gap: 4px; padding: 0; border: 0; background: transparent; }
+  & #view-search .music-tab { height: 28px; min-height: 28px; padding: 0 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text2); font-size: var(--fs-md); font-weight: 400; box-shadow: none; }
+  & #view-search .music-tab.is-active { background: var(--nav-active); color: var(--text); }
+  & #view-search .search-results-head { display: none; }
+  & #view-playlists .playlist-layout { display: flex; flex: 1; flex-direction: column; }
+  & #view-playlists #playlists-list { max-height: 132px; flex: none; padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+  & #view-playlists .playlist-list li + li { margin: 0; }
+  & #view-playlists .playlist-card { display: flex; height: 44px; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; transform: none; }
+  & #view-playlists .playlist-card:hover { background: var(--hover); transform: none; }
+  & #view-playlists .playlist-card.is-selected { background: var(--nav-active); color: var(--text); }
+  & #view-playlists .playlist-card span { font-size: var(--fs-md); font-weight: 400; }
+  & #view-playlists .playlist-card small { color: var(--text3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+  & #view-playlists .playlist-detail { flex: 1; padding: 0; }
+  & #view-playlists .playlist-detail-head { display: flex; height: 132px; min-height: 132px; flex: none; align-items: center; gap: 16px; padding: 18px 0; }
+  & #view-playlists .playlist-detail-head h2 { margin: 0 0 8px; font-size: var(--fs-xl); font-weight: var(--fw-xl); }
+  & #view-playlists .playlist-actions { margin-left: auto; }
+  & .playlist-art-grid { display: grid; width: 96px; height: 96px; flex: 0 0 96px; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 2px; overflow: hidden; border-radius: var(--r-xs); }
+  & .playlist-art-grid > span { min-width: 0; min-height: 0; background: var(--line2); }
+  & .playlist-art-grid img { width: 100%; height: 100%; object-fit: cover; }
+  & :is(.track-columns, .track-row) { grid-template-columns: var(--track-columns); }
+  & .track-columns { position: sticky; z-index: 1; top: 0; height: 32px; min-height: 32px; flex: none; background: var(--root); }
+  & .track-columns .column-duration { grid-column: 7; }
+  & .track-columns > :last-child { grid-column: 8; }
+  & :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results) .track-row { grid-template-columns: var(--track-columns); }
+  & :is(#view-favorites, #view-playlists):not(:has(.track-play)) { --track-columns: var(--track-columns-library); }
+  & :is(#view-favorites, #view-playlists):not(:has(.track-play)) .column-play { visibility: hidden; }
+  & .tracklist { margin: 0; padding-block: 0; }
+  & #view-favorites #favorites-list { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  & #view-favorites #favorites-list .track-row { background: transparent; }
+  & #view-favorites #favorites-list .track-row:hover { background: var(--hover); }
+  & #view-favorites #favorites-list .track-row:has(.track[aria-current="true"]) { background: var(--active); }
+  & :is(.empty-state, .tracklist:empty, .playlist-list:empty) { color: var(--text3); font-size: var(--fs-md); text-align: center; }
+  & :is(#view-home, #view-search, #view-favorites, #view-playlists) :is(.home-ranking-panel, .search-results-panel, .playlist-detail) { background: transparent; }
+  & :is(#view-favorites, #view-playlists) .list-head { background: transparent; }
+  & #view-search #search-results .track-row { background: transparent; }
+  & #view-search #search-results .track-row:hover { background: var(--hover); }
+  & #view-search #search-results .track-row:has(.track[aria-current="true"]) { background: var(--active); }
+  & #view-playlists #playlist-tracks .track-row { background: transparent; }
+  & #view-playlists #playlist-tracks .track-row:hover { background: var(--hover); }
+  & #view-playlists #playlist-tracks .track-row:has(.track[aria-current="true"]) { background: var(--active); }
+  & .titlebar-status { position: static; min-width: 0; max-width: 40vw; margin: 0 12px 0 auto; overflow: hidden; color: var(--text3); font-size: var(--fs-xs); font-weight: 400; line-height: 1; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+  & .titlebar-status.is-error { color: var(--danger); }
+}
+:root[data-sidebar-collapsed="true"] #app #sidebar .nav-group-label { display: none; }
+:root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: var(--bar); }
+:root[data-theme="dynamic"] #app .track-columns { background: var(--root); }
+@container (max-width: 680px) {
+  :root #app :is(.tracklist, .track-columns) { --track-columns: var(--track-columns-compact); }
+}

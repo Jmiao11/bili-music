@@ -625,15 +625,6 @@
             ]
           }
         ]
-      },
-      {
-        "tag": "p",
-        "attributes": {
-          "class": "player-status",
-          "id": "status",
-          "role": "status"
-        },
-        "children": []
       }
     ]
   },

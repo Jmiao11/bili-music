@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{maximized:boolean|null}>();
+defineProps<{maximized:boolean|null;status:string;error:boolean}>();
 </script>
 <template>
 <header class="window-titlebar" aria-label="窗体标题栏">
@@ -10,6 +10,7 @@ defineProps<{maximized:boolean|null}>();
         <span class="window-titlebar-name">Bili Music</span>
       </div>
       <div class="window-titlebar-spacer"></div>
+      <p id="status" class="player-status titlebar-status" :class="{'is-error':error}" role="status">{{ status }}</p>
       <div class="window-utility-controls">
         <button id="mini-player-button" class="window-control-button" type="button" aria-label="迷你播放器" title="迷你播放器">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7h-4v1.2h2v1.3h-7v-1.3h2V10.5h-4Zm1.5 1.3v4.4h7V4.8Z" /></svg>

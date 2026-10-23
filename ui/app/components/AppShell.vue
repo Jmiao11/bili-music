@@ -31,6 +31,7 @@ import DynamicBackground from "../../features/settings/components/DynamicBackgro
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
+import { displayThumbnailUrl } from "../../shared/track-utils.ts";
 const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
 
 defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
@@ -38,7 +39,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
 <template>
     <link rel="stylesheet" :href="tokensHref" />
     <DynamicBackground :model="background" />
-    <WindowTitlebar :maximized="maximized" />
+    <WindowTitlebar :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
     <div class="app-shell">
       <Sidebar :model="sidebar" :current-view="shell.currentView" />
@@ -80,9 +81,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           <div class="search-stage">
             <section class="search-command-panel" aria-label="搜索控制">
               <div class="search-command-head">
-                <span class="search-vinyl-mark" aria-hidden="true"></span>
                 <div class="search-command-copy">
-                  <span class="search-source-label">关键词 / BV 直达</span>
                   <h1>搜索音乐</h1>
                   <p>输入关键词查找 B站音乐区内容，粘贴 BV 号可直接进入播放链路。</p>
                 </div>
@@ -112,7 +111,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           <header class="list-head">
             <div>
               <h1>我的收藏</h1>
-              <p id="favorites-status" class="search-status" role="status">{{ shell.favoritesStatus }}</p>
+              <p id="favorites-status" class="search-status" role="status" :hidden="!snapshot.library.loadError">{{ shell.favoritesStatus }}</p>
             </div>
             <span id="favorites-count" class="queue-count">{{ shell.favoritesCount }}</span>
           </header>
@@ -132,6 +131,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             <ListHost id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             <section class="playlist-detail" aria-label="歌单内容">
               <header class="playlist-detail-head">
+                <div class="playlist-art-grid" aria-hidden="true"><span v-for="index in 4" :key="index"><img v-if="lists.playlist.rows[index - 1]?.video.thumbnailUrl" :src="displayThumbnailUrl(lists.playlist.rows[index - 1]!.video.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" /></span></div>
                 <div>
                   <h2 id="playlist-title">{{ shell.playlistTitle }}</h2>
                   <p id="playlist-meta">{{ shell.playlistMeta }}</p>
