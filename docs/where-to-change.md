@@ -6,7 +6,7 @@
 
 | 功能 | 状态切片 | 界面 | 流程/副作用 | 主要测试 |
 |---|---|---|---|---|
-| 方案 C 设计变量与紧凑行/播放栏 | 沿用既有切片 | [设计规范](ui-spec.md)、styles/tokens.css、TrackRow、PlaybackBar、app/components/Icon.vue | 仅展示与变量映射，不改控制器 | tracks-baseline.dom、playback-tree.dom、verify:dist（G0 不变） |
+| 方案 C 变量、外壳、四页与行/播放栏 | 沿用既有切片 | [设计规范](ui-spec.md)、styles/tokens.css、styles.css、AppShell、Sidebar、TrackRow、PlaybackBar、app/components/Icon.vue | 仅展示与变量映射，不改控制器；侧栏保留 220/72px | tracks-baseline.dom、playback-tree.dom、verify:dist（G0 不变） |
 | 动态背景 | 组件本地显示投影，不新增业务store切片 | features/settings/components/DynamicBackground.vue | features/settings/dynamic-background.ts取色/取消 | native-writes-baseline.dom、dynamic-background.dom |
 | 页面导航/外壳/提示优先级 | 现有home/search/library/settings；本地动画阶段 | AppShell、Sidebar、WindowTitlebar | app/shell-projection.ts、app/shell-stages.ts、app/sidebar.ts、app/window-controls.ts；platform/main-window-refs.ts只回传节点 | native-writes-baseline.dom、controls-settings-characterization.dom、pages/library浮层测试 |
 | 首页榜单/推荐 | home | AppShell、TrackList/TrackRow、HomeHint/HomeSetupHint | features/home/home.ts、features/home/home-view.ts；推荐请求在 store/app-state.ts，榜单 Rust ranking.rs，推荐预算/降级 ai/recommendation.rs，协议参数 ai/protocol.rs | home-characterization.dom、root-lists.dom、home-actions、Rust ai::recommendation/ai::protocol |

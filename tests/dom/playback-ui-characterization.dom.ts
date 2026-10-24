@@ -140,3 +140,25 @@ test("playback bar renders exactly one icon for each observed playback state", a
   assert.equal(button.querySelector("svg")?.classList.contains("icon-play"), true);
   assert.equal(button.getAttribute("aria-label"), "播放");
 });
+
+test("opened immersive root stays opaque independently of page surfaces in all themes", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const css = fs.readFileSync(path.join(import.meta.dirname, "../../ui/styles.css"), "utf8").split("/* Independent floating surfaces. */")[1]!;
+  const style = h.doc.createElement("style"); h.doc.head.append(style);
+  h.store.actions.playbackDisplay.showImmersive();
+  h.store.actions.playbackDisplay.setImmersiveOpen(true);
+  for (const theme of ["dark", "light", "image", "dynamic"]) {
+    h.doc.documentElement.dataset.theme = theme;
+    style.textContent = css;
+    const surface = h.window.getComputedStyle(h.doc.documentElement).getPropertyValue("--floating-surface").trim();
+    assert.notEqual(surface, "", theme);
+    // jsdom does not resolve custom properties in background declarations.
+    style.textContent = css.replaceAll("var(--floating-surface)", surface);
+    h.doc.documentElement.style.setProperty("--panel", "transparent");
+    const player = h.node("immersive-player");
+    assert.equal(player.hidden, false, theme);
+    assert.equal(player.classList.contains("is-open"), true, theme);
+    const background = h.window.getComputedStyle(player).backgroundColor;
+    assert.match(background, /^rgb\(\d+, \d+, \d+\)$/, theme + ": " + background);
+  }
+});

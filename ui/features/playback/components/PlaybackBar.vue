@@ -79,7 +79,6 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
         </label>
       </div>
 
-      <p id="status" class="player-status" role="status">{{ status }}</p>
 
     </footer>
 </template>
