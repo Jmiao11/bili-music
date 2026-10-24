@@ -5239,6 +5239,8 @@ input[type="range"]::-webkit-slider-thumb {
   & .tracklist :is(.track-up, .track-creator) { padding-left: 8px; }
   & #search-results .track-creator .track-up { padding-left: 0; }
   & .player-bar .now-playing { padding-right: 0; }
+  & .player-bar:has(.player-pages-group:not([hidden])) .now-playing,
+  & .player-bar:has(.player-collection-position) .now-playing { padding-right: 0; }
   & .player-bar .player-pages-group { position: static; transform: none; order: 0; flex: none; max-width: 128px; }
   & .player-bar .right-tools { gap: 4px; }
   & .player-bar #queue-position { order: 1; width: 48px; margin: 0; }
