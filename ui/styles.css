@@ -5187,7 +5187,8 @@ input[type="range"]::-webkit-slider-thumb {
 :root[data-sidebar-collapsed="true"] #app #sidebar .nav-group-label { display: none; }
 .window-background-overlay { display: none; position: fixed; z-index: 0; inset: 0; pointer-events: none; }
 /* Keep the image dimmer above the background in every WebView compositing path. */
-:root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, var(--background-dim)); }
+:root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, calc(.55 + (var(--background-dim) - .4) * .4 / .55)); }
+:root[data-theme="image"] body::before { filter: blur(20px); transform: scale(1.08); }
 :root[data-theme="image"] body::after { background: transparent; }
 :root[data-theme="image"] #app .window-titlebar { background: var(--bar); }
 :root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
@@ -5202,7 +5203,7 @@ input[type="range"]::-webkit-slider-thumb {
   :root #app :is(.tracklist, .track-columns) { --track-columns: var(--track-columns-compact); }
 }
 
-/* The shared surface ends with the rows; unused page space keeps only the global dimmer. */
+/* Header and rows share their column tracks and scrollbar gutter. */
 :root #app .playlist-directory-surface { position: relative; min-height: 0; max-height: 132px; flex: none; }
 :root #app .track-surface { position: relative; display: flex; min-height: 0; flex: 0 1 auto; flex-direction: column; container-type: inline-size; }
 :root #app .track-surface > .tracklist { min-height: 0; flex: 0 1 auto; }
@@ -5212,27 +5213,27 @@ input[type="range"]::-webkit-slider-thumb {
 :root #app #view-home { --track-columns: 24px 32px minmax(0, 1fr) auto 140px 64px 64px 68px; }
 :root #app :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results) .track-row:not(:has(.page-count-badge, .track-unavailable)) .track-title { grid-column: 3 / 5; }
 
-:root[data-theme="image"] {
-  /* Two layers of the same tint compose to at least 86%, including a white source image. */
-  --surface-dim: clamp(0, calc((.86 - var(--background-dim)) / (1 - var(--background-dim))), 1);
-}
 :root[data-theme="image"] #app :is(.window-titlebar, #sidebar, .home-head, .home-hint-row, .list-head, .search-command-panel, .search-tabs-row, .playlist-detail-head, .playlist-directory-surface, .track-surface, #result) {
-  isolation: isolate;
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-:root[data-theme="image"] #app :is(.home-head, .home-hint-row, .list-head, .search-command-panel, .search-tabs-row, .playlist-detail-head, .playlist-directory-surface) { position: relative; }
-:root[data-theme="image"] #app :is(.window-titlebar, #sidebar, .home-head, .home-hint-row, .list-head, .search-command-panel, .search-tabs-row, .playlist-detail-head, .playlist-directory-surface, .track-surface, #result)::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: rgba(10, 12, 16, var(--surface-dim));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  pointer-events: none;
+
+/* Independent floating surfaces. */
+/* Floating surfaces must stay opaque when page themes make --panel transparent. */
+:root { --floating-surface: #111214; }
+:root[data-theme="light"] { --floating-surface: #fafafb; }
+:root[data-theme="image"] { --floating-surface: #202024; }
+:root[data-theme="dynamic"] { --floating-surface: #16181c; }
+
+:root #app #immersive-player,
+:root #app :is(.immersive-sheet, .settings-panel, .ai-help-bubble, .playback-notice) {
+  background: var(--floating-surface);
+}
+:root #app .volume-control { --volume-panel-bg: var(--floating-surface); }
+
+/* Keep native window controls and the drag region above the full-window player. */
+body:has(#immersive-player.is-open) #app .window-titlebar {
+  z-index: calc(var(--z-immersive) + 1);
+  opacity: 1;
 }

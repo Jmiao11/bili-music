@@ -67,16 +67,16 @@
 
 :root[data-theme="image"] {
   --root: rgba(10, 12, 16, .8);
-  --bar: rgba(0, 0, 0, .12);
+  --bar: transparent;
   --line: rgba(255, 255, 255, .08);
   --line2: rgba(255, 255, 255, .16);
   --input: rgba(0, 0, 0, .25);
-  --hover: rgba(255, 255, 255, .04);
-  --active: rgba(255, 255, 255, .07);
+  --hover: rgba(255, 255, 255, .06);
+  --active: rgba(255, 255, 255, .09);
   --nav-active: rgba(255, 255, 255, .09);
-  --text: #edeff2;
-  --text2: #c0c7d1;
-  --text3: #b2bac5;
+  --text: #ffffff;
+  --text2: #e4e8ee;
+  --text3: #d8dfe8;
   --play-bg: #edeff2;
   --play-fg: #111214;
 }
