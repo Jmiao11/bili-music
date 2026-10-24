@@ -2,7 +2,7 @@
 
 本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。后续设计说明保存到 docs/design/，不只保留在系统临时目录。
 
-全面 Vue 化已完成；Windows/Mac 发布前全应用回归于2026-10-16完成，对应 master `d8a7f4bc856b1aa7af23ec81d2c84c4bce9cffaa`，Windows watchdog 故障包亦已验证。后续功能修改仍按任务验收；发布时须核对最新 master CI。
+全面 Vue 化已完成；Windows/Mac 发布前全应用回归于2026-10-16完成，对应 master `d8a7f4bc856b1aa7af23ec81d2c84c4bce9cffaa`，Windows watchdog 故障包亦已验证。后续功能修改仍按任务验收；发布时须由用户核对最新 master CI。
 
 ## 技术栈与架构
 
@@ -43,7 +43,7 @@
 ## 开始工作、提交与临时副本
 
 - 每次开始先 git branch --show-current，核对任务指定分支；不符停止，不自行切换开发分支。核对最新任务基线与工作区，保留已有改动。
-- 分步实现并验证，不做一次性全仓重构。每批最多3个 Conventional Commits 中文提交，顺序按任务明确要求；默认按需 test→feat→fix，文档/登记随对应变更，明确要求拆分除外。推送前整理仅限未推送历史，整理前后最终 tree 必须相同；推送后只追加，不改写。
+- 分步实现并验证，不做一次性全仓重构。每批1–3个 Conventional Commits 中文提交，顺序按任务明确要求；默认按需 test→feat→fix，文档/登记随对应变更，明确要求拆分除外。推送前整理仅限未推送历史，整理前后最终 tree 必须相同；推送后只追加，不改写。
 - 只暂存明确授权的具体文件。src-tauri/Cargo.toml 既有纯换行差异忽略、永不提交。禁止 AI 署名、Co-Authored-By 或生成标记。
 - 仓库外副本只用本地 git clone/worktree 或基于 git ls-files 复制跟踪文件，不复制被忽略运行时文件。建立后先检查敏感文件是否存在及跟踪状态，不读内容；发现非跟踪运行时文件停止。正常项目工具不能按 tools 目录名批量删除。
 
@@ -59,13 +59,18 @@
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
 - 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件迁移/fixture 登记不触发全套。
 - 跨平台完整回归只在指定阶段（F2b、F6、F8）及发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
-- 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单及 GitHub 操作次数。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过，必须等用户明确“手测通过，允许合并”。发布前最新 master 远程 CI 与发布前全应用回归都必须通过。
+- 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单及 GitHub 操作次数。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过；任务要求用户手测时，须等用户明确“手测通过，允许合并”后，Codex只报告“可合并”，后续合并由用户执行。发布前由用户核对最新 master 远程 CI 与发布前全应用回归均已通过。
 
 ## Git 与 GitHub
 
-- Codex 可本地提交、按批推送定稿功能分支；获授权并完成本地 fast-forward 后可推送 master，删除自己推送且已合并的远程功能分支。所有代码经本地 git 提交，不经 API/网页逐文件更新。
-- 每次推送前 fetch，确认远程目标是本地祖先；首次推送确认同名远程分支不存在。分叉、HEAD/基线不符或非预期改动立即停，不 rebase、不 merge 远程、不 reset --hard。永不用 force/force-with-lease，不删除/改写 master、不推 tag、不改 remote、凭证或 git 配置。
-- 顺序：本地验收→推送功能分支→查询最新提交 windows-latest/macos-latest CI并附链接→双平台通过后用户手测与合并授权→核对指定 HEAD/master/工作区/祖先→本地 ff-only→fetch并确认 master 仅领先本批提交→推送 master→查询该提交双平台CI→删除已合并远程分支。
-- gh 常规只读，仅 run list/run view（可 --log-failed）；每个提交的分支或 master CI 失败时，可用 gh run rerun --failed 重跑一次失败 job，仍失败则停止并报告；其他只读信息请用户提供，不用 gh api。推送后约2分钟首次查询，随后间隔至少2分钟，同一信息串行、每次最多10次；未完报告“CI运行中”及链接。若单项获准用 watch，interval 至少120秒。
-- fetch/push/gh 网络或服务失败等至少1分钟，只重试1次；仍失败停止并报告原文。403、429、secondary rate limit、abuse、account 提示立即停止全部 GitHub 操作，不重试。报告推送、删除、查询、重试次数。
-- PR/Issue/评论、Release/tag/label、仓库设置/secrets、认证、取消 CI、手动触发 workflow 全由用户执行，不读取或输出 token。CI 失败报告 job、步骤及脱敏摘要；与改动相关先修再继续下一批，疑似偶发可按上述每提交一次限额重跑，报告重跑次数与结果。
+- 分支命名：按类型使用 `feat/`、`fix/`、`style/`、`refactor/`、`chore/`、`test/`，后接简短英文描述，不再使用 `codex/` 前缀。
+- Codex负责本地提交、推送功能分支、只读查看该分支的CI。
+- Codex不执行合并到master、推送master、删除分支、创建或合并PR、force push；这些操作由用户执行。
+- 用户在本地使用 `git merge --squash` 合并，每批在master上只保留一条提交。
+- 每批提交数1–3个；提交信息使用中文Conventional风格，不含任何AI署名或痕迹。
+- 只改文档、配置或规则，且不改产品代码和测试的小改动，可以直接在本地master上提交，不建分支；Codex只提交、不推送，由用户检查后推送。
+- 涉及产品代码或测试的改动，仍须走功能分支、跑CI和手测。
+- 每次推送前先fetch，确认远程目标是本地祖先；首次推送确认同名远程分支不存在。发现分叉、基线不符或非预期改动立即停止，不rebase、不reset --hard、不改remote、凭证或git配置。
+- 外部贡献者的PR由用户在GitHub上审查并Squash and merge。仅在用户要求时，Codex可用 `git fetch origin pull/<编号>/head` 在本地获取PR代码，只做只读审查与验收，不评论、不合并。
+- GitHub CLI/API仅限只读查看CI，其他操作一律禁止；包括不得重跑或取消CI、手动触发workflow、操作Issue/评论/Release/tag/label及仓库设置。
+- 任务书中“手测通过，允许合并”之后的步骤，改为由Codex报告“可合并”，由用户执行合并及后续操作。

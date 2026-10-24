@@ -1,7 +1,7 @@
 {
   "private": true,
   "engines": {
-    "node": "22.23.3"
+    "node": ">=22.18.0 <23"
   },
   "scripts": {
     "dev": "vite",
