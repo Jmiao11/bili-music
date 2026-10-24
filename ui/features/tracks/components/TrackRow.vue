@@ -39,7 +39,8 @@ export default defineComponent({
       ];
       return h("li", {"data-page-count-bvid":row.pageCountBvid, class: "track-row" + (row.unavailableReason ? " is-unavailable" : "") + (row.dragClass ? " " + row.dragClass : ""), draggable: row.draggable, onClickCapture: row.onCapture, onDblclickCapture: row.onCapture, onDragstart: row.onDragStart, onDragover: row.onDragOver, onDragleave: row.onDragLeave, onDrop: row.onDrop, onDragend: row.onDragEnd, ref: itemRef, onDblclick: row.onDoubleClick }, [
         h("button", {"aria-busy":row.playPagesVersion === undefined ? undefined : "true","data-pages-request-version":row.playPagesVersion, type: "button", class: "track", [row.search ? "data-result-index" : "data-library-index"]: String(row.index), "data-bvid": row.collection ? undefined : video.bvid, ...(row.active ? { "aria-current": "true" } : {}), ref: buttonRef, onClick: row.onClick }, content),
-        h("span", { class: "track-actions" }, controls),
+        // CSS supplies a visual title beside the badge; the play button retains its accessible text and the original control order.
+        h("span", { class: "track-actions", style: { "--track-title-copy": JSON.stringify(video.title || video.bvid) } }, controls),
       ]);
     };
   },

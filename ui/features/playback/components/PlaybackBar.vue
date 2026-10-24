@@ -73,6 +73,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
         <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist()" :disabled="controls.favoriteDisabled" >
           <Icon name="plus" />
         </button>
+        <span class="player-immersive-slot" aria-hidden="true"></span>
         <label class="volume-control" aria-label="音量">
           <Icon name="volume" />
           <input id="volume-slider" type="range" min="0" max="1" step="0.01"  :value="settings.userVolume" :style="settings.view.volumeVersion ? { '--progress': `${settings.userVolume * 100}%` } : undefined" @input="callbacks.volume(($event.target as HTMLInputElement).value)" />

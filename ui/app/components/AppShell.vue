@@ -42,8 +42,8 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     <div class="window-background-overlay" aria-hidden="true"></div>
     <WindowTitlebar :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
-    <div class="app-shell">
-      <Sidebar :model="sidebar" :current-view="shell.currentView" />
+    <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
+      <Sidebar :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
       <main class="main-panel panel" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
@@ -127,7 +127,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
         </section>
 
         <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'">
-          <header class="list-head library-head">
+          <header class="list-head library-head" :hidden="snapshot.library.view.playlistDetail">
             <div>
               <h1>我的歌单</h1>
               <p id="playlists-status" class="search-status" role="status">{{ shell.playlistsStatus }}</p>
@@ -135,10 +135,10 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             <PlaylistCreateActions :callbacks="pageCallbacks" />
           </header>
           <div class="playlist-layout">
-            <div class="playlist-directory-surface">
+            <div class="playlist-directory-surface" :hidden="snapshot.library.view.playlistDetail">
             <ListHost id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             </div>
-            <section class="playlist-detail" aria-label="歌单内容">
+            <section class="playlist-detail" aria-label="歌单内容" :hidden="!snapshot.library.view.playlistDetail">
               <header class="playlist-detail-head">
                 <div class="playlist-art-grid" aria-hidden="true"><span v-for="index in 4" :key="index"><img v-if="lists.playlist.rows[index - 1]?.video.thumbnailUrl" :src="displayThumbnailUrl(lists.playlist.rows[index - 1]!.video.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" /></span></div>
                 <div>

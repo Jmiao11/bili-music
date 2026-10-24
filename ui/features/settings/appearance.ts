@@ -1,3 +1,4 @@
+import { installPageCallbacks } from "../../app/root-controls.ts";
 import { installSettingsCallbacks } from "./root-settings.ts";
 import { clearAiKeyDraft, readAiKeyDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../playback/root-playback.ts";
@@ -649,8 +650,12 @@ function getPlaybackMedia() {
 }
 
 function startAppearance() {
+installPageCallbacks({ playlist: id => { setActiveView("playlists"); getApplicationStore().actions.library.choosePlaylist(id); } });
 for (const item of navItems) {
-  item.addEventListener("click", () => setActiveView(item.dataset.view));
+  item.addEventListener("click", () => {
+    if (item.dataset.view === "playlists") getApplicationStore().actions.library.showPlaylistOverview();
+    setActiveView(item.dataset.view);
+  });
 }
 
 openSettingsButton.addEventListener("click", openSettings);

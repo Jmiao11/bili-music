@@ -128,3 +128,31 @@ test("both playback surfaces invoke favorite and playlist callbacks exactly once
     h.dispatch(h.node("close-library-modal-button"), "click");
   }
 });
+
+test("playlist navigation separates sidebar details and overview and returns after deleting", async t => {
+  const { fixture } = await import("./tracks-fixture.ts");
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const a = { id: "a", name: "清晨", items: [track(1)], createdAt: "0" };
+  const b = { id: "b", name: "夜晚", items: [track(2)], createdAt: "0" };
+  let playlists = [a, b];
+  h.reply(async command => command === "list_playlists" ? playlists : command === "delete_playlist" ? (playlists = [a]) : command === "create_playlist" ? (playlists = [a, b]) : command === "list_favorites" || command === "list_unavailable_tracks" ? [] : command === "list_disabled_pages" ? {} : responses()(command));
+  await h.store.actions.library.loadLibrary();
+  const detail = h.doc.querySelector<HTMLElement>(".playlist-detail")!;
+  const directory = h.doc.querySelector<HTMLElement>(".playlist-directory-surface")!;
+  assert.equal(h.store.getState().settings.session.currentView, "home");
+  await h.fire(h.doc.querySelectorAll(".sidebar-playlist")[1], "click");
+  assert.equal(h.store.getState().settings.session.currentView, "playlists");
+  assert.equal(h.store.getState().library.selectedPlaylistId, "b");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+  assert.equal(h.doc.querySelector('.sidebar-playlist[aria-current="page"]')?.textContent, "夜晚1 首");
+  await h.fire(h.doc.querySelector('[data-view="playlists"]')!, "click");
+  assert.equal(detail.hidden, true); assert.equal(directory.hidden, false);
+  await h.fire(h.doc.querySelector('.playlist-card[data-playlist-id="b"]')!, "click");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+  h.store.actions.library.showDelete(); await h.store.actions.library.submitDelete();
+  assert.equal(detail.hidden, true); assert.equal(directory.hidden, false);
+  assert.equal(h.doc.querySelectorAll(".sidebar-playlist").length, 1);
+  h.store.actions.library.showName("create"); await h.store.actions.library.submitName("新歌单");
+  assert.equal(h.store.getState().library.selectedPlaylistId, "b");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+});

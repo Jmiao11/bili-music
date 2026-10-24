@@ -5219,6 +5219,56 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-backdrop-filter: none;
 }
 
+/* UI-2b: one shared grid, inline badges and a symmetric player. */
+:root #app {
+  & .track-surface { --track-columns: 24px 32px minmax(240px, 1fr) 0 clamp(100px, calc(100cqw - 608px), 160px) 80px 72px 68px; overflow-x: auto; }
+  & :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results, .track-columns) { min-width: 0; }
+  & .track-surface:has(#favorites-list, #playlist-tracks):not(:has(.track-play)) { --track-columns: 24px 32px minmax(240px, 1fr) 0 clamp(100px, calc(100cqw - 528px), 160px) 0 72px 68px; }
+  & .track-columns, & .tracklist .track-row { column-gap: 8px; grid-template-columns: var(--track-columns); }
+  & .track-columns > span { overflow: hidden; white-space: nowrap; }
+  & .track-columns > :nth-child(4) { width: 0; }
+  & .track-columns > :nth-child(5) { padding-left: 8px; }
+  & .tracklist .track-actions::before { content: var(--track-title-copy) / ""; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: var(--fs-md); font-weight: 400; }
+  & .tracklist .track-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  & .tracklist .track-row:has(.track[aria-current="true"]) .track-actions::before { color: var(--accent-text); font-weight: 600; }
+  & .tracklist .track-row.is-unavailable .track-actions::before { color: var(--text3); text-decoration: line-through; }
+  & .tracklist .track-actions > :is(.page-count-badge, .track-unavailable) { position: static; flex: none; margin: 0; pointer-events: auto; }
+  & .tracklist .track-actions .page-count-badge { width: auto; }
+  & .tracklist .track-action { position: absolute; right: 12px; }
+  & .tracklist .favorite-button { right: 48px; }
+  & .tracklist :is(.track-up, .track-creator) { padding-left: 8px; }
+  & #search-results .track-creator .track-up { padding-left: 0; }
+  & .player-bar .now-playing { padding-right: 0; }
+  & .player-bar .player-pages-group { position: static; transform: none; order: 0; flex: none; max-width: 128px; }
+  & .player-bar .right-tools { gap: 4px; }
+  & .player-bar #queue-position { order: 1; width: 48px; margin: 0; }
+  & .player-bar #favorite-current-button { order: 2; }
+  & .player-bar #add-playlist-current-button { order: 3; }
+  & .player-bar .player-immersive-slot { order: 4; width: 32px; height: 32px; flex: none; }
+  & .player-bar #open-immersive-button { right: 148px; }
+  & .player-bar #open-bilibili-bar-button { order: 5; }
+  & .player-bar .volume-control { order: 6; flex: none; }
+  & .sidebar-playlists { min-height: 0; overflow-y: auto; }
+  & .sidebar-playlist { display: flex; align-items: center; width: 100%; height: 32px; padding: 0 12px 0 38px; gap: 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text2); text-align: left; }
+  & .sidebar-playlist > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
+  & .sidebar-playlist small { flex: none; color: var(--text3); font-size: var(--fs-xs); }
+  & .sidebar-playlist:hover { background: var(--hover); }
+  & .sidebar-playlist.is-selected { background: var(--nav-active); color: var(--text); }
+  & #view-playlists #playlists-list { max-height: none; flex: 1; }
+  & #view-playlists .playlist-directory-surface { flex: 1; min-height: 0; max-height: none; display: flex; }
+  & #view-playlists :is(.playlist-detail, .playlist-directory-surface, .library-head)[hidden] { display: none; }
+}
+@media (max-width: 1180px) {
+  :root #app .player-bar .right-tools { gap: 2px; }
+  :root #app .player-bar #queue-position { width: 38px; }
+  :root #app .player-bar .volume-control { width: 72px; }
+  :root #app .player-bar .volume-control #volume-slider { width: 44px; }
+  :root #app .player-bar #open-immersive-button { right: 124px; }
+}
+
+:root #app :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results) .track-row { column-gap: 8px; }
+:root #app :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #collection-results) .track-actions { grid-column: 3; display: flex; align-items: center; justify-self: start; width: fit-content; min-width: 0; max-width: 100%; gap: 6px; }
+
 /* Independent floating surfaces. */
 /* Floating surfaces must stay opaque when page themes make --panel transparent. */
 :root { --floating-surface: #111214; }
@@ -5237,3 +5287,16 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
   z-index: calc(var(--z-immersive) + 1);
   opacity: 1;
 }
+
+/* Immersive owns its background; page transparency never reaches its surface. */
+:root #app #immersive-player { overflow: hidden; background: var(--floating-surface); }
+:root #app .immersive-backdrop { inset: -12%; background-position: center; background-size: cover; filter: blur(80px); pointer-events: none; }
+:root #app #immersive-player::before { content: ""; position: absolute; z-index: 1; inset: 0; background: color-mix(in srgb, var(--floating-surface) 75%, transparent); pointer-events: none; }
+:root[data-theme="light"] #app #immersive-player::before { background: color-mix(in srgb, var(--floating-surface) 82%, transparent); }
+:root #app .immersive-sheet { z-index: 2; inset: 0; padding: 52px 20px 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+:root #app .immersive-header { min-height: 28px; }
+:root #app #close-immersive-button { height: 28px; min-height: 28px; padding: 0 10px; border: 1px solid var(--line2); border-radius: var(--r-sm); background: transparent; color: var(--text); font-size: var(--fs-md); }
+:root #app .immersive-player .lyrics-line { color: var(--text3); font-size: 18px; font-weight: 400; }
+:root #app .immersive-player .lyrics-line.is-active { color: var(--text); font-size: 22px; font-weight: 600; }
+:root #app:has(.app-shell.immersive-open) .window-titlebar { background: transparent; border-bottom-color: transparent; backdrop-filter: none; color: var(--text); }
+:root #app:has(.app-shell.immersive-open) .window-titlebar #status:not(.is-error) { color: var(--text3); }

@@ -577,6 +577,14 @@
             ]
           },
           {
+            "tag": "span",
+            "attributes": {
+              "aria-hidden": "true",
+              "class": "player-immersive-slot"
+            },
+            "children": []
+          },
+          {
             "tag": "label",
             "attributes": {
               "aria-label": "音量",
