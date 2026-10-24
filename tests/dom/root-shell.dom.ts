@@ -51,3 +51,102 @@ test("root mounts before all player DOM queries and preserves controller writes 
     fs.rmSync(output, { recursive: true, force: true });
   }
 });
+
+import { fixture as rootFixture, track as rootTrack } from "./tracks-fixture.ts";
+import type { RootRenderProbe } from "./tracks-fixture.ts";
+
+test("root render coalesces nested requests while every store commit remains synchronous", async t => {
+  const probe: RootRenderProbe = { depth: 0, maxDepth: 0, calls: 0 };
+  const h = await rootFixture({ rootRenderProbe: probe }); t.after(h.dispose);
+  const notifications: string[] = [];
+  h.store.subscribe(state => notifications.push(state.playbackMessages.status));
+  let nested = false;
+  probe.during = () => {
+    if (nested) return; nested = true;
+    h.store.actions.playbackMessages.setStatus("inner");
+    assert.equal(h.store.getState().playbackMessages.status, "inner");
+    h.store.actions.lyricsDisplay.setManualBusy(true);
+    h.store.actions.playbackMessages.setStatus("latest");
+    assert.equal(h.store.getState().playbackMessages.status, "latest");
+  };
+  const calls = probe.calls;
+  h.store.actions.playbackMessages.setStatus("outer");
+  assert.deepEqual(notifications, ["inner", "inner", "latest", "outer"]);
+  assert.equal(probe.calls, calls + 2);
+  assert.equal(probe.maxDepth, 1);
+  assert.equal(h.doc.querySelector("#status")!.textContent, h.store.getState().playbackMessages.status);
+  assert.equal(h.doc.querySelector<HTMLButtonElement>("#lyrics-manual-search")!.disabled, true);
+});
+
+test("presentation and list refreshes replay the latest snapshot including commits during replay", async t => {
+  const probe: RootRenderProbe = { depth: 0, maxDepth: 0, calls: 0 };
+  const h = await rootFixture({ rootRenderProbe: probe }); t.after(h.dispose);
+  assert.ok(h.presentation && h.stages && h.rootLists);
+  const { presentation, stages, rootLists } = h;
+  let pass = 0;
+  probe.during = () => {
+    if (++pass > 2) return;
+    h.store.actions.playbackMessages.setStatus("pass " + pass);
+    stages.setSidebarPresentation(240 + pass * 20, false);
+    presentation.refreshPresentation();
+    rootLists.refreshRootLists();
+  };
+  const calls = probe.calls;
+  presentation.refreshPresentation();
+  assert.equal(pass, 3);
+  assert.equal(probe.calls, calls + 3);
+  assert.equal(probe.maxDepth, 1);
+  assert.equal(h.doc.querySelector("#status")!.textContent, "pass 2");
+  assert.equal(h.store.getState().playbackMessages.status, "pass 2");
+  assert.equal(h.doc.querySelector("#sidebar-resize")!.getAttribute("aria-valuenow"), "280");
+});
+
+test("root render releases its guard after render and post-render exceptions", async t => {
+  const probe: RootRenderProbe = { depth: 0, maxDepth: 0, calls: 0 };
+  const h = await rootFixture({ rootRenderProbe: probe }); t.after(h.dispose);
+  const errors: unknown[][] = [], original = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); }; t.after(() => { console.error = original; });
+  probe.before = () => {
+    probe.before = undefined;
+    h.store.actions.playbackMessages.setStatus("committed before failure");
+    throw new Error("render test failure");
+  };
+  h.store.actions.playbackMessages.setStatus("first failure");
+  assert.equal(h.store.getState().playbackMessages.status, "committed before failure");
+  assert.equal(errors.length, 1);
+  h.store.actions.playbackMessages.setStatus("recovered");
+  assert.equal(h.doc.querySelector("#status")!.textContent, "recovered");
+  probe.after = () => { probe.after = undefined; throw new Error("post-render test failure"); };
+  h.store.actions.playbackMessages.setStatus("second failure");
+  assert.equal(errors.length, 2);
+  h.store.actions.playbackMessages.setStatus("recovered again");
+  assert.equal(h.doc.querySelector("#status")!.textContent, "recovered again");
+  assert.equal(probe.depth, 0);
+  assert.equal(probe.maxDepth, 1);
+});
+
+test("page focus restoration stays guarded until its synchronous focus handlers finish", async t => {
+  const probe: RootRenderProbe = { depth: 0, maxDepth: 0, calls: 0 };
+  const h = await rootFixture({ rootRenderProbe: probe }); t.after(h.dispose);
+  assert.ok(h.stages);
+  const pages = [{ page: 1, cid: 11, part: "一", durationSeconds: 60 }, { page: 2, cid: 22, part: "二", durationSeconds: 60 }];
+  h.store.actions.pages.open(rootTrack(1), 2, pages);
+  h.stages.setModalStage("pages", { hidden: false, open: true });
+  const selected = h.doc.querySelector<HTMLButtonElement>("#pages-modal-list button")!;
+  assert.ok(selected); selected.focus();
+  let focused = 0, renderedInsideFocus = false, stateInsideFocus = "";
+  h.doc.querySelector("#pages-modal-close")!.addEventListener("focus", () => {
+    focused++;
+    const calls = probe.calls;
+    h.store.actions.playbackMessages.setStatus("focused commit");
+    stateInsideFocus = h.store.getState().playbackMessages.status;
+    renderedInsideFocus = probe.calls !== calls;
+  });
+  h.store.actions.pages.open(rootTrack(1), 2, pages);
+  assert.equal(focused, 1);
+  assert.equal(stateInsideFocus, "focused commit");
+  assert.equal(renderedInsideFocus, false);
+  assert.equal(h.doc.activeElement?.id, "pages-modal-close");
+  assert.equal(h.doc.querySelector("#status")!.textContent, "focused commit");
+  assert.equal(probe.maxDepth, 1);
+});

@@ -22,7 +22,11 @@ type Reply = (command: string, args: Record<string, unknown>) => Promise<unknown
 type Store = ReturnType<typeof import("../../ui/store/app-state.ts").createApplicationStore>;
 type Snapshot = ReturnType<Store["getState"]>;
 type Selection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
+type RootRenderProbe = { depth: number; maxDepth: number; calls: number; before?: () => void; during?: () => void; after?: () => void };
 type Modules = {
+  presentation?: typeof import("../../ui/app/presentation-refresh.ts");
+  stages?: typeof import("../../ui/app/shell-stages.ts");
+  rootLists?: typeof import("../../ui/features/tracks/root-lists.ts");
   home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
   core: { updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
@@ -30,7 +34,7 @@ type Modules = {
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean } = {}) {
+async function fixture(options: { nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
@@ -72,6 +76,7 @@ async function fixture(options: { nativeWrites?: boolean; homeSpy?: boolean; sav
   const played: unknown[][] = [];
   let queueUpdates = 0;
   const install = (name: string, value: unknown) => { descriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name)); Object.defineProperty(globalThis, name, { value, configurable: true, writable: true }); };
+  if (options.rootRenderProbe) install("__rootRenderProbe", options.rootRenderProbe);
   // Only startup IPC responses; business commands require an explicit test reply.
   // library.rs:42; playlists.rs:12; disabled_pages.rs:106; ai.rs:75; shortcut_config.rs:31;
   // audio_cache.rs:60,67; commands/runtime.rs:7,13. No API keys or runtime files are read.
@@ -131,8 +136,15 @@ async function fixture(options: { nativeWrites?: boolean; homeSpy?: boolean; sav
     fs.writeFileSync(path.join(root, "package.json"), '{"type":"module"}');
     fs.copyFileSync(path.join(project,"tests/dom/application-nodes.ts"),path.join(root,"application-nodes.fixture.ts"));
     fs.writeFileSync(path.join(root, "fixture-entry.ts"), 'import "./app/root-mount.ts";' + (options.homeSpy ? 'import { initializeRootLists } from "./features/tracks/track-list-ui.ts"; initializeRootLists();' : 'import "./app/main.ts";') + 'export * as home from "./features/home/home.ts"; export * as search from "./features/search/search.ts"; export * as core from "./features/playback/playback-core.ts"; export * as pages from "./features/pages/video-pages.ts"; import { readApplicationNodes } from "./application-nodes.fixture.ts"; export const nodes = { ...readApplicationNodes(document), status: document.querySelector("#status") }; import { getApplicationStore } from "./features/home/home.ts"; export const store = getApplicationStore();' + 'export * as appearance from "./features/settings/appearance.ts"; export * as notice from "./features/playback/playback-notice.ts";' + (options.playback ? 'import { startAppearance } from "./features/settings/appearance.ts"; startAppearance();' : '') + (options.nativeWrites ? 'import {initializeDynamicBackground} from "./features/settings/dynamic-background.ts";initializeDynamicBackground();' : '') + (options.lyrics ? 'import { initializeLyrics } from "./features/immersive/lyrics.ts"; initializeLyrics();' : '') + (options.settingsPrivacy ? 'import {startMiniPlayerHost} from "./mini/mini-player-host.ts"; startMiniPlayerHost(); import {initializeMainWindowReady} from "./app/main-window-ready.ts"; initializeMainWindowReady();' : ''));
+    if (options.rootRenderProbe) fs.appendFileSync(path.join(root, "fixture-entry.ts"), 'export * as presentation from "./app/presentation-refresh.ts"; export * as stages from "./app/shell-stages.ts"; export * as rootLists from "./features/tracks/root-lists.ts";');
     await build({ configFile: false, root, logLevel: "silent", plugins: [vue(), { name: "region-call-recorder", transform(code, id) {
       const file = id.replaceAll("\\", "/");
+      if (options.rootRenderProbe && file.endsWith("/app/root-mount.ts")) {
+        const imported = 'import { h, render } from "vue";';
+        if (!code.includes(imported) || !code.includes("render(h(App, {")) throw Error("Root render probe no longer matches the real entry");
+        return code.replace(imported, 'import { h, render as vueRender } from "vue"; function render(...args) { const probe=globalThis.__rootRenderProbe; probe.depth++; probe.calls++; probe.maxDepth=Math.max(probe.maxDepth,probe.depth); try { probe.before?.(); vueRender(...args); probe.after?.(); } finally { probe.depth--; } }')
+          .replace("render(h(App, {", "render(h(App, { onVnodeUpdated: () => globalThis.__rootRenderProbe.during?.(),");
+      }
       if(options.normalizationFailure && file.endsWith("/features/settings/appearance.ts")) return code.replace(/function applyLoudnessNormalization[^{]+\{/, match => match + ' if(enabled === true) throw Error("normalization test failure");');
       const component = /\/components\/(TrackList|TrackRow|PlaylistList|PlaybackBar|PlaybackNotice|ImmersivePlayer|LyricsDisplay|SettingsPanel)\.vue/.exec(file)?.[1];
       if (component && (options.displayCounters || ["TrackList","TrackRow","PlaylistList"].includes(component))) return instrumentComponentRender(code, component);
@@ -192,3 +204,4 @@ async function seed(h: Harness, source: Source, items = [track(1)]) {
 }
 
 export { fixture, deferred, track, responses, seed, videoMeta };
+export type { RootRenderProbe };

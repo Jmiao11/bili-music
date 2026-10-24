@@ -162,3 +162,29 @@ test("opened immersive root stays opaque independently of page surfaces in all t
     assert.match(background, /^rgb\(\d+, \d+, \d+\)$/, theme + ": " + background);
   }
 });
+
+import { nextDomEventTurn } from "./event-turn.ts";
+
+test("unchanged lyric visibility still cancels and resets the existing idle timer", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  h.reply(async command => command === "resolve_lyrics" ? { status: "auto", songName: "计时曲目", lyrics: { hasLyric: true, lrc: "[00:00]歌词" } } : null);
+  await nextDomEventTurn();
+  h.window.dispatchEvent(new h.window.CustomEvent("bili-track-changed", { detail: { bvid: "BV0000000001", cid: 11 } })); await h.microtasks();
+  assert.equal([...h.timers.values()].filter(timer => timer.delay === 3000).length, 1);
+  let notifications = 0; h.store.subscribe(() => { notifications++; });
+  const match = h.node("lyrics-match");
+  await nextDomEventTurn(); await h.fire(match, "mouseenter");
+  assert.equal([...h.timers.values()].filter(timer => timer.delay === 3000).length, 0);
+  assert.equal(notifications, 0);
+  await nextDomEventTurn(); await h.fire(match, "mouseleave");
+  const first = [...h.timers].find(([, timer]) => timer.delay === 1500)![0];
+  await nextDomEventTurn(); await h.fire(match, "mouseleave");
+  assert.equal(h.timers.has(first), false);
+  assert.equal([...h.timers.values()].filter(timer => timer.delay === 1500).length, 1);
+  assert.equal(notifications, 0);
+  await h.advance(1499); assert.equal(match.classList.contains("is-idle"), false);
+  await h.advance(1); assert.equal(match.classList.contains("is-idle"), true); assert.equal(notifications, 1);
+  await nextDomEventTurn(); await h.fire(match, "mouseenter");
+  assert.equal(match.classList.contains("is-idle"), false); assert.equal(notifications, 2);
+  await nextDomEventTurn(); await h.fire(match, "mouseenter"); assert.equal(notifications, 2);
+});

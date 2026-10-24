@@ -22,7 +22,22 @@ const projectShell=createShellProjection();
 const projectSettingsControls=createSettingsControlsProjection();
 const projectModals = createModalProjection();
 let lastPages: ReturnType<typeof projectModals>["pages"] = null;
+// Removing a focused node can synchronously commit again through native focus handlers.
+let renderingRoot = false, pendingRender = false;
 function renderRoot(snapshot: ApplicationSnapshot): void {
+  if (renderingRoot) { pendingRender = true; return; }
+  renderingRoot = true;
+  try {
+    do {
+      pendingRender = false;
+      renderSnapshot(snapshot);
+      if (pendingRender) snapshot = readApplicationStore().getState();
+    } while (pendingRender);
+  } finally {
+    renderingRoot = false;
+  }
+}
+function renderSnapshot(snapshot: ApplicationSnapshot): void {
   const host = document.querySelector("#app");
   if (!host) throw new Error("Application root host is missing");
   const lists = projectRootLists(snapshot);
