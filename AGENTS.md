@@ -47,6 +47,14 @@
 - 只暂存明确授权的具体文件。src-tauri/Cargo.toml 既有纯换行差异忽略、永不提交。禁止 AI 署名、Co-Authored-By 或生成标记。
 - 仓库外副本只用本地 git clone/worktree 或基于 git ls-files 复制跟踪文件，不复制被忽略运行时文件。建立后先检查敏感文件是否存在及跟踪状态，不读内容；发现非跟踪运行时文件停止。正常项目工具不能按 tools 目录名批量删除。
 
+## 临时目录
+
+- Codex 为任务创建的临时目录（测试副本、隔离仓库、worktree、构建产物）必须在报告中登记路径。
+- 任务验收结束后自动清理这些目录。清理前确认其中没有未提交代码、用户数据或需要保留的文件；如有，列出并由用户决定是否清理。
+- Git worktree 清理前先查看 git status，确认干净后用 git worktree remove 正常移除；不干净就列出文件并停止，不使用 --force。
+- 保留报告类产物（报告 md/html、截图、对比图、测量 json），不清理。
+- 只清理本次任务自己创建的目录；不自动删除历史目录、项目目录、用户数据、.local-data，以及 node_modules 以外的依赖缓存。
+
 ## 验收与审批
 
 - 合并前依次全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist；类型零诊断，验证 G0、windows/darwin 产物字节一致及 AST 0/0。改 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；纯换行不算改 Rust。
