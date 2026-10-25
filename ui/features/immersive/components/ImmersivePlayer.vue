@@ -10,7 +10,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
 </script>
 <template>
 <section id="immersive-player" class="immersive-player" aria-label="沉浸播放页" :hidden="display.presentation.immersiveHidden" :class="{ 'is-open': display.presentation.immersiveOpen }" :aria-hidden="!display.presentation.immersiveOpen" @transitionend="callbacks.immersiveTransition($event)" @click="callbacks.immersiveBackdrop($event)" >
-      <div class="immersive-backdrop" data-close-immersive="true"></div>
+      <div class="immersive-backdrop" data-close-immersive="true" :style="display.currentTrack.thumbnailUrl ? {backgroundImage:`url(${JSON.stringify(display.currentTrack.thumbnailUrl)})`} : undefined"></div>
       <div class="immersive-sheet panel" role="dialog" aria-modal="true" aria-labelledby="immersive-title">
         <header class="immersive-header">
           <span>正在播放</span>

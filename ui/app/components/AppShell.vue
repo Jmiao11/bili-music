@@ -6,6 +6,9 @@ import type { ShellStages,SidebarPresentation } from "../shell-stages.ts";
 import type { DynamicBackgroundPresentation } from "../../features/settings/dynamic-background.ts";
 import type { RootModals } from "../root-modals.ts";
 import type { libraryCallbacks, pagesCallbacks } from "../root-modals.ts";
+import TrackColumns from "../../features/tracks/components/TrackColumns.vue";
+import { initializeTrackColumns, trackColumnWidths, trackColumnDrag, trackColumnCallbacks } from "../track-columns.ts";
+import { installTrackColumnInitialization } from "../../features/settings/root-settings.ts";
 import PagesList from "../../features/pages/components/PagesList.vue";
 import LibraryModalBody from "../../features/library/components/LibraryModalBody.vue";
 import SettingsPanel from "../../features/settings/components/SettingsPanel.vue";
@@ -33,6 +36,7 @@ import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
 import { displayThumbnailUrl } from "../../shared/track-utils.ts";
 const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
+installTrackColumnInitialization(initializeTrackColumns);
 
 defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
 </script>
@@ -42,8 +46,8 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     <div class="window-background-overlay" aria-hidden="true"></div>
     <WindowTitlebar :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
-    <div class="app-shell">
-      <Sidebar :model="sidebar" :current-view="shell.currentView" />
+    <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
+      <Sidebar :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
       <main class="main-panel panel" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
@@ -73,7 +77,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
               <p id="home-ranking-error" :ref="element => mainWindowRefs.homeRankingError(element as HTMLParagraphElement|null)" class="home-error" role="status" aria-live="polite">{{ shell.homeError }}</p>
               <HomeSetupHint :model="homeControls" :callbacks="pageCallbacks" />
               <div class="track-surface">
-              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+              <TrackColumns list="home-ranking-list" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="home-ranking-list" :on-host="mainWindowRefs.homeRankingList" class="tracklist ranking-list" aria-label="推荐列表" :model="lists.home" />
               </div>
             </section>
@@ -105,7 +109,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
               </header>
 
               <div class="track-surface">
-              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+              <TrackColumns list="search-results" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="search-results" :on-host="mainWindowRefs.searchResults" class="tracklist" aria-label="搜索结果和播放队列" :model="lists.search" />
               </div>
             </section>
@@ -121,13 +125,13 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             <span id="favorites-count" class="queue-count">{{ shell.favoritesCount }}</span>
           </header>
           <div class="track-surface">
-          <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+          <TrackColumns list="favorites-list" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="favorites-list" :on-host="mainWindowRefs.favoritesList" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
           </div>
         </section>
 
         <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'">
-          <header class="list-head library-head">
+          <header class="list-head library-head" :hidden="snapshot.library.view.playlistDetail">
             <div>
               <h1>我的歌单</h1>
               <p id="playlists-status" class="search-status" role="status">{{ shell.playlistsStatus }}</p>
@@ -135,10 +139,10 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
             <PlaylistCreateActions :callbacks="pageCallbacks" />
           </header>
           <div class="playlist-layout">
-            <div class="playlist-directory-surface">
+            <div class="playlist-directory-surface" :hidden="snapshot.library.view.playlistDetail">
             <ListHost id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             </div>
-            <section class="playlist-detail" aria-label="歌单内容">
+            <section class="playlist-detail" aria-label="歌单内容" :hidden="!snapshot.library.view.playlistDetail">
               <header class="playlist-detail-head">
                 <div class="playlist-art-grid" aria-hidden="true"><span v-for="index in 4" :key="index"><img v-if="lists.playlist.rows[index - 1]?.video.thumbnailUrl" :src="displayThumbnailUrl(lists.playlist.rows[index - 1]!.video.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" /></span></div>
                 <div>
@@ -148,7 +152,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
                 <PlaylistActions :visible="snapshot.library.playlists.length > 0" :callbacks="pageCallbacks" />
               </header>
               <div class="track-surface">
-              <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+              <TrackColumns list="playlist-tracks" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="playlist-tracks" :on-host="mainWindowRefs.playlistTracks" class="tracklist library-list" aria-label="歌单歌曲" :model="lists.playlist" />
               </div>
             </section>
@@ -167,7 +171,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           <CollectionToolbar :state="snapshot.collection" :favorited="snapshot.library.favorites.some(entry => entry.kind === 'collection' && entry.collectionId === snapshot.collection.fullSnapshot?.collectionId)" :callbacks="collectionCallbacks" />
           <button v-if="snapshot.collection.error" type="button" class="secondary-button" @click="collectionCallbacks.retry">重试</button>
           <div class="track-surface">
-          <div class="track-columns" aria-hidden="true"><span>#</span><span></span><span>标题</span><span></span><span>UP 主</span><span class="column-play">播放量</span><span class="column-duration">时长</span><span></span></div>
+          <TrackColumns list="collection-results" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
           </div>
         </section>

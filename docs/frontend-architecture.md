@@ -96,7 +96,9 @@ C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collec
 | G0、HTML精确比较、平台产物一致、开发入口 | verify:dist及其内置错误脚本/标签反例，real-module-startup来源与覆盖探针 |
 | 安全隐私与固化边界 | settings-privacy、备份/Rust日志隐私、media-volume-ownership、播放控制/请求/会话/mini宿主守卫 |
 
-G0 当前184条、首个trackchange索引140，Git/LF SHA256 `e7493c60a52764eb31e4b6f0a158d96ee38cca12b87d7ba2513659d1b8be2aff`。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
+G0 当前193条、首个trackchange索引149，Git/LF SHA256 `4f2c9796640952257040919b72fde9400b9099f56f7c59226965b8aec9d22c7e`。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
+
+UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新三项CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
 
 ## 验证与交付
 

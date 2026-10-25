@@ -16,5 +16,8 @@ const settingsCallbacks = Object.freeze<SettingsCallbacks>({
   normalization: enabled => settingsHandlers.normalization?.(enabled),
 });
 function installSettingsCallbacks(next: Partial<SettingsCallbacks>): void { Object.assign(settingsHandlers, next); }
-export { installSettingsCallbacks, settingsCallbacks };
+let trackColumnInitialization = () => {};
+function installTrackColumnInitialization(initialize: () => void): void { trackColumnInitialization = initialize; }
+function initializeTrackColumnPreferences(): void { trackColumnInitialization(); }
+export { installSettingsCallbacks, settingsCallbacks, installTrackColumnInitialization, initializeTrackColumnPreferences };
 export type { SettingsCallbacks };

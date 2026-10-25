@@ -55,7 +55,7 @@
 - 日常仅受影响测试、typecheck 与必要构建，不要求报告。未改冻结文件以 git diff 证明，仅修改/新建的冻结文件报告 SHA。
 - 业务断言原文、含义或预期值改变须申请；任何保留断言次数变0立即停止。真实 App 挂载、SFC 扫描、冻结 helper 的纯环境接线预先授权，原断言/预期/执行次数保持，以短表登记；不做常规全量断言次数统计。不能用接线掩盖行为变化。
 - 每批 verify:dist 照跑；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。
-- 当前 G0 为184/140，Git/LF SHA256 `e7493c60a52764eb31e4b6f0a158d96ee38cca12b87d7ba2513659d1b8be2aff`。新增或重建须存档旧 fixture 到仓库外。
+- 当前 G0 为193/149，Git/LF SHA256 `4f2c9796640952257040919b72fde9400b9099f56f7c59226965b8aec9d22c7e`。新增或重建须存档旧 fixture 到仓库外。
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
 - 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件迁移/fixture 登记不触发全套。
 - 跨平台完整回归只在指定阶段（F2b、F6、F8）及发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。

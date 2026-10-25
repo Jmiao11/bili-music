@@ -17,7 +17,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
 <template>
 <footer id="result" :ref="element => mainWindowRefs.result(element as HTMLElement|null)" class="player-bar panel" aria-label="当前播放">
       <div class="now-playing">
-        <img id="thumbnail" alt="视频封面" width="40" height="40" referrerpolicy="no-referrer"  :src="display.presentation.thumbnailSet ? display.renderedTrack.thumbnailUrl : undefined" />
+        <button id="open-immersive-cover-button" class="player-cover-button" type="button" aria-label="打开沉浸页与歌词" @click="callbacks.openImmersive()"><img id="thumbnail" alt="视频封面" width="40" height="40" referrerpolicy="no-referrer"  :src="display.presentation.thumbnailSet ? display.renderedTrack.thumbnailUrl : undefined" /><Icon name="lyrics" class="player-cover-hint" /></button>
         <button id="open-immersive-button" class="tool-button player-immersive-button" type="button" aria-label="打开沉浸播放页" @click="callbacks.openImmersive()" >
           <Icon name="lyrics" />
         </button>
@@ -73,6 +73,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
         <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist()" :disabled="controls.favoriteDisabled" >
           <Icon name="plus" />
         </button>
+        <span class="player-immersive-slot" aria-hidden="true"></span>
         <label class="volume-control" aria-label="音量">
           <Icon name="volume" />
           <input id="volume-slider" type="range" min="0" max="1" step="0.01"  :value="settings.userVolume" :style="settings.view.volumeVersion ? { '--progress': `${settings.userVolume * 100}%` } : undefined" @input="callbacks.volume(($event.target as HTMLInputElement).value)" />

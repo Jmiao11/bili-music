@@ -3,13 +3,13 @@ import { isHomePopular } from "../store/app-state.ts";
 type PageCallbacks = {
   submit(event: SubmitEvent): void; hint(): void; hintKey(event: KeyboardEvent): void; setup(): void;
   division(tids: string): void; sort(mode: string): void;
-  createPlaylist(): void; renamePlaylist(): void; deletePlaylist(): void; importPlaylist(): void;
+  playlist(id: string): void; createPlaylist(): void; renamePlaylist(): void; deletePlaylist(): void; importPlaylist(): void;
 };
 const pageHandlers: Partial<PageCallbacks> = {};
 const pageCallbacks = Object.freeze<PageCallbacks>({
   submit: event => pageHandlers.submit?.(event), hint: () => pageHandlers.hint?.(), hintKey: event => pageHandlers.hintKey?.(event), setup: () => pageHandlers.setup?.(),
   division: tids => pageHandlers.division?.(tids), sort: mode => pageHandlers.sort?.(mode),
-  createPlaylist: () => pageHandlers.createPlaylist?.(), renamePlaylist: () => pageHandlers.renamePlaylist?.(), deletePlaylist: () => pageHandlers.deletePlaylist?.(), importPlaylist: () => pageHandlers.importPlaylist?.(),
+  playlist: id => pageHandlers.playlist?.(id), createPlaylist: () => pageHandlers.createPlaylist?.(), renamePlaylist: () => pageHandlers.renamePlaylist?.(), deletePlaylist: () => pageHandlers.deletePlaylist?.(), importPlaylist: () => pageHandlers.importPlaylist?.(),
 });
 function installPageCallbacks(handlers: Partial<PageCallbacks>): void { Object.assign(pageHandlers, handlers); }
 

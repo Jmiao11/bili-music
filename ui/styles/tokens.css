@@ -15,9 +15,9 @@
   --accent-text: var(--accent);
   --on-accent: #111214;
   --danger: #ff8080;
-  --track-columns: 24px 32px minmax(0, 1fr) auto minmax(64px, 120px) 64px 64px 68px;
-  --track-columns-compact: 24px 32px minmax(0, 1fr) auto 80px 0 56px 68px;
-  --track-columns-library: 24px 32px minmax(0, 1fr) auto minmax(64px, 120px) 0 64px 68px;
+  --track-columns: 24px 32px minmax(240px, 1fr) 160px 72px 80px 72px 68px;
+  --track-columns-compact: 24px 32px minmax(240px, 1fr) 100px 72px 0 var(--track-duration-width, 72px) 68px;
+  --track-columns-library: 24px 32px minmax(240px, 1fr) 160px 72px 0 72px 68px;
   --fs-xl: 24px;
   --fs-lg: 18px;
   --fs-md: 13px;

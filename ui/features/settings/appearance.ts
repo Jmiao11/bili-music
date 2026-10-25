@@ -1,4 +1,5 @@
-import { installSettingsCallbacks } from "./root-settings.ts";
+import { installPageCallbacks } from "../../app/root-controls.ts";
+import { installSettingsCallbacks, initializeTrackColumnPreferences } from "./root-settings.ts";
 import { clearAiKeyDraft, readAiKeyDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../playback/root-playback.ts";
 import { createPlaybackCommands } from "../playback/playback-commands.ts";
@@ -649,8 +650,12 @@ function getPlaybackMedia() {
 }
 
 function startAppearance() {
+installPageCallbacks({ playlist: id => { setActiveView("playlists"); getApplicationStore().actions.library.choosePlaylist(id); } });
 for (const item of navItems) {
-  item.addEventListener("click", () => setActiveView(item.dataset.view));
+  item.addEventListener("click", () => {
+    if (item.dataset.view === "playlists") getApplicationStore().actions.library.showPlaylistOverview();
+    setActiveView(item.dataset.view);
+  });
 }
 
 openSettingsButton.addEventListener("click", openSettings);
@@ -801,6 +806,7 @@ getPlaybackMedia().subscribe("emptied", () => {
 });
 
 initializeAccentColor();
+initializeTrackColumnPreferences();
 initializeShortcutSettings();
 applyTheme(readSettingsPreference(THEME_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);

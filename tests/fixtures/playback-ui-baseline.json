@@ -14,15 +14,51 @@
         },
         "children": [
           {
-            "tag": "img",
+            "tag": "button",
             "attributes": {
-              "alt": "视频封面",
-              "height": "40",
-              "id": "thumbnail",
-              "referrerpolicy": "no-referrer",
-              "width": "40"
+              "aria-label": "打开沉浸页与歌词",
+              "class": "player-cover-button",
+              "id": "open-immersive-cover-button",
+              "type": "button"
             },
-            "children": []
+            "children": [
+              {
+                "tag": "img",
+                "attributes": {
+                  "alt": "视频封面",
+                  "height": "40",
+                  "id": "thumbnail",
+                  "referrerpolicy": "no-referrer",
+                  "width": "40"
+                },
+                "children": []
+              },
+              {
+                "tag": "svg",
+                "attributes": {
+                  "aria-hidden": "true",
+                  "class": "ui-icon player-cover-hint",
+                  "fill": "none",
+                  "focusable": "false",
+                  "height": "16",
+                  "stroke": "currentColor",
+                  "stroke-linecap": "round",
+                  "stroke-linejoin": "round",
+                  "stroke-width": "1.8",
+                  "viewBox": "0 0 24 24",
+                  "width": "16"
+                },
+                "children": [
+                  {
+                    "tag": "path",
+                    "attributes": {
+                      "d": "M4 7h10M4 12h16M4 17h12"
+                    },
+                    "children": []
+                  }
+                ]
+              }
+            ]
           },
           {
             "tag": "button",
@@ -575,6 +611,14 @@
                 ]
               }
             ]
+          },
+          {
+            "tag": "span",
+            "attributes": {
+              "aria-hidden": "true",
+              "class": "player-immersive-slot"
+            },
+            "children": []
           },
           {
             "tag": "label",

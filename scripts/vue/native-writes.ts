@@ -37,6 +37,7 @@ function collectNativeWrites(root:string):NativeWrite[] {
   return writes;
 }
 const allowedWrites:Readonly<Record<string,string>>={
+  'ui/app/track-columns.ts:document.documentElement.style.setProperty(`--track-${column}-width`, `${trackColumnWidths[column]}px`)': "文档根列宽端口，仅三项已验证列宽；不写 Vue 宿主节点",
   "ui/features/settings/dynamic-background.ts:loadingImage.src = \"\"": "离屏 Image/canvas 采样，不进入应用树",
   "ui/features/settings/dynamic-background.ts:image.crossOrigin = \"anonymous\"": "离屏 Image/canvas 采样，不进入应用树",
   "ui/features/settings/dynamic-background.ts:image.referrerPolicy = \"no-referrer\"": "离屏 Image/canvas 采样，不进入应用树",

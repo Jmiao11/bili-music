@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 140,
+  "firstTrackchange": 149,
   "sequence": [
     {
       "action": "window-set",
@@ -30,6 +30,18 @@
       "action": "listen",
       "target": "#home-setup-settings",
       "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-ranking-list-columns",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#home-ranking-list-columns",
+      "type": "keydown",
       "options": null
     },
     {
@@ -70,6 +82,30 @@
     },
     {
       "action": "listen",
+      "target": "#search-results-columns",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#search-results-columns",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#favorites-list-columns",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#favorites-list-columns",
+      "type": "keydown",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "#import-playlist-button",
       "type": "click",
       "options": null
@@ -90,6 +126,18 @@
       "action": "listen",
       "target": "#delete-playlist-button",
       "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#playlist-tracks-columns",
+      "type": "pointerdown",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#playlist-tracks-columns",
+      "type": "keydown",
       "options": null
     },
     {
@@ -161,6 +209,12 @@
     {
       "action": "listen",
       "target": "#immersive-player",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#open-immersive-cover-button",
       "type": "click",
       "options": null
     },

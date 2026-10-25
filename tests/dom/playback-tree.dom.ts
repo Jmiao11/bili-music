@@ -128,3 +128,103 @@ test("both playback surfaces invoke favorite and playlist callbacks exactly once
     h.dispatch(h.node("close-library-modal-button"), "click");
   }
 });
+
+test("playlist navigation separates sidebar details and overview and returns after deleting", async t => {
+  const { fixture } = await import("./tracks-fixture.ts");
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const a = { id: "a", name: "清晨", items: [track(1)], createdAt: "0" };
+  const b = { id: "b", name: "夜晚", items: [track(2)], createdAt: "0" };
+  let playlists = [a, b];
+  h.reply(async command => command === "list_playlists" ? playlists : command === "delete_playlist" ? (playlists = [a]) : command === "create_playlist" ? (playlists = [a, b]) : command === "list_favorites" || command === "list_unavailable_tracks" ? [] : command === "list_disabled_pages" ? {} : responses()(command));
+  await h.store.actions.library.loadLibrary();
+  const detail = h.doc.querySelector<HTMLElement>(".playlist-detail")!;
+  const directory = h.doc.querySelector<HTMLElement>(".playlist-directory-surface")!;
+  assert.equal(h.store.getState().settings.session.currentView, "home");
+  await h.fire(h.doc.querySelectorAll(".sidebar-playlist")[1], "click");
+  assert.equal(h.store.getState().settings.session.currentView, "playlists");
+  assert.equal(h.store.getState().library.selectedPlaylistId, "b");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+  assert.equal(h.doc.querySelector('.sidebar-playlist[aria-current="page"]')?.textContent, "夜晚1 首");
+  await h.fire(h.doc.querySelector('[data-view="playlists"]')!, "click");
+  assert.equal(detail.hidden, true); assert.equal(directory.hidden, false);
+  await h.fire(h.doc.querySelector('.playlist-card[data-playlist-id="b"]')!, "click");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+  h.store.actions.library.showDelete(); await h.store.actions.library.submitDelete();
+  assert.equal(detail.hidden, true); assert.equal(directory.hidden, false);
+  assert.equal(h.doc.querySelectorAll(".sidebar-playlist").length, 1);
+  h.store.actions.library.showName("create"); await h.store.actions.library.submitName("新歌单");
+  assert.equal(h.store.getState().library.selectedPlaylistId, "b");
+  assert.equal(detail.hidden, false); assert.equal(directory.hidden, true);
+});
+
+test("delegated columns drag keyboard reset and restart keep all lists untouched", async () => {
+  const { fixture } = await import("./tracks-fixture.ts");
+  const { nextDomEventTurn } = await import("./event-turn.ts");
+  const probe = { depth: 0, maxDepth: 0, calls: 0 };
+  const h = await fixture({ playback: true, rootRenderProbe: probe });
+  let saved = "", stop = () => {};
+  try {
+    h.reply(responses([track(1), track(2)])); h.home.setHomeMode("ranking"); await h.microtasks();
+    const header = h.doc.getElementById("home-ranking-list-columns")!;
+    const handle = (column: string) => header.querySelector<HTMLElement>(`[data-track-column="${column}"]`)!;
+    assert.deepEqual(h.listeners.filter(l => l.target === header).map(l => l.type), ["pointerdown", "keydown"]);
+    assert.equal(h.listeners.filter(l => l.target instanceof h.window.Element && l.target.matches(".column-resize")).length, 0);
+    const captured = new Set<number>();
+    Object.defineProperties(header, {
+      setPointerCapture: { value: (id: number) => captured.add(id) },
+      hasPointerCapture: { value: (id: number) => captured.has(id) },
+      releasePointerCapture: { value: (id: number) => captured.delete(id) },
+    });
+    const pointer = async (target: EventTarget, type: string, x: number) => {
+      await nextDomEventTurn();
+      const event = new h.window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x });
+      Object.defineProperties(event, { pointerId: { value: 7 }, isPrimary: { value: true } });
+      target.dispatchEvent(event); await h.microtasks();
+    };
+    let commits = 0; stop = h.store.subscribe(() => commits++);
+    h.rowRenders.length = 0; h.regions.length = 0; const renders = probe.calls;
+    await pointer(handle("uploader"), "pointerdown", 400);
+    assert.equal(captured.has(7), true);
+    await pointer(h.window, "pointermove", 360);
+    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
+    assert.equal(h.window.localStorage.getItem("bilibili-music.track-columns"), null);
+    await pointer(h.window, "pointerup", 360);
+    assert.equal(captured.size, 0);
+    await pointer(h.window, "pointermove", 100);
+    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
+    await nextDomEventTurn(); await h.fire(handle("plays"), "keydown", { key: "ArrowRight" });
+    assert.equal(handle("plays").getAttribute("aria-valuenow"), "88");
+    await pointer(handle("plays"), "pointerdown", 500);
+    await pointer(h.window, "pointerup", 500);
+    await pointer(handle("plays"), "pointerdown", 500);
+    assert.equal(handle("plays").getAttribute("aria-valuenow"), "80");
+    for (const separator of h.doc.querySelectorAll('[data-track-column="uploader"]')) assert.equal(separator.getAttribute("aria-valuenow"), "200");
+    assert.equal(commits, 0); assert.equal(probe.calls, renders);
+    assert.equal(h.rowRenders.length, 0); assert.equal(h.regions.length, 0);
+    saved = h.window.localStorage.getItem("bilibili-music.track-columns")!;
+    assert.deepEqual(JSON.parse(saved), { uploader: 200, plays: 80, duration: 72 });
+  } finally { stop(); h.dispose(); }
+  const restored = await fixture({ playback: true, trackColumns: saved });
+  try {
+    assert.equal(restored.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
+    assert.equal(restored.doc.querySelector('[data-track-column="uploader"]')!.getAttribute("aria-valuenow"), "200");
+  } finally { restored.dispose(); }
+});
+
+test("invalid column storage falls back without overwriting and cover opens the existing immersive page", async () => {
+  const { fixture } = await import("./tracks-fixture.ts");
+  const h = await fixture({ playback: true, trackColumns: '{"uploader":1}' });
+  try {
+    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "160px");
+    assert.equal(h.window.localStorage.getItem("bilibili-music.track-columns"), '{"uploader":1}');
+    h.store.actions.playbackDisplay.setCurrentTrack({ ...track(1), hasCurrent: true });
+    const cover = h.doc.getElementById("open-immersive-cover-button")!;
+    assert.equal(cover.getAttribute("aria-label"), "打开沉浸页与歌词");
+    assert.equal(cover.querySelector("#thumbnail"), h.doc.getElementById("thumbnail"));
+    await h.fire(cover, "click"); h.raf();
+    assert.equal(h.store.getState().playbackDisplay.presentation.immersiveOpen, true);
+    await h.fire(h.doc.getElementById("close-immersive-button")!, "click");
+    assert.equal(h.store.getState().playbackDisplay.presentation.immersiveOpen, false);
+    assert.ok(h.doc.getElementById("open-immersive-button"));
+  } finally { h.dispose(); }
+});
