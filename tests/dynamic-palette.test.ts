@@ -1,3 +1,4 @@
+import { accentChannels } from "../ui/features/settings/settings-state.ts";
 import { sourceSlice } from "./helpers/source-slice.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "./helpers/module-syntax.ts";
@@ -14,6 +15,7 @@ const artwork = (...areas: Area[]) => new Uint8ClampedArray(areas.flatMap(([rgb,
   Array.from({ length: count }, () => [...rgb, 255]).flat()));
 const palette = (...areas: Area[]): number[][] => plain(colors.extractDynamicPalette(artwork(...areas)))
   .map((color: string) => {
+    if (color.includes("var(--accent)")) return [109, 72, 91];
     const channels = color.match(/\d+/g);
     if (channels === null) throw new Error("Palette color has no channels");
     return channels.map(Number);
@@ -72,7 +74,7 @@ test("one or two hues repeat existing hues with distinct lightness, without inve
       const [hue, , lightness] = colors.rgbToHsl(rgb);
       const expectedHue = areas.length === 2 && index === 1 ? 240 : 0;
       close(colors.hueDistance(hue, expectedHue), 0, 1);
-      close(lightness, [0.20, 0.16, 0.24][index], 0.002);
+      close(paletteLuminance(rgb), [0.055, 0.08, 0.045][index], 0.004);
     });
   }
 });
@@ -80,7 +82,7 @@ test("one or two hues repeat existing hues with distinct lightness, without inve
 test("gray and near-gray covers stay neutral; black-white and empty samples retain the existing fallback", () => {
   const gray = palette([[110, 110, 110], 900], [[112, 111, 110], 100]);
   assert.equal(new Set(gray.map(String)).size, 3);
-  for (const rgb of gray) assert.equal(new Set(rgb).size, 1);
+  for (const rgb of gray) assert.equal(new Set(rgb).size, 3);
   assert.deepEqual(palette([[0, 0, 0], 512], [[255, 255, 255], 512]), palette());
 });
 
@@ -97,7 +99,7 @@ test("toned colors keep the channel envelope below the previous worst-case contr
   for (let r = 0; r <= 255; r += 51) {
     for (let g = 0; g <= 255; g += 51) {
       for (let b = 0; b <= 255; b += 51) {
-        for (const rgb of palette([[r, g, b], 1])) assert.ok(rgb.every((value: number) => value >= 8 && value <= 101));
+        for (const rgb of palette([[r, g, b], 1])) assert.ok(rgb.every((value: number) => value >= 0 && value <= 255) && paletteLuminance(rgb) <= 0.095);
       }
     }
   }
@@ -116,5 +118,37 @@ test("toned colors keep the channel envelope below the previous worst-case contr
   const after = surfaces(101);
   for (const text of [[245, 245, 247], [199, 199, 205], [168, 168, 176], [251, 114, 153]]) {
     after.forEach((background, i) => assert.ok(contrast(text, background) >= contrast(text, before[i])));
+  }
+});
+
+function paletteLuminance(rgb: number[]): number {
+  return rgb.reduce((sum, value, index) => { const n = value / 255; return sum + (n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][index]; }, 0);
+}
+
+
+test("three-color extraction is deterministic including tied quantized populations", () => {
+  const samples: Area[] = [[[216,30,75],200],[[22,150,210],200],[[190,170,30],200]];
+  const first = palette(...samples);
+  for(let i=0;i<5;i++) assert.deepEqual(palette(...samples), first);
+  assert.equal(new Set(first.map(String)).size, 3);
+  assert.deepEqual(plain(colors.extractDynamicPalette(new Uint8ClampedArray())), ["rgb(48, 54, 64)", "color-mix(in srgb, var(--accent) 30%, #303640)", "rgb(58, 62, 70)"]);
+});
+
+
+test("dynamic text tokens and all six accents meet contrast on palette and gray fallback extremes", () => {
+  const css=readFileSync(path.join(import.meta.dirname,"../ui/styles/tokens.css"),"utf8");
+  const rule=css.match(/:root\[data-theme="dynamic"\] \{([^}]+)\}/)![1];
+  const text=["text","text2","text3","danger"].map(name=>{const hex=rule.match(new RegExp("--"+name+": #([0-9a-f]{6})"))![1];return [0,2,4].map(i=>parseInt(hex.slice(i,i+2),16));});
+  const weight=Number(rule.match(/--accent-text: color-mix\(in srgb, var\(--accent\) (\d+)%/)![1])/100;
+  const covers:number[][]=[];
+  for(let r=0;r<=255;r+=51)for(let g=0;g<=255;g+=51)for(let b=0;b<=255;b+=51)if(Math.max(r,g,b)-Math.min(r,g,b)>=12)covers.push(...palette([[r,g,b],1]));
+  for(const accent of ["pink","blue","purple","green","orange","cyan"]){
+    const rgb=accentChannels(accent,"dynamic");
+    const foreground=[...text,rgb.map(v=>v*weight+255*(1-weight))];
+    const fallback=rgb.map((v,i)=>v*.3+[48,54,64][i]*.7);
+    for(const background of [...covers,[48,54,64],[58,62,70],fallback]){
+      const surface=background.map((v,i)=>(v*.96+[10,10,11][i]*.04)*.955+255*.045);
+      for(const color of foreground)assert.ok((paletteLuminance(color)+.05)/(paletteLuminance(surface)+.05)>=4.5,JSON.stringify({accent,color,surface}));
+    }
   }
 });

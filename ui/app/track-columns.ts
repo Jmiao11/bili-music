@@ -1,5 +1,5 @@
 import { shallowReactive } from "vue";
-import { TRACK_COLUMNS_KEY, TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, parseTrackColumnWidths, resizeTrackColumn } from "../features/tracks/track-column-state.ts";
+import { TRACK_COLUMNS_KEY, TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, parseTrackColumnWidths, resizeTrackColumn, trackColumnCapacities } from "../features/tracks/track-column-state.ts";
 import type { TrackColumn } from "../features/tracks/track-column-state.ts";
 
 const trackColumnWidths = shallowReactive({ ...TRACK_COLUMN_DEFAULTS });
@@ -7,7 +7,13 @@ const trackColumnDrag = shallowReactive<{ column: TrackColumn | null }>({ column
 let drag: { id: number; x: number; width: number; column: TrackColumn; header: HTMLElement } | null = null;
 let lastPress: { header: HTMLElement; column: TrackColumn; time: number; x: number; y: number } | null = null;
 function applyWidths(): void {
-  for (const column of Object.keys(TRACK_COLUMN_LIMITS) as TrackColumn[]) document.documentElement.style.setProperty(`--track-${column}-width`, `${trackColumnWidths[column]}px`);
+  const title = trackColumnWidths.title;
+  document.documentElement.style.setProperty("--track-title-width", title === "auto" ? "100%" : `${title}px`);
+  const capacities = trackColumnCapacities(trackColumnWidths);
+  for (const column of ["uploader", "pages", "plays", "duration"] as const) {
+    document.documentElement.style.setProperty(`--track-${column}-width`, `${trackColumnWidths[column]}px`);
+    document.documentElement.style.setProperty(`--track-${column}-capacity`, String(capacities[column]));
+  }
 }
 function initializeTrackColumns(): void {
   try { Object.assign(trackColumnWidths, parseTrackColumnWidths(localStorage.getItem(TRACK_COLUMNS_KEY))); }
@@ -30,7 +36,7 @@ function resize(column: TrackColumn, width: number): void {
 function move(event: PointerEvent): void {
   if (!drag || event.pointerId !== drag.id) return;
   if (lastPress && (Math.abs(event.clientX - lastPress.x) > 3 || Math.abs(event.clientY - lastPress.y) > 3)) lastPress = null;
-  resize(drag.column, drag.width + drag.x - event.clientX);
+  resize(drag.column, drag.width + event.clientX - drag.x);
 }
 function finish(event: PointerEvent): void {
   if (!drag || event.pointerId !== drag.id) return;
@@ -50,11 +56,18 @@ const trackColumnCallbacks = Object.freeze({
     const header = event.currentTarget as HTMLElement;
     // PointerEvent.detail is zero in browsers; count stationary presses at this delegated port.
     if (lastPress?.header === header && lastPress.column === column && event.timeStamp - lastPress.time <= 400 && Math.abs(event.clientX - lastPress.x) <= 3 && Math.abs(event.clientY - lastPress.y) <= 3) {
-      lastPress = null; resize(column, TRACK_COLUMN_DEFAULTS[column]); saveWidths(); return;
+      lastPress = null;
+      if (column === "title") { trackColumnWidths.title = "auto"; }
+      else trackColumnWidths[column] = TRACK_COLUMN_DEFAULTS[column];
+      applyWidths(); saveWidths(); return;
     }
     lastPress = { header, column, time: event.timeStamp, x: event.clientX, y: event.clientY };
+    const handle = (event.target as Element).closest<HTMLElement>("[data-track-column]");
+    if (!handle?.parentElement) return;
+    const line = handle.getBoundingClientRect(), cell = handle.parentElement.getBoundingClientRect();
     header.setPointerCapture(event.pointerId);
-    drag = { id: event.pointerId, x: event.clientX, width: trackColumnWidths[column], column, header };
+    const saved = trackColumnWidths[column];
+    drag = { id: event.pointerId, x: line.width ? line.left + line.width / 2 : event.clientX, width: saved === "auto" ? cell.width || 240 : saved, column, header };
     trackColumnDrag.column = column;
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", finish);
@@ -64,7 +77,9 @@ const trackColumnCallbacks = Object.freeze({
   keydown(event: KeyboardEvent): void {
     const column = handleColumn(event);
     if (!column || drag || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-    event.preventDefault(); resize(column, trackColumnWidths[column] + (event.key === "ArrowRight" ? 8 : -8)); saveWidths();
+    const saved = trackColumnWidths[column];
+    const width = saved === "auto" ? (event.target as HTMLElement).parentElement?.getBoundingClientRect().width || 240 : saved;
+    event.preventDefault(); resize(column, width + (event.key === "ArrowRight" ? 8 : -8)); saveWidths();
   },
 });
 export { initializeTrackColumns, trackColumnWidths, trackColumnDrag, trackColumnCallbacks };

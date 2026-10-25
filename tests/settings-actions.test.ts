@@ -27,7 +27,7 @@ test("settings actions import without DOM retain immutable snapshots and isolate
 test("settings actions preserve theme stages storage order and background copying", async () => {
   const h = fixture(), phases: string[] = []; h.store.subscribe(state => phases.push(String(state.settings.theme) + ":" + state.settings.glassBlur));
   h.storage.set(key("glass-blur"), "12"); h.storage.set(key("panel-alpha"), "50"); h.storage.set(key("background-dim"), "70"); h.actions.setTheme("image");
-  assert.deepEqual(phases, ["image:40", "image:12", "image:12", "image:12"]); assert.equal(h.read().panelAlpha, 50); assert.deepEqual(h.writes, [[key("theme"), "image"]]);
+  assert.deepEqual(phases, ["image:40", "image:12", "image:12"]); assert.equal(h.read().panelAlpha, 72); assert.deepEqual(h.writes, [[key("theme"), "image"]]);
   const image = { path: "test.png", displayName: "背景", width: 2, height: 3, dataUrl: "data:image/png;base64,AA" }; h.reply(async () => image); await h.actions.chooseBackground(); const snapshot = h.read(); image.width = 9;
   assert.equal(snapshot.background?.width, 2); assert.deepEqual(h.writes.slice(-2), [[key("background-path"), "test.png"], [key("theme"), "image"]]); h.actions.resetBackground(); assert.equal(snapshot.background?.width, 2); assert.equal(h.read().background, null); assert.equal(h.writes.at(-1)?.[1], null);
 });
@@ -80,4 +80,12 @@ test("settings AI save rereads input after connection succeeds without retaining
 test("settings page session actions retain navigation and panel versions without platform access", () => {
   const h = fixture(), initial = h.read(); h.actions.navigate("local"); const local = h.read(); h.actions.navigate("home"); h.actions.panel(true); h.actions.panel(false);
   assert.equal(initial.session.currentView, "home"); assert.equal(local.session.placeholderTitle, "本地音乐开发中"); assert.equal(h.read().session.currentView, "home"); assert.equal(h.read().session.navigationVersion, 2); assert.equal(h.read().session.panelVersion, 2); assert.equal(h.read().session.panelOpen, false);
+});
+
+
+test("background dim accepts zero and restores legacy forty without rewriting it", () => {
+  const h=fixture();
+  for(const value of [0,20,40,70,95]){h.actions.setSlider("dim",value);assert.equal(h.read().backgroundDim,value);assert.equal(h.storage.get(key("background-dim")),String(value));}
+  h.storage.set(key("background-dim"),"40");h.actions.setTheme("image",false);
+  assert.equal(h.read().backgroundDim,40);assert.equal(h.storage.get(key("background-dim")),"40");
 });

@@ -102,14 +102,14 @@ async function open(h: Awaited<ReturnType<typeof fixture>>) { await h.node("#ope
 test("settings themes restore defaults and switch all four themes with exact storage reads and writes", async () => {
   for (const saved of [[], [[k("theme"), "invalid"]]] as [string, string][][]) { const h = await fixture(saved); try { assert.equal(h.doc.documentElement.dataset.theme, "dark"); assert.deepEqual(h.writes, []); } finally { h.dispose(); } }
   const h = await fixture(); try {
-    for (const theme of h.themes) { h.reads.length = 0; h.writes.length = 0; await theme.fire("click"); await h.flush(); assert.equal(h.doc.documentElement.dataset.theme, theme.dataset.themeOption); assert.deepEqual(h.writes, [[k("theme"), theme.dataset.themeOption]]); assert.deepEqual(h.reads, theme.dataset.themeOption === "dynamic" ? [] : [k("glass-blur"), k("panel-alpha"), k("background-dim")]); assert.equal(h.css.has("--glass-blur"), theme.dataset.themeOption !== "dynamic"); }
+    for (const theme of h.themes) { h.reads.length = 0; h.writes.length = 0; await theme.fire("click"); await h.flush(); assert.equal(h.doc.documentElement.dataset.theme, theme.dataset.themeOption); assert.deepEqual(h.writes, [[k("theme"), theme.dataset.themeOption]]); assert.deepEqual(h.reads, theme.dataset.themeOption === "dynamic" ? [] : [k("glass-blur"), k("background-dim")]); assert.equal(h.css.has("--glass-blur"), theme.dataset.themeOption !== "dynamic"); }
   } finally { h.dispose(); }
 });
 test("settings accents sliders persist exact keys values order and theme channel variants", async () => {
   const h = await fixture(); try {
     await h.accents[1].fire("change"); await h.flush(); assert.equal(h.css.get("--accent-r"), "122"); await h.themes[1].fire("click"); await h.flush(); assert.equal(h.css.get("--accent-r"), "40");
     h.writes.length = 0; for (const [id, value] of [["glass-blur", "100"], ["panel-alpha", "5"], ["background-dim", "0"]]) { h.node("#"+id+"-slider").value = value; await h.node("#"+id+"-slider").fire("input"); }
-    assert.deepEqual(h.writes, [[k("glass-blur"), "80"], [k("panel-alpha"), "20"], [k("background-dim"), "40"]]); assert.equal(h.css.get("--panel-alpha"), "0.2"); assert.equal(h.css.get("--background-dim"), "0.4");
+    assert.deepEqual(h.writes, [[k("glass-blur"), "80"], [k("background-dim"), "0"]]); assert.equal(h.css.get("--panel-alpha"), undefined); assert.equal(h.css.get("--background-dim"), "0");
   } finally { h.dispose(); }
 });
 test("settings background choice cancellation failure reset and restore keep exact write order", async () => {

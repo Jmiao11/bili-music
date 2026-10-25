@@ -3,7 +3,7 @@ import {draftBindings} from "../platform/draft-ports.ts";
 import {createShellProjection} from "./shell-projection.ts";
 import {readShellStages,readSidebarPresentation,readMaximizedPresentation} from "./shell-stages.ts";
 import { installPresentationRender } from "./presentation-refresh.ts";
-import { readDynamicBackgroundPresentation } from "../features/settings/dynamic-background.ts";
+import { readDynamicBackgroundPresentation, readImageForegroundPresentation } from "../features/settings/dynamic-background.ts";
 import { pageCallbacks, projectHomeControls } from "./root-controls.ts";
 import { createModalProjection, libraryCallbacks, pagesCallbacks } from "./root-modals.ts";
 import { settingsCallbacks } from "../features/settings/root-settings.ts";
@@ -45,7 +45,7 @@ function renderSnapshot(snapshot: ApplicationSnapshot): void {
   const pageFocus = snapshot.pages.modal && modals.pages !== lastPages &&
     (pagesModalList?.contains(document.activeElement) || document.activeElement === pagesModalRestoreAll);
   lastPages = modals.pages;
-  render(h(App, { mainWindowRefs,draftBindings,shell:projectShell(snapshot), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
+  render(h(App, { mainWindowRefs,draftBindings,shell:projectShell(snapshot), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(),foreground:readImageForegroundPresentation(), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
   if (pageFocus) pagesModalClose?.focus({preventScroll:true});
 }
 function mountApplication(): void {

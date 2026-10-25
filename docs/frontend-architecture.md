@@ -98,7 +98,7 @@ C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collec
 
 G0 当前193条、首个trackchange索引149，Git/LF SHA256 `4f2c9796640952257040919b72fde9400b9099f56f7c59226965b8aec9d22c7e`。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
 
-UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新三项CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
+UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新九项列宽偏好/余量CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
 
 ## 验证与交付
 
@@ -118,6 +118,10 @@ F8最终回归及发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、�
 
 ### UI-4：迷你窗主题参数同步
 
-`mini-player-projection.ts` 仅在背景图主题追加背景路径/暗化值，在动态主题追加由host调用 `readDynamicPalette()` 后传入纯投影的三色；无Key或业务播放地址。`subscribeMiniPlayerTheme` 复用原store订阅和原RAF发布合并，并在窗口就绪后订阅动态背景的本地展示通知；关闭/卸载同时取消。动态取色完成只通知展示消费者，不改store提交与FIX-1根渲染。没有新增DOM或IPC监听，G0保持193/149。
+`mini-player-projection.ts` 仅在背景图主题追加背景路径/暗化值，在动态主题追加由host调用 `readDynamicPalette()` 后传入纯投影的三色；无Key或业务播放地址。`subscribeMiniPlayerTheme` 复用原store订阅和原RAF发布合并，并在窗口就绪后订阅动态背景的本地展示通知；关闭/卸载同时取消。动态取色完成只通知展示消费者，不改store提交与FIX-1根渲染。主窗没有新增DOM或IPC监听，G0保持193/149。UI-5迷你窗复用DynamicBackground展示组件与三色字段，仅在迷你窗添加visibilitychange暂停动画，卸载时移除，不改主窗接线。
 
 mini窗口控制器使用已有 `load_background_image` command读图，不需要asset协议权限；路径或背景版本变化清空旧图并用请求版本号丢弃迟到结果。SFC独占背景CSS变量与装饰层，documentElement主题仍是原生登记端口，完整表达式白名单仅把原深/浅映射扩展为四主题，不增加写入面。新增测试覆盖图片乱序完成、暗化/配色变量与原通道合并。
+
+### UI-5 图片区域前景端口
+
+`settings-view.ts` 在既有背景/暗化投影后调用无 DOM 的 `settings-state.ts` 的无 DOM 回调端口；根挂载提前安装 `dynamic-background.ts` 的图片前景采样，复用该回调解码背景 data URL，无新增监听、store 字段或存储。离屏采样缓存四区亮度/方差；迟到解码以版本号丢弃，滑块只重算缓存。presentation 旁路沿 FIX-1 现有防重入入口取最新前景，App → AppShell 传递稳定模型；Vue 绑定区域 data 属性，不写宿主 DOM，不改根防重入循环。取色原生写入仅 `decoded.src = next`、`canvas.width = 96`、`canvas.height = Math.max(1, Math.round(96 * height / width))`，均为离屏节点；精确登记于 native-writes，配反例检查。

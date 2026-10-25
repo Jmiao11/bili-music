@@ -68,8 +68,8 @@ test("controls real DOM BV submit preserves draft and uses playback instead of k
 
 test("controls real DOM sliders persist every input and project while settings stays hidden", async t => {
   const h = await controlsSettingsFixture(); t.after(h.dispose);
-  for (const [id, key, values, output] of [["glass-blur", "glass-blur", [11, 12], "12px"], ["panel-alpha", "panel-alpha", [54, 55], "55%"], ["background-dim", "background-dim", [65, 66], "66%"]] as const) {
-    for (const value of values) { await h.input(id + "-slider", String(value)); assert.equal(h.window.localStorage.getItem("bilibili-music." + key), String(value)); }
+  for (const [id, key, values, output] of [["glass-blur", "glass-blur", [11, 12], "12px"], ["panel-alpha", "panel-alpha", [54, 55], "72%"], ["background-dim", "background-dim", [65, 66], "66%"]] as const) {
+    for (const value of values) { await h.input(id + "-slider", String(value)); assert.equal(h.window.localStorage.getItem("bilibili-music." + key), key === "panel-alpha" ? null : String(value)); }
     assert.equal(h.node(id + "-value").textContent, output);
   }
   assert.equal(h.node("settings-modal").hidden, true);

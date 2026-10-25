@@ -3,6 +3,7 @@ import type {mainWindowRefs} from "../../platform/main-window-refs.ts";
 import type {draftBindings} from "../../platform/draft-ports.ts";
 import type { ShellProjection } from "../shell-projection.ts";
 import type { ShellStages,SidebarPresentation } from "../shell-stages.ts";
+import type { ImageForegroundPresentation } from "../../features/settings/dynamic-background.ts";
 import type { DynamicBackgroundPresentation } from "../../features/settings/dynamic-background.ts";
 import type { RootModals } from "../root-modals.ts";
 import type { libraryCallbacks, pagesCallbacks } from "../root-modals.ts";
@@ -38,18 +39,18 @@ import { displayThumbnailUrl } from "../../shared/track-utils.ts";
 const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
 installTrackColumnInitialization(initializeTrackColumns);
 
-defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
+defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation;foreground?:ImageForegroundPresentation|null; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
     <link rel="stylesheet" :href="tokensHref" />
     <DynamicBackground :model="background" />
     <div class="window-background-overlay" aria-hidden="true"></div>
-    <WindowTitlebar :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
+    <WindowTitlebar :data-image-foreground="snapshot.playbackDisplay.presentation.immersiveOpen ? undefined : foreground?.titlebar" :data-image-halo="!snapshot.playbackDisplay.presentation.immersiveOpen && foreground?.halo ? 'on' : undefined" :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
     <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
-      <Sidebar :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
+      <Sidebar :data-image-foreground="foreground?.sidebar" :data-image-halo="foreground?.halo ? 'on' : undefined" :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
-      <main class="main-panel panel" aria-labelledby="queue-heading">
+      <main :data-image-foreground="foreground?.content" :data-image-halo="foreground?.halo ? 'on' : undefined" class="main-panel panel" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
           <div class="home-stage">
             <header class="home-head">
@@ -188,7 +189,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
     <PlaybackNotice :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
-    <PlaybackBar :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
+    <PlaybackBar :data-image-foreground="foreground?.bar" :data-image-halo="foreground?.halo ? 'on' : undefined" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
 
     <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">

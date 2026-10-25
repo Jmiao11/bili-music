@@ -38,7 +38,7 @@ test("mini dynamic appearance sends the main palette and removes image-only fiel
   h.store.actions.settings.setTheme("dynamic", false);
   await h.flushFrame();
   const payload = h.emissions.at(-1)!.payload;
-  assert.deepEqual(payload.dynamicColors, ["rgb(28, 32, 40)", "rgb(38, 32, 42)", "rgb(28, 39, 39)"]);
+  assert.deepEqual(payload.dynamicColors, ["rgb(48, 54, 64)", "color-mix(in srgb, var(--accent) 30%, #303640)", "rgb(58, 62, 70)"]);
   assert.equal(payload.backgroundPath, undefined);
   assert.equal(payload.backgroundDim, undefined);
 });

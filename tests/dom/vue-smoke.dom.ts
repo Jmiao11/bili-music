@@ -28,12 +28,11 @@ test("Vite compiles the SFC fixture; Vue renders, handles click and unmounts in 
       build: {
         outDir: output,
         lib: { entry: "tests/fixtures/vue/ToolchainSmoke.vue", formats: ["es"], fileName: "fixture" },
-        rolldownOptions: { external: ["vue"] },
+        rolldownOptions: { external: ["vue"], output: { paths: { vue: import.meta.resolve("vue") } } },
       },
     });
     const { mount } = await import("@vue/test-utils");
-    // The temporary ESM bundle resolves its runtime through a link to this install.
-    fs.symlinkSync(path.resolve(import.meta.dirname, "../../node_modules"), path.join(output, "node_modules"), "junction");
+    // Resolve the runtime directly; no directory link may point back into the project.
     const { default: component } = await import(pathToFileURL(path.join(output, "fixture.js")).href) as { default: Component };
     const selected: number[] = [];
     const wrapper = mount(component, { attachTo: dom.window.document.body, props: { snapshot: Object.freeze({ count: 4 }), onChoose: (count: number) => selected.push(count) } });

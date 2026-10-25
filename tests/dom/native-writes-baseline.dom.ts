@@ -36,7 +36,7 @@ test("dynamic background component paints both layers and preserves pause withou
   assert.equal(backdrop.classList.contains("is-paused"),false);
   assert.equal(layers.filter(layer=>layer.classList.contains("is-visible")).length,1);
   const visible=layers.find(layer=>layer.classList.contains("is-visible")) as HTMLElement;
-  assert.equal(visible.style.getPropertyValue("--dynamic-color-1"),"rgb(28, 32, 40)");
+  assert.equal(visible.style.getPropertyValue("--dynamic-color-1"),"rgb(48, 54, 64)");
   h.doc.documentElement.dataset.theme="dark";await h.microtasks();
   assert.equal(backdrop.classList.contains("is-paused"),true);
   assert.deepEqual([...backdrop.children],layers);

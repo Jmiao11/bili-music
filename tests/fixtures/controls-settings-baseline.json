@@ -562,8 +562,9 @@
               {
                 "tag": "label",
                 "attributes": {
-                  "class": "slider-row",
-                  "style": "--settings-fill: 65%;"
+                  "aria-hidden": "true",
+                  "class": "slider-row panel-alpha-compat",
+                  "style": "display: none;"
                 },
                 "children": [
                   {
@@ -585,9 +586,11 @@
                   {
                     "tag": "input",
                     "attributes": {
+                      "aria-hidden": "true",
                       "id": "panel-alpha-slider",
                       "max": "100",
                       "min": "20",
+                      "tabindex": "-1",
                       "type": "range"
                     },
                     "value": "72",
@@ -600,7 +603,7 @@
                 "tag": "label",
                 "attributes": {
                   "class": "slider-row",
-                  "style": "--settings-fill: 90.9090909090909%;"
+                  "style": "--settings-fill: 94.73684210526316%;"
                 },
                 "children": [
                   {
@@ -624,7 +627,7 @@
                     "attributes": {
                       "id": "background-dim-slider",
                       "max": "95",
-                      "min": "40",
+                      "min": "0",
                       "type": "range"
                     },
                     "value": "90",

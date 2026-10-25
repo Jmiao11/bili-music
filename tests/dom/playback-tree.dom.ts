@@ -168,6 +168,8 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
     const header = h.doc.getElementById("home-ranking-list-columns")!;
     const handle = (column: string) => header.querySelector<HTMLElement>(`[data-track-column="${column}"]`)!;
     assert.deepEqual(h.listeners.filter(l => l.target === header).map(l => l.type), ["pointerdown", "keydown"]);
+    assert.equal(handle("title").getAttribute("aria-valuenow"), "240");
+    assert.equal(handle("title").getAttribute("aria-valuetext"), "自适应");
     assert.equal(h.listeners.filter(l => l.target instanceof h.window.Element && l.target.matches(".column-resize")).length, 0);
     const captured = new Set<number>();
     Object.defineProperties(header, {
@@ -186,28 +188,40 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
     await pointer(handle("uploader"), "pointerdown", 400);
     assert.equal(captured.has(7), true);
     await pointer(h.window, "pointermove", 360);
-    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
+    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "120px");
     assert.equal(h.window.localStorage.getItem("bilibili-music.track-columns"), null);
     await pointer(h.window, "pointerup", 360);
     assert.equal(captured.size, 0);
     await pointer(h.window, "pointermove", 100);
-    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
+    assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "120px");
     await nextDomEventTurn(); await h.fire(handle("plays"), "keydown", { key: "ArrowRight" });
     assert.equal(handle("plays").getAttribute("aria-valuenow"), "88");
     await pointer(handle("plays"), "pointerdown", 500);
     await pointer(h.window, "pointerup", 500);
     await pointer(handle("plays"), "pointerdown", 500);
     assert.equal(handle("plays").getAttribute("aria-valuenow"), "80");
-    for (const separator of h.doc.querySelectorAll('[data-track-column="uploader"]')) assert.equal(separator.getAttribute("aria-valuenow"), "200");
+    for (const [column, expected] of [["pages", "82"], ["title", "250"], ["duration", "82"]] as const) {
+      await pointer(handle(column), "pointerdown", 600);
+      await pointer(h.window, "pointermove", 610);
+      await pointer(h.window, "pointerup", 610);
+      assert.equal(handle(column).getAttribute("aria-valuenow"), expected);
+      await h.fire(handle(column), "keydown", { key: "ArrowRight" });
+      assert.equal(handle(column).getAttribute("aria-valuenow"), String(Number(expected) + 8));
+      await pointer(handle(column), "pointerdown", 700);
+      await pointer(h.window, "pointerup", 700);
+      await pointer(handle(column), "pointerdown", 700);
+      assert.equal(handle(column).getAttribute(column === "title" ? "aria-valuetext" : "aria-valuenow"), column === "title" ? "自适应" : String(column === "pages" ? 72 : 72));
+    }
+    for (const separator of h.doc.querySelectorAll('[data-track-column="uploader"]')) assert.equal(separator.getAttribute("aria-valuenow"), "120");
     assert.equal(commits, 0); assert.equal(probe.calls, renders);
     assert.equal(h.rowRenders.length, 0); assert.equal(h.regions.length, 0);
     saved = h.window.localStorage.getItem("bilibili-music.track-columns")!;
-    assert.deepEqual(JSON.parse(saved), { uploader: 200, plays: 80, duration: 72 });
+    assert.deepEqual(JSON.parse(saved), { title: "auto", uploader: 120, pages: 72, plays: 80, duration: 72 });
   } finally { stop(); h.dispose(); }
   const restored = await fixture({ playback: true, trackColumns: saved });
   try {
-    assert.equal(restored.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "200px");
-    assert.equal(restored.doc.querySelector('[data-track-column="uploader"]')!.getAttribute("aria-valuenow"), "200");
+    assert.equal(restored.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "120px");
+    assert.equal(restored.doc.querySelector('[data-track-column="uploader"]')!.getAttribute("aria-valuenow"), "120");
   } finally { restored.dispose(); }
 });
 
@@ -227,4 +241,33 @@ test("invalid column storage falls back without overwriting and cover opens the 
     assert.equal(h.store.getState().playbackDisplay.presentation.immersiveOpen, false);
     assert.ok(h.doc.getElementById("open-immersive-button"));
   } finally { h.dispose(); }
+});
+
+
+test("cover color crossfades and presentation refreshes never redraw track rows", async () => {
+  const { fixture } = await import("./tracks-fixture.ts");
+  const originalImage = Object.getOwnPropertyDescriptor(globalThis, "Image");
+  const images: {onload:(()=>Promise<void>)|null;onerror:(()=>void)|null}[] = [];
+  class Artwork { src=""; onload:(()=>Promise<void>)|null=null; onerror:(()=>void)|null=null; constructor(){images.push(this);} decode(){return Promise.resolve();} }
+  Object.defineProperty(globalThis,"Image",{value:Artwork,configurable:true});
+  const h = await fixture({playback:true,nativeWrites:true});
+  try {
+    Object.defineProperty(h.doc,"hidden",{value:false,configurable:true});
+    let pixel = [220,30,80,255];
+    Object.defineProperty(Object.getPrototypeOf(h.doc.createElement("canvas")),"getContext",{value:()=>({drawImage(){},getImageData(){return {data:new Uint8ClampedArray(pixel)};}}),configurable:true});
+    h.reply(responses([track(1),track(2)]));h.home.setHomeMode("ranking");await h.microtasks();
+    h.store.actions.settings.setTheme("dynamic",false);await h.microtasks();
+    h.rowRenders.length=0;h.regions.length=0;
+    for(const [index,color] of [[0,[220,30,80,255]],[1,[25,160,210,255]]] as const){
+      pixel=[...color];
+      h.window.dispatchEvent(new h.window.CustomEvent("bilibili-music-trackchange",{detail:{hasCurrent:true,thumbnailUrl:"synthetic-"+index}}));
+      await images.at(-1)!.onload!();
+      await new Promise(resolve=>setTimeout(resolve,32));
+      assert.ok(h.doc.querySelector(".dynamic-background-layer.is-visible[style]"));
+      assert.equal(h.rowRenders.length,0);assert.equal(h.regions.length,0);
+    }
+    const current = h.doc.querySelector(".dynamic-background-layer.is-visible")!.getAttribute("style");
+    h.window.dispatchEvent(new h.window.CustomEvent("bilibili-music-trackchange",{detail:{hasCurrent:false}}));
+    assert.equal(h.doc.querySelector(".dynamic-background-layer.is-visible")!.getAttribute("style"),current);
+  } finally { h.dispose();if(originalImage)Object.defineProperty(globalThis,"Image",originalImage);else Reflect.deleteProperty(globalThis,"Image"); }
 });

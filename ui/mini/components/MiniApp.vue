@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import DynamicBackground from "../../features/settings/components/DynamicBackground.vue";
 import type {MiniView,MiniCallbacks} from "../view-model.ts";
 defineProps<{view:MiniView;callbacks:MiniCallbacks}>();
 </script>
 <template>
 <main id="mini-drag-region" class="mini-shell" :style="{'--mini-background':view.backgroundUrl ? `url(&quot;${view.backgroundUrl}&quot;)` : undefined,'--background-dim':String((view.snapshot.backgroundDim ?? 90) / 100),'--dynamic-color-1':view.snapshot.dynamicColors?.[0],'--dynamic-color-2':view.snapshot.dynamicColors?.[1],'--dynamic-color-3':view.snapshot.dynamicColors?.[2]}" @pointerdown="callbacks.drag" aria-label="迷你播放器">
+      <DynamicBackground v-if="view.snapshot.theme === 'dynamic' && view.background" :model="view.background" />
       <div class="mini-track">
         <img id="mini-cover" class="mini-cover" alt="" width="40" height="40" :src="view.snapshot.thumbnailUrl || undefined" :hidden="!view.snapshot.thumbnailUrl" referrerpolicy="no-referrer" />
         <div class="mini-copy">

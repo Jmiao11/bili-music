@@ -1,4 +1,5 @@
 import { createMiniRenderer } from "./root-mount.ts";
+import type { DynamicBackgroundPresentation } from "../features/settings/dynamic-background.ts";
 import type { MiniView, MiniCallbacks } from "./view-model.ts";
 const MINI_POSITION_KEY = "bilibili-music.mini-player-position";
 function readMiniPosition(storage: Pick<Storage, "getItem">): TauriPosition | null {
@@ -68,6 +69,7 @@ function createMiniPlayerController({
   console,
 }: { eventApi: TauriEventApi; invoke: CommandInvoke; windowApi: TauriWindowHandle; availableMonitors: () => Promise<TauriMonitor[]>; dpi: { PhysicalPosition: new (x: number, y: number) => TauriPosition }; document: Document; storage: Pick<Storage, "getItem" | "setItem">; window: Window; console: Console }) {
   let snapshot: MiniView["snapshot"] = {}, hasSnapshot = false, expanded = false;
+  let dynamicBackground: DynamicBackgroundPresentation = { paused: document.hidden, front: 0, palettes: [null, null] };
   let backgroundPath: string | null = null, backgroundUrl: string | null = null, backgroundVersion = 0;
   let backgroundRevision: number | undefined;
   let distance: string | null = null, duration: string | null = null, scrolling = false;
@@ -80,7 +82,7 @@ function createMiniPlayerController({
     noticeKey: event => { if(!controlsBound || event.key !== "Escape") return; expanded=false; renderRoot(); noticeMoreButton.focus?.(); },
     drag: event => { if(controlsBound) dragWindow(event); },
   };
-  function renderRoot() { renderView({snapshot,hasSnapshot,expanded,distance,duration,scrolling,backgroundUrl},callbacks); }
+  function renderRoot() { renderView({snapshot,hasSnapshot,expanded,distance,duration,scrolling,backgroundUrl,background:dynamicBackground},callbacks); }
   renderRoot();
   const {title,titleViewport,restoreButton,noticeMoreButton,noticeFull,root}=readMiniPorts(document);
   const unlisteners: (() => void)[] = [];
@@ -143,6 +145,11 @@ function createMiniPlayerController({
         if (disposed || version !== backgroundVersion) return;
         backgroundUrl = image.dataUrl; renderRoot();
       }).catch(() => warn("mini background load failed", "无法读取背景图"));
+    }
+    if (state.dynamicColors && state.dynamicColors.some((color, index) => color !== dynamicBackground.palettes[dynamicBackground.front]?.[index])) {
+      const front = 1 - dynamicBackground.front, palettes = [...dynamicBackground.palettes];
+      palettes[front] = state.dynamicColors;
+      dynamicBackground = { ...dynamicBackground, front, palettes };
     }
     snapshot = state;
     hasSnapshot = true;
@@ -231,6 +238,9 @@ function createMiniPlayerController({
   }
 
   async function start() {
+    const visibility = () => { dynamicBackground = { ...dynamicBackground, paused: document.hidden }; renderRoot(); };
+    document.addEventListener("visibilitychange", visibility);
+    unlisteners.push(() => document.removeEventListener("visibilitychange", visibility));
     window?.addEventListener?.("beforeunload", () => {
       disposed = true;
       if (titleScrollFrame != null) {

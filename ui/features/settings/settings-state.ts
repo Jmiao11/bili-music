@@ -207,7 +207,6 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     });
     if (theme !== "dynamic") {
       setSlider("blur", adapter.settings?.getItem(key("glass-blur")), false);
-      setSlider("alpha", adapter.settings?.getItem(key("panel-alpha")), false);
       setSlider("dim", adapter.settings?.getItem(key("background-dim")), false);
     }
     if (persist) adapter.settings?.setItem(key("theme"), theme);
@@ -227,8 +226,9 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     }
   }
   function setSlider(kind: "blur" | "alpha" | "dim", value: unknown, persist = true): void {
-    const field = kind === "blur" ? "glassBlur" : kind === "alpha" ? "panelAlpha" : "backgroundDim";
-    const safe = kind === "blur" ? normalizeSettingsNumber(value, 0, 80, 40) : kind === "alpha" ? normalizeSettingsNumber(value, 20, 100, 72) : normalizeSettingsNumber(value, 40, 95, 90);
+    if (kind === "alpha") return; // 隐藏兼容端口，不改写用户遗留值。
+    const field = kind === "blur" ? "glassBlur" : "backgroundDim";
+    const safe = kind === "blur" ? normalizeSettingsNumber(value, 0, 80, 40) : normalizeSettingsNumber(value, 0, 95, 90);
     update({
       [field]: safe
     }, {
@@ -236,7 +236,7 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
         kind
       }
     });
-    if (persist) adapter.settings?.setItem(key(kind === "blur" ? "glass-blur" : kind === "alpha" ? "panel-alpha" : "background-dim"), String(safe));
+    if (persist) adapter.settings?.setItem(key(kind === "blur" ? "glass-blur" : "background-dim"), String(safe));
   }
   function applyImage(image: CommandContract.BackgroundImage): void {
     update({
@@ -683,3 +683,8 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
 }
 export { accentChannels, createSettingsActions, initialSettingsState, normalizeSettingsAccent };
 export type { AiInput, SettingsCommand, SettingsPlatform, SettingsSnapshot };
+
+let imageForegroundPort: ((state: Pick<SettingsSnapshot, "theme" | "backgroundDim" | "background">) => void) | undefined;
+function installImageForegroundPort(port: NonNullable<typeof imageForegroundPort>): void { imageForegroundPort = port; }
+function projectImageForeground(state: SettingsSnapshot): void { imageForegroundPort?.(state); }
+export { installImageForegroundPort, projectImageForeground };

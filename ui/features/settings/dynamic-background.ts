@@ -1,11 +1,14 @@
+import { installImageForegroundPort } from "./settings-state.ts";
+import type { SettingsSnapshot } from "./settings-state.ts";
 import { refreshPresentation } from "../../app/presentation-refresh.ts";
+type ImageAppearance = Pick<SettingsSnapshot, "theme" | "backgroundDim" | "background">;
+const DYNAMIC_DEFAULT_PALETTE = ["rgb(48, 54, 64)", "color-mix(in srgb, var(--accent) 30%, #303640)", "rgb(58, 62, 70)"];
 type DynamicBackgroundPresentation = Readonly<{ paused:boolean; front:number; palettes:readonly (readonly string[] | null)[] }>;
 let backgroundPresentation:DynamicBackgroundPresentation={paused:false,front:0,palettes:[null,null]};
 function readDynamicBackgroundPresentation():DynamicBackgroundPresentation { return backgroundPresentation; }
 let backgroundListeners: Set<() => void> | null = null;
 function subscribeDynamicBackground(listener: () => void): () => void { (backgroundListeners ??= new Set()).add(listener); return () => { backgroundListeners?.delete(listener); }; }
 function updateBackdrop(fields:Partial<DynamicBackgroundPresentation>):void { backgroundPresentation={...backgroundPresentation,...fields}; refreshPresentation(); for (const listener of backgroundListeners ?? []) listener(); }
-const DYNAMIC_DEFAULT_PALETTE = ["rgb(28, 32, 40)", "rgb(38, 32, 42)", "rgb(28, 39, 39)"];
 
 // H 为角度，S / L 为 0–1；只在一次取色任务中转换，不参与逐帧动画。
 function rgbToHsl(rgb: number[]) {
@@ -36,37 +39,32 @@ function hueDistance(a: number, b: number) {
 }
 
 function extractDynamicPalette(pixels: Uint8ClampedArray | Uint8Array) {
-  // 32×32 样本，RGB 每通道量化为 8 档；最多 512 个桶，无需聚类库。
-  const buckets: Map<number, number[]> = new Map();
+  const buckets = new Map<number, number[]>();
   for (let i = 0; i < pixels.length; i += 4) {
     const [r, g, b, alpha] = pixels.subarray(i, i + 4);
-    if (alpha < 128 || Math.max(r, g, b) < 12 || Math.min(r, g, b) > 243) continue;
+    if (alpha < 128 || Math.max(r, g, b) - Math.min(r, g, b) < 12) continue;
     const key = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
-    const bucket = buckets.get(key) || [0, 0, 0, 0];
-    bucket[0] += r;
-    bucket[1] += g;
-    bucket[2] += b;
-    bucket[3]++;
+    const bucket = buckets.get(key) ?? [0, 0, 0, 0, key];
+    bucket[0] += r; bucket[1] += g; bucket[2] += b; bucket[3]++;
     buckets.set(key, bucket);
   }
-  if (!buckets.size) return DYNAMIC_DEFAULT_PALETTE;
-  const selected: number[][] = [];
-  for (const bucket of [...buckets.values()].sort((a, b) => b[3] - a[3])) {
-    const color = bucket.slice(0, 3).map((value) => value / bucket[3]);
-    const hsl = rgbToHsl(color);
-    // 排除近灰噪声；环形色相距离超过 35° 才能占用一个主色位置。
-    if (hsl[1] < 0.12 || Math.max(...color) - Math.min(...color) < 12) continue;
-    if (selected.some((other) => hueDistance(hsl[0], other[0]) <= 35)) continue;
-    selected.push(hsl);
-    if (selected.length === 3) break;
-  }
-  // 主色 / 暗部 / 亮部：保留封面色相；缺色复用已有色相，全灰则保持无彩色。
-  // 适度提升 S，最高 80%；再限制 HSL 色度，使通道差 ≤80、通道落在 8–101。
-  // 最亮通道低于旧方案的 110，维持低透明度下的全局最坏对比度下界。
-  return [0.20, 0.16, 0.24].map((lightness, index) => {
-    const [hue, saturation] = selected.length ? selected[index % selected.length] : [0, 0];
-    const tonedSaturation = saturation === 0 ? 0 : Math.min(saturation * 1.15 + 0.08, 0.8, 80 / (510 * lightness));
-    return `rgb(${hslToRgb([hue, tonedSaturation, lightness]).join(", ")})`;
+  const candidates = [...buckets.values()].sort((a, b) => b[3] - a[3] || a[4] - b[4])
+    .map(bucket => ({ rgb: bucket.slice(0, 3).map(n => n / bucket[3]), count: bucket[3], key: bucket[4] }));
+  if (!candidates.length) return DYNAMIC_DEFAULT_PALETTE;
+  const dominant = candidates[0];
+  const vivid = [...candidates].sort((a, b) => {
+    const saturation = (rgb: number[]) => Math.max(...rgb) - Math.min(...rgb);
+    return saturation(b.rgb) - saturation(a.rgb) || b.count - a.count || a.key - b.key;
+  }).find(color => hueDistance(rgbToHsl(color.rgb)[0], rgbToHsl(dominant.rgb)[0]) > 25) ?? dominant;
+  const secondary = candidates.find(color => [dominant, vivid].every(other => hueDistance(rgbToHsl(color.rgb)[0], rgbToHsl(other.rgb)[0]) > 30)) ?? dominant;
+  return [dominant, vivid, secondary].map(({ rgb }, index) => {
+    const [hue, saturation] = rgbToHsl(rgb);
+    const toned = hslToRgb([hue, Math.min(0.88, saturation * 1.2 + 0.12), [0.28, 0.34, 0.26][index]]);
+    const linear = toned.map(value => { const n = value / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; });
+    const luminance = linear.reduce((sum, n, i) => sum + n * [.2126, .7152, .0722][i], 0);
+    const scale = [.055, .08, .045][index] / Math.max(luminance, .0001);
+    const channels = linear.map(n => { const v = Math.min(1, n * scale); return Math.round(255 * (v <= .0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - .055)); });
+    return `rgb(${channels.join(", ")})`;
   });
 }
 
@@ -81,41 +79,18 @@ function initializeDynamicBackground() {
   let loadingImage: HTMLImageElement | null = null;
   let loadTimer: ReturnType<typeof setTimeout> | null = null;
   let idleTask: number | ReturnType<typeof setTimeout> | null = null;
-  let fadeTimer: ReturnType<typeof setTimeout> | null = null;
-  let queuedPalette: string[] | null = null;
   let front = 0;
 
   function paint(layer: number, palette: string[]) {
     const palettes=[...backgroundPresentation.palettes]; palettes[layer]=palette; updateBackdrop({palettes});
   }
 
-  function finishFade() {
-    if (fadeTimer !== null) clearTimeout(fadeTimer);
-    fadeTimer = null;
-    if (queuedPalette) {
-      const palette = queuedPalette;
-      queuedPalette = null;
-      show(palette);
-    }
-  }
-
   function show(palette: string[]) {
-    if (reducedMotion.matches) {
-      queuedPalette = null;
-      finishFade();
-      paint(front, palette);
-      return;
-    }
-    if (fadeTimer !== null) {
-      queuedPalette = palette;
-      return;
-    }
-    const next = 1 - front;
+    if (readDynamicPalette().every((color, index) => color === palette[index])) return;
+    const next = reducedMotion.matches ? front : 1 - front;
     paint(next, palette);
     updateBackdrop({front:next});
     front = next;
-    // 双层只交叉淡化 opacity；连续切歌时只保留最新待显示配色。
-    fadeTimer = setTimeout(finishFade, 2500);
   }
 
   function cancelSampling() {
@@ -132,7 +107,6 @@ function initializeDynamicBackground() {
       loadingImage.src = "";
       loadingImage = null;
     }
-    queuedPalette = null;
   }
 
   function refresh() {
@@ -156,7 +130,8 @@ function initializeDynamicBackground() {
       show(palette);
     }
     if (!source) {
-      finish(DYNAMIC_DEFAULT_PALETTE);
+      // 首次启用动态主题才初始化；空封面不覆盖已提取的颜色。
+      if (!backgroundPresentation.palettes[front]) paint(front, DYNAMIC_DEFAULT_PALETTE);
       return;
     }
     // 独立图片不改播放器封面；CORS 不允许读像素时使用默认配色，不做代理兜底。
@@ -207,11 +182,11 @@ function initializeDynamicBackground() {
     if (next === active) return;
     active = next;
     refresh();
-    if (!active) finishFade();
   }
 
   window.addEventListener("bilibili-music-trackchange", (event) => {
-    const next = event.detail?.hasCurrent ? event.detail.thumbnailUrl || "" : "";
+    const detail = (event as CustomEvent<{ hasCurrent?: boolean; thumbnailUrl?: string }>).detail;
+    const next = detail?.hasCurrent ? detail.thumbnailUrl || "" : "";
     if (next === source) return;
     source = next;
     refresh();
@@ -219,7 +194,7 @@ function initializeDynamicBackground() {
   new MutationObserver(updateAvailability).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
   document.addEventListener("visibilitychange", updateAvailability);
   reducedMotion.addEventListener("change", () => {
-    if (reducedMotion.matches) finishFade();
+    updateAvailability();
   });
   updateAvailability();
 }
@@ -227,3 +202,107 @@ function initializeDynamicBackground() {
 function readDynamicPalette(): readonly string[] { return backgroundPresentation.palettes[backgroundPresentation.front] ?? DYNAMIC_DEFAULT_PALETTE; }
 export { readDynamicBackgroundPresentation, readDynamicPalette, subscribeDynamicBackground, initializeDynamicBackground };
 export type { DynamicBackgroundPresentation };
+
+type ImageRegion = "sidebar" | "content" | "bar" | "titlebar";
+type ForegroundTone = "light" | "dark";
+type RegionSample = Readonly<{ mean: number; variance: number }>;
+type ImageForegroundPresentation = Readonly<Record<ImageRegion, ForegroundTone> & { halo: boolean }>;
+function relativeLuminance(r: number, g: number, b: number): number {
+  const linear = (value: number) => { const n = value / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; };
+  return .2126 * linear(r) + .7152 * linear(g) + .0722 * linear(b);
+}
+function imageMaskOpacity(value: number): number {
+  return value <= 40 ? value / 40 * .55 : .55 + (value - 40) * .4 / 55;
+}
+function regionForeground(previous: ForegroundTone, mean: number, alpha: number): ForegroundTone {
+  const effective = mean * (1 - alpha) + relativeLuminance(10, 12, 16) * alpha;
+  return effective > .45 ? "dark" : effective < .38 ? "light" : previous;
+}
+function sampleRegion(pixels: Uint8ClampedArray, width: number, height: number, rect: readonly number[]): RegionSample {
+  const [left, top, right, bottom] = rect;
+  let sum = 0, squares = 0, count = 0;
+  for (let y = Math.max(0, Math.floor(top * height)); y < Math.min(height, Math.ceil(bottom * height)); y++) {
+    for (let x = Math.max(0, Math.floor(left * width)); x < Math.min(width, Math.ceil(right * width)); x++) {
+      const index = (y * width + x) * 4, value = relativeLuminance(pixels[index], pixels[index + 1], pixels[index + 2]);
+      sum += value; squares += value * value; count++;
+    }
+  }
+  const mean = count ? sum / count : 0;
+  return { mean, variance: count ? Math.max(0, squares / count - mean * mean) : 0 };
+}
+function createImageForeground() {
+  const regions = { sidebar: "#sidebar", content: ".main-panel", bar: "#result", titlebar: ".window-titlebar" };
+  let source = "", version = 0, active = false, dim = 90;
+  let image: HTMLImageElement | null = null, raster: ImageData | null = null;
+  let aspect = 0, geometry = "";
+  let samples: Partial<Record<ImageRegion, RegionSample>> = {};
+  let tones: Record<ImageRegion, ForegroundTone> = { sidebar: "light", content: "light", bar: "light", titlebar: "light" };
+  let presentation: ImageForegroundPresentation | null = null;
+  function sampleImage(decoded: HTMLImageElement): void {
+    const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight);
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = Math.max(1, Math.round(96 * height / width));
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+    context.fillStyle = "#0f1418";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const scale = Math.max(canvas.width / decoded.naturalWidth, canvas.height / decoded.naturalHeight) * 1.08;
+    const w = decoded.naturalWidth * scale, h = decoded.naturalHeight * scale;
+    context.drawImage(decoded, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+    raster = context.getImageData(0, 0, canvas.width, canvas.height);
+    aspect = height / width; geometry = "";
+  }
+  async function updateImageForeground(state: ImageAppearance): Promise<void> {
+    const changed = active !== (state.theme === "image") || dim !== state.backgroundDim;
+    active = state.theme === "image"; dim = state.backgroundDim;
+    const next = active ? state.background?.dataUrl ?? "" : "";
+    if (next === source) { if (changed) refreshPresentation(); return; }
+    source = next;
+    const ticket = ++version;
+    image = null; raster = null; samples = {}; presentation = null;
+    tones = { sidebar: "light", content: "light", bar: "light", titlebar: "light" };
+    refreshPresentation();
+    if (!next) return;
+    try {
+      const decoded = new window.Image();
+      decoded.src = next;
+      await decoded.decode();
+      if (ticket !== version) return;
+      image = decoded; sampleImage(decoded); refreshPresentation();
+    } catch { /* Unreadable images retain the existing image-theme foreground. */ }
+  }
+  function readImageForegroundPresentation(): ImageForegroundPresentation | null {
+    if (!active || !raster) return null;
+    const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight);
+    if (image && aspect !== height / width) sampleImage(image);
+    const rects = Object.entries(regions).map(([name, selector]) => {
+      const rect = document.querySelector(selector)?.getBoundingClientRect();
+      return { name: name as ImageRegion, rect: rect ? [rect.left / width, rect.top / height, rect.right / width, rect.bottom / height] : [0, 0, 1, 1] };
+    });
+    const key = JSON.stringify(rects);
+    if (geometry !== key) {
+      for (const { name, rect } of rects) samples[name] = sampleRegion(raster.data, raster.width, raster.height, rect);
+      geometry = key;
+    }
+    const alpha = imageMaskOpacity(dim), halo = alpha < .55;
+    let changed = !presentation || presentation.halo !== halo;
+    for (const { name } of rects) {
+      const sample = samples[name];
+      if (!sample) continue;
+      const tone = regionForeground(tones[name], sample.mean, alpha);
+      if (tone !== tones[name]) changed = true;
+      tones[name] = tone;
+    }
+    if (changed) presentation = { ...tones, halo };
+    return presentation;
+  }
+
+  installImageForegroundPort(state => { void updateImageForeground(state); });
+  return readImageForegroundPresentation;
+}
+let readImageForegroundPort: (() => ImageForegroundPresentation | null) | undefined;
+function readImageForegroundPresentation(): ImageForegroundPresentation | null { return (readImageForegroundPort ??= createImageForeground())(); }
+
+export { relativeLuminance, imageMaskOpacity, regionForeground, sampleRegion, readImageForegroundPresentation };
+export type { ImageForegroundPresentation };

@@ -82,16 +82,16 @@ test("palette keeps distinct dominant colors, bounds brightness and handles empt
   assert.equal(new Set(result).size, 3);
   for (const color of result) {
     const channels = color.match(/\d+/g).map(Number);
-    assert.ok(channels.every((value: number) => value >= 8 && value <= 110));
-    assert.ok(Math.max(...channels) - Math.min(...channels) >= 60);
-    assert.ok(Math.max(...channels) - Math.min(...channels) <= 82);
+    assert.ok(channels.every((value: number) => value >= 0 && value <= 255));
+    assert.ok(Math.max(...channels) - Math.min(...channels) >= 35);
+    assert.ok(channels.reduce((sum: number, value: number, i: number) => { const n = value / 255; return sum + (n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][i]; }, 0) <= .09);
   }
   assert.deepEqual(app.extract(new Uint8ClampedArray(4096)), app.extract(pixels([255, 255, 255])));
 });
 
 test("successful extraction is deferred; CORS, image failure, timeout and empty queue silently use defaults", async () => {
   const app = setup();
-  const defaultColor = app.palette()["--dynamic-color-1"];
+  const defaultColor = app.extract(new Uint8ClampedArray())[0];
   app.track("cover-a");
   const image = app.images.at(-1);
   if (!image) throw new Error("Artwork image is missing");
@@ -257,9 +257,9 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   const context = load();
   const values = (app: import("node:vm").Context) => [app.glassBlurSlider.value, app.panelAlphaSlider.value, app.backgroundDimSlider.value];
   context.applyTheme("image", false);
-  assert.deepEqual(values(context), ["40", "72", "90"]);
+  assert.deepEqual(values(context), ["40", undefined, "90"]);
   assert.equal(context.panelAlphaSlider.min, "20");
-  assert.equal(context.backgroundDimSlider.min, "40");
+  assert.equal(context.backgroundDimSlider.min, "0");
   assert.ok(context.imageOnlyGroups.every((group: { classList: { disabled?: boolean } }) => !group.classList.disabled));
   context.setGlassBlur(53);
   context.setPanelAlpha(25);
@@ -269,12 +269,12 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   context.applyTheme("dynamic", false);
   assert.equal(reads.length, 0);
   assert.deepEqual([...stored], legacySettings);
-  assert.deepEqual(values(context), ["53", "25", "45"]);
+  assert.deepEqual(values(context), ["53", undefined, "45"]);
   assert.equal(context.panelAlphaSlider.min, "20");
-  assert.equal(context.backgroundDimSlider.min, "40");
+  assert.equal(context.backgroundDimSlider.min, "0");
   assert.ok(context.imageOnlyGroups[0].classList.disabled);
   assert.ok(context.imageOnlyGroups[1].classList.disabled);
-  const defaults = { "--glass-blur": "0px", "--panel-alpha": "0.2", "--background-dim": "0", "--content-panel-alpha": "0" };
+  const defaults = { "--glass-blur": "0px", "--panel-alpha": "0", "--background-dim": ".04", "--content-panel-alpha": "0" };
   const css = readFileSync(path.join(import.meta.dirname, "../../ui/styles.css"), "utf8");
   const styleMatch1 = css.match(/:root\[data-theme="dynamic"\] \{([^}]+)\}/);
   if (!styleMatch1) throw new Error("Expected stylesheet rule is missing");
@@ -294,9 +294,9 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   assert.equal(context.root.style["--glass-blur"], undefined);
   for (const [key, value] of legacySettings.filter(([key]) => !key.endsWith(".dynamic"))) assert.equal(stored.get(key), value);
   context.applyTheme("image", false);
-  assert.deepEqual(values(context), ["53", "25", "45"]);
+  assert.deepEqual(values(context), ["53", undefined, "45"]);
   assert.equal(context.panelAlphaSlider.min, "20");
-  assert.equal(context.backgroundDimSlider.min, "40");
+  assert.equal(context.backgroundDimSlider.min, "0");
 
   const restarted = load();
   reads.length = 0;
@@ -310,7 +310,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   for (const property of Object.keys(defaults)) assert.equal(restarted.root.style[property], undefined);
   assert.equal(reads.length, 0);
   restarted.applyTheme("image", false);
-  assert.deepEqual(values(restarted), ["53", "25", "45"]);
+  assert.deepEqual(values(restarted), ["53", undefined, "45"]);
   for (const theme of ["dark", "light", "image", "dynamic", "unknown", null]) {
     context.applyTheme(theme);
     assert.equal(context.root.dataset.theme, (["dark", "light", "image", "dynamic"] as (string | null)[]).includes(theme) ? theme : "dark");
@@ -332,10 +332,10 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   assert.ok(dynamicRule.includes("--panel: rgba(22, 24, 28, var(--panel-alpha));"));
   assert.match(css, /:root\[data-theme="dynamic"\] \.panel \{[^}]*backdrop-filter: blur\(var\(--glass-blur\)\);/);
   for (const [name, blur, alpha, expected] of [
-    ["fixed defaults keep main 0px / 20% and immersive 32px / 55%", 0, 20, [0, 0.2, 32, 0.55]],
-    ["intermediate saved values cannot change dynamic fixed parameters", 24, 50, [0, 0.2, 32, 0.55]],
-    ["previous immersive thresholds cannot change dynamic fixed parameters", 48, 65, [0, 0.2, 32, 0.55]],
-    ["maximum saved values cannot change dynamic fixed parameters", 80, 100, [0, 0.2, 32, 0.55]],
+    ["fixed defaults keep main 0px / 20% and immersive 32px / 55%", 0, 20, [0, 0, 32, 0.35]],
+    ["intermediate saved values cannot change dynamic fixed parameters", 24, 50, [0, 0, 32, 0.35]],
+    ["previous immersive thresholds cannot change dynamic fixed parameters", 48, 65, [0, 0, 32, 0.35]],
+    ["maximum saved values cannot change dynamic fixed parameters", 80, 100, [0, 0, 32, 0.35]],
   ] as [string, number, number, number[]][]) {
     await t.test(name, () => {
       const app = load();
@@ -373,8 +373,8 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     assert.equal(stored.get("bilibili-music.content-alpha"), "75");
     assert.ok(!reads.some((key) => key.includes("content-alpha") || key.endsWith(".dynamic")));
     for (const [id, min, max, value] of [
-      ["glass-blur", 0, 80, 40], ["panel-alpha", 20, 100, 72], ["background-dim", 40, 95, 90],
-    ]) assert.ok(html.includes(`id="${id}-slider" type="range" min="${min}" max="${max}" value="${value}"`));
+      ["glass-blur", 0, 80, 40], ["panel-alpha", 20, 100, 72], ["background-dim", 0, 95, 90],
+    ]) assert.ok(html.includes(`id="${id}-slider" type="range" min="${min}" max="${max}"${id === "panel-alpha" ? ' tabindex="-1" aria-hidden="true"' : ""} value="${value}"`));
     const contentRules = [...css.matchAll(/([^{}]+)\{[^{}]*background: rgba\(\d+, \d+, \d+, var\(--content-panel-alpha, 0\)\);[^{}]*\}/g)];
     assert.equal(contentRules.length, 4);
     assert.equal(contentRules.reduce((count, match) => count + match[1].split(",").length, 0), 16);
@@ -385,8 +385,8 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     const app = load();
     app.applyTheme("image", false);
     for (const [input, expected] of [
-      [-1, ["0", "20", "40"]], [120, ["80", "100", "95"]], ["invalid", ["40", "72", "90"]],
-    ] as [number | string, string[]][]) {
+      [-1, ["0", undefined, "0"]], [120, ["80", undefined, "95"]], ["invalid", ["40", undefined, "90"]],
+    ] as [number | string, (string | undefined)[]][]) {
       app.setGlassBlur(input);
       app.setPanelAlpha(input);
       app.setBackgroundDim(input);

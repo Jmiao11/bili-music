@@ -358,13 +358,13 @@ test("all three image sliders update stored values and their document CSS variab
   for (const [name, values, unit] of [["glass-blur", [0, 80], "px"], ["panel-alpha", [20, 100], ""], ["background-dim", [40, 95], ""]] as const) {
     for (const value of values) {
       await h.input(name + "-slider", String(value));
-      assert.equal(h.window.localStorage.getItem("bilibili-music." + name), String(value));
-      assert.equal(h.doc.documentElement.style.getPropertyValue("--" + name), unit ? value + unit : String(value / 100));
+      assert.equal(h.window.localStorage.getItem("bilibili-music." + name), name === "panel-alpha" ? null : String(value));
+      assert.equal(h.doc.documentElement.style.getPropertyValue("--" + name), name === "panel-alpha" ? "" : unit ? value + unit : String(value / 100));
     }
   }
   const css = fs.readFileSync(new URL("../../ui/styles.css", import.meta.url), "utf8");
   assert.match(css, /:root\[data-theme="image"\] body::before \{ filter: blur\(var\(--glass-blur\)\)/);
-  assert.match(css, /:is\(#sidebar, #result\) \{ background: rgba\(24, 25, 28, var\(--panel-alpha\)\)/);
+  assert.match(css, /:is\(#sidebar, #result\) \{ background: transparent/);
 });
 
 test("mini receives image and palette variables synchronously and ignores late image loads", async t => {
@@ -398,4 +398,19 @@ test("mini receives image and palette variables synchronously and ignores late i
   assert.equal(dom.window.document.documentElement.dataset.theme, "dynamic");
   colors.forEach((color, index) => assert.equal(shell().style.getPropertyValue("--dynamic-color-" + (index + 1)), color));
   assert.equal(shell().style.getPropertyValue("--mini-background"), "");
+});
+
+
+test("mini color crossfade shares three colors and pauses when hidden", async () => {
+  const app = await setup();await app.controller.start();
+  const colors=["rgb(40, 70, 60)","rgb(100, 60, 50)","rgb(45, 50, 80)"];
+  app.controller.render({theme:"dynamic",dynamicColors:colors});
+  const backdrop=()=>app.window.document.querySelector(".dynamic-background")!;
+  const current=app.window.document.querySelector<HTMLElement>(".dynamic-background-layer.is-visible")!;
+  colors.forEach((color,i)=>assert.equal(current.style.getPropertyValue("--dynamic-color-"+(i+1)),color));
+  Object.defineProperty(app.document,"hidden",{value:true,configurable:true});app.document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(backdrop().classList.contains("is-paused"),true);
+  Object.defineProperty(app.document,"hidden",{value:false,configurable:true});app.document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(backdrop().classList.contains("is-paused"),false);
+  app.window.dispatchEvent(new Event("beforeunload"));
 });

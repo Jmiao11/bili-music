@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { test } from "node:test";
+import { execFileSync } from "node:child_process";
 import { collectBusinessScripts } from "../helpers/module-graph.ts";
 import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/startup-probe.ts";
 
@@ -38,7 +39,15 @@ test("startup probe identifies sources through project and temporary directory a
   const keys = ["TEMP", "TMP", "TMPDIR"] as const;
   const saved = keys.map(key => process.env[key]);
   try {
-    fs.symlinkSync(path.resolve(import.meta.dirname, "../.."), project, process.platform === "win32" ? "junction" : "dir");
+    const source = path.resolve(import.meta.dirname, "../.."), copy = path.join(root, "independent-copy");
+    const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: source, encoding: "utf8" }).split("\0").filter(Boolean);
+    for (const file of tracked) {
+      const target = path.join(copy, file); fs.mkdirSync(path.dirname(target), {recursive:true}); fs.copyFileSync(path.join(source, file), target);
+    }
+    for (const name of [".local-data", "cookies.txt", "tools"]) if (fs.existsSync(path.join(copy,name))) throw Error("Runtime data in startup copy: " + name);
+    if (process.env.npm_execpath) execFileSync(process.execPath, [process.env.npm_execpath, "ci", "--offline"], {cwd:copy,stdio:"pipe"});
+    else execFileSync(process.platform === "win32" ? "cmd.exe" : "npm", process.platform === "win32" ? ["/d","/s","/c","npm ci --offline"] : ["ci","--offline"], {cwd:copy,stdio:"pipe"});
+    fs.symlinkSync(copy, project, process.platform === "win32" ? "junction" : "dir");
     fs.symlinkSync(parent, temporary, process.platform === "win32" ? "junction" : "dir");
     for (const key of keys) process.env[key] = temporary;
     const loaded = await loadNativeModules(path.join(project, "ui"));

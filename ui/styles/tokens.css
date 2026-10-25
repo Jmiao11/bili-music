@@ -88,19 +88,21 @@
 }
 
 :root[data-theme="dynamic"] {
-  --root: #0f1418;
+  --root: #303640;
   --bar: color-mix(in srgb, var(--cover-color, rgb(28, 32, 40)) 7%, transparent);
   --line: #1b252b;
   --line2: #2b3840;
   --input: #141d22;
-  --hover: #141d23;
-  --active: #16222a;
-  --nav-active: #18252d;
-  --text: #e8edf1;
-  --text2: #a0abb4;
-  --text3: #86929c;
+  --hover: rgba(255, 255, 255, .025);
+  --active: rgba(255, 255, 255, .035);
+  --nav-active: rgba(255, 255, 255, .045);
+  --text: #f7f9fc;
+  --text2: #e1e6ec;
+  --text3: #d0d9e3;
+  --danger: #ffcaca;
   --play-bg: #e8edf1;
   --play-fg: #0f1418;
+  --accent-text: color-mix(in srgb, var(--accent) 40%, #fff);
 }
 
 :root[data-theme="dynamic"] .player-bar {

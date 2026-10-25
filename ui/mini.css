@@ -270,12 +270,14 @@ body {
 :root:is([data-theme="image"], [data-theme="dynamic"]) .mini-shell { background: #0f1418; }
 :root:is([data-theme="image"], [data-theme="dynamic"]) .mini-shell::before { content: ""; position: absolute; z-index: -2; inset: 0; pointer-events: none; }
 :root[data-theme="image"] .mini-shell::before { background: var(--mini-background, none) center / cover no-repeat; filter: blur(24px); transform: scale(1.15); }
-:root[data-theme="image"] .mini-shell::after { content: ""; position: absolute; z-index: -1; inset: 0; background: rgba(10,12,16,calc(.55 + (var(--background-dim) - .4) * .4 / .55)); pointer-events: none; }
-:root[data-theme="dynamic"] .mini-shell { --surface: color-mix(in srgb, #16181c 92%, var(--dynamic-color-1, rgb(28,32,40)) 8%); }
-:root[data-theme="dynamic"] .mini-shell::before {
-  inset: -15%; opacity: .32;
-  background: radial-gradient(ellipse at 18% 25%, var(--dynamic-color-1, rgb(28,32,40)), transparent 65%), radial-gradient(ellipse at 82% 70%, var(--dynamic-color-2, rgb(38,32,42)), transparent 65%), linear-gradient(125deg, var(--dynamic-color-3, rgb(28,39,39)), var(--dynamic-color-1, rgb(28,32,40)));
-  animation: mini-background-drift 32s ease-in-out infinite alternate;
-}
-@keyframes mini-background-drift { from { transform: translate3d(-2%, -1%, 0) rotate(-2deg) scale(1.02); } to { transform: translate3d(2%, 1%, 0) rotate(2deg) scale(1.05); } }
-@media (prefers-reduced-motion: reduce) { :root[data-theme="dynamic"] .mini-shell::before { animation: none; } }
+:root[data-theme="image"] .mini-shell::after { content: ""; position: absolute; z-index: -1; inset: 0; background: rgba(10,12,16,min(calc(var(--background-dim) * 1.375), calc(.55 + (var(--background-dim) - .4) * .4 / .55))); pointer-events: none; }
+:root[data-theme="dynamic"] { --text: #f7f9fc; --text2: #e1e6ec; --root: #303640; }
+:root[data-theme="dynamic"] .mini-shell { background: var(--root); --surface: color-mix(in srgb, var(--root) 90%, var(--dynamic-color-1, rgb(48,54,64)) 10%); }
+:root[data-theme="dynamic"] .mini-shell::before { content: none; }
+.dynamic-background { position: absolute; z-index: -2; inset: 0; overflow: hidden; pointer-events: none; background: var(--root); }
+.dynamic-background-layer { position: absolute; inset: -15%; opacity: 0; background: radial-gradient(ellipse at 18% 25%, var(--dynamic-color-1, rgb(48,54,64)), transparent 65%), radial-gradient(ellipse at 82% 70%, var(--dynamic-color-2, color-mix(in srgb, var(--accent) 30%, #303640)), transparent 65%), radial-gradient(ellipse at 45% 85%, var(--dynamic-color-3, rgb(58,62,70)), transparent 75%); transition: opacity 1200ms ease; animation: dynamic-background-drift 25s ease-in-out infinite; }
+.dynamic-background-layer.is-visible { opacity: 1; }
+.dynamic-background::after { content: ""; position: absolute; inset: 0; background: rgba(10,10,11,.04); }
+.dynamic-background.is-paused .dynamic-background-layer { animation-play-state: paused; transition: none; }
+@keyframes dynamic-background-drift { 0%, 100% { transform: translate3d(-2%, -1%, 0) rotate(-2deg) scale(1.02); } 50% { transform: translate3d(2%, 1%, 0) rotate(2deg) scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .dynamic-background-layer { animation: none; transition: none; } }
