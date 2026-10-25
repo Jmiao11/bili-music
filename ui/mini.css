@@ -249,7 +249,7 @@ body {
 }
 
 /* Scheme C; the existing controller still maps image/dynamic to dark. */
-:root { --bar: #141518; --line: #1c1e22; --text: #e6e7ea; --text2: #9a9fa8; --input: #1a1c1f; --play-bg: #e6e7ea; --play-fg: #111214; --accent: rgb(var(--accent-r), var(--accent-g), var(--accent-b)); --floating-surface: #111214; --surface: var(--floating-surface); --mini-bg: var(--bar); --mini-border: var(--line); --mini-text: var(--text); --mini-muted: var(--text2); }
+:root { --bar: #1f2024; --line: #2c2e33; --text: #ecedef; --text2: #b0b4bb; --input: #222327; --play-bg: #e6e7ea; --play-fg: #111214; --accent: rgb(var(--accent-r), var(--accent-g), var(--accent-b)); --floating-surface: #232428; --surface: var(--floating-surface); --mini-bg: var(--bar); --mini-border: var(--line); --mini-text: var(--text); --mini-muted: var(--text2); }
 :root[data-theme="light"] { --bar: #f4f5f7; --line: #e7e8eb; --text: #17181b; --text2: #575c66; --input: #fff; --play-bg: #17181b; --play-fg: #fff; --floating-surface: #fafafb; }
 .mini-shell { border-color: var(--line); background: var(--bar); }
 .mini-cover { border-radius: 4px; }
@@ -262,3 +262,20 @@ body {
 .mini-favorite.is-favorited { color: var(--text); background: var(--mini-control); }
 .mini-icon-button:focus-visible, .mini-notice-more:focus-visible, .mini-notice-full:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #mini-notice, .mini-notice-full { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 12px; }
+
+/* UI-4: the main-window palette and image travel through mini-player-state. */
+.mini-shell { isolation: isolate; overflow: hidden; }
+:root[data-theme="image"] { --text: #fff; --text2: #e4e8ee; --line: rgba(255,255,255,.08); }
+:root[data-theme="dynamic"] { --text: #e8edf1; --text2: #a0abb4; --line: #1b252b; }
+:root:is([data-theme="image"], [data-theme="dynamic"]) .mini-shell { background: #0f1418; }
+:root:is([data-theme="image"], [data-theme="dynamic"]) .mini-shell::before { content: ""; position: absolute; z-index: -2; inset: 0; pointer-events: none; }
+:root[data-theme="image"] .mini-shell::before { background: var(--mini-background, none) center / cover no-repeat; filter: blur(24px); transform: scale(1.15); }
+:root[data-theme="image"] .mini-shell::after { content: ""; position: absolute; z-index: -1; inset: 0; background: rgba(10,12,16,calc(.55 + (var(--background-dim) - .4) * .4 / .55)); pointer-events: none; }
+:root[data-theme="dynamic"] .mini-shell { --surface: color-mix(in srgb, #16181c 92%, var(--dynamic-color-1, rgb(28,32,40)) 8%); }
+:root[data-theme="dynamic"] .mini-shell::before {
+  inset: -15%; opacity: .32;
+  background: radial-gradient(ellipse at 18% 25%, var(--dynamic-color-1, rgb(28,32,40)), transparent 65%), radial-gradient(ellipse at 82% 70%, var(--dynamic-color-2, rgb(38,32,42)), transparent 65%), linear-gradient(125deg, var(--dynamic-color-3, rgb(28,39,39)), var(--dynamic-color-1, rgb(28,32,40)));
+  animation: mini-background-drift 32s ease-in-out infinite alternate;
+}
+@keyframes mini-background-drift { from { transform: translate3d(-2%, -1%, 0) rotate(-2deg) scale(1.02); } to { transform: translate3d(2%, 1%, 0) rotate(2deg) scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { :root[data-theme="dynamic"] .mini-shell::before { animation: none; } }

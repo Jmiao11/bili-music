@@ -115,3 +115,9 @@ F8最终回归及发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、�
 迷你窗组件独占标题、封面、控制按钮、提示、滚动class/style的显示写权；documentElement上的主题和强调色变量仍由窗口控制器同步应用，保证原来的:root CSS与跨平台透明窗口不变。原生拖动、焦点、测量、IPC和存储不进入组件。`scripts/typecheck/check.ts` 对mini也使用官方vue-tsc，覆盖真实SFC。
 
 `vite.config.ts` 的主构建只处理index；`scripts/vite/mini-bundle.ts` 独立构建mini模块并将产物合入同一目录，Vue各自内联，两个入口都不允许静态/动态公共chunk。mini.js退役，mini.html只将原脚本改为module入口，其余源结构及CSS保持；verify:dist继续精确比HTML、双平台字节、G0与AST，缺文件反例改为迷你窗模块。F7主窗产物与G1逐字节核对，不重建193/140的G0。F8完成了主窗剩余写入交接，主窗与迷你窗均由各自Vue根独占界面写权。
+
+### UI-4：迷你窗主题参数同步
+
+`mini-player-projection.ts` 仅在背景图主题追加背景路径/暗化值，在动态主题追加由host调用 `readDynamicPalette()` 后传入纯投影的三色；无Key或业务播放地址。`subscribeMiniPlayerTheme` 复用原store订阅和原RAF发布合并，并在窗口就绪后订阅动态背景的本地展示通知；关闭/卸载同时取消。动态取色完成只通知展示消费者，不改store提交与FIX-1根渲染。没有新增DOM或IPC监听，G0保持193/149。
+
+mini窗口控制器使用已有 `load_background_image` command读图，不需要asset协议权限；路径或背景版本变化清空旧图并用请求版本号丢弃迟到结果。SFC独占背景CSS变量与装饰层，documentElement主题仍是原生登记端口，完整表达式白名单仅把原深/浅映射扩展为四主题，不增加写入面。新增测试覆盖图片乱序完成、暗化/配色变量与原通道合并。

@@ -187,15 +187,15 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     </div>
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
-    <PlaybackNotice :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
+    <PlaybackNotice :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
     <PlaybackBar :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
 
-    <div id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">
+    <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">
       <SettingsPanel :draft-bindings="draftBindings" :appearance-status="shell.appearanceStatus" :purge-busy="shell.purgeBusy" :state="snapshot.settings" :model="settingsControls" :callbacks="settingsCallbacks" :normalization="snapshot.playbackSettings.normalizationEnabled" :normalization-version="snapshot.playbackSettings.view.enabledVersion" />
     </div>
 
-    <div id="library-modal" :ref="element => mainWindowRefs.libraryModal(element as HTMLDivElement|null)" class="settings-mask" :class="{'is-open':stages.library.open}" :aria-hidden="!stages.library.open" :hidden="stages.library.hidden">
+    <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="library-modal" :ref="element => mainWindowRefs.libraryModal(element as HTMLDivElement|null)" class="settings-mask" :class="{'is-open':stages.library.open}" :aria-hidden="!stages.library.open" :hidden="stages.library.hidden">
       <div class="settings-panel panel library-modal-panel" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
         <header class="settings-header">
           <div>
@@ -213,7 +213,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
       </div>
     </div>
 
-    <div id="pages-modal" :ref="element => mainWindowRefs.pagesModal(element as HTMLDivElement|null)" class="modal settings-mask" :class="{'is-open':stages.pages.open}" :aria-hidden="!stages.pages.open" :hidden="stages.pages.hidden">
+    <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="pages-modal" :ref="element => mainWindowRefs.pagesModal(element as HTMLDivElement|null)" class="modal settings-mask" :class="{'is-open':stages.pages.open}" :aria-hidden="!stages.pages.open" :hidden="stages.pages.hidden">
       <div class="modal-card settings-panel panel pages-modal-card" role="dialog" aria-modal="true" aria-labelledby="pages-modal-title" aria-describedby="pages-modal-sub">
         <div class="pages-modal-heading">
           <h2 id="pages-modal-title">{{ shell.pagesTitle }}</h2>

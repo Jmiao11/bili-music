@@ -1,15 +1,15 @@
 :root {
-  --root: #111214;
-  --bar: #141518;
-  --line: #1c1e22;
-  --line2: #2a2d33;
-  --input: #1a1c1f;
-  --hover: #17191c;
-  --active: #1a1c1f;
-  --nav-active: #1d1f23;
-  --text: #e6e7ea;
-  --text2: #9a9fa8;
-  --text3: #80858e;
+  --root: #18191c;
+  --bar: #1f2024;
+  --line: #2c2e33;
+  --line2: #3a3d43;
+  --input: #222327;
+  --hover: #222428;
+  --active: #26282d;
+  --nav-active: #2a2c31;
+  --text: #ecedef;
+  --text2: #b0b4bb;
+  --text3: #8d9199;
   --play-bg: #e6e7ea;
   --play-fg: #111214;
   --accent-text: var(--accent);

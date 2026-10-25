@@ -68,6 +68,8 @@ function createMiniPlayerController({
   console,
 }: { eventApi: TauriEventApi; invoke: CommandInvoke; windowApi: TauriWindowHandle; availableMonitors: () => Promise<TauriMonitor[]>; dpi: { PhysicalPosition: new (x: number, y: number) => TauriPosition }; document: Document; storage: Pick<Storage, "getItem" | "setItem">; window: Window; console: Console }) {
   let snapshot: MiniView["snapshot"] = {}, hasSnapshot = false, expanded = false;
+  let backgroundPath: string | null = null, backgroundUrl: string | null = null, backgroundVersion = 0;
+  let backgroundRevision: number | undefined;
   let distance: string | null = null, duration: string | null = null, scrolling = false;
   let controlsBound = false;
   const renderView = createMiniRenderer(document.body);
@@ -78,7 +80,7 @@ function createMiniPlayerController({
     noticeKey: event => { if(!controlsBound || event.key !== "Escape") return; expanded=false; renderRoot(); noticeMoreButton.focus?.(); },
     drag: event => { if(controlsBound) dragWindow(event); },
   };
-  function renderRoot() { renderView({snapshot,hasSnapshot,expanded,distance,duration,scrolling},callbacks); }
+  function renderRoot() { renderView({snapshot,hasSnapshot,expanded,distance,duration,scrolling,backgroundUrl},callbacks); }
   renderRoot();
   const {title,titleViewport,restoreButton,noticeMoreButton,noticeFull,root}=readMiniPorts(document);
   const unlisteners: (() => void)[] = [];
@@ -132,13 +134,23 @@ function createMiniPlayerController({
   function render(state: Partial<MiniPlayerStatePayload> = {}) {
     if(!state.notice && (document.activeElement === noticeMoreButton || document.activeElement === noticeFull)) restoreButton.focus?.();
     if(!state.notice) expanded=false;
+    const path = state.theme === "image" ? state.backgroundPath || null : null;
+    if (path !== backgroundPath || state.backgroundVersion !== backgroundRevision) {
+      backgroundPath = path; backgroundUrl = null;
+      backgroundRevision = state.backgroundVersion;
+      const version = ++backgroundVersion;
+      if (path) void invoke("load_background_image", { path }).then(image => {
+        if (disposed || version !== backgroundVersion) return;
+        backgroundUrl = image.dataUrl; renderRoot();
+      }).catch(() => warn("mini background load failed", "无法读取背景图"));
+    }
     snapshot = state;
     hasSnapshot = true;
     const nextTitle = state.title || "尚未播放", titleChanged = nextTitle !== lastTitle;
     if(titleChanged) { lastTitle=nextTitle; distance=null; duration=null; scrolling=false; }
     renderRoot();
     if(titleChanged) updateTitleScroll(true);
-    root.dataset.theme = state.theme === "light" ? "light" : "dark";
+    root.dataset.theme = ["light", "image", "dynamic"].includes(state.theme ?? "") ? state.theme ?? "dark" : "dark";
     if(state.accent) {
       root.style.setProperty("--accent-r",String(Number(state.accent.r)||0));
       root.style.setProperty("--accent-g",String(Number(state.accent.g)||0));

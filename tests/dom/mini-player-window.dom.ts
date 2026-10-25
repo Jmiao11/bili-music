@@ -348,3 +348,54 @@ test("mini root renders synchronously once mounted and keeps controls inert befo
     assert.equal(app.controls["#mini-play-pause"].getAttribute("aria-label"),"暂停");
   }
 });
+
+import fs from "node:fs";
+import { controlsSettingsFixture } from "./controls-settings-fixture.ts";
+
+test("all three image sliders update stored values and their document CSS variables", async t => {
+  const h = await controlsSettingsFixture(); t.after(h.dispose);
+  await h.fire(h.doc.querySelector('[data-theme-option="image"]')!, "click");
+  for (const [name, values, unit] of [["glass-blur", [0, 80], "px"], ["panel-alpha", [20, 100], ""], ["background-dim", [40, 95], ""]] as const) {
+    for (const value of values) {
+      await h.input(name + "-slider", String(value));
+      assert.equal(h.window.localStorage.getItem("bilibili-music." + name), String(value));
+      assert.equal(h.doc.documentElement.style.getPropertyValue("--" + name), unit ? value + unit : String(value / 100));
+    }
+  }
+  const css = fs.readFileSync(new URL("../../ui/styles.css", import.meta.url), "utf8");
+  assert.match(css, /:root\[data-theme="image"\] body::before \{ filter: blur\(var\(--glass-blur\)\)/);
+  assert.match(css, /:is\(#sidebar, #result\) \{ background: rgba\(24, 25, 28, var\(--panel-alpha\)\)/);
+});
+
+test("mini receives image and palette variables synchronously and ignores late image loads", async t => {
+  const dom = new JSDOM(fs.readFileSync(new URL("../../ui/mini.html", import.meta.url), "utf8"), { url: "http://localhost/mini.html" });
+  const runtime = await loadMiniFactory(dom.window.document);
+  t.after(() => { runtime.restore(); dom.window.close(); });
+  type Image = { dataUrl: string };
+  const pending = new Map<string, (image: Image) => void>();
+  const controller = runtime.create({
+    document: dom.window.document, window: dom.window, storage: { getItem: () => null, setItem() {} }, console: { warn() {} },
+    eventApi: { listen: async () => () => {}, emit: async () => {} },
+    invoke: (command: string, args: { path?: string } = {}) => command === "load_background_image" ? new Promise<Image>(resolve => pending.set(args.path!, resolve)) : Promise.resolve(null),
+    windowApi: { onMoved: async () => () => {}, outerSize: async () => ({ width: 280, height: 90 }), outerPosition: async () => ({ x: 0, y: 0 }) },
+    availableMonitors: async () => [], dpi: {},
+  });
+  await controller.start();
+  const shell = () => dom.window.document.querySelector<HTMLElement>(".mini-shell")!;
+  controller.render({ theme: "image", backgroundPath: "first.png", backgroundDim: 40 });
+  assert.equal(dom.window.document.documentElement.dataset.theme, "image");
+  assert.equal(shell().style.getPropertyValue("--background-dim"), "0.4");
+  controller.render({ theme: "image", backgroundPath: "second.png", backgroundDim: 90 });
+  pending.get("second.png")!({ dataUrl: "data:image/png;base64,second" }); await Promise.resolve();
+  assert.ok(shell().style.getPropertyValue("--mini-background").includes("second"));
+  pending.get("first.png")!({ dataUrl: "data:image/png;base64,first" }); await Promise.resolve();
+  assert.ok(shell().style.getPropertyValue("--mini-background").includes("second"));
+  controller.render({ theme: "image", backgroundPath: "second.png", backgroundVersion: 2, backgroundDim: 90 });
+  assert.equal(shell().style.getPropertyValue("--mini-background"), "");
+  const colors = ["rgb(20, 40, 60)", "rgb(50, 25, 35)", "rgb(35, 55, 25)"];
+  controller.render({ theme: "dynamic", dynamicColors: colors });
+  pending.get("second.png")!({ dataUrl: "data:image/png;base64,replacement" }); await Promise.resolve();
+  assert.equal(dom.window.document.documentElement.dataset.theme, "dynamic");
+  colors.forEach((color, index) => assert.equal(shell().style.getPropertyValue("--dynamic-color-" + (index + 1)), color));
+  assert.equal(shell().style.getPropertyValue("--mini-background"), "");
+});

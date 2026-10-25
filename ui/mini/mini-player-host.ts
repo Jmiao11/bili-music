@@ -1,3 +1,4 @@
+import { readDynamicPalette, subscribeDynamicBackground } from "../features/settings/dynamic-background.ts";
 import { getApplicationStore } from "../features/home/home.ts";
 import { toggleCurrentFavorite } from "../features/library/library-ui.ts";
 import { getPlaybackCommands } from "../features/settings/appearance.ts";
@@ -7,20 +8,25 @@ import { setPlaybackStatus } from "../features/playback/playback-messages.ts";
 function subscribeMiniPlayerTheme(listener: () => void) {
   const store = getApplicationStore();
   let settings = store.getState().settings;
-  let previous = selectMiniPlayerSnapshot(store.getState());
-  return store.subscribe(state => {
-    if (state.settings === settings) return;
-    settings = state.settings;
-    const next = selectMiniPlayerSnapshot(state);
-    if (next.theme === previous.theme && next.accent.r === previous.accent.r && next.accent.g === previous.accent.g && next.accent.b === previous.accent.b) return;
+  let previous = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette());
+  function check() {
+    const next = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette());
+    if (next.theme === previous.theme && next.accent.r === previous.accent.r && next.accent.g === previous.accent.g && next.accent.b === previous.accent.b && next.backgroundPath === previous.backgroundPath && next.backgroundDim === previous.backgroundDim && next.backgroundVersion === previous.backgroundVersion && next.dynamicColors === previous.dynamicColors) return;
     previous = next;
     listener();
+  }
+  const unlistenStore = store.subscribe(state => {
+    if (state.settings === settings) return;
+    settings = state.settings;
+    check();
   });
+  const unlistenBackground = subscribeDynamicBackground(check);
+  return () => { unlistenStore(); unlistenBackground(); };
 }
 
 function getMiniPlayerHostSnapshot() {
   const state = getApplicationStore().getState();
-  return { ...selectMiniPlayerSnapshot(state), ...selectMiniPlayerMessages(state) };
+  return { ...selectMiniPlayerSnapshot(state, readDynamicPalette()), ...selectMiniPlayerMessages(state) };
 }
 
 const MINI_PLAYER_LABEL = "mini";

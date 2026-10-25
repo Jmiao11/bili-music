@@ -11,6 +11,11 @@ interface MiniPlayerStatePayload {
   isPlaying: boolean;
   isFavorited: boolean;
   theme: string;
+  backgroundPath?: string | null;
+  backgroundDim?: number;
+  backgroundVersion?: number;
+  backgroundVersion?: number;
+  dynamicColors?: readonly string[];
   accent: { r: number; g: number; b: number };
   notice: string;
 }

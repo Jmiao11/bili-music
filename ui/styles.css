@@ -5188,7 +5188,7 @@ input[type="range"]::-webkit-slider-thumb {
 .window-background-overlay { display: none; position: fixed; z-index: 0; inset: 0; pointer-events: none; }
 /* Keep the image dimmer above the background in every WebView compositing path. */
 :root[data-theme="image"] .window-background-overlay { display: block; background: rgba(10, 12, 16, calc(.55 + (var(--background-dim) - .4) * .4 / .55)); }
-:root[data-theme="image"] body::before { filter: blur(20px); transform: scale(1.08); }
+:root[data-theme="image"] body::before { filter: blur(var(--glass-blur)); transform: scale(1.08); }
 :root[data-theme="image"] body::after { background: transparent; }
 :root[data-theme="image"] #app .window-titlebar { background: var(--bar); }
 :root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
@@ -5280,7 +5280,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Independent floating surfaces. */
 /* Floating surfaces must stay opaque when page themes make --panel transparent. */
-:root { --floating-surface: #111214; }
+:root { --floating-surface: #232428; }
 :root[data-theme="light"] { --floating-surface: #fafafb; }
 :root[data-theme="image"] { --floating-surface: #202024; }
 :root[data-theme="dynamic"] { --floating-surface: #16181c; }
@@ -5406,3 +5406,16 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root #app #settings-modal #accent-color-settings input:checked + .accent-dot { outline: 2px solid var(--accent); outline-offset: 3px; }
 :root #app #settings-modal #accent-color-settings input:focus-visible + .accent-dot { outline: 2px solid var(--accent); outline-offset: 2px; }
 :root #app #settings-modal > .settings-panel > .appearance-status { margin: 16px 20px; color: var(--text3); font-size: 12px; }
+
+/* UI-4: page tint and floating surfaces consume separate appearance parameters. */
+:root[data-theme="image"] #app :is(#sidebar, #result) { background: rgba(24, 25, 28, var(--panel-alpha)); }
+:root[data-theme="dark"] #app :is(.sidebar-playlist, .playlist-card).is-selected small { color: var(--text2); }
+:root[data-theme="image"] { --surface: #232428; }
+:root[data-theme="dynamic"] { --surface: color-mix(in srgb, #16181c 92%, var(--cover-color, rgb(28, 32, 40)) 8%); }
+:root[data-theme="dynamic"] #app :is(#settings-modal, #library-modal, #pages-modal, .playback-notice, .player-bar) { --surface: color-mix(in srgb, #16181c 92%, var(--cover-color, rgb(28, 32, 40)) 8%); }
+:root #app .volume-control { --volume-panel-bg: var(--surface); }
+:root #app :is(.settings-panel, .ai-help-bubble, .playback-notice) { background: var(--surface); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-theme="image"] { --surface: rgba(24, 25, 28, .78); }
+  :root[data-theme="image"] #app :is(.settings-panel, .ai-help-bubble, .playback-notice) { backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2); }
+}

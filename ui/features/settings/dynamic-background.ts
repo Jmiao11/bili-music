@@ -2,7 +2,9 @@ import { refreshPresentation } from "../../app/presentation-refresh.ts";
 type DynamicBackgroundPresentation = Readonly<{ paused:boolean; front:number; palettes:readonly (readonly string[] | null)[] }>;
 let backgroundPresentation:DynamicBackgroundPresentation={paused:false,front:0,palettes:[null,null]};
 function readDynamicBackgroundPresentation():DynamicBackgroundPresentation { return backgroundPresentation; }
-function updateBackdrop(fields:Partial<DynamicBackgroundPresentation>):void { backgroundPresentation={...backgroundPresentation,...fields}; refreshPresentation(); }
+let backgroundListeners: Set<() => void> | null = null;
+function subscribeDynamicBackground(listener: () => void): () => void { (backgroundListeners ??= new Set()).add(listener); return () => { backgroundListeners?.delete(listener); }; }
+function updateBackdrop(fields:Partial<DynamicBackgroundPresentation>):void { backgroundPresentation={...backgroundPresentation,...fields}; refreshPresentation(); for (const listener of backgroundListeners ?? []) listener(); }
 const DYNAMIC_DEFAULT_PALETTE = ["rgb(28, 32, 40)", "rgb(38, 32, 42)", "rgb(28, 39, 39)"];
 
 // H 为角度，S / L 为 0–1；只在一次取色任务中转换，不参与逐帧动画。
@@ -77,9 +79,9 @@ function initializeDynamicBackground() {
   let active = false;
   let version = 0;
   let loadingImage: HTMLImageElement | null = null;
-  let loadTimer: number | null = null;
-  let idleTask: number | null = null;
-  let fadeTimer: number | null = null;
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
+  let idleTask: number | ReturnType<typeof setTimeout> | null = null;
+  let fadeTimer: ReturnType<typeof setTimeout> | null = null;
   let queuedPalette: string[] | null = null;
   let front = 0;
 
@@ -121,7 +123,7 @@ function initializeDynamicBackground() {
     if (loadTimer !== null) clearTimeout(loadTimer);
     loadTimer = null;
     if (idleTask !== null) {
-      if (window.cancelIdleCallback) window.cancelIdleCallback(idleTask);
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idleTask as number);
       else clearTimeout(idleTask);
       idleTask = null;
     }
@@ -222,5 +224,6 @@ function initializeDynamicBackground() {
   updateAvailability();
 }
 
-export { readDynamicBackgroundPresentation, initializeDynamicBackground };
+function readDynamicPalette(): readonly string[] { return backgroundPresentation.palettes[backgroundPresentation.front] ?? DYNAMIC_DEFAULT_PALETTE; }
+export { readDynamicBackgroundPresentation, readDynamicPalette, subscribeDynamicBackground, initializeDynamicBackground };
 export type { DynamicBackgroundPresentation };
