@@ -33,7 +33,11 @@
   --space-6: 24px;
   --r-xs: 4px;
   --r-sm: 6px;
+  --r-md: 8px;
   --r-full: 50%;
+  --surface: var(--floating-surface);
+  --overlay: rgba(0, 0, 0, .45);
+  --dialog-shadow: 0 12px 32px rgba(0, 0, 0, .35);
   --track-height: 44px;
   --track-cover-size: 32px;
   --player-height: 64px;
@@ -47,6 +51,8 @@
 }
 
 :root[data-theme="light"] {
+  --overlay: rgba(0, 0, 0, .25);
+  --dialog-shadow: 0 12px 32px rgba(0, 0, 0, .12);
   --on-accent: #fff;
   --danger: #b42332;
   --root: #fafafb;

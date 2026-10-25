@@ -64,15 +64,15 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
 
         <section id="texture-settings" class="setting-group image-only" :class="{ 'is-disabled': state.view.themeVersion > 0 && state.theme !== 'image' }">
           <h3>质感微调</h3>
-          <label class="slider-row">
+          <label class="slider-row" :style="{'--settings-fill': `${Number(field('glassBlurSlider').value ?? 40) / .8}%`}">
             <span>毛玻璃模糊 <output id="glass-blur-value">{{ field('glassBlurValue').text ?? "40px" }}</output></span>
             <input id="glass-blur-slider" @input="callbacks.slider('blur', ($event.target as HTMLInputElement).value)" v-field="field('glassBlurSlider')" type="range" min="0" max="80" value="40" />
           </label>
-          <label class="slider-row">
+          <label class="slider-row" :style="{'--settings-fill': `${(Number(field('panelAlphaSlider').value ?? 72) - 20) / .8}%`}">
             <span>面板不透明度 <output id="panel-alpha-value">{{ field('panelAlphaValue').text ?? "72%" }}</output></span>
             <input id="panel-alpha-slider" @input="callbacks.slider('alpha', ($event.target as HTMLInputElement).value)" v-field="field('panelAlphaSlider')" type="range" min="20" max="100" value="72" />
           </label>
-          <label class="slider-row">
+          <label class="slider-row" :style="{'--settings-fill': `${(Number(field('backgroundDimSlider').value ?? 90) - 40) / .55}%`}">
             <span>背景暗化 <output id="background-dim-value">{{ field('backgroundDimValue').text ?? "90%" }}</output></span>
             <input id="background-dim-slider" @input="callbacks.slider('dim', ($event.target as HTMLInputElement).value)" v-field="field('backgroundDimSlider')" type="range" min="40" max="95" value="90" />
           </label>

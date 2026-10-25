@@ -247,3 +247,18 @@ body {
     animation: none;
   }
 }
+
+/* Scheme C; the existing controller still maps image/dynamic to dark. */
+:root { --bar: #141518; --line: #1c1e22; --text: #e6e7ea; --text2: #9a9fa8; --input: #1a1c1f; --play-bg: #e6e7ea; --play-fg: #111214; --accent: rgb(var(--accent-r), var(--accent-g), var(--accent-b)); --floating-surface: #111214; --surface: var(--floating-surface); --mini-bg: var(--bar); --mini-border: var(--line); --mini-text: var(--text); --mini-muted: var(--text2); }
+:root[data-theme="light"] { --bar: #f4f5f7; --line: #e7e8eb; --text: #17181b; --text2: #575c66; --input: #fff; --play-bg: #17181b; --play-fg: #fff; --floating-surface: #fafafb; }
+.mini-shell { border-color: var(--line); background: var(--bar); }
+.mini-cover { border-radius: 4px; }
+.mini-title { font-size: 13px; }
+.mini-icon-button { border-radius: 6px; }
+.mini-play-button { border-radius: 50%; color: var(--play-fg); background: var(--play-bg); }
+.mini-play-button svg { width: 16px; height: 16px; }
+.mini-play-button:hover:not(:disabled) { color: var(--play-fg); background: var(--play-bg); opacity: .85; }
+.mini-icon-play { transform: translateX(1px); }
+.mini-favorite.is-favorited { color: var(--text); background: var(--mini-control); }
+.mini-icon-button:focus-visible, .mini-notice-more:focus-visible, .mini-notice-full:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#mini-notice, .mini-notice-full { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 12px; }

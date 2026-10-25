@@ -525,7 +525,8 @@
               {
                 "tag": "label",
                 "attributes": {
-                  "class": "slider-row"
+                  "class": "slider-row",
+                  "style": "--settings-fill: 50%;"
                 },
                 "children": [
                   {
@@ -561,7 +562,8 @@
               {
                 "tag": "label",
                 "attributes": {
-                  "class": "slider-row"
+                  "class": "slider-row",
+                  "style": "--settings-fill: 65%;"
                 },
                 "children": [
                   {
@@ -597,7 +599,8 @@
               {
                 "tag": "label",
                 "attributes": {
-                  "class": "slider-row"
+                  "class": "slider-row",
+                  "style": "--settings-fill: 90.9090909090909%;"
                 },
                 "children": [
                   {
