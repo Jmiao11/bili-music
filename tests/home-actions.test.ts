@@ -169,3 +169,60 @@ test("a timed out recommendation cannot overwrite a retry or release its busy co
   assert.equal(h.store.getState().home.recommendationError, "");
   assert.equal(h.timers.size, 0);
 });
+
+test("updates check once per run without blocking or changing unrelated state", async () => {
+  const h = fixture();
+  const before = h.store.getState();
+  let resolve!: (value: unknown) => void;
+  h.reply(() => new Promise(done => { resolve = done; }));
+  const pending = h.store.actions.checkForUpdate();
+  await h.store.actions.checkForUpdate();
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.store.getState(), before);
+  h.store.actions.setHomeHint("检查时仍能使用主页");
+  resolve({ version: "0.9.0" }); await pending;
+  const after = h.store.getState();
+  assert.equal(after.home.update.version, "0.9.0");
+  assert.equal(after.home.userHint, "检查时仍能使用主页");
+  assert.equal(after.home.ranking, before.home.ranking);
+  assert.equal(after.playbackQueue, before.playbackQueue);
+  assert.equal(after.search, before.search);
+  assert.equal(after.settings, before.settings);
+  assert.equal(after.library, before.library);
+  assert.equal(after.home.view, before.home.view);
+});
+
+test("no update and check errors remain silent in the UI and never open a browser", async () => {
+  for (const fail of [false, true]) {
+    const h = fixture(); const before = h.store.getState();
+    h.reply(async () => { if (fail) throw Error("network failure"); return null; });
+    await h.store.actions.checkForUpdate();
+    await h.store.actions.checkForUpdate();
+    await h.store.actions.openUpdateDownload();
+    assert.equal(h.store.getState(), before);
+    assert.deepEqual(h.calls.map(call => call.command), ["check_for_update"]);
+    assert.equal(h.reports.length, fail ? 1 : 0);
+  }
+});
+
+test("update download deduplicates in-flight clicks and retries a failed launch", async () => {
+  const h = fixture(); h.reply(async () => ({ version: "0.9.0" }));
+  await h.store.actions.checkForUpdate();
+  let resolve!: (value: unknown) => void;
+  h.reply(() => new Promise(done => { resolve = done; }));
+  const pending = h.store.actions.openUpdateDownload();
+  await h.store.actions.openUpdateDownload();
+  assert.equal(h.store.getState().home.update.opening, true);
+  assert.deepEqual(h.calls.map(call => call.command), ["check_for_update", "open_update_download"]);
+  assert.equal(h.calls[1].args, undefined);
+  resolve(null); await pending;
+  assert.equal(h.store.getState().home.update.opening, false);
+  h.reply(async () => { throw Error("browser unavailable"); });
+  await h.store.actions.openUpdateDownload();
+  assert.equal(h.store.getState().home.update.error, true);
+  assert.equal(h.store.getState().home.update.opening, false);
+  h.reply(async () => null);
+  await h.store.actions.openUpdateDownload();
+  assert.equal(h.store.getState().home.update.error, false);
+  assert.equal(h.store.getState().home.update.version, "0.9.0");
+});

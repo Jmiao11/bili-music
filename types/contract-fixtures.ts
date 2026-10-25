@@ -1,4 +1,5 @@
 // Compile-only checks; these JSON files are also checked by Rust tests.
+import fixtureAvailableUpdate from "../tests/fixtures/contract/available-update.json";
 import fixtureAiConfigViewNone from "../tests/fixtures/contract/ai-config-view-none.json";
 import fixtureAiConfigViewSome from "../tests/fixtures/contract/ai-config-view-some.json";
 import fixtureAiConnectionTestResult from "../tests/fixtures/contract/ai-connection-test-result.json";
@@ -99,6 +100,8 @@ const bindingsSomeInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtu
 const bindingsNoneInput: CommandMap["set_shortcuts"]["args"] = { bindings: fixtureShortcutBindingsNone };
 const bindingsOmittedInput: CommandMap["set_shortcuts"]["args"] = { bindings: {} };
 const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
+  check_for_update: fixtureAvailableUpdate,
+  open_update_download: null,
   // src-tauri/src/main_window.rs:37 returns Result<(), String>; success serializes to null.
   main_window_ready: null,
   read_public_favorite_page: fixtureImportPage,

@@ -32,5 +32,7 @@ function loadRecommendations(options: { forceRefresh?: boolean } = {}): Promise<
 function refreshAiKeyState(): Promise<void> { return getApplicationStore().actions.refreshAiKeyState(); }
 function setHomeMode(mode: string): void { getApplicationStore().actions.setHomeMode(mode); }
 function setHomeHint(hint: string): void { getApplicationStore().actions.setHomeHint(hint); }
+function checkForUpdate(): Promise<void> { return getApplicationStore().actions.checkForUpdate(); }
+function openUpdateDownload(): Promise<void> { return getApplicationStore().actions.openUpdateDownload(); }
 
-export { getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi };
+export { checkForUpdate, openUpdateDownload, getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi };

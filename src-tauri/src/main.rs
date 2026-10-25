@@ -146,6 +146,8 @@ fn main() {
             commands::runtime::get_yt_dlp_availability,
             commands::runtime::set_stream_source,
             commands::runtime::open_bilibili_video,
+            commands::updates::check_for_update,
+            commands::updates::open_update_download,
             choose_background_image,
             load_background_image,
             library::favorites::list_favorites,

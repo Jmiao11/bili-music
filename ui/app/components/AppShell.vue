@@ -21,6 +21,7 @@ import SearchTabs from "../../features/search/components/SearchTabs.vue";
 import SearchForm from "../../features/search/components/SearchForm.vue";
 import HomeSetupHint from "../../features/home/components/HomeSetupHint.vue";
 import HomeHint from "../../features/home/components/HomeHint.vue";
+import HomeUpdateNotice from "../../features/home/components/HomeUpdateNotice.vue";
 import PlaybackBar from "../../features/playback/components/PlaybackBar.vue";
 import ImmersivePlayer from "../../features/immersive/components/ImmersivePlayer.vue";
 import PlaybackNotice from "../../features/playback/components/PlaybackNotice.vue";
@@ -62,6 +63,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
                 </div>
               </div>
               <div class="home-actions">
+                <HomeUpdateNotice :model="snapshot.home.update" :on-open="pageCallbacks.update" />
                 <span id="home-cache-note" class="home-cache-note" hidden>{{ shell.homeCache }}</span>
                 <button id="refresh-ranking-button" :ref="element => mainWindowRefs.refreshRankingButton(element as HTMLButtonElement|null)" :title="shell.homeRefreshTitle" :disabled="shell.homeRefreshDisabled" class="secondary-button home-refresh-button" type="button">刷新</button>
               </div>

@@ -61,6 +61,7 @@ async function fixture(options: { playback?: boolean } = {}) {
   // library.rs:42; playlists.rs:12; disabled_pages.rs:106; ai.rs:75; shortcut_config.rs:31;
   // audio_cache.rs:60,67; commands/runtime.rs:7,13. No API keys or runtime files are read.
   const startup: Reply = async command => {
+    if (command === "check_for_update") return null;
     if (["list_favorites", "list_playlists", "list_unavailable_tracks"].includes(command)) return [];
     if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
     if (command === "get_ai_config") return new Promise(() => {});
