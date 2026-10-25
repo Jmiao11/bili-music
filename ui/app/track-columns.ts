@@ -4,14 +4,14 @@ import type { TrackColumn } from "../features/tracks/track-column-state.ts";
 
 const trackColumnWidths = shallowReactive({ ...TRACK_COLUMN_DEFAULTS });
 const trackColumnDrag = shallowReactive<{ column: TrackColumn | null }>({ column: null });
-let drag: { id: number; x: number; width: number; column: TrackColumn; header: HTMLElement } | null = null;
+let drag: { id: number; x: number; width: number; column: TrackColumn; header: HTMLElement; layout?: typeof trackColumnWidths; maximum?: number } | null = null;
 let lastPress: { header: HTMLElement; column: TrackColumn; time: number; x: number; y: number } | null = null;
-function applyWidths(): void {
-  const title = trackColumnWidths.title;
+function applyWidths(widths = trackColumnWidths): void {
+  const title = widths.title;
   document.documentElement.style.setProperty("--track-title-width", title === "auto" ? "100%" : `${title}px`);
-  const capacities = trackColumnCapacities(trackColumnWidths);
+  const capacities = trackColumnCapacities(widths);
   for (const column of ["uploader", "pages", "plays", "duration"] as const) {
-    document.documentElement.style.setProperty(`--track-${column}-width`, `${trackColumnWidths[column]}px`);
+    document.documentElement.style.setProperty(`--track-${column}-width`, `${widths[column]}px`);
     document.documentElement.style.setProperty(`--track-${column}-capacity`, String(capacities[column]));
   }
 }
@@ -36,7 +36,10 @@ function resize(column: TrackColumn, width: number): void {
 function move(event: PointerEvent): void {
   if (!drag || event.pointerId !== drag.id) return;
   if (lastPress && (Math.abs(event.clientX - lastPress.x) > 3 || Math.abs(event.clientY - lastPress.y) > 3)) lastPress = null;
-  resize(drag.column, drag.width + event.clientX - drag.x);
+  const width = Math.min(drag.maximum ?? Infinity, resizeTrackColumn(drag.column, drag.width + event.clientX - drag.x));
+  trackColumnWidths[drag.column] = width;
+  if (drag.layout) { drag.layout[drag.column] = width; applyWidths(drag.layout); }
+  else applyWidths();
 }
 function finish(event: PointerEvent): void {
   if (!drag || event.pointerId !== drag.id) return;
@@ -47,7 +50,7 @@ function finish(event: PointerEvent): void {
   window.removeEventListener("pointercancel", finish);
   window.removeEventListener("lostpointercapture", finish);
   if (current.header.hasPointerCapture(current.id)) current.header.releasePointerCapture(current.id);
-  saveWidths();
+  applyWidths(); saveWidths();
 }
 const trackColumnCallbacks = Object.freeze({
   pointerdown(event: PointerEvent): void {
@@ -68,6 +71,15 @@ const trackColumnCallbacks = Object.freeze({
     header.setPointerCapture(event.pointerId);
     const saved = trackColumnWidths[column];
     drag = { id: event.pointerId, x: line.width ? line.left + line.width / 2 : event.clientX, width: saved === "auto" ? cell.width || 240 : saved, column, header };
+    const titleCell = header.querySelector<HTMLElement>(".column-title"), titleWidth = titleCell?.getBoundingClientRect().width ?? 0;
+    if (titleWidth > 0 && column !== "title") {
+      const widthOf = (name: string) => header.querySelector<HTMLElement>(".column-" + name)?.getBoundingClientRect().width ?? 0;
+      const layout = { title: titleWidth, uploader: widthOf("uploader"), pages: widthOf("pages"), plays: widthOf("play"), duration: widthOf("duration") };
+      trackColumnWidths.title = titleWidth;
+      drag.layout = layout; drag.width = layout[column];
+      drag.maximum = Math.min(TRACK_COLUMN_LIMITS[column][1], drag.width + widthOf("spacer"));
+      applyWidths(layout);
+    }
     trackColumnDrag.column = column;
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", finish);

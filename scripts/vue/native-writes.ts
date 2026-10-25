@@ -41,7 +41,7 @@ const allowedWrites:Readonly<Record<string,string>>={
   "ui/features/settings/dynamic-background.ts:canvas.height = Math.max(1, Math.round(96 * height / width))": "离屏背景图按窗口比例采样",
   "ui/features/settings/dynamic-background.ts:decoded.src = next": "复用背景加载投影，只解码 data URL；不新增监听",
   "ui/app/track-columns.ts:document.documentElement.style.setProperty(\"--track-title-width\", title === \"auto\" ? \"100%\" : `${title}px`)": "文档根偏好列宽；有效列宽由CSS根据容器收缩，不写Vue节点",
-  'ui/app/track-columns.ts:document.documentElement.style.setProperty(`--track-${column}-width`, `${trackColumnWidths[column]}px`)': "文档根列宽端口，仅四项已验证数字列宽；不写 Vue 宿主节点",
+  'ui/app/track-columns.ts:document.documentElement.style.setProperty(`--track-${column}-width`, `${widths[column]}px`)': "文档根列宽端口，仅偏好或几何读取的四项数字列宽；不写 Vue 宿主节点",
   "ui/app/track-columns.ts:document.documentElement.style.setProperty(`--track-${column}-capacity`, String(capacities[column]))": "文档根各列可压缩余量；只投影已验证偏好，不新增监听",
   "ui/features/settings/dynamic-background.ts:loadingImage.src = \"\"": "离屏 Image/canvas 采样，不进入应用树",
   "ui/features/settings/dynamic-background.ts:image.crossOrigin = \"anonymous\"": "离屏 Image/canvas 采样，不进入应用树",

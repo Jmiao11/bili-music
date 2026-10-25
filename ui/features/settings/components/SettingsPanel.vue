@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import FloatingBackdrop from "./FloatingBackdrop.vue";
+import type {DynamicBackgroundPresentation,ImageForegroundPresentation} from "../dynamic-background.ts";
 import type {ComponentPublicInstance} from "vue";
 import type {draftBindings} from "../../../platform/draft-ports.ts";
 import type {ObjectDirective} from 'vue';
@@ -6,7 +8,7 @@ import {applySettingsField} from './field-directive.ts';
 import type {SettingsControl,SettingsControls} from '../settings-controls.ts';
 import type {SettingsSnapshot} from '../settings-state.ts';
 import type {SettingsCallbacks} from '../root-settings.ts';
-const props=defineProps<{draftBindings:typeof draftBindings;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
+const props=defineProps<{draftBindings:typeof draftBindings;surfaceVisible?:boolean;background?:DynamicBackgroundPresentation;onGeometry?:(element:HTMLElement)=>()=>void;foreground?:ImageForegroundPresentation|null;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
 const empty:SettingsControl={};
 const field=(name:string)=>props.model[name]??empty;
 const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>={mounted:(element,binding)=>applySettingsField(element,binding.value),updated:(element,binding)=>applySettingsField(element,binding.value,binding.oldValue ?? undefined)};
@@ -21,6 +23,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
 </script>
 <template>
       <div class="settings-panel panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <FloatingBackdrop v-if="(surfaceVisible ?? state.session.panelOpen) && background && (state.theme === 'image' || state.theme === 'dynamic')" :model="background" :on-geometry="onGeometry" />
         <header class="settings-header">
           <div>
             <h2 id="settings-title">设置</h2>
@@ -209,7 +212,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
                   aria-describedby="ai-help-bubble">?<span
                     id="ai-help-bubble"
                     class="ai-help-bubble"
-                    role="tooltip"><strong>规则</strong>
+                    role="tooltip" :style="background?.surfaces?.help" :data-image-foreground="foreground?.help" :data-image-halo="foreground?.halos.help || undefined"><FloatingBackdrop v-if="(surfaceVisible ?? state.session.panelOpen) && background && (state.theme === 'image' || state.theme === 'dynamic')" :model="background" :on-geometry="onGeometry" /><strong>规则</strong>
                     <ul>
                       <li>请填到服务商要求的版本段，例如 https://api.openai.com/v1</li>
                       <li>只追加所选规范的端点，不自动补 /v1</li>

@@ -5497,8 +5497,6 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
   --input: rgba(255,255,255,.72); --hover: rgba(0,0,0,.06); --active: rgba(0,0,0,.09); --nav-active: rgba(0,0,0,.09);
   --play-bg: #17181b; --play-fg: #fff; --danger: #b42332;
   --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
-  --image-halo: 0 0 3px rgba(255,255,255,.85);
-  --image-icon-halo: 0 0 3px rgba(255,255,255,.85);
 }
 :root[data-theme="image"] [data-image-foreground="light"] {
   color-scheme: dark;
@@ -5507,10 +5505,108 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
   --input: rgba(0,0,0,.45); --hover: rgba(255,255,255,.06); --active: rgba(255,255,255,.09); --nav-active: rgba(255,255,255,.09);
   --play-bg: #edeff2; --play-fg: #111214; --danger: #ff8080;
   --accent-text: color-mix(in srgb, var(--accent) 40%, #fff);
-  --image-halo: 0 0 3px rgba(0,0,0,.75);
-  --image-icon-halo: 0 0 3px rgba(0,0,0,.75);
 }
-:root[data-theme="image"] [data-image-halo="on"],
-:root[data-theme="image"] [data-image-halo="on"] :is(button, input, select, textarea) { text-shadow: var(--image-halo); }
-:root[data-theme="image"] [data-image-halo="on"] svg { filter: drop-shadow(var(--image-icon-halo)); }
-:root[data-theme="image"] [data-image-halo="on"] :is(input:not([type="range"]):not([type="checkbox"]), select, .secondary-button, .tool-button, .page-count-badge, .track-unavailable, .player-pages-group) { background-color: var(--input); border-color: var(--line2); }
+
+/* Scoped tokens win over legacy page-ID rules; other themes keep their existing palette. */
+:root[data-theme="image"] #app [data-image-foreground] {
+  --icon-color: var(--text2);
+  --outline-text: none; --outline-text2: none; --outline-text3: none; --outline-accent: none;
+  --icon-outline: none; --accent-icon-outline: none;
+  --badge-bg: var(--input); --badge-border: var(--line2);
+  --button-bg: var(--input); --button-border: var(--line2);
+  --input-border: var(--line2);
+  --on-accent: #111214;
+  --track-line: var(--line); --line-strong: var(--line2);
+  --panel-raised: var(--hover); --search-bg: var(--input);
+  scrollbar-color: var(--line2) transparent;
+  color: var(--text); text-shadow: var(--outline-text);
+}
+:root[data-theme="image"] #app [data-image-foreground="dark"] {
+  --compact-outline: 0 0 1px rgba(255,255,255,.65), 0 1px 1px rgba(255,255,255,.65);
+  --compact-filter: drop-shadow(0 0 1px rgba(255,255,255,.65)) drop-shadow(0 1px 1px rgba(255,255,255,.65));
+}
+:root[data-theme="image"] #app [data-image-foreground="light"] {
+  --compact-outline: 0 0 1px rgba(0,0,0,.65), 0 1px 1px rgba(0,0,0,.65);
+  --compact-filter: drop-shadow(0 0 1px rgba(0,0,0,.65)) drop-shadow(0 1px 1px rgba(0,0,0,.65));
+}
+:root[data-theme="image"] #app [data-image-halo~="text"] { --outline-text: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="text2"] { --outline-text2: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="text3"] { --outline-text3: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="accent"] { --outline-accent: var(--compact-outline); --accent-icon-outline: var(--compact-filter); }
+:root[data-theme="image"] #app [data-image-halo~="icon"] { --icon-outline: var(--compact-filter); }
+:root[data-theme="image"] #app [data-image-foreground] :is(h1,h2,h3,strong,.track-title,.music-tab.is-active,.nav-item.active,input:not([type="range"]),textarea,select) {
+  color: var(--text) !important; text-shadow: var(--outline-text) !important;
+}
+:root[data-theme="image"] #app [data-image-foreground] :is(.track-up,.track-creator,.track-play,.track-duration,.player-subtitle,#uploader,.sidebar-playlist,.music-tab:not(.is-active),.secondary-button,.small-button,.tool-button,.icon-button,.mode-button,.shuffle-control span,.queue-position,.player-pages-button,.player-skip-video-button,.player-collection-position,.volume-control) {
+  color: var(--text2) !important; text-shadow: var(--outline-text2) !important;
+}
+:root[data-theme="image"] #app [data-image-foreground] :is(.track-columns,.track-columns > span,.track-columns > span > span:first-child,.track-pubdate,.track-number,.nav-group-label,.sidebar-playlist small,#current-time,#duration,.titlebar-status,.home-subtitle,.search-status,.modal-sub,.appearance-status) {
+  color: var(--text3) !important; text-shadow: var(--outline-text3) !important;
+}
+:root[data-theme="image"] #app [data-image-foreground] :is(input,textarea)::placeholder { color: var(--text3) !important; opacity: 1; text-shadow: var(--outline-text3); }
+:root[data-theme="image"] #app [data-image-foreground] :is(svg,.ui-icon) { color: var(--icon-color) !important; filter: var(--icon-outline) !important; }
+:root[data-theme="image"] #app [data-image-foreground] .play-button { --icon-color: var(--play-fg); --icon-outline: none; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.window-titlebar-mark,.nav-item.active,.mode-button.is-active,.shuffle-control:has(input:checked)) { --icon-color: var(--accent-text); --icon-outline: var(--accent-icon-outline); }
+:root[data-theme="image"] #app [data-image-foreground] :is(.track[aria-current="true"] .track-title,.page-count-badge[data-collection],.mode-button.is-active,.shuffle-control:has(input:checked) span) { color: var(--accent-text) !important; text-shadow: var(--outline-accent) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.danger-button,.danger-text,.is-error) { color: var(--danger) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.page-count-badge,.track-unavailable) { border-color: var(--badge-border); background: var(--badge-bg); }
+:root[data-theme="image"] #app [data-image-foreground] :is(.secondary-button,.small-button) { border-color: var(--button-border); background-color: var(--button-bg); }
+:root[data-theme="image"] #app [data-image-foreground] :is(input:not([type="range"]):not([type="checkbox"]),textarea,select) { border-color: var(--input-border); background-color: var(--input); }
+:root[data-theme="image"] #app [data-image-foreground] ::-webkit-scrollbar-thumb { background-color: var(--line2); }
+:root[data-theme="image"] #app [data-image-foreground] ::-webkit-scrollbar-track { background: transparent; }
+
+:root #app .player-bar .player-pages-group { background: var(--input); border: 1px solid var(--line2); color: var(--text2); }
+:root #app .player-bar .player-pages-group :is(.player-pages-button,.player-skip-video-button,.player-collection-position) { background: transparent; border-color: var(--line2); color: var(--text2); }
+:root #app .player-bar .player-pages-group button:hover { background: var(--hover); color: var(--text); }
+:root #app .player-bar .player-pages-group .ui-icon { color: currentColor; }
+
+.floating-backdrop { position: fixed; inset: 0; z-index: -1; pointer-events: none; clip-path: var(--floating-clip, inset(100% 100% 0 0)); }
+.floating-backdrop > .floating-image { display: none; }
+:root[data-theme="image"] .floating-backdrop > .floating-image { display: block; position: absolute; inset: 0; background: var(--app-background) center / cover no-repeat; filter: blur(24px); transform: scale(1.15); }
+.floating-backdrop .dynamic-background { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.floating-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(10,12,16,.04); }
+:root[data-theme="image"] .floating-backdrop::after { background: rgba(10,12,16,max(.55,min(calc(var(--background-dim) * 1.375),calc(.55 + (var(--background-dim) - .4) * .4 / .55)))); }
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app :is(.settings-panel,.ai-help-bubble):has(> .floating-backdrop) {
+  isolation: isolate; transform: none; background: var(--floating-surface); backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app .settings-panel:has(> .floating-backdrop) :is(.settings-header,.modal-actions,.library-modal-actions) { background: transparent !important; }
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app .playback-notice:has(> .floating-backdrop) { isolation: isolate; }
+
+/* At the minimum modal mask, preserve contrast before the secondary hierarchy. */
+:root[data-theme="image"] #app :is(.settings-panel,.ai-help-bubble,.playback-notice)[data-image-foreground="dark"] { --text: #000; --text2: #000; --text3: #000; }
+:root[data-theme="image"] #app :is(.settings-panel,.ai-help-bubble,.playback-notice)[data-image-foreground="light"] { --text2: var(--text); --text3: var(--text); }
+
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app .playback-notice .floating-backdrop { left: calc(-1 * var(--floating-left, 0px)); top: calc(-1 * var(--floating-top, 0px)); right: auto; bottom: auto; width: 100vw; height: 100vh; }
+
+/* Solid/translucent controls use their own contrast band, not the bare picture. */
+:root[data-theme="image"] #app [data-image-foreground] { --control-text: none; --control-text2: none; --control-text3: none; --control-accent: none; --control-icon: none; }
+:root[data-theme="image"] #app [data-image-halo~="control-text"] { --control-text: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="control-text2"] { --control-text2: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="control-text3"] { --control-text3: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="control-accent"] { --control-accent: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="control-icon"] { --control-icon: var(--compact-filter); }
+:root[data-theme="image"] #app [data-image-foreground] :is(input:not([type="range"]),textarea,select) { text-shadow: var(--control-text) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(input,textarea)::placeholder { text-shadow: var(--control-text3) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.secondary-button,.small-button,.page-count-badge,.player-pages-group,.player-pages-button,.player-skip-video-button,.player-collection-position) { text-shadow: var(--control-text2) !important; }
+:root[data-theme="image"] #app [data-image-foreground] .page-count-badge { background: var(--badge-bg) !important; border-color: var(--badge-border) !important; }
+:root[data-theme="image"] #app [data-image-foreground] .page-count-badge[data-collection] { border-color: var(--accent-text) !important; text-shadow: var(--control-accent) !important; }
+:root[data-theme="image"] #app [data-image-foreground] .player-pages-group { --icon-outline: var(--control-icon); }
+
+:root[data-theme="image"] #app [data-image-foreground] :is(.primary-button,button.primary) { text-shadow: none !important; }
+
+:root[data-theme="image"] #app [data-image-foreground] { --outline-danger: none; --control-danger: none; }
+:root[data-theme="image"] #app [data-image-foreground="dark"] { --on-danger: #fff; }
+:root[data-theme="image"] #app [data-image-foreground="light"] { --on-danger: #111214; }
+:root[data-theme="image"] #app [data-image-halo~="danger"] { --outline-danger: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-halo~="control-danger"] { --control-danger: var(--compact-outline); }
+:root[data-theme="image"] #app [data-image-foreground] :is(.danger-text,.is-error) { text-shadow: var(--outline-danger) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.small-button.quiet.danger,.audio-cache-clear,#clear-search-history-button,#purge-unavailable-tracks-button) { color: var(--danger) !important; background: var(--input); border-color: var(--line2); text-shadow: var(--control-danger) !important; }
+:root[data-theme="image"] #app [data-image-foreground] :is(.primary-button,button.primary,.primary-cta,.search-submit),
+:root[data-theme="image"] #app [data-image-foreground] .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-accent) !important; border-color: var(--accent) !important; background: var(--accent) !important; text-shadow: none !important; }
+:root[data-theme="image"] #app [data-image-foreground] .library-modal-actions > .danger-action:not(:disabled),
+:root[data-theme="image"] #app [data-image-foreground] .library-modal-body:has(.unavailable-purge-list) .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-danger) !important; border-color: var(--danger) !important; background: var(--danger) !important; text-shadow: none !important; }
+
+:root[data-theme="image"] #app [data-image-foreground="dark"] { --option-bg: #fff; }
+:root[data-theme="image"] #app [data-image-foreground="light"] { --option-bg: #232428; }
+:root[data-theme="image"] #app [data-image-foreground] select option { color: var(--text) !important; background: var(--option-bg) !important; }
+:root[data-theme="image"] #app [data-image-foreground] .track-unavailable { color: var(--text3) !important; border-color: var(--badge-border) !important; background: var(--badge-bg) !important; text-shadow: var(--control-text3) !important; }

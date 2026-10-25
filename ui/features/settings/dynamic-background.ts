@@ -1,11 +1,11 @@
 import { installImageForegroundPort } from "./settings-state.ts";
 import type { SettingsSnapshot } from "./settings-state.ts";
 import { refreshPresentation } from "../../app/presentation-refresh.ts";
-type ImageAppearance = Pick<SettingsSnapshot, "theme" | "backgroundDim" | "background">;
+type ImageAppearance = Pick<SettingsSnapshot, "theme" | "backgroundDim" | "background"> & { accentColor?: SettingsSnapshot["accentColor"] };
 const DYNAMIC_DEFAULT_PALETTE = ["rgb(48, 54, 64)", "color-mix(in srgb, var(--accent) 30%, #303640)", "rgb(58, 62, 70)"];
-type DynamicBackgroundPresentation = Readonly<{ paused:boolean; front:number; palettes:readonly (readonly string[] | null)[] }>;
+type DynamicBackgroundPresentation = Readonly<{ paused:boolean; front:number; palettes:readonly (readonly string[] | null)[]; surfaces?: Readonly<Record<string, Readonly<Record<string,string>>>> }>;
 let backgroundPresentation:DynamicBackgroundPresentation={paused:false,front:0,palettes:[null,null]};
-function readDynamicBackgroundPresentation():DynamicBackgroundPresentation { return backgroundPresentation; }
+function readDynamicBackgroundPresentation():DynamicBackgroundPresentation { return projectFloatingSurfaceBackground(backgroundPresentation); }
 let backgroundListeners: Set<() => void> | null = null;
 function subscribeDynamicBackground(listener: () => void): () => void { (backgroundListeners ??= new Set()).add(listener); return () => { backgroundListeners?.delete(listener); }; }
 function updateBackdrop(fields:Partial<DynamicBackgroundPresentation>):void { backgroundPresentation={...backgroundPresentation,...fields}; refreshPresentation(); for (const listener of backgroundListeners ?? []) listener(); }
@@ -203,10 +203,10 @@ function readDynamicPalette(): readonly string[] { return backgroundPresentation
 export { readDynamicBackgroundPresentation, readDynamicPalette, subscribeDynamicBackground, initializeDynamicBackground };
 export type { DynamicBackgroundPresentation };
 
-type ImageRegion = "sidebar" | "content" | "bar" | "titlebar";
+type ImageRegion = "sidebar" | "content" | "bar" | "titlebar" | "settings" | "library" | "pages" | "help" | "notice";
 type ForegroundTone = "light" | "dark";
 type RegionSample = Readonly<{ mean: number; variance: number }>;
-type ImageForegroundPresentation = Readonly<Record<ImageRegion, ForegroundTone> & { halo: boolean }>;
+type ImageForegroundPresentation = Readonly<Record<ImageRegion, ForegroundTone> & { halo: boolean; halos: Readonly<Record<ImageRegion, string>> }>;
 function relativeLuminance(r: number, g: number, b: number): number {
   const linear = (value: number) => { const n = value / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; };
   return .2126 * linear(r) + .7152 * linear(g) + .0722 * linear(b);
@@ -230,13 +230,29 @@ function sampleRegion(pixels: Uint8ClampedArray, width: number, height: number, 
   const mean = count ? sum / count : 0;
   return { mean, variance: count ? Math.max(0, squares / count - mean * mean) : 0 };
 }
+function imageForegroundHalos(tone: ForegroundTone, background: number, alpha: number, accent: readonly number[] = [251,114,153], variance = 0): string {
+  if (alpha >= .55) return "";
+  const palette = tone === "dark" ? [[23,24,27],[87,92,102],[106,111,121]] : [[255,255,255],[228,232,238],[216,223,232]];
+  const accentText = accent.map(n => tone === "dark" ? n*.72 : n*.4+255*.6);
+  const colors = [...palette, palette[1], accentText, tone === "dark" ? [180,35,50] : [255,128,128]], names = ["text","text2","text3","icon","accent","danger"];
+  const weak = (rgb: readonly number[], mean: number, spread: number) => {
+    const y = relativeLuminance(rgb[0],rgb[1],rgb[2]);
+    const nearest = Math.max(Math.max(0,mean-spread),Math.min(Math.min(1,mean+spread),y));
+    return (Math.max(y,nearest)+.05)/(Math.min(y,nearest)+.05) < 4.5;
+  };
+  const spread = Math.sqrt(variance), opacity = tone === "dark" ? .72 : .45, inputY = tone === "dark" ? 1 : 0;
+  return colors.flatMap((rgb,index) => [
+    ...(weak(rgb,background,spread) ? [names[index]] : []),
+    ...(weak(rgb,background*(1-opacity)+inputY*opacity,spread*(1-opacity)) ? ["control-"+names[index]] : [])
+  ]).join(" ");
+}
 function createImageForeground() {
-  const regions = { sidebar: "#sidebar", content: ".main-panel", bar: "#result", titlebar: ".window-titlebar" };
-  let source = "", version = 0, active = false, dim = 90;
+  const regions = { sidebar: "#sidebar", content: ".main-panel", bar: "#result", titlebar: ".window-titlebar", settings: "#settings-modal > .settings-panel", library: "#library-modal > .settings-panel", pages: "#pages-modal > .settings-panel", help: "#ai-help-bubble", notice: "#playback-notice" };
+  let source = "", version = 0, active = false, dim = 90, accentName: string | undefined;
   let image: HTMLImageElement | null = null, raster: ImageData | null = null;
   let aspect = 0, geometry = "";
   let samples: Partial<Record<ImageRegion, RegionSample>> = {};
-  let tones: Record<ImageRegion, ForegroundTone> = { sidebar: "light", content: "light", bar: "light", titlebar: "light" };
+  let tones: Record<ImageRegion, ForegroundTone> = { sidebar: "light", content: "light", bar: "light", titlebar: "light", settings: "light", library: "light", pages: "light", help: "light", notice: "light" };
   let presentation: ImageForegroundPresentation | null = null;
   function sampleImage(decoded: HTMLImageElement): void {
     const width = Math.max(1, window.innerWidth), height = Math.max(1, window.innerHeight);
@@ -254,14 +270,14 @@ function createImageForeground() {
     aspect = height / width; geometry = "";
   }
   async function updateImageForeground(state: ImageAppearance): Promise<void> {
-    const changed = active !== (state.theme === "image") || dim !== state.backgroundDim;
-    active = state.theme === "image"; dim = state.backgroundDim;
+    const changed = active !== (state.theme === "image") || dim !== state.backgroundDim || accentName !== state.accentColor;
+    active = state.theme === "image"; dim = state.backgroundDim; accentName = state.accentColor;
     const next = active ? state.background?.dataUrl ?? "" : "";
     if (next === source) { if (changed) refreshPresentation(); return; }
     source = next;
     const ticket = ++version;
     image = null; raster = null; samples = {}; presentation = null;
-    tones = { sidebar: "light", content: "light", bar: "light", titlebar: "light" };
+    tones = { sidebar: "light", content: "light", bar: "light", titlebar: "light", settings: "light", library: "light", pages: "light", help: "light", notice: "light" };
     refreshPresentation();
     if (!next) return;
     try {
@@ -282,19 +298,29 @@ function createImageForeground() {
     });
     const key = JSON.stringify(rects);
     if (geometry !== key) {
-      for (const { name, rect } of rects) samples[name] = sampleRegion(raster.data, raster.width, raster.height, rect);
+      for (const { name, rect } of rects) {
+        const scale = ["sidebar","content","bar","titlebar"].includes(name) ? 1 : 1.08 / 1.15;
+        const area = rect.map(value => (value - .5) * scale + .5);
+        samples[name] = sampleRegion(raster.data, raster.width, raster.height, area);
+      }
       geometry = key;
     }
     const alpha = imageMaskOpacity(dim), halo = alpha < .55;
     let changed = !presentation || presentation.halo !== halo;
+    const halos = {} as Record<ImageRegion, string>;
+    const channels = typeof getComputedStyle === "function" && document.documentElement ? ["r","g","b"].map((channel,index) => Number(getComputedStyle(document.documentElement).getPropertyValue("--accent-"+channel)) || [251,114,153][index]) : [251,114,153];
     for (const { name } of rects) {
       const sample = samples[name];
       if (!sample) continue;
-      const tone = regionForeground(tones[name], sample.mean, alpha);
+      const effectiveAlpha = ["sidebar","content","bar","titlebar"].includes(name) ? alpha : Math.max(alpha,.55);
+      const tone = regionForeground(tones[name], sample.mean, effectiveAlpha);
+      const background = sample.mean * (1-effectiveAlpha) + relativeLuminance(10,12,16)*effectiveAlpha;
+      halos[name] = imageForegroundHalos(tone,background,effectiveAlpha,channels,sample.variance*(1-effectiveAlpha)**2);
+      if (presentation?.halos[name] !== halos[name]) changed = true;
       if (tone !== tones[name]) changed = true;
       tones[name] = tone;
     }
-    if (changed) presentation = { ...tones, halo };
+    if (changed) presentation = { ...tones, halo, halos };
     return presentation;
   }
 
@@ -304,5 +330,34 @@ function createImageForeground() {
 let readImageForegroundPort: (() => ImageForegroundPresentation | null) | undefined;
 function readImageForegroundPresentation(): ImageForegroundPresentation | null { return (readImageForegroundPort ??= createImageForeground())(); }
 
-export { relativeLuminance, imageMaskOpacity, regionForeground, sampleRegion, readImageForegroundPresentation };
+export { relativeLuminance, imageMaskOpacity, regionForeground, sampleRegion, imageForegroundHalos, readImageForegroundPresentation };
 export type { ImageForegroundPresentation };
+
+let floatingGeometryKey = "";
+let floatingPresentation: DynamicBackgroundPresentation | undefined;
+function projectFloatingSurfaceBackground(base: DynamicBackgroundPresentation): DynamicBackgroundPresentation {
+  if (typeof document === "undefined" || !["image","dynamic"].includes(document.documentElement?.dataset.theme ?? "")) return base;
+  const surfaces: Record<string,Record<string,string>> = {};
+  for (const [name,selector] of Object.entries({settings:"#settings-modal > .settings-panel",library:"#library-modal > .settings-panel",pages:"#pages-modal > .settings-panel",help:"#ai-help-bubble",notice:"#playback-notice"})) {
+    const rect = document.querySelector?.(selector)?.getBoundingClientRect?.();
+    if (!rect || rect.width <= 0 || rect.height <= 0) continue;
+    surfaces[name] = { "--floating-clip": `inset(${Math.max(0,rect.top+1)}px ${Math.max(0,window.innerWidth-rect.right+1)}px ${Math.max(0,window.innerHeight-rect.bottom+1)}px ${Math.max(0,rect.left+1)}px round 7px)`, "--floating-left": `${rect.left}px`, "--floating-top": `${rect.top}px` };
+  }
+  const key = JSON.stringify(surfaces);
+  if (!Object.keys(surfaces).length) return base;
+  if (key !== floatingGeometryKey || floatingPresentation?.palettes !== base.palettes || floatingPresentation?.front !== base.front || floatingPresentation?.paused !== base.paused) {
+    floatingGeometryKey = key; floatingPresentation = {...base,surfaces};
+  }
+  return floatingPresentation ?? base;
+}
+
+function observeFloatingSurface(element: HTMLElement): () => void {
+  const surface = element.parentElement;
+  if (!surface) return () => {};
+  const observer = new ResizeObserver(refreshPresentation);
+  observer.observe(surface);
+  const scroll = surface.matches(".settings-panel") ? surface : null;
+  scroll?.addEventListener("scroll", refreshPresentation, {passive:true});
+  return () => { observer.disconnect(); scroll?.removeEventListener("scroll", refreshPresentation); };
+}
+export { observeFloatingSurface };

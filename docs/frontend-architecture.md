@@ -125,3 +125,11 @@ mini窗口控制器使用已有 `load_background_image` command读图，不需�
 ### UI-5 图片区域前景端口
 
 `settings-view.ts` 在既有背景/暗化投影后调用无 DOM 的 `settings-state.ts` 的无 DOM 回调端口；根挂载提前安装 `dynamic-background.ts` 的图片前景采样，复用该回调解码背景 data URL，无新增监听、store 字段或存储。离屏采样缓存四区亮度/方差；迟到解码以版本号丢弃，滑块只重算缓存。presentation 旁路沿 FIX-1 现有防重入入口取最新前景，App → AppShell 传递稳定模型；Vue 绑定区域 data 属性，不写宿主 DOM，不改根防重入循环。取色原生写入仅 `decoded.src = next`、`canvas.width = 96`、`canvas.height = Math.max(1, Math.round(96 * height / width))`，均为离屏节点；精确登记于 native-writes，配反例检查。
+
+### UI-6 浮层与列宽原生端口
+
+AppShell装配稳定observeFloatingSurface回调，FloatingBackdrop以typed ref交回自己的节点。几何控制器仅观察parentElement并在局部滚动时调用既有refreshPresentation；不提交store、不改FIX-1、不新增启动阶段。背景装饰只在浮层打开时挂载，隐藏时清理；图像几何仍由dynamic-background.ts从缓存像素投影，浮层1.15裁剪映射至既有1.08视口采样；浮层clip仅为Vue style属性，不由控制器写宿主。新增条件ResizeObserver和局部scroll经UI-6单项授权；dark启动未挂载背景，G0事件不增减。Image/canvas离屏端口未新增。
+
+track-columns.ts非标题拖动先读取可见标题、数值列和末端spacer几何，临时CSS投影采用当前布局；只持久化用户拖动列与冻结后的标题，不改变存储格式。复用既有pointer capture、委托pointerdown/keydown及按下期间window监听；松开恢复常规偏好投影。原生写权仍九项文档根列宽/容量变量，仅数字来源扩展为当前几何或偏好。
+
+FloatingBackdrop仅为公开Vue生命周期/ref导入新增一条精确vueImports登记；未放宽其他SFC的导入或原生写权。
