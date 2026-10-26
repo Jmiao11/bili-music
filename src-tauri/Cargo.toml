@@ -1,6 +1,6 @@
 [package]
 name = "bili-music"
-version = "0.9.0"
+version = "1.0.0"
 edition = "2021"
 default-run = "bili-music"
 

@@ -6,7 +6,7 @@
 
 ## [未发布]
 
-## [0.9.0] - 2026-10-26
+## [1.0.0] - 2026-10-26
 
 **升级前必读**：本版新增合集功能，收藏、歌单或播放队列中一旦包含合集，数据会升级为 v2 格式，旧版本无法读取；首次升级前会自动保留 .v1.bak.json 备份。建议升级前先在设置中导出资料库备份。
 
@@ -291,8 +291,8 @@
 - 沉浸播放页、SMTC 系统媒体控件集成。
 - 多主题外观（深色 / 浅色 / 背景图）与质感微调。
 
-[未发布]: https://github.com/Jmiao11/bili-music/compare/v0.9.0...HEAD
-[0.9.0]: https://github.com/Jmiao11/bili-music/compare/v0.8.0...v0.9.0
+[未发布]: https://github.com/Jmiao11/bili-music/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Jmiao11/bili-music/compare/v0.8.0...v1.0.0
 [0.8.0]: https://github.com/Jmiao11/bili-music/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Jmiao11/bili-music/compare/v0.6.0...v0.7.0
 [0.3.4]: https://github.com/Jmiao11/bili-music/compare/v0.3.3...v0.3.4
