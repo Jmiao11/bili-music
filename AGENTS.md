@@ -1,6 +1,6 @@
 # 协作规则
 
-本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。后续设计说明保存到 docs/design/，不只保留在系统临时目录。
+本文件只记录长期规则。功能入口见 `docs/where-to-change.md`，架构与原生端口见 `docs/frontend-architecture.md`，界面改动以 `docs/ui-spec.md`（方案 C：极简紧凑）为视觉规范，已完成迁移的记录见 `docs/frontend-migration-history.md`。历史文件名不能作为改写现有链路的依据。后续设计说明保存到 docs/design/，不只保留在系统临时目录。
 
 全面 Vue 化已完成；Windows/Mac 发布前全应用回归于2026-10-16完成，对应 master `d8a7f4bc856b1aa7af23ec81d2c84c4bce9cffaa`，Windows watchdog 故障包亦已验证。后续功能修改仍按任务验收；发布时须由用户核对最新 master CI。
 
@@ -28,8 +28,8 @@
 - 不重写队列、随机/循环、requestVersion、切歌中断、恢复或失败跳过状态机。自动前进只绑定 ended；迟到的音频事件/失败不得影响新请求，取消不计失败，连续真实失败5首刹车，坏视频即使单曲循环也跳过。提示保持 aria-live。
 - 搜索展示列表与播放队列隔离：新搜索只更新展示，不中断播放；点击结果才把对应列表升级为队列。分页隔离旧请求，只有队列属于本次搜索才同步扩展队列/randomRemaining；来源与高亮版本不可混淆。BV、分区、排序及历史记录继续走现有逻辑，不用写搜索框来同步播放。
 - 首页榜单固定游客 ranking/v2 主接口、ranking/region 后端兜底，后者时长转秒；均失败只显示重试，不退回搜索。复用游客 client 与内存缓存，显式刷新才强制拉取，不增加定时任务；首页与搜索状态隔离，共用真实队列。
-- 收藏按 bvid 去重，歌单/收藏保留版本快照结构与共用队列。JSON dev 位于 .local-data/、release 位于 exe 同目录，不改回项目根触发 dev 重建。保持 tmp/bak/rename 原子写入；不存在返回空，坏文件/版本不支持报错，不能用空数据覆盖。歌单交互不用原生 prompt/confirm；设置导入的 window.confirm 例外保留在控制器。
-- 搜索历史 trim、大小写不敏感去重、累计次数、最新置前、上限100，fire-and-forget，不拖慢搜索；坏文件写入报错不覆盖，清空允许写空且不弹确认。其他持久化、缓存、歌词匹配/获取、请求版本沿用既有模块，不在 UI 迁移中改写。
+- 普通视频收藏按 bvid 去重，合集按 collection_id 区分；歌单/收藏保留混合条目、版本快照结构与共用队列。含合集时按需升级为 v2，首次从 v1 升级前保留 .v1.bak.json 备份，备份失败不升级；新版兼容 v1/v2。JSON dev 位于 .local-data/、release 位于 exe 同目录，不改回项目根触发 dev 重建。保持 tmp/bak/rename 原子写入；不存在返回空，坏文件/版本不支持报错，不能用空数据覆盖。歌单交互不用原生 prompt/confirm；设置导入的 window.confirm 例外保留在控制器。
+- 搜索历史 trim、大小写不敏感去重、累计次数、最新置前、上限100，fire-and-forget，不拖慢搜索；坏文件写入报错不覆盖，清空允许写空且不弹确认。其他持久化、缓存、歌词匹配/获取、请求版本沿用既有模块，不因界面改动而改写。
 - 保持现有页面作用域、id/class/data-*、视觉与焦点契约，不借重构改外观或全局共享样式。标题栏拖动/双击、8向缩放、最小尺寸、最大化圆角与迷你窗恢复保持现有行为；不恢复原生 decorations。
 
 ## 安全隐私与启动
@@ -44,7 +44,7 @@
 
 - 每次开始先 git branch --show-current，核对任务指定分支；不符停止，不自行切换开发分支。核对最新任务基线与工作区，保留已有改动。
 - 分步实现并验证，不做一次性全仓重构。每批1–3个 Conventional Commits 中文提交，顺序按任务明确要求；默认按需 test→feat→fix，文档/登记随对应变更，明确要求拆分除外。推送前整理仅限未推送历史，整理前后最终 tree 必须相同；推送后只追加，不改写。
-- 只暂存明确授权的具体文件。src-tauri/Cargo.toml 既有纯换行差异忽略、永不提交。禁止 AI 署名、Co-Authored-By 或生成标记。
+- 只暂存明确授权的具体文件。src-tauri/Cargo.toml 既有纯换行差异忽略、永不提交；src-tauri/gen/schemas/ 下因本地构建产生的 schema 差异同样不提交。禁止 AI 署名、Co-Authored-By 或生成标记。
 - 仓库外副本只用本地 git clone/worktree 或基于 git ls-files 复制跟踪文件，不复制被忽略运行时文件。建立后先检查敏感文件是否存在及跟踪状态，不读内容；发现非跟踪运行时文件停止。正常项目工具不能按 tools 目录名批量删除。
 
 ## 临时目录
@@ -65,16 +65,23 @@
 - 每批 verify:dist 照跑；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。
 - 当前 G0 为193/149，Git/LF SHA256 `4f2c9796640952257040919b72fde9400b9099f56f7c59226965b8aec9d22c7e`。新增或重建须存档旧 fixture 到仓库外。
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
-- 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件迁移/fixture 登记不触发全套。
-- 跨平台完整回归只在指定阶段（F2b、F6、F8）及发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
+- 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件调整/fixture 登记不触发全套。
+- 跨平台完整回归只在发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
 - 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单及 GitHub 操作次数。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过；任务要求用户手测时，须等用户明确“手测通过，允许合并”后，Codex只报告“可合并”，后续合并由用户执行。发布前由用户核对最新 master 远程 CI 与发布前全应用回归均已通过。
+
+## 发版
+
+- 版本号同时修改 Cargo.toml、src-tauri/Cargo.toml、src-tauri/tauri.conf.json，以及 Cargo.lock 中的 bili-music 与 bilibili-music-core 条目，不升级其他依赖。
+- CHANGELOG.md 将“未发布”改为版本号加日期，并保留新的空“未发布”；存储格式有变化时在版本节首写“升级前必读”。
+- 版本提交为 `chore: 版本号 X → Y`，由 Codex 在本地 master 提交、不推送。
+- 用户推送 master、确认 CI 通过并完成发布前全应用回归后，推送 `vX.Y.Z` tag 触发 Release 工作流；检查草稿中的 3 个产物（Windows x64 ZIP、macOS arm64 DMG、macOS x64 DMG）后手动发布。Codex 不打 tag、不发布。
 
 ## Git 与 GitHub
 
 - 分支命名：按类型使用 `feat/`、`fix/`、`style/`、`refactor/`、`chore/`、`test/`，后接简短英文描述，不再使用 `codex/` 前缀。
 - Codex负责本地提交、推送功能分支、只读查看该分支的CI。
 - Codex不执行合并到master、推送master、删除分支、创建或合并PR、force push；这些操作由用户执行。
-- 用户在本地使用 `git merge --squash` 合并，每批在master上只保留一条提交。
+- 本地协作分支由用户使用 `git merge --squash` 合并，每批在master上只保留一条提交；GitHub PR 由维护者使用 Squash and merge，最终提交信息由维护者整理。
 - 每批提交数1–3个；提交信息使用中文Conventional风格，不含任何AI署名或痕迹。
 - 只改文档、配置或规则，且不改产品代码和测试的小改动，可以直接在本地master上提交，不建分支；Codex只提交、不推送，由用户检查后推送。
 - 涉及产品代码或测试的改动，仍须走功能分支、跑CI和手测。
