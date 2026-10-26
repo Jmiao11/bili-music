@@ -1,12 +1,14 @@
 import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
 type PageCallbacks = {
+  update(): void;
   submit(event: SubmitEvent): void; hint(): void; hintKey(event: KeyboardEvent): void; setup(): void;
   division(tids: string): void; sort(mode: string): void;
   playlist(id: string): void; createPlaylist(): void; renamePlaylist(): void; deletePlaylist(): void; importPlaylist(): void;
 };
 const pageHandlers: Partial<PageCallbacks> = {};
 const pageCallbacks = Object.freeze<PageCallbacks>({
+  update: () => pageHandlers.update?.(),
   submit: event => pageHandlers.submit?.(event), hint: () => pageHandlers.hint?.(), hintKey: event => pageHandlers.hintKey?.(event), setup: () => pageHandlers.setup?.(),
   division: tids => pageHandlers.division?.(tids), sort: mode => pageHandlers.sort?.(mode),
   playlist: id => pageHandlers.playlist?.(id), createPlaylist: () => pageHandlers.createPlaylist?.(), renamePlaylist: () => pageHandlers.renamePlaylist?.(), deletePlaylist: () => pageHandlers.deletePlaylist?.(), importPlaylist: () => pageHandlers.importPlaylist?.(),

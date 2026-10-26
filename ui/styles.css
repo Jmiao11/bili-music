@@ -977,6 +977,43 @@ svg {
   gap: 8px;
 }
 
+#view-home .home-update-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  max-width: 260px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--panel-raised);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#view-home .home-update-button:hover {
+  background: var(--track-hover);
+  color: var(--text-1);
+}
+
+#view-home .home-update-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+#view-home .home-update-button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#view-home .home-update-button svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
 #view-home .home-mode-tabs {
   display: inline-flex;
   align-items: center;

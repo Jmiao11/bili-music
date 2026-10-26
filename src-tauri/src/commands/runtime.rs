@@ -52,7 +52,7 @@ fn is_valid_bvid(value: &str) -> bool {
         && value[2..].bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
-fn open_url_in_system_browser(url: &str) -> Result<(), String> {
+pub(super) fn open_url_in_system_browser(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("rundll32.exe");

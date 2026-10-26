@@ -10,7 +10,7 @@ import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
 import { initializeRootLists } from "../features/tracks/track-list-ui.ts";
-import { getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "../features/home/home.ts";
+import { checkForUpdate, openUpdateDownload, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "../features/home/home.ts";
 import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
@@ -103,6 +103,7 @@ refreshRankingButton?.addEventListener("click", () => {
   }
 });
 installPageCallbacks({
+  update: () => { void openUpdateDownload(); },
   createPlaylist, renamePlaylist: renameSelectedPlaylist, deletePlaylist: deleteSelectedPlaylist, importPlaylist: importFavoritePlaylist,
   hint: () => {
   setHomeHint(readHomeHintDraft());
@@ -201,6 +202,7 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
 window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 updateHomeModeUi();
+void checkForUpdate();
 refreshAiKeyState();
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
 const restoreKeyword = readLastSearchKeyword();

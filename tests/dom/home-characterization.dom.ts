@@ -190,3 +190,40 @@ test("home and search states stay isolated while ranking and recommendation clic
     assert.ok(h.queueUpdates() > 0);
   } finally { h.dispose(); }
 });
+
+test("homepage update stays absent until available, opens on click and restores after failure", async () => {
+  const update = deferred();
+  const h = await realFixture({ updateReply: update.promise });
+  try {
+    const button = () => h.doc.querySelector<HTMLButtonElement>("#home-update-button");
+    const status = () => h.doc.querySelector<HTMLElement>("#home-update-status")!;
+    assert.equal(button(), null);
+    update.resolve({ version: "0.9.0" }); await h.microtasks();
+    assert.match(button()!.textContent!, /发现新版本 v0\.9\.0/);
+    assert.equal(status().getAttribute("aria-live"), "polite");
+    assert.match(status().textContent!, /GitHub/);
+    const opening = deferred();
+    h.reply(() => opening.promise);
+    await h.fire(button()!, "click");
+    assert.equal(button()!.disabled, true);
+    assert.match(button()!.textContent!, /正在打开/);
+    assert.equal(status().textContent, "");
+    assert.deepEqual(h.calls.map(call => call.command), ["open_update_download"]);
+    opening.reject(Error("browser unavailable")); await h.microtasks();
+    assert.equal(button()!.disabled, false);
+    assert.match(button()!.textContent!, /打开失败，点击重试/);
+    assert.match(status().textContent!, /无法打开 GitHub/);
+    h.reply(async () => null);
+    await h.fire(button()!, "click");
+    assert.match(button()!.textContent!, /发现新版本 v0\.9\.0/);
+    assert.doesNotMatch(status().textContent!, /无法打开/);
+  } finally { h.dispose(); }
+});
+
+test("homepage no-update response has no button and leaves polite status empty", async () => {
+  const h = await realFixture({ updateReply: Promise.resolve(null) });
+  try {
+    assert.equal(h.doc.querySelector("#home-update-button"), null);
+    assert.equal(h.doc.querySelector("#home-update-status")!.textContent, "");
+  } finally { h.dispose(); }
+});

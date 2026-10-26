@@ -34,7 +34,7 @@ type Modules = {
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
+async function fixture(options: { updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
@@ -82,6 +82,7 @@ async function fixture(options: { trackColumns?: string; nativeWrites?: boolean;
   // library.rs:42; playlists.rs:12; disabled_pages.rs:106; ai.rs:75; shortcut_config.rs:31;
   // audio_cache.rs:60,67; commands/runtime.rs:7,13. No API keys or runtime files are read.
   const startup: Reply = async command => {
+    if (command === "check_for_update") return options.updateReply ?? null;
     if (["list_favorites", "list_playlists", "list_unavailable_tracks"].includes(command)) return [];
     if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
     if (command === "get_ai_config") return new Promise(() => {});

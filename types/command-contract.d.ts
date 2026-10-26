@@ -1,6 +1,7 @@
 // JSON wire types: output Option fields are present and nullable; input Option
 // fields may be omitted. Numbers describe JSON representation, not u64 validation.
 declare namespace CommandContract {
+  interface AvailableUpdate { version: string; }
   interface AudioResponse { audioUrl: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
   interface VideoPage { page: number; cid: number; part: string; durationSeconds: number; }
   interface SearchVideo { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; playCount: number | null; pubdate: number | null; }
@@ -46,6 +47,8 @@ declare namespace CommandContract {
 }
 
 interface CommandMap {
+  check_for_update: { args: undefined; result: CommandContract.AvailableUpdate | null };
+  open_update_download: { args: undefined; result: null };
   main_window_ready: { args: undefined; result: null };
   read_public_favorite_page: { args: { link: string; page: number; existing: string[] }; result: CommandContract.ImportPage };
   create_imported_playlist: { args: { name: string; tracks: CommandContract.TrackSnapshotInput[] }; result: CommandContract.Playlist };
