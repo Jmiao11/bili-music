@@ -37,6 +37,8 @@ function collectNativeWrites(root:string):NativeWrite[] {
   return writes;
 }
 const allowedWrites:Readonly<Record<string,string>>={
+  "ui/features/settings/dynamic-background.ts:document.documentElement.dataset.imageScheme = readImageScheme()": "documentElement 整窗图片方案；不写 Vue 宿主",
+  "ui/features/settings/dynamic-background.ts:document.documentElement.dataset.imageMode = dim < 40 ? \"adaptive\" : \"uniform\"": "documentElement 低档适配/高档统一前景模式",
   "ui/features/settings/dynamic-background.ts:canvas.width = 96": "离屏背景图采样；不写 Vue 宿主",
   "ui/features/settings/dynamic-background.ts:canvas.height = Math.max(1, Math.round(96 * height / width))": "离屏背景图按窗口比例采样",
   "ui/features/settings/dynamic-background.ts:decoded.src = next": "复用背景加载投影，只解码 data URL；不新增监听",

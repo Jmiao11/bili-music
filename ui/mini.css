@@ -248,7 +248,7 @@ body {
   }
 }
 
-/* Scheme C; the existing controller still maps image/dynamic to dark. */
+/* Scheme C; image appearance is supplied by the existing main-window channel. */
 :root { --bar: #1f2024; --line: #2c2e33; --text: #ecedef; --text2: #b0b4bb; --input: #222327; --play-bg: #e6e7ea; --play-fg: #111214; --accent: rgb(var(--accent-r), var(--accent-g), var(--accent-b)); --floating-surface: #232428; --surface: var(--floating-surface); --mini-bg: var(--bar); --mini-border: var(--line); --mini-text: var(--text); --mini-muted: var(--text2); }
 :root[data-theme="light"] { --bar: #f4f5f7; --line: #e7e8eb; --text: #17181b; --text2: #575c66; --input: #fff; --play-bg: #17181b; --play-fg: #fff; --floating-surface: #fafafb; }
 .mini-shell { border-color: var(--line); background: var(--bar); }
@@ -281,3 +281,21 @@ body {
 .dynamic-background.is-paused .dynamic-background-layer { animation-play-state: paused; transition: none; }
 @keyframes dynamic-background-drift { 0%, 100% { transform: translate3d(-2%, -1%, 0) rotate(-2deg) scale(1.02); } 50% { transform: translate3d(2%, 1%, 0) rotate(2deg) scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .dynamic-background-layer { animation: none; transition: none; } }
+
+:root[data-theme="image"] .mini-shell { color: var(--text); background: var(--floating-surface); --mini-bg: var(--input); --image-mask-base: min(calc(var(--background-dim) * 1.375),calc(.55 + (var(--background-dim) - .4) * .4 / .55)); --image-mask: var(--image-mask-base); --mini-text: var(--text); --mini-muted: var(--text2); --mini-border: var(--line); --mini-control: var(--input); --mini-control-hover: var(--hover); }
+:root[data-theme="image"] .mini-shell[data-image-scheme="light"] { color-scheme: light; --root: transparent; --bar: transparent;
+  --text: #000; --text2: #080808; --text3: #101010; --line: rgba(0,0,0,.28); --line2: rgba(0,0,0,.4);
+  --input: #fafafb; --hover: rgba(0,0,0,.05); --active: rgba(0,0,0,.08); --nav-active: rgba(0,0,0,.08);
+  --play-bg: #17181b; --play-fg: #fff; --danger: #260808; --on-danger: #fff;
+  --accent-text: color-mix(in srgb, var(--accent) 8%, #000); --primary-bg: color-mix(in srgb, var(--accent) 60%, #000); --on-accent: #fff;
+  --floating-surface: #fafafb; --option-bg: #fafafb; --overlay: rgba(0,0,0,.25); --dialog-shadow: 0 12px 32px rgba(0,0,0,.12); --image-mask-color: 250,250,251; }
+:root[data-theme="image"] .mini-shell[data-image-scheme="dark"] { color-scheme: dark; --root: transparent; --bar: transparent;
+  --text: #fff; --text2: #fafafa; --text3: #f4f4f4; --line: rgba(255,255,255,.28); --line2: rgba(255,255,255,.4);
+  --input: #18191c; --hover: rgba(255,255,255,.06); --active: rgba(255,255,255,.09); --nav-active: rgba(255,255,255,.09);
+  --play-bg: #ecedef; --play-fg: #111214; --danger: #fff4f4; --on-danger: #111214;
+  --accent-text: color-mix(in srgb, var(--accent) 4%, #fff); --primary-bg: var(--accent); --on-accent: #111214;
+  --floating-surface: #232428; --option-bg: #232428; --overlay: rgba(0,0,0,.45); --dialog-shadow: 0 12px 32px rgba(0,0,0,.35); --image-mask-color: 10,12,16; }
+:root[data-theme="image"] .mini-shell[data-image-scheme="dark"][data-image-mode="uniform"] { --image-mask: max(.65,var(--image-mask-base)); }
+:root[data-theme="image"] .mini-shell, :root[data-theme="image"] .mini-shell * { text-shadow: none; }
+
+:root[data-theme="image"] .mini-shell[data-image-scheme]::after { background: rgba(var(--image-mask-color),var(--image-mask)); }

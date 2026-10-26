@@ -1,4 +1,4 @@
-import { readDynamicPalette, subscribeDynamicBackground } from "../features/settings/dynamic-background.ts";
+import { readDynamicPalette, readImageScheme, subscribeDynamicBackground } from "../features/settings/dynamic-background.ts";
 import { getApplicationStore } from "../features/home/home.ts";
 import { toggleCurrentFavorite } from "../features/library/library-ui.ts";
 import { getPlaybackCommands } from "../features/settings/appearance.ts";
@@ -8,10 +8,10 @@ import { setPlaybackStatus } from "../features/playback/playback-messages.ts";
 function subscribeMiniPlayerTheme(listener: () => void) {
   const store = getApplicationStore();
   let settings = store.getState().settings;
-  let previous = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette());
+  let previous = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette(), readImageScheme());
   function check() {
-    const next = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette());
-    if (next.theme === previous.theme && next.accent.r === previous.accent.r && next.accent.g === previous.accent.g && next.accent.b === previous.accent.b && next.backgroundPath === previous.backgroundPath && next.backgroundDim === previous.backgroundDim && next.backgroundVersion === previous.backgroundVersion && next.dynamicColors === previous.dynamicColors) return;
+    const next = selectMiniPlayerSnapshot(store.getState(), readDynamicPalette(), readImageScheme());
+    if (next.theme === previous.theme && next.accent.r === previous.accent.r && next.accent.g === previous.accent.g && next.accent.b === previous.accent.b && next.backgroundPath === previous.backgroundPath && next.backgroundDim === previous.backgroundDim && next.backgroundVersion === previous.backgroundVersion && next.imageScheme === previous.imageScheme && next.dynamicColors === previous.dynamicColors) return;
     previous = next;
     listener();
   }
@@ -26,7 +26,7 @@ function subscribeMiniPlayerTheme(listener: () => void) {
 
 function getMiniPlayerHostSnapshot() {
   const state = getApplicationStore().getState();
-  return { ...selectMiniPlayerSnapshot(state, readDynamicPalette()), ...selectMiniPlayerMessages(state) };
+  return { ...selectMiniPlayerSnapshot(state, readDynamicPalette(), readImageScheme()), ...selectMiniPlayerMessages(state) };
 }
 
 const MINI_PLAYER_LABEL = "mini";

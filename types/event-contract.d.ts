@@ -1,6 +1,7 @@
 // Rust: taskbar.rs::clicked_action; shortcut_config.rs::ShortcutBindings::entries.
 // JS: mini-player-host.js::miniPlayerState; mini.js::bindControls.
 interface MiniPlayerStatePayload {
+  imageScheme?: "light" | "dark";
   title: string;
   uploader: string;
   thumbnailUrl: string;

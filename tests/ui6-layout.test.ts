@@ -4,17 +4,18 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "./helpers/module-syntax.ts";
 import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn, trackColumnCapacities } from "../ui/features/tracks/track-column-state.ts";
-import { imageForegroundHalos } from "../ui/features/settings/dynamic-background.ts";
+import { effectiveImageMask } from "../ui/features/settings/dynamic-background.ts";
 
-test("regional outlines omit readable tokens and use the strict mask cutoff", () => {
-  assert.equal(imageForegroundHalos("dark",1,0), "");
-  assert.equal(imageForegroundHalos("light",0,0), "");
-  const weak=imageForegroundHalos("dark",.35,0).split(" ");
-  assert.ok(!weak.includes("text")); assert.ok(weak.includes("text3"));
-  assert.equal(imageForegroundHalos("light",.4,.55), "");
-  assert.ok(imageForegroundHalos("light",.4,.549).includes("text3"));
-  assert.ok(imageForegroundHalos("dark",.35,0,[251,114,153],.12).split(" ").includes("text"));
-  assert.ok(!imageForegroundHalos("dark",.35,0).split(" ").includes("control-text2"));
+test("image mode drops outlines and raises only the dark uniform mask for readability", () => {
+  const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8");
+  assert.equal(css.includes("data-image-halo"),false);
+  assert.equal(css.includes("compact-outline"),false);
+  assert.equal(css.includes("imageForegroundHalos"),false);
+  assert.equal(effectiveImageMask(0,"light"),0);
+  assert.equal(effectiveImageMask(20,"dark"),.275);
+  assert.equal(effectiveImageMask(40,"light"),.55);
+  assert.equal(effectiveImageMask(40,"dark"),.65);
+  assert.ok(Math.abs(effectiveImageMask(95,"dark")-.95)<1e-12);
 });
 test("non-title drag freezes rendered title, consumes only spacer, then stops", () => {
   const properties=new Map<string,string>(),listeners=new Map<string,(event: unknown)=>void>();

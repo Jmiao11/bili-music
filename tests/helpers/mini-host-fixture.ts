@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { readDynamicPalette, subscribeDynamicBackground } from "../../ui/features/settings/dynamic-background.ts";
+import { readDynamicPalette, readImageScheme, subscribeDynamicBackground } from "../../ui/features/settings/dynamic-background.ts";
 import { selectMiniPlayerSnapshot, selectMiniPlayerMessages } from "../../ui/mini/mini-player-projection.ts";
 import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { stripModuleSyntax } from "./module-syntax.ts";
@@ -75,7 +75,8 @@ async function createMiniHostFixture() {
   h.context.getApplicationStore = () => observedStore;
   h.context.subscribeDynamicBackground = subscribeDynamicBackground;
   h.context.readDynamicPalette = readDynamicPalette;
-  h.context.selectMiniPlayerSnapshot = (state: Parameters<typeof selectMiniPlayerSnapshot>[0]) => selectMiniPlayerSnapshot(state, readDynamicPalette());
+  h.context.readImageScheme = readImageScheme;
+  h.context.selectMiniPlayerSnapshot = (state: Parameters<typeof selectMiniPlayerSnapshot>[0], colors: readonly string[], scheme?: "light"|"dark") => selectMiniPlayerSnapshot(state, colors, scheme);
   h.context.selectMiniPlayerMessages = selectMiniPlayerMessages;
   const subscribeTheme = vm.runInContext("subscribeMiniPlayerTheme", h.context);
   const flushFrame = async () => {
@@ -87,7 +88,7 @@ async function createMiniHostFixture() {
     setStatus: (text: string) => h.store.actions.playbackMessages.setStatus(text),
     requestFrame: (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; }, cancelFrame: (id: number) => { frames.delete(id); },
     getSnapshot: () => {
-      return { ...selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library }, readDynamicPalette()), ...selectMiniPlayerMessages(h.store.getState()) };
+      return { ...selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library }, readDynamicPalette(), readImageScheme()), ...selectMiniPlayerMessages(h.store.getState()) };
     }, commands: () => h.context.getPlaybackCommands(), favorite: () => h.context.toggleCurrentFavorite(), document: h.context.document, window: h.context.window, console,
     invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } | null }) => void, options?: { target: { kind: string; label: string } }) => { listenTargets.push({ name, target: options?.target }); installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
       emitTo: async (label: string, name: string, payload: MiniPlayerStatePayload) => { emissions.push({ label, name, payload: structuredClone(payload) }); } },

@@ -47,12 +47,12 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     <link rel="stylesheet" :href="tokensHref" />
     <DynamicBackground :model="background" />
     <div class="window-background-overlay" aria-hidden="true"></div>
-    <WindowTitlebar :data-image-foreground="snapshot.playbackDisplay.presentation.immersiveOpen ? undefined : foreground?.titlebar" :data-image-halo="snapshot.playbackDisplay.presentation.immersiveOpen ? undefined : foreground?.halos.titlebar || undefined" :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
+    <WindowTitlebar :data-image-region-scheme="snapshot.playbackDisplay.presentation.immersiveOpen ? undefined : foreground?.regions.titlebar" :maximized="maximized" :status="snapshot.playbackMessages.status" :error="snapshot.playbackMessages.notice.kind === 'error' && snapshot.playbackMessages.notice.visible" />
     <ResizeHotspots />
     <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
-      <Sidebar :data-image-foreground="foreground?.sidebar" :data-image-halo="foreground?.halos.sidebar || undefined" :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
+      <Sidebar :data-image-region-scheme="foreground?.regions.sidebar" :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
-      <main :data-image-foreground="foreground?.content" :data-image-halo="foreground?.halos.content || undefined" class="main-panel panel" aria-labelledby="queue-heading">
+      <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
           <div class="home-stage">
             <header class="home-head">
@@ -190,16 +190,16 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     </div>
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
-    <PlaybackNotice :on-geometry="observeFloatingSurface" :surface-style="background.surfaces?.notice" :background="background" :theme="snapshot.settings.theme" :data-image-foreground="foreground?.notice" :data-image-halo="foreground?.halos.notice || undefined" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
-    <PlaybackBar :data-image-foreground="foreground?.bar" :data-image-halo="foreground?.halos.bar || undefined" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
+    <PlaybackNotice :on-geometry="observeFloatingSurface" :surface-style="background.surfaces?.notice" :background="background" :theme="snapshot.settings.theme" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
+    <PlaybackBar :data-image-region-scheme="foreground?.regions.bar" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
 
 
     <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">
-      <SettingsPanel :surface-visible="!stages.settings.hidden" :on-geometry="observeFloatingSurface" :style="background.surfaces?.settings" :background="background" :foreground="foreground" :data-image-foreground="foreground?.settings" :data-image-halo="foreground?.halos.settings || undefined" :draft-bindings="draftBindings" :appearance-status="shell.appearanceStatus" :purge-busy="shell.purgeBusy" :state="snapshot.settings" :model="settingsControls" :callbacks="settingsCallbacks" :normalization="snapshot.playbackSettings.normalizationEnabled" :normalization-version="snapshot.playbackSettings.view.enabledVersion" />
+      <SettingsPanel :surface-visible="!stages.settings.hidden" :on-geometry="observeFloatingSurface" :style="background.surfaces?.settings" :background="background" :draft-bindings="draftBindings" :appearance-status="shell.appearanceStatus" :purge-busy="shell.purgeBusy" :state="snapshot.settings" :model="settingsControls" :callbacks="settingsCallbacks" :normalization="snapshot.playbackSettings.normalizationEnabled" :normalization-version="snapshot.playbackSettings.view.enabledVersion" />
     </div>
 
     <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="library-modal" :ref="element => mainWindowRefs.libraryModal(element as HTMLDivElement|null)" class="settings-mask" :class="{'is-open':stages.library.open}" :aria-hidden="!stages.library.open" :hidden="stages.library.hidden">
-      <div class="settings-panel panel library-modal-panel" :style="background.surfaces?.library" :data-image-foreground="foreground?.library" :data-image-halo="foreground?.halos.library || undefined" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
+      <div class="settings-panel panel library-modal-panel" :style="background.surfaces?.library" role="dialog" aria-modal="true" aria-labelledby="library-modal-title">
         <FloatingBackdrop v-if="!stages.library.hidden && (snapshot.settings.theme === 'image' || snapshot.settings.theme === 'dynamic')" :model="background" :on-geometry="observeFloatingSurface" />
         <header class="settings-header">
           <div>
@@ -218,7 +218,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     </div>
 
     <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="pages-modal" :ref="element => mainWindowRefs.pagesModal(element as HTMLDivElement|null)" class="modal settings-mask" :class="{'is-open':stages.pages.open}" :aria-hidden="!stages.pages.open" :hidden="stages.pages.hidden">
-      <div class="modal-card settings-panel panel pages-modal-card" :style="background.surfaces?.pages" :data-image-foreground="foreground?.pages" :data-image-halo="foreground?.halos.pages || undefined" role="dialog" aria-modal="true" aria-labelledby="pages-modal-title" aria-describedby="pages-modal-sub">
+      <div class="modal-card settings-panel panel pages-modal-card" :style="background.surfaces?.pages" role="dialog" aria-modal="true" aria-labelledby="pages-modal-title" aria-describedby="pages-modal-sub">
         <FloatingBackdrop v-if="!stages.pages.hidden && (snapshot.settings.theme === 'image' || snapshot.settings.theme === 'dynamic')" :model="background" :on-geometry="observeFloatingSurface" />
         <div class="pages-modal-heading">
           <h2 id="pages-modal-title">{{ shell.pagesTitle }}</h2>

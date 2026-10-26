@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import FloatingBackdrop from "./FloatingBackdrop.vue";
-import type {DynamicBackgroundPresentation,ImageForegroundPresentation} from "../dynamic-background.ts";
+import type {DynamicBackgroundPresentation} from "../dynamic-background.ts";
 import type {ComponentPublicInstance} from "vue";
 import type {draftBindings} from "../../../platform/draft-ports.ts";
 import type {ObjectDirective} from 'vue';
@@ -8,7 +8,7 @@ import {applySettingsField} from './field-directive.ts';
 import type {SettingsControl,SettingsControls} from '../settings-controls.ts';
 import type {SettingsSnapshot} from '../settings-state.ts';
 import type {SettingsCallbacks} from '../root-settings.ts';
-const props=defineProps<{draftBindings:typeof draftBindings;surfaceVisible?:boolean;background?:DynamicBackgroundPresentation;onGeometry?:(element:HTMLElement)=>()=>void;foreground?:ImageForegroundPresentation|null;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
+const props=defineProps<{draftBindings:typeof draftBindings;surfaceVisible?:boolean;background?:DynamicBackgroundPresentation;onGeometry?:(element:HTMLElement)=>()=>void;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
 const empty:SettingsControl={};
 const field=(name:string)=>props.model[name]??empty;
 const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>={mounted:(element,binding)=>applySettingsField(element,binding.value),updated:(element,binding)=>applySettingsField(element,binding.value,binding.oldValue ?? undefined)};
@@ -34,6 +34,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
           </button>
         </header>
 
+        <div class="settings-content">
         <section class="setting-group">
           <h3>主题</h3>
           <div class="theme-row" role="radiogroup" aria-label="主题">
@@ -77,7 +78,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
             <input id="panel-alpha-slider" @input="callbacks.slider('alpha', ($event.target as HTMLInputElement).value)" v-field="field('panelAlphaSlider')" type="range" min="20" max="100" value="72" tabindex="-1" aria-hidden="true" />
           </label>
           <label class="slider-row" :style="{'--settings-fill': `${Number(field('backgroundDimSlider').value ?? 90) / .95}%`}">
-            <span>背景暗化 <output id="background-dim-value">{{ field('backgroundDimValue').text ?? "90%" }}</output></span>
+            <span>背景遮罩 <output id="background-dim-value">{{ field('backgroundDimValue').text ?? "90%" }}</output></span>
             <input id="background-dim-slider" @input="callbacks.slider('dim', ($event.target as HTMLInputElement).value)" v-field="field('backgroundDimSlider')" type="range" min="0" max="95" value="90" />
           </label>
         </section>
@@ -212,7 +213,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
                   aria-describedby="ai-help-bubble">?<span
                     id="ai-help-bubble"
                     class="ai-help-bubble"
-                    role="tooltip" :style="background?.surfaces?.help" :data-image-foreground="foreground?.help" :data-image-halo="foreground?.halos.help || undefined"><FloatingBackdrop v-if="(surfaceVisible ?? state.session.panelOpen) && background && (state.theme === 'image' || state.theme === 'dynamic')" :model="background" :on-geometry="onGeometry" /><strong>规则</strong>
+                    role="tooltip" :style="background?.surfaces?.help"><FloatingBackdrop v-if="(surfaceVisible ?? state.session.panelOpen) && background && (state.theme === 'image' || state.theme === 'dynamic')" :model="background" :on-geometry="onGeometry" /><strong>规则</strong>
                     <ul>
                       <li>请填到服务商要求的版本段，例如 https://api.openai.com/v1</li>
                       <li>只追加所选规范的端点，不自动补 /v1</li>
@@ -300,5 +301,6 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
         </details>
 
         <p id="appearance-status" class="appearance-status" role="status">{{ appearanceStatus }}</p>
+        </div>
       </div>
 </template>

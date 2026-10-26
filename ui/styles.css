@@ -5483,77 +5483,58 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 .dynamic-background.is-paused .dynamic-background-layer { animation-play-state: paused; transition: none; }
 
 /* Image foreground belongs to the four page regions; floating surfaces keep their own tokens. */
-:root[data-theme="image"] [data-image-foreground] {
-  --text-1: var(--text); --text-2: var(--text2); --text-3: var(--text3);
-  --muted: var(--text3); --text-muted: var(--text3);
-  --play-btn-bg: var(--play-bg); --play-btn-fg: var(--play-fg);
-  --search-bg: var(--input); --track-hover: var(--hover); --nav-hover: var(--hover); --track-line: var(--line);
-  color: var(--text);
-}
-:root[data-theme="image"] [data-image-foreground="dark"] {
-  color-scheme: light;
-  --text: #17181b; --text2: #575c66; --text3: #6a6f79;
-  --line: rgba(0,0,0,.16); --line2: rgba(0,0,0,.35);
-  --input: rgba(255,255,255,.72); --hover: rgba(0,0,0,.06); --active: rgba(0,0,0,.09); --nav-active: rgba(0,0,0,.09);
-  --play-bg: #17181b; --play-fg: #fff; --danger: #b42332;
-  --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
-}
-:root[data-theme="image"] [data-image-foreground="light"] {
-  color-scheme: dark;
-  --text: #fff; --text2: #e4e8ee; --text3: #d8dfe8;
-  --line: rgba(255,255,255,.16); --line2: rgba(255,255,255,.35);
-  --input: rgba(0,0,0,.45); --hover: rgba(255,255,255,.06); --active: rgba(255,255,255,.09); --nav-active: rgba(255,255,255,.09);
-  --play-bg: #edeff2; --play-fg: #111214; --danger: #ff8080;
-  --accent-text: color-mix(in srgb, var(--accent) 40%, #fff);
-}
 
-/* Scoped tokens win over legacy page-ID rules; other themes keep their existing palette. */
-:root[data-theme="image"] #app [data-image-foreground] {
-  --icon-color: var(--text2);
-  --outline-text: none; --outline-text2: none; --outline-text3: none; --outline-accent: none;
-  --icon-outline: none; --accent-icon-outline: none;
-  --badge-bg: var(--input); --badge-border: var(--line2);
-  --button-bg: var(--input); --button-border: var(--line2);
-  --input-border: var(--line2);
-  --on-accent: #111214;
-  --track-line: var(--line); --line-strong: var(--line2);
-  --panel-raised: var(--hover); --search-bg: var(--input);
-  scrollbar-color: var(--line2) transparent;
-  color: var(--text); text-shadow: var(--outline-text);
+/* Image-only scheme: one palette above 55%; low levels may adapt the four regions. */
+:root[data-theme="image"] {
+  --image-mask-base: min(calc(var(--background-dim) * 1.375),calc(.55 + (var(--background-dim) - .4) * .4 / .55));
+  --image-mask: var(--image-mask-base); --image-mask-color: 10,12,16; --floating-mask-floor: .65;
 }
-:root[data-theme="image"] #app [data-image-foreground="dark"] {
-  --compact-outline: 0 0 1px rgba(255,255,255,.65), 0 1px 1px rgba(255,255,255,.65);
-  --compact-filter: drop-shadow(0 0 1px rgba(255,255,255,.65)) drop-shadow(0 1px 1px rgba(255,255,255,.65));
+:root[data-theme="image"][data-image-scheme="light"],
+:root[data-theme="image"] [data-image-region-scheme="light"] { color-scheme: light; --root: transparent; --bar: transparent;
+  --text: #000; --text2: #080808; --text3: #101010; --line: rgba(0,0,0,.28); --line2: rgba(0,0,0,.4);
+  --input: #fafafb; --hover: rgba(0,0,0,.05); --active: rgba(0,0,0,.08); --nav-active: rgba(0,0,0,.08);
+  --play-bg: #17181b; --play-fg: #fff; --danger: #260808; --on-danger: #fff;
+  --accent-text: color-mix(in srgb, var(--accent) 8%, #000); --primary-bg: color-mix(in srgb, var(--accent) 60%, #000); --on-accent: #fff;
+  --floating-surface: #fafafb; --option-bg: #fafafb; --overlay: rgba(0,0,0,.25); --dialog-shadow: 0 12px 32px rgba(0,0,0,.12); }
+:root[data-theme="image"][data-image-scheme="dark"],
+:root[data-theme="image"] [data-image-region-scheme="dark"] { color-scheme: dark; --root: transparent; --bar: transparent;
+  --text: #fff; --text2: #fafafa; --text3: #f4f4f4; --line: rgba(255,255,255,.28); --line2: rgba(255,255,255,.4);
+  --input: #18191c; --hover: rgba(255,255,255,.06); --active: rgba(255,255,255,.09); --nav-active: rgba(255,255,255,.09);
+  --play-bg: #ecedef; --play-fg: #111214; --danger: #fff4f4; --on-danger: #111214;
+  --accent-text: color-mix(in srgb, var(--accent) 4%, #fff); --primary-bg: var(--accent); --on-accent: #111214;
+  --floating-surface: #232428; --option-bg: #232428; --overlay: rgba(0,0,0,.45); --dialog-shadow: 0 12px 32px rgba(0,0,0,.35); }
+:root[data-theme="image"][data-image-scheme="light"] { --image-mask-color: 250,250,251; --floating-mask-floor: .55; }
+:root[data-theme="image"][data-image-scheme="dark"][data-image-mode="uniform"] { --image-mask: max(.65,var(--image-mask-base)); }
+:root[data-theme="image"], :root[data-theme="image"] [data-image-region-scheme] {
+  --text-1: var(--text); --text-2: var(--text2); --text-3: var(--text3); --icon-color: var(--text2);
+  --play-btn-bg: var(--play-bg); --play-btn-fg: var(--play-fg); --badge-bg: var(--input); --badge-border: var(--line2);
+  --button-bg: var(--input); --button-border: var(--line2); --input-border: var(--line2);
+  --track-line: var(--line); --line-strong: var(--line2); --panel-raised: var(--hover); --search-bg: var(--input);
+  --track-hover: var(--hover); --nav-hover: var(--hover); color: var(--text); scrollbar-color: var(--line2) transparent;
 }
-:root[data-theme="image"] #app [data-image-foreground="light"] {
-  --compact-outline: 0 0 1px rgba(0,0,0,.65), 0 1px 1px rgba(0,0,0,.65);
-  --compact-filter: drop-shadow(0 0 1px rgba(0,0,0,.65)) drop-shadow(0 1px 1px rgba(0,0,0,.65));
-}
-:root[data-theme="image"] #app [data-image-halo~="text"] { --outline-text: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="text2"] { --outline-text2: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="text3"] { --outline-text3: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="accent"] { --outline-accent: var(--compact-outline); --accent-icon-outline: var(--compact-filter); }
-:root[data-theme="image"] #app [data-image-halo~="icon"] { --icon-outline: var(--compact-filter); }
-:root[data-theme="image"] #app [data-image-foreground] :is(h1,h2,h3,strong,.track-title,.music-tab.is-active,.nav-item.active,input:not([type="range"]),textarea,select) {
-  color: var(--text) !important; text-shadow: var(--outline-text) !important;
-}
-:root[data-theme="image"] #app [data-image-foreground] :is(.track-up,.track-creator,.track-play,.track-duration,.player-subtitle,#uploader,.sidebar-playlist,.music-tab:not(.is-active),.secondary-button,.small-button,.tool-button,.icon-button,.mode-button,.shuffle-control span,.queue-position,.player-pages-button,.player-skip-video-button,.player-collection-position,.volume-control) {
-  color: var(--text2) !important; text-shadow: var(--outline-text2) !important;
-}
-:root[data-theme="image"] #app [data-image-foreground] :is(.track-columns,.track-columns > span,.track-columns > span > span:first-child,.track-pubdate,.track-number,.nav-group-label,.sidebar-playlist small,#current-time,#duration,.titlebar-status,.home-subtitle,.search-status,.modal-sub,.appearance-status) {
-  color: var(--text3) !important; text-shadow: var(--outline-text3) !important;
-}
-:root[data-theme="image"] #app [data-image-foreground] :is(input,textarea)::placeholder { color: var(--text3) !important; opacity: 1; text-shadow: var(--outline-text3); }
-:root[data-theme="image"] #app [data-image-foreground] :is(svg,.ui-icon) { color: var(--icon-color) !important; filter: var(--icon-outline) !important; }
-:root[data-theme="image"] #app [data-image-foreground] .play-button { --icon-color: var(--play-fg); --icon-outline: none; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.window-titlebar-mark,.nav-item.active,.mode-button.is-active,.shuffle-control:has(input:checked)) { --icon-color: var(--accent-text); --icon-outline: var(--accent-icon-outline); }
-:root[data-theme="image"] #app [data-image-foreground] :is(.track[aria-current="true"] .track-title,.page-count-badge[data-collection],.mode-button.is-active,.shuffle-control:has(input:checked) span) { color: var(--accent-text) !important; text-shadow: var(--outline-accent) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.danger-button,.danger-text,.is-error) { color: var(--danger) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.page-count-badge,.track-unavailable) { border-color: var(--badge-border); background: var(--badge-bg); }
-:root[data-theme="image"] #app [data-image-foreground] :is(.secondary-button,.small-button) { border-color: var(--button-border); background-color: var(--button-bg); }
-:root[data-theme="image"] #app [data-image-foreground] :is(input:not([type="range"]):not([type="checkbox"]),textarea,select) { border-color: var(--input-border); background-color: var(--input); }
-:root[data-theme="image"] #app [data-image-foreground] ::-webkit-scrollbar-thumb { background-color: var(--line2); }
-:root[data-theme="image"] #app [data-image-foreground] ::-webkit-scrollbar-track { background: transparent; }
+:root[data-theme="image"] #app, :root[data-theme="image"] #app * { text-shadow: none !important; }
+:root[data-theme="image"] #app :is(svg,.ui-icon) { filter: none !important; color: var(--icon-color) !important; }
+:root[data-theme="image"] #app :is(h1,h2,h3,strong,.track-title,.music-tab.is-active,.nav-item.active,input:not([type="range"]),textarea,select) { color: var(--text) !important; }
+:root[data-theme="image"] #app :is(.track-up,.track-creator,.track-play,.track-duration,.player-subtitle,#uploader,.sidebar-playlist,.music-tab:not(.is-active),.secondary-button,.small-button,.tool-button,.icon-button,.mode-button,.shuffle-control span,.queue-position,.player-pages-button,.player-skip-video-button,.player-collection-position,.volume-control) { color: var(--text2) !important; }
+:root[data-theme="image"] #app :is(.track-columns,.track-columns > span,.track-columns > span > span:first-child,.track-pubdate,.track-number,.nav-group-label,.sidebar-playlist small,#current-time,#duration,.titlebar-status,.home-subtitle,.search-status,.modal-sub,.appearance-status) { color: var(--text3) !important; }
+:root[data-theme="image"] #app :is(input,textarea)::placeholder { color: var(--text3) !important; opacity: 1; }
+:root[data-theme="image"] #app .play-button { --icon-color: var(--play-fg); }
+:root[data-theme="image"] #app :is(.window-titlebar-mark,.nav-item.active,.mode-button.is-active,.shuffle-control:has(input:checked)) { --icon-color: var(--accent-text); }
+:root[data-theme="image"] #app :is(.track[aria-current="true"] .track-title,.mode-button.is-active,.shuffle-control:has(input:checked) span) { color: var(--accent-text) !important; }
+:root[data-theme="image"] #app :is(.danger-button,.danger-text,.is-error) { color: var(--danger) !important; }
+:root[data-theme="image"] #app :is(.page-count-badge,.track-unavailable) { background: var(--badge-bg) !important; border-color: var(--badge-border) !important; }
+:root[data-theme="image"] #app .page-count-badge[data-collection] { border-color: var(--accent-text) !important; }
+:root[data-theme="image"] #app .track-unavailable { color: var(--text3) !important; }
+:root[data-theme="image"] #app :is(.secondary-button,.small-button) { border-color: var(--button-border); background-color: var(--button-bg); }
+:root[data-theme="image"] #app :is(input:not([type="range"]):not([type="checkbox"]),textarea,select) { border-color: var(--input-border); background-color: var(--input); }
+:root[data-theme="image"] #app select option { color: var(--text) !important; background: var(--option-bg) !important; }
+:root[data-theme="image"] #app ::-webkit-scrollbar-thumb { background-color: var(--line2); }
+:root[data-theme="image"] #app ::-webkit-scrollbar-track { background: transparent; }
+:root[data-theme="image"] #app :is(.small-button.quiet.danger,.audio-cache-clear,#clear-search-history-button,#purge-unavailable-tracks-button) { color: var(--danger) !important; background: var(--input); border-color: var(--line2); }
+:root[data-theme="image"] #app :is(.primary-button,button.primary,.primary-cta,.search-submit),
+:root[data-theme="image"] #app .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-accent) !important; border-color: var(--primary-bg) !important; background: var(--primary-bg) !important; }
+:root[data-theme="image"] #app .library-modal-actions > .danger-action:not(:disabled),
+:root[data-theme="image"] #app .library-modal-body:has(.unavailable-purge-list) .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-danger) !important; border-color: var(--danger) !important; background: var(--danger) !important; }
 
 :root #app .player-bar .player-pages-group { background: var(--input); border: 1px solid var(--line2); color: var(--text2); }
 :root #app .player-bar .player-pages-group :is(.player-pages-button,.player-skip-video-button,.player-collection-position) { background: transparent; border-color: var(--line2); color: var(--text2); }
@@ -5565,48 +5546,41 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root[data-theme="image"] .floating-backdrop > .floating-image { display: block; position: absolute; inset: 0; background: var(--app-background) center / cover no-repeat; filter: blur(24px); transform: scale(1.15); }
 .floating-backdrop .dynamic-background { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 .floating-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(10,12,16,.04); }
-:root[data-theme="image"] .floating-backdrop::after { background: rgba(10,12,16,max(.55,min(calc(var(--background-dim) * 1.375),calc(.55 + (var(--background-dim) - .4) * .4 / .55)))); }
+:root[data-theme="image"] .floating-backdrop::after { background: rgba(var(--image-mask-color),max(var(--floating-mask-floor,.55),var(--image-mask))); }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app :is(.settings-panel,.ai-help-bubble):has(> .floating-backdrop) {
   isolation: isolate; transform: none; background: var(--floating-surface); backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app .settings-panel:has(> .floating-backdrop) :is(.settings-header,.modal-actions,.library-modal-actions) { background: transparent !important; }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app .playback-notice:has(> .floating-backdrop) { isolation: isolate; }
 
-/* At the minimum modal mask, preserve contrast before the secondary hierarchy. */
-:root[data-theme="image"] #app :is(.settings-panel,.ai-help-bubble,.playback-notice)[data-image-foreground="dark"] { --text: #000; --text2: #000; --text3: #000; }
-:root[data-theme="image"] #app :is(.settings-panel,.ai-help-bubble,.playback-notice)[data-image-foreground="light"] { --text2: var(--text); --text3: var(--text); }
-
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app .playback-notice .floating-backdrop { left: calc(-1 * var(--floating-left, 0px)); top: calc(-1 * var(--floating-top, 0px)); right: auto; bottom: auto; width: 100vw; height: 100vh; }
 
-/* Solid/translucent controls use their own contrast band, not the bare picture. */
-:root[data-theme="image"] #app [data-image-foreground] { --control-text: none; --control-text2: none; --control-text3: none; --control-accent: none; --control-icon: none; }
-:root[data-theme="image"] #app [data-image-halo~="control-text"] { --control-text: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="control-text2"] { --control-text2: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="control-text3"] { --control-text3: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="control-accent"] { --control-accent: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="control-icon"] { --control-icon: var(--compact-filter); }
-:root[data-theme="image"] #app [data-image-foreground] :is(input:not([type="range"]),textarea,select) { text-shadow: var(--control-text) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(input,textarea)::placeholder { text-shadow: var(--control-text3) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.secondary-button,.small-button,.page-count-badge,.player-pages-group,.player-pages-button,.player-skip-video-button,.player-collection-position) { text-shadow: var(--control-text2) !important; }
-:root[data-theme="image"] #app [data-image-foreground] .page-count-badge { background: var(--badge-bg) !important; border-color: var(--badge-border) !important; }
-:root[data-theme="image"] #app [data-image-foreground] .page-count-badge[data-collection] { border-color: var(--accent-text) !important; text-shadow: var(--control-accent) !important; }
-:root[data-theme="image"] #app [data-image-foreground] .player-pages-group { --icon-outline: var(--control-icon); }
 
-:root[data-theme="image"] #app [data-image-foreground] :is(.primary-button,button.primary) { text-shadow: none !important; }
+/* Before image classification, the startup fallback retains the stored piecewise mapping. */
+:root[data-theme="image"][data-image-scheme] .window-background-overlay { background: rgba(var(--image-mask-color),var(--image-mask)); }
 
-:root[data-theme="image"] #app [data-image-foreground] { --outline-danger: none; --control-danger: none; }
-:root[data-theme="image"] #app [data-image-foreground="dark"] { --on-danger: #fff; }
-:root[data-theme="image"] #app [data-image-foreground="light"] { --on-danger: #111214; }
-:root[data-theme="image"] #app [data-image-halo~="danger"] { --outline-danger: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-halo~="control-danger"] { --control-danger: var(--compact-outline); }
-:root[data-theme="image"] #app [data-image-foreground] :is(.danger-text,.is-error) { text-shadow: var(--outline-danger) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.small-button.quiet.danger,.audio-cache-clear,#clear-search-history-button,#purge-unavailable-tracks-button) { color: var(--danger) !important; background: var(--input); border-color: var(--line2); text-shadow: var(--control-danger) !important; }
-:root[data-theme="image"] #app [data-image-foreground] :is(.primary-button,button.primary,.primary-cta,.search-submit),
-:root[data-theme="image"] #app [data-image-foreground] .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-accent) !important; border-color: var(--accent) !important; background: var(--accent) !important; text-shadow: none !important; }
-:root[data-theme="image"] #app [data-image-foreground] .library-modal-actions > .danger-action:not(:disabled),
-:root[data-theme="image"] #app [data-image-foreground] .library-modal-body:has(.unavailable-purge-list) .library-modal-actions > .secondary-button:not(:disabled) { color: var(--on-danger) !important; border-color: var(--danger) !important; background: var(--danger) !important; text-shadow: none !important; }
+/* Keep setup guidance secondary in every theme, including the image scheme. */
+:root #app #view-home #home-setup-settings {
+  display: inline-flex; align-items: center; justify-content: center; height: 28px; min-height: 28px;
+  padding: 0 12px; border: 1px solid var(--line2) !important; border-radius: var(--r-sm);
+  color: var(--text) !important; background: transparent !important; font-size: 13px; font-weight: 400;
+  text-decoration: none !important; box-shadow: none;
+}
+:root[data-theme] #app :is(.page-count-badge,.player-pages-group) {
+  color: var(--text2) !important;
+  background: color-mix(in srgb, currentColor 8%, transparent) !important;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent) !important;
+}
+:root[data-theme] #app :is(.page-count-badge,.player-pages-group):hover { background: color-mix(in srgb, currentColor 14%, transparent) !important; }
+:root[data-theme] #app .page-count-badge[data-collection] { border-color: var(--accent) !important; color: var(--text2) !important; }
+:root[data-theme] #app .player-pages-group :is(.player-pages-button,.player-skip-video-button,.player-collection-position) { color: var(--text2) !important; background: transparent !important; border-color: transparent; }
 
-:root[data-theme="image"] #app [data-image-foreground="dark"] { --option-bg: #fff; }
-:root[data-theme="image"] #app [data-image-foreground="light"] { --option-bg: #232428; }
-:root[data-theme="image"] #app [data-image-foreground] select option { color: var(--text) !important; background: var(--option-bg) !important; }
-:root[data-theme="image"] #app [data-image-foreground] .track-unavailable { color: var(--text3) !important; border-color: var(--badge-border) !important; background: var(--badge-bg) !important; text-shadow: var(--control-text3) !important; }
+
+/* The same backdrop spans the header and content; only the body is scrollable. */
+:root #app #settings-modal > .settings-panel { display: flex; flex-direction: column; overflow: hidden; }
+:root #app #settings-modal .settings-header { position: static; flex: 0 0 auto; }
+:root #app #settings-modal .settings-content { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+:root #app #settings-modal .settings-content > .appearance-status { margin: 16px 20px; color: var(--text3); font-size: 12px; }
+
+:root #app .track-columns { user-select: none; -webkit-user-select: none; }
+:root #app .column-resize { touch-action: none; }

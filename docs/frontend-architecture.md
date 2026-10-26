@@ -122,13 +122,15 @@ F8最终回归及发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、�
 
 mini窗口控制器使用已有 `load_background_image` command读图，不需要asset协议权限；路径或背景版本变化清空旧图并用请求版本号丢弃迟到结果。SFC独占背景CSS变量与装饰层，documentElement主题仍是原生登记端口，完整表达式白名单仅把原深/浅映射扩展为四主题，不增加写入面。新增测试覆盖图片乱序完成、暗化/配色变量与原通道合并。
 
-### UI-5 图片区域前景端口
+### UI-6b 图片整窗方案端口
 
-`settings-view.ts` 在既有背景/暗化投影后调用无 DOM 的 `settings-state.ts` 的无 DOM 回调端口；根挂载提前安装 `dynamic-background.ts` 的图片前景采样，复用该回调解码背景 data URL，无新增监听、store 字段或存储。离屏采样缓存四区亮度/方差；迟到解码以版本号丢弃，滑块只重算缓存。presentation 旁路沿 FIX-1 现有防重入入口取最新前景，App → AppShell 传递稳定模型；Vue 绑定区域 data 属性，不写宿主 DOM，不改根防重入循环。取色原生写入仅 `decoded.src = next`、`canvas.width = 96`、`canvas.height = Math.max(1, Math.round(96 * height / width))`，均为离屏节点；精确登记于 native-writes，配反例检查。
+settings-view.ts 沿既有回调将外观状态交给 dynamic-background.ts，不新增启动监听、store字段或存储。复用96px离屏采样，仅图片变更时计算裁剪后整图Lavg并按.50/.42滞回选方案（首次.46）；滑块只更新显示模式和有效遮罩。整窗方案与低/高档模式投影到documentElement的imageScheme/imageMode两个data端口，精确登记native-writes并配宿主写入反例。低于55%时保留四区缓存自适应，Vue只在该阶段绑定data-image-region-scheme；高档不绑定区域属性。光晕计算与属性已删除。presentation旁路仍沿FIX-1现有入口，不修改根渲染循环。
+
+迷你窗复用既有主题同步通道，在image主题负载增加非持久化imageScheme。图片解码完成后通知既有背景订阅者，方案变更仍由原帧合并发送，不新增通道/监听。迷你窗Vue根按负载绑定方案与显示档位，和主窗使用同一专用前景/遮罩公式；非image负载结构不变。离屏读图失败和迟到结果仍受版本号保护。
 
 ### UI-6 浮层与列宽原生端口
 
-AppShell装配稳定observeFloatingSurface回调，FloatingBackdrop以typed ref交回自己的节点。几何控制器仅观察parentElement并在局部滚动时调用既有refreshPresentation；不提交store、不改FIX-1、不新增启动阶段。背景装饰只在浮层打开时挂载，隐藏时清理；图像几何仍由dynamic-background.ts从缓存像素投影，浮层1.15裁剪映射至既有1.08视口采样；浮层clip仅为Vue style属性，不由控制器写宿主。新增条件ResizeObserver和局部scroll经UI-6单项授权；dark启动未挂载背景，G0事件不增减。Image/canvas离屏端口未新增。
+AppShell装配稳定observeFloatingSurface回调，FloatingBackdrop以typed ref交回自己的节点。几何控制器仅观察parentElement，以同一个捕获阶段scroll监听处理自身及正文后代滚动并调用既有refreshPresentation；不提交store、不改FIX-1、不新增启动阶段。背景装饰只在浮层打开时挂载，隐藏时清理；浮层背景沿视口定位，不再单独采样前景；浮层clip仅为Vue style属性，不由控制器写宿主。新增条件ResizeObserver和局部scroll经UI-6单项授权；dark启动未挂载背景，G0事件不增减。Image/canvas离屏端口未新增。
 
 track-columns.ts非标题拖动先读取可见标题、数值列和末端spacer几何，临时CSS投影采用当前布局；只持久化用户拖动列与冻结后的标题，不改变存储格式。复用既有pointer capture、委托pointerdown/keydown及按下期间window监听；松开恢复常规偏好投影。原生写权仍九项文档根列宽/容量变量，仅数字来源扩展为当前几何或偏好。
 

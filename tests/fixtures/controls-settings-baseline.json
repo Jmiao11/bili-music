@@ -353,494 +353,622 @@
             ]
           },
           {
-            "tag": "section",
+            "tag": "div",
             "attributes": {
-              "class": "setting-group"
+              "class": "settings-content"
             },
             "children": [
               {
-                "tag": "h3",
-                "attributes": {},
-                "children": [
-                  "主题"
-                ]
-              },
-              {
-                "tag": "div",
+                "tag": "section",
                 "attributes": {
-                  "aria-label": "主题",
-                  "class": "theme-row",
-                  "role": "radiogroup"
+                  "class": "setting-group"
                 },
-                "children": [
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "aria-checked": "true",
-                      "class": "theme-option is-selected",
-                      "data-theme-option": "dark",
-                      "type": "button"
-                    },
-                    "children": [
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "class": "swatch swatch-dark"
-                        },
-                        "children": []
-                      },
-                      "深色"
-                    ]
-                  },
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "aria-checked": "false",
-                      "class": "theme-option",
-                      "data-theme-option": "light",
-                      "type": "button"
-                    },
-                    "children": [
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "class": "swatch swatch-light"
-                        },
-                        "children": []
-                      },
-                      "浅色"
-                    ]
-                  },
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "aria-checked": "false",
-                      "class": "theme-option",
-                      "data-theme-option": "image",
-                      "type": "button"
-                    },
-                    "children": [
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "class": "swatch swatch-image"
-                        },
-                        "children": []
-                      },
-                      "背景图"
-                    ]
-                  },
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "aria-checked": "false",
-                      "class": "theme-option",
-                      "data-theme-option": "dynamic",
-                      "type": "button"
-                    },
-                    "children": [
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "class": "swatch swatch-dynamic"
-                        },
-                        "children": []
-                      },
-                      "动态"
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "section",
-            "attributes": {
-              "class": "setting-group image-only is-disabled",
-              "id": "image-settings"
-            },
-            "children": [
-              {
-                "tag": "h3",
-                "attributes": {},
-                "children": [
-                  "背景图"
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-actions"
-                },
-                "children": [
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "class": "secondary-button",
-                      "id": "choose-background-button",
-                      "type": "button"
-                    },
-                    "children": [
-                      "选择本地图片"
-                    ]
-                  },
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "class": "small-button quiet",
-                      "id": "reset-background-button",
-                      "type": "button"
-                    },
-                    "children": [
-                      "恢复默认"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "small",
-                "attributes": {
-                  "id": "background-name"
-                },
-                "children": [
-                  "使用默认背景"
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "section",
-            "attributes": {
-              "class": "setting-group image-only is-disabled",
-              "id": "texture-settings"
-            },
-            "children": [
-              {
-                "tag": "h3",
-                "attributes": {},
-                "children": [
-                  "质感微调"
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "slider-row",
-                  "style": "--settings-fill: 50%;"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "毛玻璃模糊",
-                      {
-                        "tag": "output",
-                        "attributes": {
-                          "id": "glass-blur-value"
-                        },
-                        "children": [
-                          "40px"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "input",
-                    "attributes": {
-                      "id": "glass-blur-slider",
-                      "max": "80",
-                      "min": "0",
-                      "type": "range"
-                    },
-                    "value": "40",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "slider-row panel-alpha-compat",
-                  "style": "display: none;"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "面板不透明度",
-                      {
-                        "tag": "output",
-                        "attributes": {
-                          "id": "panel-alpha-value"
-                        },
-                        "children": [
-                          "72%"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "input",
-                    "attributes": {
-                      "aria-hidden": "true",
-                      "id": "panel-alpha-slider",
-                      "max": "100",
-                      "min": "20",
-                      "tabindex": "-1",
-                      "type": "range"
-                    },
-                    "value": "72",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "slider-row",
-                  "style": "--settings-fill: 94.73684210526316%;"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "背景暗化",
-                      {
-                        "tag": "output",
-                        "attributes": {
-                          "id": "background-dim-value"
-                        },
-                        "children": [
-                          "90%"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "input",
-                    "attributes": {
-                      "id": "background-dim-slider",
-                      "max": "95",
-                      "min": "0",
-                      "type": "range"
-                    },
-                    "value": "90",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "details",
-            "attributes": {
-              "class": "setting-group collapsible-group"
-            },
-            "children": [
-              {
-                "tag": "summary",
-                "attributes": {},
                 "children": [
                   {
                     "tag": "h3",
                     "attributes": {},
                     "children": [
-                      "音频"
+                      "主题"
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "aria-label": "主题",
+                      "class": "theme-row",
+                      "role": "radiogroup"
+                    },
+                    "children": [
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-checked": "true",
+                          "class": "theme-option is-selected",
+                          "data-theme-option": "dark",
+                          "type": "button"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "class": "swatch swatch-dark"
+                            },
+                            "children": []
+                          },
+                          "深色"
+                        ]
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-checked": "false",
+                          "class": "theme-option",
+                          "data-theme-option": "light",
+                          "type": "button"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "class": "swatch swatch-light"
+                            },
+                            "children": []
+                          },
+                          "浅色"
+                        ]
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-checked": "false",
+                          "class": "theme-option",
+                          "data-theme-option": "image",
+                          "type": "button"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "class": "swatch swatch-image"
+                            },
+                            "children": []
+                          },
+                          "背景图"
+                        ]
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-checked": "false",
+                          "class": "theme-option",
+                          "data-theme-option": "dynamic",
+                          "type": "button"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "class": "swatch swatch-dynamic"
+                            },
+                            "children": []
+                          },
+                          "动态"
+                        ]
+                      }
                     ]
                   }
                 ]
               },
               {
-                "tag": "div",
+                "tag": "section",
                 "attributes": {
-                  "class": "setting-subgroup audio-source-section"
+                  "class": "setting-group image-only is-disabled",
+                  "id": "image-settings"
                 },
                 "children": [
                   {
+                    "tag": "h3",
+                    "attributes": {},
+                    "children": [
+                      "背景图"
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-actions"
+                    },
+                    "children": [
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "class": "secondary-button",
+                          "id": "choose-background-button",
+                          "type": "button"
+                        },
+                        "children": [
+                          "选择本地图片"
+                        ]
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "class": "small-button quiet",
+                          "id": "reset-background-button",
+                          "type": "button"
+                        },
+                        "children": [
+                          "恢复默认"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "small",
+                    "attributes": {
+                      "id": "background-name"
+                    },
+                    "children": [
+                      "使用默认背景"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "section",
+                "attributes": {
+                  "class": "setting-group image-only is-disabled",
+                  "id": "texture-settings"
+                },
+                "children": [
+                  {
+                    "tag": "h3",
+                    "attributes": {},
+                    "children": [
+                      "质感微调"
+                    ]
+                  },
+                  {
                     "tag": "label",
                     "attributes": {
-                      "class": "select-row audio-source-row",
-                      "for": "stream-source-select"
+                      "class": "slider-row",
+                      "style": "--settings-fill: 50%;"
                     },
                     "children": [
                       {
                         "tag": "span",
                         "attributes": {},
                         "children": [
-                          "音频获取方式"
+                          "毛玻璃模糊",
+                          {
+                            "tag": "output",
+                            "attributes": {
+                              "id": "glass-blur-value"
+                            },
+                            "children": [
+                              "40px"
+                            ]
+                          }
                         ]
                       },
                       {
-                        "tag": "select",
+                        "tag": "input",
                         "attributes": {
-                          "class": "settings-select",
-                          "id": "stream-source-select"
+                          "id": "glass-blur-slider",
+                          "max": "80",
+                          "min": "0",
+                          "type": "range"
                         },
+                        "value": "40",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "slider-row panel-alpha-compat",
+                      "style": "display: none;"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
                         "children": [
+                          "面板不透明度",
                           {
-                            "tag": "option",
+                            "tag": "output",
                             "attributes": {
-                              "title": "游客直连（免登录，推荐）"
+                              "id": "panel-alpha-value"
                             },
                             "children": [
-                              "游客直连"
-                            ]
-                          },
-                          {
-                            "tag": "option",
-                            "attributes": {
-                              "title": ""
-                            },
-                            "children": [
-                              "自动兜底"
+                              "72%"
                             ]
                           }
+                        ]
+                      },
+                      {
+                        "tag": "input",
+                        "attributes": {
+                          "aria-hidden": "true",
+                          "id": "panel-alpha-slider",
+                          "max": "100",
+                          "min": "20",
+                          "tabindex": "-1",
+                          "type": "range"
+                        },
+                        "value": "72",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "class": "slider-row",
+                      "style": "--settings-fill: 94.73684210526316%;"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
+                        "children": [
+                          "背景遮罩",
+                          {
+                            "tag": "output",
+                            "attributes": {
+                              "id": "background-dim-value"
+                            },
+                            "children": [
+                              "90%"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "input",
+                        "attributes": {
+                          "id": "background-dim-slider",
+                          "max": "95",
+                          "min": "0",
+                          "type": "range"
+                        },
+                        "value": "90",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "details",
+                "attributes": {
+                  "class": "setting-group collapsible-group"
+                },
+                "children": [
+                  {
+                    "tag": "summary",
+                    "attributes": {},
+                    "children": [
+                      {
+                        "tag": "h3",
+                        "attributes": {},
+                        "children": [
+                          "音频"
                         ]
                       }
                     ]
                   },
                   {
-                    "tag": "small",
-                    "attributes": {
-                      "id": "stream-source-status"
-                    },
-                    "children": [
-                      "当前：自动（游客优先，yt-dlp 兜底）"
-                    ]
-                  },
-                  {
-                    "tag": "small",
-                    "attributes": {
-                      "class": "setting-note"
-                    },
-                    "children": [
-                      "决定从 B 站获取音频的方式。游客直连免登录、开箱即用；自动模式在获取失败时用 yt-dlp 兜底，需自备 yt-dlp.exe。"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup"
-                },
-                "children": [
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "checkbox-row",
-                      "for": "loudness-normalization-toggle"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "aria-describedby": "loudness-normalization-note",
-                          "id": "loudness-normalization-toggle",
-                          "type": "checkbox"
-                        },
-                        "value": "on",
-                        "checked": false,
-                        "children": []
-                      },
-                      "响度归一化"
-                    ]
-                  },
-                  {
-                    "tag": "small",
-                    "attributes": {
-                      "class": "setting-note",
-                      "id": "loudness-normalization-note"
-                    },
-                    "children": [
-                      "降低已测量歌曲之间的音量差异，不放大较轻的歌曲。未测量的歌曲保持原音量。"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup audio-cache-section"
-                },
-                "children": [
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "checkbox-row",
-                      "for": "audio-cache-enabled"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "aria-describedby": "audio-cache-note",
-                          "disabled": "",
-                          "id": "audio-cache-enabled",
-                          "type": "checkbox"
-                        },
-                        "value": "on",
-                        "checked": false,
-                        "children": []
-                      },
-                      "启用本地音频缓存"
-                    ]
-                  },
-                  {
-                    "tag": "small",
-                    "attributes": {
-                      "class": "setting-note",
-                      "id": "audio-cache-note"
-                    },
-                    "children": [
-                      "缓存播放过的音频，可提升再次播放的速度和稳定性。缓存会占用磁盘空间，可随时清除。"
-                    ]
-                  },
-                  {
                     "tag": "div",
                     "attributes": {
-                      "class": "audio-cache-details"
+                      "class": "setting-subgroup audio-source-section"
                     },
                     "children": [
                       {
-                        "tag": "div",
+                        "tag": "label",
                         "attributes": {
-                          "class": "audio-cache-row audio-cache-usage-row"
+                          "class": "select-row audio-source-row",
+                          "for": "stream-source-select"
                         },
                         "children": [
                           {
                             "tag": "span",
                             "attributes": {},
                             "children": [
-                              "缓存占用"
+                              "音频获取方式"
                             ]
                           },
                           {
-                            "tag": "small",
+                            "tag": "select",
                             "attributes": {
-                              "class": "setting-note audio-cache-usage",
-                              "id": "audio-cache-usage"
+                              "class": "settings-select",
+                              "id": "stream-source-select"
                             },
                             "children": [
-                              "读取中…"
+                              {
+                                "tag": "option",
+                                "attributes": {
+                                  "title": "游客直连（免登录，推荐）"
+                                },
+                                "children": [
+                                  "游客直连"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {
+                                  "title": ""
+                                },
+                                "children": [
+                                  "自动兜底"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "id": "stream-source-status"
+                        },
+                        "children": [
+                          "当前：自动（游客优先，yt-dlp 兜底）"
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note"
+                        },
+                        "children": [
+                          "决定从 B 站获取音频的方式。游客直连免登录、开箱即用；自动模式在获取失败时用 yt-dlp 兜底，需自备 yt-dlp.exe。"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup"
+                    },
+                    "children": [
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "checkbox-row",
+                          "for": "loudness-normalization-toggle"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "aria-describedby": "loudness-normalization-note",
+                              "id": "loudness-normalization-toggle",
+                              "type": "checkbox"
+                            },
+                            "value": "on",
+                            "checked": false,
+                            "children": []
+                          },
+                          "响度归一化"
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note",
+                          "id": "loudness-normalization-note"
+                        },
+                        "children": [
+                          "降低已测量歌曲之间的音量差异，不放大较轻的歌曲。未测量的歌曲保持原音量。"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup audio-cache-section"
+                    },
+                    "children": [
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "checkbox-row",
+                          "for": "audio-cache-enabled"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "aria-describedby": "audio-cache-note",
+                              "disabled": "",
+                              "id": "audio-cache-enabled",
+                              "type": "checkbox"
+                            },
+                            "value": "on",
+                            "checked": false,
+                            "children": []
+                          },
+                          "启用本地音频缓存"
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note",
+                          "id": "audio-cache-note"
+                        },
+                        "children": [
+                          "缓存播放过的音频，可提升再次播放的速度和稳定性。缓存会占用磁盘空间，可随时清除。"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "audio-cache-details"
+                        },
+                        "children": [
+                          {
+                            "tag": "div",
+                            "attributes": {
+                              "class": "audio-cache-row audio-cache-usage-row"
+                            },
+                            "children": [
+                              {
+                                "tag": "span",
+                                "attributes": {},
+                                "children": [
+                                  "缓存占用"
+                                ]
+                              },
+                              {
+                                "tag": "small",
+                                "attributes": {
+                                  "class": "setting-note audio-cache-usage",
+                                  "id": "audio-cache-usage"
+                                },
+                                "children": [
+                                  "读取中…"
+                                ]
+                              },
+                              {
+                                "tag": "button",
+                                "attributes": {
+                                  "class": "audio-cache-clear",
+                                  "id": "clear-audio-cache-button",
+                                  "type": "button"
+                                },
+                                "children": [
+                                  "清空缓存"
+                                ]
+                              }
                             ]
                           },
                           {
-                            "tag": "button",
+                            "tag": "label",
                             "attributes": {
-                              "class": "audio-cache-clear",
-                              "id": "clear-audio-cache-button",
-                              "type": "button"
+                              "class": "audio-cache-row",
+                              "for": "audio-cache-capacity"
                             },
                             "children": [
-                              "清空缓存"
+                              {
+                                "tag": "span",
+                                "attributes": {},
+                                "children": [
+                                  "缓存上限"
+                                ]
+                              },
+                              {
+                                "tag": "select",
+                                "attributes": {
+                                  "class": "settings-select",
+                                  "disabled": "",
+                                  "id": "audio-cache-capacity"
+                                },
+                                "children": [
+                                  {
+                                    "tag": "option",
+                                    "attributes": {},
+                                    "children": [
+                                      "512 MB"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "option",
+                                    "attributes": {},
+                                    "children": [
+                                      "1 GB"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "option",
+                                    "attributes": {
+                                      "selected": ""
+                                    },
+                                    "children": [
+                                      "2 GB"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "option",
+                                    "attributes": {},
+                                    "children": [
+                                      "5 GB"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "option",
+                                    "attributes": {},
+                                    "children": [
+                                      "10 GB"
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "aria-live": "polite",
+                          "class": "setting-note audio-cache-status",
+                          "id": "audio-cache-status",
+                          "role": "status"
+                        },
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup shuffle-collection-section"
+                    },
+                    "children": [
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "shuffle-collection-row",
+                          "for": "shuffle-collection-order"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "随机时合集内顺序"
+                            ]
+                          },
+                          {
+                            "tag": "select",
+                            "attributes": {
+                              "class": "settings-select",
+                              "id": "shuffle-collection-order"
+                            },
+                            "children": [
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "随机"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "按原顺序"
+                                ]
+                              }
                             ]
                           }
                         ]
@@ -848,64 +976,609 @@
                       {
                         "tag": "label",
                         "attributes": {
-                          "class": "audio-cache-row",
-                          "for": "audio-cache-capacity"
+                          "class": "shuffle-collection-row",
+                          "for": "shuffle-collection-limit"
                         },
                         "children": [
                           {
                             "tag": "span",
                             "attributes": {},
                             "children": [
-                              "缓存上限"
+                              "随机时每个合集播放"
                             ]
                           },
                           {
                             "tag": "select",
                             "attributes": {
                               "class": "settings-select",
-                              "disabled": "",
-                              "id": "audio-cache-capacity"
+                              "id": "shuffle-collection-limit"
                             },
                             "children": [
                               {
                                 "tag": "option",
                                 "attributes": {},
                                 "children": [
-                                  "512 MB"
+                                  "全部"
                                 ]
                               },
                               {
                                 "tag": "option",
                                 "attributes": {},
                                 "children": [
-                                  "1 GB"
-                                ]
-                              },
-                              {
-                                "tag": "option",
-                                "attributes": {
-                                  "selected": ""
-                                },
-                                "children": [
-                                  "2 GB"
+                                  "1 首"
                                 ]
                               },
                               {
                                 "tag": "option",
                                 "attributes": {},
                                 "children": [
-                                  "5 GB"
+                                  "3 首"
                                 ]
                               },
                               {
                                 "tag": "option",
                                 "attributes": {},
                                 "children": [
-                                  "10 GB"
+                                  "5 首"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "10 首"
                                 ]
                               }
                             ]
                           }
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note"
+                        },
+                        "children": [
+                          "开启随机播放时，遇到多P视频（合集）的播放方式。可随时点分P标识旁的跳过按钮跳过当前合集。"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "details",
+                "attributes": {
+                  "class": "setting-group collapsible-group",
+                  "id": "accent-color-settings"
+                },
+                "children": [
+                  {
+                    "tag": "summary",
+                    "attributes": {},
+                    "children": [
+                      {
+                        "tag": "h3",
+                        "attributes": {},
+                        "children": [
+                          "主题色"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "aria-label": "主题色",
+                      "class": "theme-row",
+                      "role": "radiogroup"
+                    },
+                    "children": [
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "pink",
+                            "checked": true,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(251, 114, 153);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "粉"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "blue",
+                            "checked": false,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(122, 166, 231);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "蓝"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "purple",
+                            "checked": false,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(189, 145, 236);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "紫"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "green",
+                            "checked": false,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(87, 185, 65);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "绿"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "orange",
+                            "checked": false,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(224, 146, 77);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "橙"
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "accent-option"
+                        },
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "class": "sr-only",
+                              "data-accent-color": "",
+                              "name": "accent-color",
+                              "type": "radio"
+                            },
+                            "value": "cyan",
+                            "checked": false,
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "accent-dot",
+                              "style": "background-color: rgb(73, 178, 191);"
+                            },
+                            "children": []
+                          },
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "青"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "details",
+                "attributes": {
+                  "class": "setting-group ai-settings collapsible-group"
+                },
+                "children": [
+                  {
+                    "tag": "summary",
+                    "attributes": {},
+                    "children": [
+                      {
+                        "tag": "h3",
+                        "attributes": {},
+                        "children": [
+                          "AI 推荐"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "class": "settings-field",
+                      "for": "ai-api-format-select"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
+                        "children": [
+                          "接口规范"
+                        ]
+                      },
+                      {
+                        "tag": "select",
+                        "attributes": {
+                          "class": "settings-select",
+                          "id": "ai-api-format-select"
+                        },
+                        "children": [
+                          {
+                            "tag": "option",
+                            "attributes": {},
+                            "children": [
+                              "OpenAI Chat Completions"
+                            ]
+                          },
+                          {
+                            "tag": "option",
+                            "attributes": {},
+                            "children": [
+                              "OpenAI Responses"
+                            ]
+                          },
+                          {
+                            "tag": "option",
+                            "attributes": {},
+                            "children": [
+                              "Anthropic Messages"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "class": "settings-field",
+                      "for": "ai-model-input"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
+                        "children": [
+                          "模型"
+                        ]
+                      },
+                      {
+                        "tag": "input",
+                        "attributes": {
+                          "autocomplete": "off",
+                          "class": "settings-input",
+                          "id": "ai-model-input",
+                          "placeholder": "gpt-4o-mini",
+                          "type": "text"
+                        },
+                        "value": "",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "class": "settings-field",
+                      "for": "ai-api-key-input"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
+                        "children": [
+                          "API Key"
+                        ]
+                      },
+                      {
+                        "tag": "input",
+                        "attributes": {
+                          "autocomplete": "new-password",
+                          "class": "settings-input",
+                          "id": "ai-api-key-input",
+                          "placeholder": "留空则保留已保存的 key",
+                          "type": "password"
+                        },
+                        "value": "",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "label",
+                    "attributes": {
+                      "class": "settings-field",
+                      "for": "ai-base-url-input"
+                    },
+                    "children": [
+                      {
+                        "tag": "span",
+                        "attributes": {},
+                        "children": [
+                          "Base URL",
+                          {
+                            "tag": "span",
+                            "attributes": {
+                              "aria-describedby": "ai-help-bubble",
+                              "aria-label": "Base URL 填写说明",
+                              "class": "ai-help-trigger",
+                              "role": "button",
+                              "tabindex": "0"
+                            },
+                            "children": [
+                              "?",
+                              {
+                                "tag": "span",
+                                "attributes": {
+                                  "class": "ai-help-bubble",
+                                  "id": "ai-help-bubble",
+                                  "role": "tooltip"
+                                },
+                                "children": [
+                                  {
+                                    "tag": "strong",
+                                    "attributes": {},
+                                    "children": [
+                                      "规则"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "ul",
+                                    "attributes": {},
+                                    "children": [
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "请填到服务商要求的版本段，例如 https://api.openai.com/v1"
+                                        ]
+                                      },
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "只追加所选规范的端点，不自动补 /v1"
+                                        ]
+                                      },
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "缺少协议头时补 https://，末尾的 / 会去掉"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "tag": "strong",
+                                    "attributes": {},
+                                    "children": [
+                                      "示例"
+                                    ]
+                                  },
+                                  {
+                                    "tag": "ul",
+                                    "attributes": {},
+                                    "children": [
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "OpenAI：https://api.openai.com/v1"
+                                        ]
+                                      },
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "智谱：open.bigmodel.cn/api/v1"
+                                        ]
+                                      },
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "智谱 Anthropic：open.bigmodel.cn/api/anthropic/v1"
+                                        ]
+                                      },
+                                      {
+                                        "tag": "li",
+                                        "attributes": {},
+                                        "children": [
+                                          "百炼：dashscope.aliyuncs.com/compatible-mode/v1"
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "input",
+                        "attributes": {
+                          "autocomplete": "off",
+                          "class": "settings-input",
+                          "id": "ai-base-url-input",
+                          "placeholder": "https://api.openai.com/v1",
+                          "type": "url"
+                        },
+                        "value": "",
+                        "checked": false,
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "small",
+                    "attributes": {
+                      "class": "setting-note"
+                    },
+                    "children": [
+                      "鼠标悬浮 Base URL 旁的“?”可查看填写说明"
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-actions"
+                    },
+                    "children": [
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "class": "secondary-button",
+                          "id": "save-ai-config-button",
+                          "type": "button"
+                        },
+                        "children": [
+                          "保存 AI 配置"
+                        ]
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "class": "small-button quiet",
+                          "id": "test-ai-connection-button",
+                          "type": "button"
+                        },
+                        "children": [
+                          "测试连接"
                         ]
                       }
                     ]
@@ -913,54 +1586,72 @@
                   {
                     "tag": "small",
                     "attributes": {
-                      "aria-live": "polite",
-                      "class": "setting-note audio-cache-status",
-                      "id": "audio-cache-status",
-                      "role": "status"
+                      "id": "ai-config-status"
                     },
-                    "children": []
+                    "children": [
+                      "尚未读取 AI 配置"
+                    ]
                   }
                 ]
               },
               {
-                "tag": "div",
+                "tag": "details",
                 "attributes": {
-                  "class": "setting-subgroup shuffle-collection-section"
+                  "class": "setting-group collapsible-group"
                 },
                 "children": [
                   {
-                    "tag": "label",
+                    "tag": "summary",
+                    "attributes": {},
+                    "children": [
+                      {
+                        "tag": "h3",
+                        "attributes": {},
+                        "children": [
+                          "快捷键"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
                     "attributes": {
-                      "class": "shuffle-collection-row",
-                      "for": "shuffle-collection-order"
+                      "class": "setting-subgroup shortcut-row"
                     },
                     "children": [
                       {
-                        "tag": "span",
+                        "tag": "h4",
                         "attributes": {},
                         "children": [
-                          "随机时合集内顺序"
+                          "上一曲"
                         ]
                       },
                       {
-                        "tag": "select",
+                        "tag": "div",
                         "attributes": {
-                          "class": "settings-select",
-                          "id": "shuffle-collection-order"
+                          "class": "shortcut-binding-actions"
                         },
                         "children": [
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button shortcut-record-button",
+                              "data-shortcut-action": "previous",
+                              "type": "button"
+                            },
                             "children": [
-                              "随机"
+                              "未设置"
                             ]
                           },
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "data-shortcut-clear": "previous",
+                              "type": "button"
+                            },
                             "children": [
-                              "按原顺序"
+                              "清除"
                             ]
                           }
                         ]
@@ -968,59 +1659,179 @@
                     ]
                   },
                   {
-                    "tag": "label",
+                    "tag": "div",
                     "attributes": {
-                      "class": "shuffle-collection-row",
-                      "for": "shuffle-collection-limit"
+                      "class": "setting-subgroup shortcut-row"
                     },
                     "children": [
                       {
-                        "tag": "span",
+                        "tag": "h4",
                         "attributes": {},
                         "children": [
-                          "随机时每个合集播放"
+                          "播放/暂停"
                         ]
                       },
                       {
-                        "tag": "select",
+                        "tag": "div",
                         "attributes": {
-                          "class": "settings-select",
-                          "id": "shuffle-collection-limit"
+                          "class": "shortcut-binding-actions"
                         },
                         "children": [
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button shortcut-record-button",
+                              "data-shortcut-action": "playPause",
+                              "type": "button"
+                            },
                             "children": [
-                              "全部"
+                              "未设置"
                             ]
                           },
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "data-shortcut-clear": "playPause",
+                              "type": "button"
+                            },
                             "children": [
-                              "1 首"
+                              "清除"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup shortcut-row"
+                    },
+                    "children": [
+                      {
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "下一曲"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "shortcut-binding-actions"
+                        },
+                        "children": [
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button shortcut-record-button",
+                              "data-shortcut-action": "next",
+                              "type": "button"
+                            },
+                            "children": [
+                              "未设置"
                             ]
                           },
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "data-shortcut-clear": "next",
+                              "type": "button"
+                            },
                             "children": [
-                              "3 首"
+                              "清除"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup shortcut-row"
+                    },
+                    "children": [
+                      {
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "音量增加"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "shortcut-binding-actions"
+                        },
+                        "children": [
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button shortcut-record-button",
+                              "data-shortcut-action": "volumeUp",
+                              "type": "button"
+                            },
+                            "children": [
+                              "未设置"
                             ]
                           },
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "data-shortcut-clear": "volumeUp",
+                              "type": "button"
+                            },
                             "children": [
-                              "5 首"
+                              "清除"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
+                      "class": "setting-subgroup shortcut-row"
+                    },
+                    "children": [
+                      {
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "音量降低"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "shortcut-binding-actions"
+                        },
+                        "children": [
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button shortcut-record-button",
+                              "data-shortcut-action": "volumeDown",
+                              "type": "button"
+                            },
+                            "children": [
+                              "未设置"
                             ]
                           },
                           {
-                            "tag": "option",
-                            "attributes": {},
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "data-shortcut-clear": "volumeDown",
+                              "type": "button"
+                            },
                             "children": [
-                              "10 首"
+                              "清除"
                             ]
                           }
                         ]
@@ -1033,490 +1844,69 @@
                       "class": "setting-note"
                     },
                     "children": [
-                      "开启随机播放时，遇到多P视频（合集）的播放方式。可随时点分P标识旁的跳过按钮跳过当前合集。"
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "details",
-            "attributes": {
-              "class": "setting-group collapsible-group",
-              "id": "accent-color-settings"
-            },
-            "children": [
-              {
-                "tag": "summary",
-                "attributes": {},
-                "children": [
-                  {
-                    "tag": "h3",
-                    "attributes": {},
-                    "children": [
-                      "主题色"
+                      "系统级快捷键在软件处于后台时也会生效，支持 Windows 与 macOS。"
                     ]
                   }
                 ]
               },
               {
-                "tag": "div",
+                "tag": "details",
                 "attributes": {
-                  "aria-label": "主题色",
-                  "class": "theme-row",
-                  "role": "radiogroup"
+                  "class": "setting-group collapsible-group"
                 },
                 "children": [
                   {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "pink",
-                        "checked": true,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(251, 114, 153);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "粉"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "blue",
-                        "checked": false,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(122, 166, 231);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "蓝"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "purple",
-                        "checked": false,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(189, 145, 236);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "紫"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "green",
-                        "checked": false,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(87, 185, 65);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "绿"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "orange",
-                        "checked": false,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(224, 146, 77);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "橙"
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
-                      "class": "accent-option"
-                    },
-                    "children": [
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "class": "sr-only",
-                          "data-accent-color": "",
-                          "name": "accent-color",
-                          "type": "radio"
-                        },
-                        "value": "cyan",
-                        "checked": false,
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "class": "accent-dot",
-                          "style": "background-color: rgb(73, 178, 191);"
-                        },
-                        "children": []
-                      },
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "青"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "details",
-            "attributes": {
-              "class": "setting-group ai-settings collapsible-group"
-            },
-            "children": [
-              {
-                "tag": "summary",
-                "attributes": {},
-                "children": [
-                  {
-                    "tag": "h3",
+                    "tag": "summary",
                     "attributes": {},
                     "children": [
-                      "AI 推荐"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "settings-field",
-                  "for": "ai-api-format-select"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "接口规范"
-                    ]
-                  },
-                  {
-                    "tag": "select",
-                    "attributes": {
-                      "class": "settings-select",
-                      "id": "ai-api-format-select"
-                    },
-                    "children": [
                       {
-                        "tag": "option",
+                        "tag": "h3",
                         "attributes": {},
                         "children": [
-                          "OpenAI Chat Completions"
-                        ]
-                      },
-                      {
-                        "tag": "option",
-                        "attributes": {},
-                        "children": [
-                          "OpenAI Responses"
-                        ]
-                      },
-                      {
-                        "tag": "option",
-                        "attributes": {},
-                        "children": [
-                          "Anthropic Messages"
+                          "数据与隐私"
                         ]
                       }
                     ]
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "settings-field",
-                  "for": "ai-model-input"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "模型"
-                    ]
                   },
                   {
-                    "tag": "input",
+                    "tag": "div",
                     "attributes": {
-                      "autocomplete": "off",
-                      "class": "settings-input",
-                      "id": "ai-model-input",
-                      "placeholder": "gpt-4o-mini",
-                      "type": "text"
+                      "class": "setting-subgroup"
                     },
-                    "value": "",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "settings-field",
-                  "for": "ai-api-key-input"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
                     "children": [
-                      "API Key"
-                    ]
-                  },
-                  {
-                    "tag": "input",
-                    "attributes": {
-                      "autocomplete": "new-password",
-                      "class": "settings-input",
-                      "id": "ai-api-key-input",
-                      "placeholder": "留空则保留已保存的 key",
-                      "type": "password"
-                    },
-                    "value": "",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "label",
-                "attributes": {
-                  "class": "settings-field",
-                  "for": "ai-base-url-input"
-                },
-                "children": [
-                  {
-                    "tag": "span",
-                    "attributes": {},
-                    "children": [
-                      "Base URL",
                       {
-                        "tag": "span",
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "数据备份"
+                        ]
+                      },
+                      {
+                        "tag": "div",
                         "attributes": {
-                          "aria-describedby": "ai-help-bubble",
-                          "aria-label": "Base URL 填写说明",
-                          "class": "ai-help-trigger",
-                          "role": "button",
-                          "tabindex": "0"
+                          "class": "setting-actions"
                         },
                         "children": [
-                          "?",
                           {
-                            "tag": "span",
+                            "tag": "button",
                             "attributes": {
-                              "class": "ai-help-bubble",
-                              "id": "ai-help-bubble",
-                              "role": "tooltip"
+                              "class": "secondary-button",
+                              "id": "export-data-button",
+                              "type": "button"
                             },
                             "children": [
-                              {
-                                "tag": "strong",
-                                "attributes": {},
-                                "children": [
-                                  "规则"
-                                ]
-                              },
-                              {
-                                "tag": "ul",
-                                "attributes": {},
-                                "children": [
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "请填到服务商要求的版本段，例如 https://api.openai.com/v1"
-                                    ]
-                                  },
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "只追加所选规范的端点，不自动补 /v1"
-                                    ]
-                                  },
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "缺少协议头时补 https://，末尾的 / 会去掉"
-                                    ]
-                                  }
-                                ]
-                              },
-                              {
-                                "tag": "strong",
-                                "attributes": {},
-                                "children": [
-                                  "示例"
-                                ]
-                              },
-                              {
-                                "tag": "ul",
-                                "attributes": {},
-                                "children": [
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "OpenAI：https://api.openai.com/v1"
-                                    ]
-                                  },
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "智谱：open.bigmodel.cn/api/v1"
-                                    ]
-                                  },
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "智谱 Anthropic：open.bigmodel.cn/api/anthropic/v1"
-                                    ]
-                                  },
-                                  {
-                                    "tag": "li",
-                                    "attributes": {},
-                                    "children": [
-                                      "百炼：dashscope.aliyuncs.com/compatible-mode/v1"
-                                    ]
-                                  }
-                                ]
-                              }
+                              "导出数据"
+                            ]
+                          },
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "secondary-button",
+                              "id": "import-data-button",
+                              "type": "button"
+                            },
+                            "children": [
+                              "导入数据"
                             ]
                           }
                         ]
@@ -1524,476 +1914,94 @@
                     ]
                   },
                   {
-                    "tag": "input",
+                    "tag": "div",
                     "attributes": {
-                      "autocomplete": "off",
-                      "class": "settings-input",
-                      "id": "ai-base-url-input",
-                      "placeholder": "https://api.openai.com/v1",
-                      "type": "url"
-                    },
-                    "value": "",
-                    "checked": false,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "small",
-                "attributes": {
-                  "class": "setting-note"
-                },
-                "children": [
-                  "鼠标悬浮 Base URL 旁的“?”可查看填写说明"
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-actions"
-                },
-                "children": [
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "class": "secondary-button",
-                      "id": "save-ai-config-button",
-                      "type": "button"
+                      "class": "setting-subgroup"
                     },
                     "children": [
-                      "保存 AI 配置"
+                      {
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "搜索历史"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "setting-actions"
+                        },
+                        "children": [
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "id": "clear-search-history-button",
+                              "type": "button"
+                            },
+                            "children": [
+                              "清空搜索历史"
+                            ]
+                          }
+                        ]
+                      }
                     ]
                   },
                   {
-                    "tag": "button",
+                    "tag": "div",
                     "attributes": {
-                      "class": "small-button quiet",
-                      "id": "test-ai-connection-button",
-                      "type": "button"
+                      "class": "setting-subgroup"
                     },
                     "children": [
-                      "测试连接"
+                      {
+                        "tag": "h4",
+                        "attributes": {},
+                        "children": [
+                          "失效曲目"
+                        ]
+                      },
+                      {
+                        "tag": "div",
+                        "attributes": {
+                          "class": "setting-actions"
+                        },
+                        "children": [
+                          {
+                            "tag": "button",
+                            "attributes": {
+                              "class": "small-button quiet",
+                              "id": "purge-unavailable-tracks-button",
+                              "type": "button"
+                            },
+                            "children": [
+                              "清理失效曲目"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "small",
+                    "attributes": {
+                      "class": "setting-note"
+                    },
+                    "children": [
+                      "导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图，但不包含 AI API Key，在新设备导入后需要重新填写；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。清理失效曲目会从收藏和所有歌单中移除这些歌曲。"
                     ]
                   }
                 ]
               },
               {
-                "tag": "small",
+                "tag": "p",
                 "attributes": {
-                  "id": "ai-config-status"
+                  "class": "appearance-status",
+                  "id": "appearance-status",
+                  "role": "status"
                 },
-                "children": [
-                  "尚未读取 AI 配置"
-                ]
+                "children": []
               }
             ]
-          },
-          {
-            "tag": "details",
-            "attributes": {
-              "class": "setting-group collapsible-group"
-            },
-            "children": [
-              {
-                "tag": "summary",
-                "attributes": {},
-                "children": [
-                  {
-                    "tag": "h3",
-                    "attributes": {},
-                    "children": [
-                      "快捷键"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup shortcut-row"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "上一曲"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "shortcut-binding-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button shortcut-record-button",
-                          "data-shortcut-action": "previous",
-                          "type": "button"
-                        },
-                        "children": [
-                          "未设置"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "data-shortcut-clear": "previous",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清除"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup shortcut-row"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "播放/暂停"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "shortcut-binding-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button shortcut-record-button",
-                          "data-shortcut-action": "playPause",
-                          "type": "button"
-                        },
-                        "children": [
-                          "未设置"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "data-shortcut-clear": "playPause",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清除"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup shortcut-row"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "下一曲"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "shortcut-binding-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button shortcut-record-button",
-                          "data-shortcut-action": "next",
-                          "type": "button"
-                        },
-                        "children": [
-                          "未设置"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "data-shortcut-clear": "next",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清除"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup shortcut-row"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "音量增加"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "shortcut-binding-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button shortcut-record-button",
-                          "data-shortcut-action": "volumeUp",
-                          "type": "button"
-                        },
-                        "children": [
-                          "未设置"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "data-shortcut-clear": "volumeUp",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清除"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup shortcut-row"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "音量降低"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "shortcut-binding-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button shortcut-record-button",
-                          "data-shortcut-action": "volumeDown",
-                          "type": "button"
-                        },
-                        "children": [
-                          "未设置"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "data-shortcut-clear": "volumeDown",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清除"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "small",
-                "attributes": {
-                  "class": "setting-note"
-                },
-                "children": [
-                  "系统级快捷键在软件处于后台时也会生效，支持 Windows 与 macOS。"
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "details",
-            "attributes": {
-              "class": "setting-group collapsible-group"
-            },
-            "children": [
-              {
-                "tag": "summary",
-                "attributes": {},
-                "children": [
-                  {
-                    "tag": "h3",
-                    "attributes": {},
-                    "children": [
-                      "数据与隐私"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "数据备份"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "setting-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button",
-                          "id": "export-data-button",
-                          "type": "button"
-                        },
-                        "children": [
-                          "导出数据"
-                        ]
-                      },
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "secondary-button",
-                          "id": "import-data-button",
-                          "type": "button"
-                        },
-                        "children": [
-                          "导入数据"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "搜索历史"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "setting-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "id": "clear-search-history-button",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清空搜索历史"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "div",
-                "attributes": {
-                  "class": "setting-subgroup"
-                },
-                "children": [
-                  {
-                    "tag": "h4",
-                    "attributes": {},
-                    "children": [
-                      "失效曲目"
-                    ]
-                  },
-                  {
-                    "tag": "div",
-                    "attributes": {
-                      "class": "setting-actions"
-                    },
-                    "children": [
-                      {
-                        "tag": "button",
-                        "attributes": {
-                          "class": "small-button quiet",
-                          "id": "purge-unavailable-tracks-button",
-                          "type": "button"
-                        },
-                        "children": [
-                          "清理失效曲目"
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "tag": "small",
-                "attributes": {
-                  "class": "setting-note"
-                },
-                "children": [
-                  "导出的备份包含收藏、歌单、听歌记录、AI 配置与背景图，但不包含 AI API Key，在新设备导入后需要重新填写；导入会覆盖当前数据。清空搜索历史仅删除本地搜索记录，不影响收藏、歌单或播放队列。清理失效曲目会从收藏和所有歌单中移除这些歌曲。"
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "p",
-            "attributes": {
-              "class": "appearance-status",
-              "id": "appearance-status",
-              "role": "status"
-            },
-            "children": []
           }
         ]
       }

@@ -3,16 +3,17 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "./helpers/module-syntax.ts";
-import { relativeLuminance, imageMaskOpacity, regionForeground, sampleRegion } from "../ui/features/settings/dynamic-background.ts";
+import { relativeLuminance, imageMaskOpacity, imageScheme, sampleRegion } from "../ui/features/settings/dynamic-background.ts";
 
-test("image regions measure luminance variance and retain foreground between strict thresholds", () => {
+test("image sampling measures luminance and image schemes retain the previous choice inside the thresholds", () => {
   const sample = sampleRegion(new Uint8ClampedArray([255,255,255,255,0,0,0,255]), 2, 1, [0,0,1,1]);
   assert.equal(sample.mean, .5); assert.equal(sample.variance, .25);
   assert.equal(relativeLuminance(0,0,0), 0); assert.equal(relativeLuminance(255,255,255), 1);
-  assert.equal(regionForeground("light", .46, 0), "dark");
-  assert.equal(regionForeground("dark", .37, 0), "light");
-  for (const mean of [.38,.4,.45]) for (const previous of ["light","dark"] as const) assert.equal(regionForeground(previous, mean, 0), previous);
-  assert.equal(regionForeground("dark", 1, imageMaskOpacity(70)), "light");
+  assert.equal(imageScheme(null, .46), "light");
+  assert.equal(imageScheme(null, .459), "dark");
+  assert.equal(imageScheme("dark", .50), "light");
+  assert.equal(imageScheme("light", .42), "dark");
+  for (const mean of [.421,.46,.499]) for (const previous of ["light","dark"] as const) assert.equal(imageScheme(previous, mean), previous);
   for (const [value, expected] of [[0,0],[20,.275],[40,.55],[70,.55+30*.4/55],[95,.95]]) assert.ok(Math.abs(imageMaskOpacity(value)-expected)<1e-12);
 });
 
@@ -49,20 +50,20 @@ function fixture() {
   const finish = async (index = 0) => { pending[index](); for (let i=0;i<4;i++) await Promise.resolve(); };
   return { project, read, finish, dark() { brightness=0; }, counts: () => ({reads,created,refreshed}) };
 }
-test("real image projection caches pixels across slider changes and switches halo at 55 percent", async () => {
+test("real image projection caches pixels and keeps its scheme across slider changes", async () => {
   const f=fixture(); f.project(0); await f.finish();
-  for(const name of ["sidebar","content","bar","titlebar"]) assert.equal(f.read()[name],"dark");
-  assert.equal(f.read().halo,true);
-  for(const value of [20,40,70,95]) { f.project(value); assert.equal(f.read().halo,value<40); }
-  assert.equal(f.read().content,"light"); assert.equal(f.counts().reads,1); assert.equal(f.counts().created,1);
+  assert.equal(f.read().scheme,"light");
+  assert.equal("halo" in f.read(),false);
+  for(const value of [20,40,70,95]) { f.project(value); assert.equal(f.read().scheme,"light"); }
+  assert.deepEqual(f.read().regions,{}); assert.equal(f.counts().reads,1); assert.equal(f.counts().created,1);
   f.dark(); f.project(0,"black"); await f.finish(1);
-  for(const name of ["sidebar","content","bar","titlebar"]) assert.equal(f.read()[name],"light");
-  assert.equal(f.read().halo,true); assert.equal(f.counts().reads,2);
+  assert.equal(f.read().scheme,"dark");
+  assert.equal("halos" in f.read(),false); assert.equal(f.counts().reads,2);
 });
 test("late image decode cannot replace a newer image or a different theme", async () => {
   const f=fixture(); f.project(0,"old"); f.project(0,"new"); await f.finish();
   assert.equal(f.read(),null); assert.equal(f.counts().reads,0);
-  await f.finish(1); assert.equal(f.read().content,"dark");
+  await f.finish(1); assert.equal(f.read().scheme,"light");
   f.project(0,"pending"); f.project(0,"pending","dark"); await f.finish(2);
   assert.equal(f.read(),null); assert.equal(f.counts().reads,1);
 });

@@ -4,7 +4,7 @@ import type { TrackColumn } from "../features/tracks/track-column-state.ts";
 
 const trackColumnWidths = shallowReactive({ ...TRACK_COLUMN_DEFAULTS });
 const trackColumnDrag = shallowReactive<{ column: TrackColumn | null }>({ column: null });
-let drag: { id: number; x: number; width: number; column: TrackColumn; header: HTMLElement; layout?: typeof trackColumnWidths; maximum?: number } | null = null;
+let drag: { id: number; x: number; width: number; column: TrackColumn; header: HTMLElement; layout?: typeof trackColumnWidths; maximum?: number; pair?: { title: number; uploader: number; changed?: boolean } } | null = null;
 let lastPress: { header: HTMLElement; column: TrackColumn; time: number; x: number; y: number } | null = null;
 function applyWidths(widths = trackColumnWidths): void {
   const title = widths.title;
@@ -36,6 +36,15 @@ function resize(column: TrackColumn, width: number): void {
 function move(event: PointerEvent): void {
   if (!drag || event.pointerId !== drag.id) return;
   if (lastPress && (Math.abs(event.clientX - lastPress.x) > 3 || Math.abs(event.clientY - lastPress.y) > 3)) lastPress = null;
+  if (drag.pair && drag.layout) {
+    const start = drag.pair;
+    const delta = Math.max(Math.max(240 - start.title, start.uploader - 320), Math.min(start.uploader - 100, event.clientX - drag.x));
+    drag.layout.title = start.title + delta; drag.layout.uploader = start.uploader - delta;
+    if (delta !== 0) start.changed = true;
+    trackColumnWidths.title = drag.layout.title;
+    if (start.changed) trackColumnWidths.uploader = drag.layout.uploader;
+    applyWidths(drag.layout); return;
+  }
   const width = Math.min(drag.maximum ?? Infinity, resizeTrackColumn(drag.column, drag.width + event.clientX - drag.x));
   trackColumnWidths[drag.column] = width;
   if (drag.layout) { drag.layout[drag.column] = width; applyWidths(drag.layout); }
@@ -50,6 +59,13 @@ function finish(event: PointerEvent): void {
   window.removeEventListener("pointercancel", finish);
   window.removeEventListener("lostpointercapture", finish);
   if (current.header.hasPointerCapture(current.id)) current.header.releasePointerCapture(current.id);
+  // An explicit pair resize saves the fitted layout so release cannot refit other boundaries.
+  if (current.pair?.changed && current.layout) {
+    for (const column of ["title","uploader","pages","plays","duration"] as const) {
+      const width = current.layout[column];
+      if (typeof width === "number" && width >= TRACK_COLUMN_LIMITS[column][0]) trackColumnWidths[column] = width;
+    }
+  }
   applyWidths(); saveWidths();
 }
 const trackColumnCallbacks = Object.freeze({
@@ -72,12 +88,13 @@ const trackColumnCallbacks = Object.freeze({
     const saved = trackColumnWidths[column];
     drag = { id: event.pointerId, x: line.width ? line.left + line.width / 2 : event.clientX, width: saved === "auto" ? cell.width || 240 : saved, column, header };
     const titleCell = header.querySelector<HTMLElement>(".column-title"), titleWidth = titleCell?.getBoundingClientRect().width ?? 0;
-    if (titleWidth > 0 && column !== "title") {
+    if (titleWidth > 0) {
       const widthOf = (name: string) => header.querySelector<HTMLElement>(".column-" + name)?.getBoundingClientRect().width ?? 0;
       const layout = { title: titleWidth, uploader: widthOf("uploader"), pages: widthOf("pages"), plays: widthOf("play"), duration: widthOf("duration") };
       trackColumnWidths.title = titleWidth;
       drag.layout = layout; drag.width = layout[column];
-      drag.maximum = Math.min(TRACK_COLUMN_LIMITS[column][1], drag.width + widthOf("spacer"));
+      if (column === "title") drag.pair = {title:titleWidth,uploader:layout.uploader};
+      else drag.maximum = Math.min(TRACK_COLUMN_LIMITS[column][1], drag.width + widthOf("spacer"));
       applyWidths(layout);
     }
     trackColumnDrag.column = column;
