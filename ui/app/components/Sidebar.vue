@@ -21,6 +21,10 @@ defineProps<{model:SidebarPresentation;currentView:string;playlists:ApplicationS
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21.2 10.7 20C5.4 15.2 2 12.2 2 8.4A5.4 5.4 0 0 1 7.5 3c1.8 0 3.5.8 4.5 2.1A5.6 5.6 0 0 1 16.5 3 5.4 5.4 0 0 1 22 8.4c0 3.8-3.4 6.8-8.7 11.6Z" /></svg>
             <span>我的收藏</span>
           </button>
+          <button class="nav-item" :class="{active:currentView === 'recent'}" :aria-label="model.initialized ? '最近播放' : undefined" :title="model.initialized ? '最近播放' : undefined" type="button" data-view="recent">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v5l4 2-1 1.7-5-2.9Z" /></svg>
+            <span>最近播放</span>
+          </button>
           <button class="nav-item" :class="{active:currentView === 'playlists'}" :aria-label="model.initialized ? '我的歌单' : undefined" :title="model.initialized ? '我的歌单' : undefined" type="button" data-view="playlists">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h10v2H4Zm0 5h10v2H4Zm0 5h7v2H4Zm13-3.2V5h2v7.1a3 3 0 1 1-2 .7Z" /></svg>
             <span>我的歌单</span>

@@ -1,3 +1,4 @@
+import fixtureAudioCacheHits from "../tests/fixtures/contract/audio-cache-hits.json";
 // Compile-only checks; these JSON files are also checked by Rust tests.
 import fixtureAvailableUpdate from "../tests/fixtures/contract/available-update.json";
 import fixtureAiConfigViewNone from "../tests/fixtures/contract/ai-config-view-none.json";
@@ -117,6 +118,7 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   set_audio_cache_settings: fixtureAudioCacheSettings,
   get_audio_cache_usage: fixtureAudioCacheUsage,
   clear_audio_cache: 1,
+  check_audio_cache: fixtureAudioCacheHits,
   get_track_loudness: 1,
   clear_loudness_data: null,
   get_video_pages: [fixtureVideoPage],

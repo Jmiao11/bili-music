@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{ name: keyof typeof paths; size?: number }>();
 const paths = {
+  bolt: "M13 2 4 14h7l-1 8 10-12h-7Z",
   play: "M8 5v14l11-7Z",
   pause: "M8 5v14M16 5v14",
   previous: "M5 5v14M19 5l-10 7 10 7Z",

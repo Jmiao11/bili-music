@@ -951,7 +951,7 @@ mod backup_tests {
         });
         written_rx.recv().unwrap();
         let (second, attempted, done) = concurrent_writer(root.clone(), || {
-            super::super::history::record_play(new_play())
+            super::super::history::record_play(new_play(), None, None, None)
         });
         attempted.recv().unwrap();
         let blocked = wait_for_blocked_writer(&done);
@@ -995,7 +995,7 @@ mod backup_tests {
         });
         written_rx.recv().unwrap();
         let (second, attempted, done) = concurrent_writer(root.clone(), || {
-            super::super::history::record_play(new_play())
+            super::super::history::record_play(new_play(), None, None, None)
         });
         attempted.recv().unwrap();
         let blocked = wait_for_blocked_writer(&done);

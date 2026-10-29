@@ -938,6 +938,12 @@
     },
     {
       "action": "listen",
+      "target": "button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
       "target": "#open-settings-button",
       "type": "click",
       "options": null

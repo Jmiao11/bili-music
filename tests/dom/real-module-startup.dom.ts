@@ -10,7 +10,7 @@ import { loadMountedApplication as loadNativeModules } from "../../scripts/vue/s
 test("real module graph dispatches once during main before appearance starts once", async () => {
   const ui = path.join(import.meta.dirname, "../../ui");
   const { modules } = collectBusinessScripts(ui);
-  assert.equal(modules.length, 68); // Removed the standalone companion controller; startup assertions below stay intact.
+  assert.equal(modules.length, 70); // 最近播放新增状态与控制器；启动行为断言保持。
   const loaded = await loadNativeModules(ui, modules, "app.ts");
   const changes = loaded.events.filter((event) => event.type === "bilibili-music-trackchange");
   const dispatches = changes.filter((event) => event.action === "dispatch");

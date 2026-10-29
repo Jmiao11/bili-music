@@ -127,6 +127,9 @@ mod tests {
                 duration_seconds: 120,
                 last_played_at: "1700000000000".into(),
                 count: 2,
+                last_cid: None,
+                last_page: None,
+                last_part_name: None,
             },
         );
         assert_fixture(

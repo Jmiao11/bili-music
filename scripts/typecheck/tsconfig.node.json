@@ -14,6 +14,8 @@
     "skipLibCheck": true
   },
   "files": [
+    "../../tests/recent-plays.test.ts",
+    "../../tests/dom/recent-plays.dom.ts",
     "../../scripts/tests/groups.ts",
     "../../scripts/tests/dom.ts",
     "../../scripts/vue/check.ts",

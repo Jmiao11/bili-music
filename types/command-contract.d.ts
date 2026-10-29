@@ -21,7 +21,7 @@ declare namespace CommandContract {
   interface BatchAddResult { playlists: Playlist[]; added: number; duplicates: number; }
   interface ImportPage { mediaId: string; title: string; total: number; items: TrackSnapshot[]; skipped: number; duplicates: number; scanned: number; hasMore: boolean; truncated: boolean; }
   interface SearchHistoryItem { keyword: string; searchedAt: string; count: number; }
-  interface PlayHistoryItem { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; lastPlayedAt: string; count: number; }
+  interface PlayHistoryItem { lastCid: number | null; lastPage: number | null; lastPartName: string | null; bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; lastPlayedAt: string; count: number; }
   interface PlaybackCollection { data: LibraryCollection; memberIndex: number; remaining: number[]; playedCount: number; unitCharged: boolean; chargedUnits: string[]; historyTrack?: TrackSnapshot; }
   interface PlaybackQueueEntry extends TrackSnapshot { entryId?: string; collection?: PlaybackCollection; }
   interface PlaybackHistory { index: number; cid: number | null; pageLevel?: boolean; entryId?: string; bvid?: string; track?: TrackSnapshot; }
@@ -62,6 +62,7 @@ interface CommandMap {
   cache_track_audio: { args: { audioUrl: string; bvid: string; cid?: number | null; audioId?: number | null; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number }; result: string };
   get_audio_cache_settings: { args: undefined; result: CommandContract.AudioCacheSettings };
   set_audio_cache_settings: { args: { enabled: boolean; maxBytes: number }; result: CommandContract.AudioCacheSettings };
+  check_audio_cache: { args: { tracks: { bvid: string; cid: number }[]; quality: CommandContract.AudioQuality }; result: boolean[] };
   get_audio_cache_usage: { args: undefined; result: CommandContract.AudioCacheUsage };
   clear_audio_cache: { args: undefined; result: number };
   get_track_loudness: { args: { key: string; audioId?: number | null }; result: number | null };
@@ -103,7 +104,7 @@ interface CommandMap {
   clear_search_history: { args: undefined; result: null };
   get_shortcuts: { args: undefined; result: CommandContract.Shortcuts };
   set_shortcuts: { args: { bindings: CommandContract.ShortcutBindingsInput }; result: null };
-  record_play: { args: { track: CommandContract.TrackSnapshotInput }; result: null };
+  record_play: { args: { track: CommandContract.TrackSnapshotInput; lastCid?: number | null; lastPage?: number | null; lastPartName?: string | null }; result: null };
   get_play_history: { args: undefined; result: CommandContract.PlayHistoryItem[] };
   get_playback_state: { args: undefined; result: CommandContract.PlaybackState | null };
   save_playback_state: { args: { state: CommandContract.PlaybackStateInput }; result: null };

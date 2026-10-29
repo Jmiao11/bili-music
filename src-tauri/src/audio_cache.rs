@@ -309,6 +309,48 @@ fn cached_file_path_for_analysis_at(dir: &Path, key: &str) -> Result<Option<Path
     Ok(path.is_file().then_some(path))
 }
 
+enum CacheLookup {
+    Hit(CachedAudio),
+    Missing(String),
+    Miss,
+}
+
+fn inspect_cached_file_at(
+    dir: &Path,
+    index: &AudioCacheIndex,
+    bvid: &str,
+    cid: Option<u64>,
+    quality: AudioQuality,
+    audio_id: Option<i64>,
+    now: u128,
+) -> Result<CacheLookup, String> {
+    let Some(memo_key) = memo_key(bvid, cid, quality) else {
+        return Ok(CacheLookup::Miss);
+    };
+    if !index.enabled {
+        return Ok(CacheLookup::Miss);
+    }
+    let audio_id = audio_id.unwrap_or_else(|| remembered_audio_id(index, &memo_key, quality, now));
+    let Some(key) = audio_cache_key(bvid, cid, Some(audio_id)) else {
+        return Ok(CacheLookup::Miss);
+    };
+    let Some(item) = index.items.iter().find(|item| item.key == key) else {
+        return Ok(CacheLookup::Miss);
+    };
+    validate_cache_file_name(&item.file_name)?;
+    let file_path = dir.join(&item.file_name);
+    if file_path.is_file() {
+        return Ok(CacheLookup::Hit(CachedAudio {
+            audio_id,
+            key,
+            path: file_path,
+            metadata: item.metadata.clone(),
+        }));
+    }
+
+    Ok(CacheLookup::Missing(key))
+}
+
 fn lookup_cached_file_at(
     dir: &Path,
     bvid: &str,
@@ -316,38 +358,72 @@ fn lookup_cached_file_at(
     quality: AudioQuality,
     audio_id: Option<i64>,
 ) -> Result<Option<CachedAudio>, String> {
-    let Some(memo_key) = memo_key(bvid, cid, quality) else {
+    if cid.is_none() {
         return Ok(None);
-    };
+    }
     let path = dir.join(INDEX_FILE);
     let mut index = read_index_at(&path)?;
-    if !index.enabled {
-        return Ok(None);
+    match inspect_cached_file_at(dir, &index, bvid, cid, quality, audio_id, now_millis())? {
+        CacheLookup::Hit(cached) => {
+            lookup_file_name(&mut index, &cached.key, now_millis());
+            write_index_at(&path, &index)?;
+            Ok(Some(cached))
+        }
+        CacheLookup::Missing(key) => {
+            index.items.retain(|item| item.key != key);
+            write_index_at(&path, &index)?;
+            Ok(None)
+        }
+        CacheLookup::Miss => Ok(None),
     }
-    let audio_id =
-        audio_id.unwrap_or_else(|| remembered_audio_id(&index, &memo_key, quality, now_millis()));
-    let Some(key) = audio_cache_key(bvid, cid, Some(audio_id)) else {
-        return Ok(None);
-    };
-    let Some(item) = index.items.iter().find(|item| item.key == key).cloned() else {
-        return Ok(None);
-    };
-    validate_cache_file_name(&item.file_name)?;
-    let file_path = dir.join(&item.file_name);
-    if file_path.is_file() {
-        lookup_file_name(&mut index, &key, now_millis());
-        write_index_at(&path, &index)?;
-        return Ok(Some(CachedAudio {
-            audio_id,
-            key,
-            path: file_path,
-            metadata: item.metadata,
-        }));
-    }
+}
 
-    index.items.retain(|item| item.key != key);
-    write_index_at(&path, &index)?;
-    Ok(None)
+#[derive(Deserialize)]
+pub(crate) struct AudioCacheIdentity {
+    bvid: String,
+    cid: u64,
+}
+
+#[tauri::command]
+pub(crate) fn check_audio_cache(
+    tracks: Vec<AudioCacheIdentity>,
+    quality: AudioQuality,
+) -> Result<Vec<bool>, String> {
+    if tracks.len() > 200 {
+        return Err("缓存查询最多200项。".to_owned());
+    }
+    for track in &tracks {
+        if track.bvid.len() != 12
+            || !track.bvid.starts_with("BV")
+            || !track.bvid[2..].bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            return Err("无效的 BV 号。".to_owned());
+        }
+        if track.cid == 0 {
+            return Err("无效的 CID。".to_owned());
+        }
+    }
+    let _lock = AUDIO_CACHE_INDEX_LOCK
+        .lock()
+        .map_err(|_| "音频缓存索引锁异常。")?;
+    let dir = library_root()?.join("cache").join("audio");
+    let index = read_index_at(&dir.join(INDEX_FILE))?;
+    let now = now_millis();
+    tracks
+        .iter()
+        .map(|track| {
+            inspect_cached_file_at(
+                &dir,
+                &index,
+                &track.bvid,
+                Some(track.cid),
+                quality,
+                None,
+                now,
+            )
+            .map(|result| matches!(result, CacheLookup::Hit(_)))
+        })
+        .collect()
 }
 
 fn finish_download_at(
@@ -739,6 +815,168 @@ fn now_millis() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cache_query_command_is_readonly_and_validates_inputs() {
+        let temp = TempDir::new();
+        crate::storage::set_test_root(temp.path().to_owned());
+        let tracks = || {
+            vec![AudioCacheIdentity {
+                bvid: "BV1xx411c7mD".into(),
+                cid: 42,
+            }]
+        };
+        assert_eq!(
+            check_audio_cache(tracks(), AudioQuality::Highest).unwrap(),
+            vec![false]
+        );
+        let dir = temp.path().join("cache/audio");
+        assert!(!dir.exists());
+        fs::create_dir_all(&dir).unwrap();
+        quality_cache(&dir, &[30232]);
+        remember_audio_quality_at(
+            &dir,
+            memo_key("BV1xx411c7mD", Some(42), AudioQuality::Highest).unwrap(),
+            30232,
+            now_millis(),
+        )
+        .unwrap();
+        let path = dir.join(INDEX_FILE);
+        let before = fs::read(&path).unwrap();
+        assert_eq!(
+            check_audio_cache(tracks(), AudioQuality::Highest).unwrap(),
+            vec![true]
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        let index = read_index_at(&path).unwrap();
+        fs::remove_file(dir.join(&index.items[0].file_name)).unwrap();
+        assert_eq!(
+            check_audio_cache(tracks(), AudioQuality::Highest).unwrap(),
+            vec![false]
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        for (bvid, cid) in [("invalid", 42), ("BV1xx411c7mD", 0)] {
+            assert!(check_audio_cache(
+                vec![AudioCacheIdentity {
+                    bvid: bvid.into(),
+                    cid
+                }],
+                AudioQuality::Highest
+            )
+            .is_err());
+        }
+        assert!(check_audio_cache(
+            (0..201)
+                .map(|_| AudioCacheIdentity {
+                    bvid: "BV1xx411c7mD".into(),
+                    cid: 42
+                })
+                .collect(),
+            AudioQuality::Highest
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn readonly_cache_inspection_matches_lookup_without_writing() {
+        let temp = TempDir::new();
+        quality_cache(temp.path(), &[30232, 30216]);
+        let memo = memo_key("BV1xx411c7mD", Some(42), AudioQuality::Highest).unwrap();
+        for age in [0, QUALITY_MEMO_TTL_MS] {
+            remember_audio_quality_at(temp.path(), memo.clone(), 30232, now_millis() - age)
+                .unwrap();
+            for quality in [
+                AudioQuality::Highest,
+                AudioQuality::Aac192,
+                AudioQuality::Aac132,
+                AudioQuality::Aac64,
+            ] {
+                let path = temp.path().join(INDEX_FILE);
+                let before = fs::read(&path).unwrap();
+                let index = read_index_at(&path).unwrap();
+                let readonly = inspect_cached_file_at(
+                    temp.path(),
+                    &index,
+                    "BV1xx411c7mD",
+                    Some(42),
+                    quality,
+                    None,
+                    now_millis(),
+                )
+                .unwrap();
+                assert_eq!(fs::read(&path).unwrap(), before);
+                let actual =
+                    lookup_cached_file_at(temp.path(), "BV1xx411c7mD", Some(42), quality, None)
+                        .unwrap();
+                let readonly = match readonly {
+                    CacheLookup::Hit(cached) => Some((cached.audio_id, cached.path)),
+                    _ => None,
+                };
+                assert_eq!(
+                    readonly,
+                    actual.map(|cached| (cached.audio_id, cached.path))
+                );
+            }
+        }
+        let path = temp.path().join(INDEX_FILE);
+        let mut index = read_index_at(&path).unwrap();
+        let old = "BV1xx411c7mD:42";
+        fs::write(temp.path().join(cache_file_name(old)), b"old").unwrap();
+        index.items = vec![item(old, 3, 1)];
+        index.quality_memos.clear();
+        write_index_at(&path, &index).unwrap();
+        assert!(matches!(
+            inspect_cached_file_at(
+                temp.path(),
+                &index,
+                "BV1xx411c7mD",
+                Some(42),
+                AudioQuality::Highest,
+                None,
+                now_millis()
+            )
+            .unwrap(),
+            CacheLookup::Miss
+        ));
+        assert!(lookup_cached_file_at(
+            temp.path(),
+            "BV1xx411c7mD",
+            Some(42),
+            AudioQuality::Highest,
+            None
+        )
+        .unwrap()
+        .is_none());
+        quality_cache(temp.path(), &[30280]);
+        let index = read_index_at(&path).unwrap();
+        fs::remove_file(temp.path().join(&index.items[0].file_name)).unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(matches!(
+            inspect_cached_file_at(
+                temp.path(),
+                &index,
+                "BV1xx411c7mD",
+                Some(42),
+                AudioQuality::Highest,
+                None,
+                now_millis()
+            )
+            .unwrap(),
+            CacheLookup::Missing(_)
+        ));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(lookup_cached_file_at(
+            temp.path(),
+            "BV1xx411c7mD",
+            Some(42),
+            AudioQuality::Highest,
+            None
+        )
+        .unwrap()
+        .is_none());
+        assert!(read_index_at(&path).unwrap().items.is_empty());
+        crate::contract_tests::assert_fixture("audio-cache-hits", &vec![true, false]);
+    }
 
     fn quality_cache(dir: &Path, ids: &[i64]) {
         let mut index = AudioCacheIndex {

@@ -1,3 +1,5 @@
+import { installRecentController } from "../features/recent/recent-controller.ts";
+import { readApplicationStore } from "../store/application-store.ts";
 import {finishPagesTransition} from "../features/pages/pages-view.ts";
 import { installPageCallbacks } from "./root-controls.ts";
 import { installSettingsCallbacks } from "../features/settings/root-settings.ts";
@@ -19,6 +21,7 @@ import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSea
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "../features/playback/playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "../features/settings/appearance.ts";
 initializeRootLists();
+installRecentController(readApplicationStore(), window);
 initPlaybackDiagnostics();
 initPlaybackNotice();
 

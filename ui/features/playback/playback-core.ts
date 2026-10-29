@@ -1,4 +1,5 @@
 import {revealPlaybackBar} from "../../app/shell-stages.ts";
+import { recentPage } from "../recent/recent-state.ts";
 import { installPageCallbacks } from "../../app/root-controls.ts";
 import { readSearchDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "./root-playback.ts";
@@ -93,7 +94,7 @@ function currentAudioCacheCid() {
 }
 
 
-async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInput, requestVersion: number) {
+async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInput, requestVersion: number, knownPage: PlaybackStartPage | null = null) {
   resetCurrentPageState();
   try {
     const pages = await invoke("get_video_pages", { bvId: video.bvid });
@@ -106,7 +107,20 @@ async function loadPagesForCurrentVideo(video: CommandContract.TrackSnapshotInpu
     getQueueActions().selectPage(0);
 
   } catch (error) {
+    let fallback: CommandContract.VideoPage[] = [];
+    try {
+      const cached = await invoke("get_cached_video_pages", { bvids: [video.bvid] });
+      fallback = (cached?.[video.bvid]?.pages ?? []).map((page, index) => normalizeVideoPage({ ...page, durationSeconds: page.duration }, index)).filter(page => page.cid > 0);
+    } catch { /* 磁盘缓存不可用时继续尝试已知分P。 */ }
     if (getRequestActions().isCurrent(requestVersion)) {
+      if (!fallback.length && knownPage?.cid) {
+        fallback = [normalizeVideoPage({ cid: knownPage.cid, page: knownPage.page ?? 1, part: knownPage.part ?? video.title, durationSeconds: knownPage.durationSeconds ?? video.durationSeconds }, 0)];
+      }
+      if (fallback.length) {
+        getSessionActions().setCurrentPages(fallback);
+        getQueueActions().selectPage(0);
+        return true;
+      }
       console.warn(`get_video_pages failed for ${video.bvid}; treating as single-P:`, error);
       resetCurrentPageState();
       showPlaybackNotice("分P列表获取失败，暂按单个视频播放。");
@@ -484,7 +498,7 @@ function analyzeCurrentTrackAtThreshold() {
 
 async function loadCurrentTrack({
   keepPage = false,
-  startPage = null,
+  startPage = !keepPage && getQueueSnapshot().queueSource === "recent" ? recentPage(getApplicationStore().getState().recent.items.find(item => item.bvid.toLowerCase() === getQueueActions().activeTrack()?.bvid.toLowerCase())) : null,
   resumePosition = null,
   randomStartPage = false,
 }: { keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
@@ -517,7 +531,7 @@ async function loadCurrentTrack({
       randomStartPage = getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random";
     }
     if (!keepPage) {
-      const stillCurrent = await loadPagesForCurrentVideo(video, requestVersion);
+      const stillCurrent = await loadPagesForCurrentVideo(video, requestVersion, startPage);
       if (!stillCurrent) {
         return;
       }
@@ -1045,7 +1059,8 @@ audio.addEventListener("timeupdate", () => {
   const snapshot = currentTrackSnapshot();
   if (!snapshot.bvid) return;
   getSessionActions().setPlayRecorded(true);
-  invoke("record_play", { track: snapshot }).catch(() => {});
+  const page = currentVideoPage() ?? getSessionSnapshot().currentPages[0];
+  invoke("record_play", { track: snapshot, lastCid: page?.cid ?? null, lastPage: page?.page ?? null, lastPartName: page?.part ?? null }).catch(() => {});
 });
 }
 

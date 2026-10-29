@@ -129,6 +129,7 @@ fn main() {
             audio_cache::get_audio_cache_settings,
             audio_cache::set_audio_cache_settings,
             audio_cache::get_audio_cache_usage,
+            audio_cache::check_audio_cache,
             audio_cache::clear_audio_cache,
             library::loudness_store::get_track_loudness,
             library::loudness_store::clear_loudness_data,

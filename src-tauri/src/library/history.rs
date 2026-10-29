@@ -28,6 +28,12 @@ pub struct PlayHistoryItem {
     pub duration_seconds: u64,
     pub last_played_at: String,
     pub count: u64,
+    #[serde(default)]
+    pub last_cid: Option<u64>,
+    #[serde(default)]
+    pub last_page: Option<u32>,
+    #[serde(default)]
+    pub last_part_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -141,16 +147,36 @@ fn clear_search_history_at(
     write_json_atomic(guard, &path()?, &SearchHistoryFile::default())
 }
 #[tauri::command]
-pub fn record_play(track: TrackSnapshotInput) -> Result<(), String> {
+pub fn record_play(
+    track: TrackSnapshotInput,
+    last_cid: Option<u64>,
+    last_page: Option<u32>,
+    last_part_name: Option<String>,
+) -> Result<(), String> {
     let storage_guard = crate::storage::lock_storage()?;
     let guard = &storage_guard;
-    record_play_at(guard, || play_history_path(guard), track)
+    record_play_with_page_at(
+        guard,
+        || play_history_path(guard),
+        track,
+        (last_cid, last_page, last_part_name),
+    )
 }
 
+#[cfg(test)]
 fn record_play_at(
     guard: &crate::storage::StorageGuard,
     path: impl Fn() -> Result<PathBuf, String>,
     track: TrackSnapshotInput,
+) -> Result<(), String> {
+    record_play_with_page_at(guard, path, track, (None, None, None))
+}
+
+fn record_play_with_page_at(
+    guard: &crate::storage::StorageGuard,
+    path: impl Fn() -> Result<PathBuf, String>,
+    track: TrackSnapshotInput,
+    position: (Option<u64>, Option<u32>, Option<String>),
 ) -> Result<(), String> {
     let mut file = read_play_history_at(guard, &path()?)?;
     let bvid = normalize_bvid(&track.bvid)?;
@@ -169,6 +195,9 @@ fn record_play_at(
         item.duration_seconds = track.duration_seconds;
         item.last_played_at = now;
         item.count = item.count.saturating_add(1);
+        item.last_cid = position.0;
+        item.last_page = position.1;
+        item.last_part_name = position.2;
         file.items.insert(0, item);
     } else {
         file.items.insert(
@@ -181,6 +210,9 @@ fn record_play_at(
                 duration_seconds: track.duration_seconds,
                 last_played_at: now,
                 count: 1,
+                last_cid: position.0,
+                last_page: position.1,
+                last_part_name: position.2,
             },
         );
     }
@@ -250,6 +282,77 @@ mod tests {
     use super::*;
     use std::fs;
 
+    #[test]
+    fn optional_page_history_is_backward_compatible_and_updates_per_bv() {
+        // v1.0.0 的原始结构：不拒绝未知字段。
+        #[derive(Deserialize, Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct LegacyPlayHistoryItem {
+            bvid: String,
+            title: String,
+            uploader: String,
+            thumbnail_url: String,
+            duration_seconds: u64,
+            last_played_at: String,
+            count: u64,
+        }
+        #[derive(Deserialize)]
+        struct LegacyPlayHistoryFile {
+            version: u32,
+            items: Vec<LegacyPlayHistoryItem>,
+        }
+        let path = test_path();
+        let guard = crate::storage::lock_storage().unwrap();
+        let old = r#"{"version":1,"items":[{"bvid":"BV1GF4X6MEb1","title":"old","uploader":"up","thumbnailUrl":"","durationSeconds":120,"lastPlayedAt":"1","count":2}]}"#;
+        fs::write(&path, old).unwrap();
+        let old_items = get_play_history_at(&guard, || Ok(path.clone())).unwrap();
+        assert_eq!(
+            (
+                old_items[0].last_cid,
+                old_items[0].last_page,
+                &old_items[0].last_part_name
+            ),
+            (None, None, &None)
+        );
+        for (cid, page, part) in [(11, 1, "一"), (22, 2, "二")] {
+            record_play_with_page_at(
+                &guard,
+                || Ok(path.clone()),
+                history_input("BV1GF4X6MEb1"),
+                (Some(cid), Some(page), Some(part.into())),
+            )
+            .unwrap();
+            let items = get_play_history_at(&guard, || Ok(path.clone())).unwrap();
+            assert_eq!(items.len(), 1);
+            assert_eq!(
+                (
+                    items[0].last_cid,
+                    items[0].last_page,
+                    items[0].last_part_name.as_deref()
+                ),
+                (Some(cid), Some(page), Some(part))
+            );
+        }
+        let new_bytes = fs::read(&path).unwrap();
+        let legacy: LegacyPlayHistoryFile = serde_json::from_slice(&new_bytes).unwrap();
+        assert_eq!(legacy.version, 1);
+        assert_eq!(legacy.items.len(), 1);
+        assert_eq!(legacy.items[0].count, 4);
+        let mut new_item =
+            serde_json::from_slice::<serde_json::Value>(&new_bytes).unwrap()["items"][0].clone();
+        for field in ["lastCid", "lastPage", "lastPartName"] {
+            new_item.as_object_mut().unwrap().remove(field);
+        }
+        assert_eq!(serde_json::to_value(&legacy.items[0]).unwrap(), new_item);
+        record_play_at(&guard, || Ok(path.clone()), history_input("BV1GF4X6MEb1")).unwrap();
+        let item = &get_play_history_at(&guard, || Ok(path.clone())).unwrap()[0];
+        assert_eq!(
+            (item.last_cid, item.last_page, &item.last_part_name),
+            (None, None, &None)
+        );
+        fs::remove_file(path).unwrap();
+    }
+
     fn history_input(bvid: &str) -> TrackSnapshotInput {
         TrackSnapshotInput {
             bvid: bvid.to_owned(),
@@ -277,6 +380,9 @@ mod tests {
             duration_seconds: 1,
             last_played_at: "seed".to_owned(),
             count,
+            last_cid: None,
+            last_page: None,
+            last_part_name: None,
         }
     }
 

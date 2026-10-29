@@ -136,6 +136,17 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           </div>
         </section>
 
+        <section id="view-recent" class="view library-view" :class="{'is-active':shell.currentView === 'recent'}" :hidden="shell.currentView !== 'recent'">
+          <header class="list-head recent-head"><h1>最近播放</h1><span class="queue-count">{{ snapshot.recent.items.length }} 首</span></header>
+          <p v-if="snapshot.recent.error" class="search-status" role="status">{{ snapshot.recent.error }}</p>
+          <p v-else-if="snapshot.recent.loading" class="search-status" role="status">正在读取播放记录…</p>
+          <p v-else-if="!snapshot.recent.items.length" class="recent-empty">还没有播放记录</p>
+          <div class="track-surface">
+            <TrackColumns v-if="shell.currentView === 'recent'" list="recent-list" plays-label="播放时间" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
+            <ListHost id="recent-list" class="tracklist" aria-label="最近播放" :model="lists.recent" />
+          </div>
+        </section>
+
         <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'">
           <header class="list-head library-head" :hidden="snapshot.library.view.playlistDetail">
             <div>
@@ -182,7 +193,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
           </div>
         </section>
 
-        <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','playlists','collection'].includes(shell.currentView)">
+        <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','recent','playlists','collection'].includes(shell.currentView)">
           <div class="empty-state">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 5h8v2H8Zm0 4h5v2H8Z" /></svg>
             <h2 id="placeholder-title">{{ shell.placeholderTitle }}</h2>
