@@ -15,6 +15,8 @@ const paths = {
   external: "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5",
   volume: "M4 9v6h4l5 4V5L8 9ZM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12",
   lyrics: "M4 7h10M4 12h16M4 17h12",
+  chevronDown: "M6 9l6 6 6-6",
+  check: "M5 12l4 4L19 6",
   grip: "M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01",
 };
 </script>

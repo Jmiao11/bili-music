@@ -341,10 +341,13 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
   const video = getQueueActions().activeTrack();
   if (!video) return;
   const page = currentVideoPage();
+  const quality = getApplicationStore().getState().playbackDisplay.audioQuality;
   getSessionActions().setRecoveryAttempts(getSessionSnapshot().recoveryAttempts + 1);
   window.recordPlaybackDiag("audio-recovery", `start attempt=${getSessionSnapshot().recoveryAttempts} position=${position}`);
   try {
     const info = await invoke("prepare_audio", {
+      ...(quality.preference !== "highest" ? { quality: quality.preference } : {}),
+      ...(quality.audioId !== null ? { audioId: quality.audioId } : {}),
       bvId: video.bvid,
       cid: page?.cid ?? null,
       cacheCid: currentAudioCacheCid(),
@@ -358,6 +361,12 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
       return;
     }
     getRequestActions().replaceAudio(info.audioUrl, performance.now());
+    getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference: quality.preference, audioId: info.audioId ?? null, isFallback: info.isFallback ?? false });
+    if (quality.audioId !== (info.audioId ?? null)) {
+      getSessionActions().setCacheRequested(false);
+      getSessionActions().setLoudnessAnalyzed(false);
+      refreshTrackLoudness();
+    }
     audio.src = info.audioUrl;
     audio.load();
     const loaded = await waitForRecoveryMetadata(version);
@@ -426,7 +435,8 @@ function refreshTrackLoudness() {
     console.warn("track loudness unavailable: missing bvid/cid");
     return;
   }
-  invoke("get_track_loudness", { key: `${bvid}:${cid}` }).then((lufs) => {
+  const audioId = getApplicationStore().getState().playbackDisplay.audioQuality.audioId;
+  invoke("get_track_loudness", { key: `${bvid}:${cid}`, ...(audioId !== null ? { audioId } : {}) }).then((lufs) => {
     if (queryVersion !== getSessionSnapshot().loudnessQueryVersion || !getRequestActions().isCurrent(requestVersion)) return;
     if (lufs === null || !Number.isFinite(lufs)) {
       console.warn("track loudness unavailable:", `${bvid}:${cid}`);
@@ -447,14 +457,15 @@ function analyzeCurrentTrackAtThreshold() {
   const bvid = getQueueActions().activeTrack()?.bvid;
   const cid = currentVideoPage()?.cid ?? getSessionSnapshot().currentPages[0]?.cid;
   const audioUrl = getRequestSnapshot().activeAudioUrl;
+  const audioId = getApplicationStore().getState().playbackDisplay.audioQuality.audioId;
   if (!bvid || !cid || !audioUrl) return;
 
   getSessionActions().setLoudnessAnalyzed(true);
   const requestVersion = getRequestSnapshot().requestVersion;
   const startAnalysis = () => {
-    if (!getRequestActions().isCurrent(requestVersion) || !isLoudnessNormalizationEnabled()) return;
-    invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).then((lufs) => {
-      if (!getRequestActions().isCurrent(requestVersion)) return;
+    if (!getRequestActions().isCurrent(requestVersion) || audioUrl !== getRequestSnapshot().activeAudioUrl || !isLoudnessNormalizationEnabled()) return;
+    invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}`, ...(audioId !== null ? { audioId } : {}) }).then((lufs) => {
+      if (!getRequestActions().isCurrent(requestVersion) || audioUrl !== getRequestSnapshot().activeAudioUrl) return;
       if (lufs === null || !Number.isFinite(lufs)) {
         console.warn("track loudness analysis unavailable:", `${bvid}:${cid}`);
         return;
@@ -484,6 +495,9 @@ async function loadCurrentTrack({
   }
 
   const requestVersion = getRequestActions().beginRequest();
+  const quality = getApplicationStore().getState().settings.audioQuality;
+  const previousAudioId = getApplicationStore().getState().playbackDisplay.audioQuality.audioId;
+  getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference: quality, audioId: null, isFallback: false });
   stopAudioElement();
   setSearchPlaybackBusy(true);
   revealPlaybackBar();
@@ -543,6 +557,7 @@ async function loadCurrentTrack({
       if (!getRequestActions().isCurrent(requestVersion)) return;
     }
     const info = await invoke("prepare_audio", {
+      ...(quality !== "highest" ? { quality } : {}),
       bvId: video.bvid,
       cid: page?.cid ?? null,
       cacheCid: currentAudioCacheCid(),
@@ -555,6 +570,11 @@ async function loadCurrentTrack({
     }
 
     getRequestActions().resetFailures();
+    if (previousAudioId !== (info.audioId ?? null)) {
+      getSessionActions().setCacheRequested(false);
+      getSessionActions().setLoudnessAnalyzed(false);
+    }
+    getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference: quality, audioId: info.audioId ?? null, isFallback: info.isFallback ?? false });
     const unavailableKey = video.bvid.toLowerCase();
     if (clearLibraryUnavailable(unavailableKey)) {
       invoke("clear_track_unavailable", { bvid: video.bvid })
@@ -1000,6 +1020,7 @@ audio.addEventListener("timeupdate", () => {
   getSessionActions().setCacheRequested(true);
   const request = invoke("cache_track_audio", {
     audioUrl, bvid, cid,
+    audioId: getApplicationStore().getState().playbackDisplay.audioQuality.audioId,
     title: snapshot.title,
     uploader: snapshot.uploader,
     thumbnailUrl: snapshot.thumbnailUrl,

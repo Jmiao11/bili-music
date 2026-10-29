@@ -5612,6 +5612,20 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root[data-theme] #app .page-count-badge[data-collection] { border-color: var(--accent) !important; color: var(--text2) !important; }
 :root[data-theme] #app .player-pages-group :is(.player-pages-button,.player-skip-video-button,.player-collection-position) { color: var(--text2) !important; background: transparent !important; border-color: transparent; }
 
+.player-quality-button { display: inline-flex; align-items: center; gap: 3px; height: 28px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text3); font: inherit; font-size: 12px; white-space: nowrap; }
+.player-quality-button:hover:not(:disabled), .player-quality-button[aria-expanded="true"] { color: var(--text2); background: var(--hover); }
+.player-quality-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.player-quality-controls { display: inline-flex; align-items: center; gap: 12px; }
+.player-bar .player-quality-controls .player-pages-group { position: static; transform: none; margin: 0; }
+:root #app .player-bar .player-quality-button .ui-icon { width: 12px; height: 12px; }
+:root[data-theme="image"] #app .player-quality-button .ui-icon { color: currentColor !important; }
+.player-quality-menu { position: fixed; z-index: calc(var(--z-player) + 2); width: 224px; padding: 6px; border-radius: var(--r-md); background: var(--floating-surface); box-shadow: var(--dialog-shadow); color: var(--text); }
+.player-quality-menu > button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; }
+.player-quality-menu > button:hover, .player-quality-menu > button:focus-visible { outline: none; background: var(--hover); }
+.quality-menu-check { display: inline-flex; width: 16px; color: var(--accent-text); }
+.player-quality-menu > p { margin: 6px 8px 2px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--text3); font-size: 11px; line-height: 16px; }
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app .player-quality-menu { isolation: isolate; }
+
 
 /* The same backdrop spans the header and content; only the body is scrollable. */
 :root #app #settings-modal > .settings-panel { display: flex; flex-direction: column; overflow: hidden; }

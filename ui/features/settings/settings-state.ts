@@ -60,6 +60,7 @@ type SettingsState = {
   background: CommandContract.BackgroundImage | null;
   ytDlpAvailable: boolean;
   streamSource: string;
+  audioQuality: CommandContract.AudioQuality;
   audioCacheSettings: CommandContract.AudioCacheSettings | null;
   collection: ReturnType<typeof normalizeShuffleCollectionPrefs>;
   shortcutBindings: CommandContract.ShortcutBindings;
@@ -130,7 +131,7 @@ type SettingsSnapshot = DeepReadonly<SettingsState>;
 function initialSettingsState(): SettingsState {
   return {
     controls: {dataBusy: {backupExport:false, backupImport:false, history:false}},
-    theme: null, accentColor: "pink", glassBlur: 40, panelAlpha: 72, backgroundDim: 90, background: null, ytDlpAvailable: false, streamSource: "auto", audioCacheSettings: null, collection: {
+    theme: null, accentColor: "pink", glassBlur: 40, panelAlpha: 72, backgroundDim: 90, background: null, ytDlpAvailable: false, streamSource: "auto", audioQuality: "highest", audioCacheSettings: null, collection: {
       order: "random", limit: 0
     }, shortcutBindings: {
       previous: null, playPause: null, next: null, volumeUp: null, volumeDown: null
@@ -316,6 +317,19 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     return ytDlpAvailable;
   }
   const sourceLabel = (source: string) => source === "guest" ? "当前：游客直连" : "当前：自动（游客优先，yt-dlp 兜底）";
+  function setAudioQuality(value: unknown, persist = true): void {
+    const audioQuality: CommandContract.AudioQuality = value === "192k" || value === "132k" || value === "64k" ? value : "highest";
+    update({ audioQuality });
+    if (persist) try {
+      adapter.settings?.setItem(key("audio-quality"), audioQuality);
+    } catch (error) {
+      notice(`音质设置保存失败：${error}`);
+    }
+  }
+  function restoreAudioQuality(): void {
+    try { setAudioQuality(adapter.settings?.getItem(key("audio-quality")), false); }
+    catch (error) { adapter.report("warn", "audio quality setting read failed:", error); }
+  }
   const sourceHint = () => "自动模式需在程序目录放置 yt-dlp.exe 后启用";
   async function restoreSource(): Promise<void> {
     try {
@@ -678,7 +692,7 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
   }
   function setDataBusy(kind: "backupExport" | "backupImport" | "history", busy: boolean): void { update({controls:{...read().controls,dataBusy:{...read().controls.dataBusy,[kind]:busy}}}); }
   return {
-    setDataBusy, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
+    setDataBusy, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, setAudioQuality, restoreAudioQuality, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
   };
 }
 export { accentChannels, createSettingsActions, initialSettingsState, normalizeSettingsAccent };

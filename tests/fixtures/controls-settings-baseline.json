@@ -666,6 +666,78 @@
                   {
                     "tag": "div",
                     "attributes": {
+                      "class": "setting-subgroup"
+                    },
+                    "children": [
+                      {
+                        "tag": "label",
+                        "attributes": {
+                          "class": "setting-row",
+                          "for": "audio-quality-select"
+                        },
+                        "children": [
+                          {
+                            "tag": "span",
+                            "attributes": {},
+                            "children": [
+                              "音质"
+                            ]
+                          },
+                          {
+                            "tag": "select",
+                            "attributes": {
+                              "aria-describedby": "audio-quality-note",
+                              "class": "settings-select",
+                              "id": "audio-quality-select"
+                            },
+                            "children": [
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "最高可用"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "192K"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "132K"
+                                ]
+                              },
+                              {
+                                "tag": "option",
+                                "attributes": {},
+                                "children": [
+                                  "64K"
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note",
+                          "id": "audio-quality-note"
+                        },
+                        "children": [
+                          "下次播放生效；档位不可用时优先选择较低档，最低档缺失时选择可用的最低档。yt-dlp 兜底保持原音质。"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "div",
+                    "attributes": {
                       "class": "setting-subgroup audio-source-section"
                     },
                     "children": [

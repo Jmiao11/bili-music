@@ -1,8 +1,9 @@
 // JSON wire types: output Option fields are present and nullable; input Option
 // fields may be omitted. Numbers describe JSON representation, not u64 validation.
 declare namespace CommandContract {
+  type AudioQuality = "highest" | "192k" | "132k" | "64k";
   interface AvailableUpdate { version: string; }
-  interface AudioResponse { audioUrl: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
+  interface AudioResponse { audioUrl: string; audioId: number | null; isFallback: boolean; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
   interface VideoPage { page: number; cid: number; part: string; durationSeconds: number; }
   interface SearchVideo { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; playCount: number | null; pubdate: number | null; }
   interface RankingTrack { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; playCount: number | null; }
@@ -56,14 +57,14 @@ interface CommandMap {
   open_mini_player: { args: undefined; result: null };
   mini_player_ready: { args: undefined; result: null };
   exit_mini_player: { args: undefined; result: null };
-  prepare_audio: { args: { bvId: string; cid?: number | null; cacheCid?: number | null; page?: number | null; part?: string | null; durationSeconds?: number | null }; result: CommandContract.AudioResponse };
-  analyze_track_loudness: { args: { audioUrl: string; key: string }; result: number | null };
-  cache_track_audio: { args: { audioUrl: string; bvid: string; cid?: number | null; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number }; result: string };
+  prepare_audio: { args: { bvId: string; cid?: number | null; cacheCid?: number | null; page?: number | null; part?: string | null; durationSeconds?: number | null; quality?: CommandContract.AudioQuality; audioId?: number | null }; result: CommandContract.AudioResponse };
+  analyze_track_loudness: { args: { audioUrl: string; key: string; audioId?: number | null }; result: number | null };
+  cache_track_audio: { args: { audioUrl: string; bvid: string; cid?: number | null; audioId?: number | null; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number }; result: string };
   get_audio_cache_settings: { args: undefined; result: CommandContract.AudioCacheSettings };
   set_audio_cache_settings: { args: { enabled: boolean; maxBytes: number }; result: CommandContract.AudioCacheSettings };
   get_audio_cache_usage: { args: undefined; result: CommandContract.AudioCacheUsage };
   clear_audio_cache: { args: undefined; result: number };
-  get_track_loudness: { args: { key: string }; result: number | null };
+  get_track_loudness: { args: { key: string; audioId?: number | null }; result: number | null };
   clear_loudness_data: { args: undefined; result: null };
   get_video_pages: { args: { bvId: string }; result: CommandContract.VideoPage[] };
   get_video_meta: { args: { bvid: string }; result: CommandContract.VideoMeta };

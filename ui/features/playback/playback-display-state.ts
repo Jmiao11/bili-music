@@ -3,8 +3,9 @@ import type { DeepReadonly } from "../../store/state-store.ts";
 type PlaybackMediaObservation = { currentTime: number; duration: number; paused: boolean; ended: boolean; playbackRate: number };
 type PlaybackSessionTrack = { hasCurrent: boolean; title: string; uploader: string; thumbnailUrl: string };
 function initialPlaybackDisplayState() {
+  const audioQuality = { preference: "highest" as CommandContract.AudioQuality, audioId: null as number | null, isFallback: false };
   return { currentTime: 0, duration: NaN, paused: true, ended: false, playbackRate: 1, isPlaying: false, buttonPlaying: false, isSeeking: false,
-    renderedTrack: { title: "尚未播放", uploader: "—", thumbnailUrl: "" },
+    audioQuality, audioQualityMenu: null as { left: number; bottom: number } | null, renderedTrack: { title: "尚未播放", uploader: "—", thumbnailUrl: "" },
     currentTrack: { bvid: "", title: "尚未播放", uploader: "—", thumbnailUrl: "", durationSeconds: 0, hasCurrent: false },
     progress: { position: 0, duration: 0 }, track: null as PlaybackSessionTrack | null,
     presentation: { duration: "0:00", restoredPosition: null as number | null, restoredMax: 0,
@@ -17,6 +18,8 @@ type PlaybackDisplaySnapshot = DeepReadonly<ReturnType<typeof initialPlaybackDis
 function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commit: (state: PlaybackDisplaySnapshot) => void) {
   const observed = (media: PlaybackMediaObservation) => ({ ...read(), ...media, isPlaying: !media.paused && !media.ended });
   return {
+    setAudioQuality(audioQuality: PlaybackDisplaySnapshot["audioQuality"]) { commit({ ...read(), audioQuality }); },
+    setAudioQualityMenu(audioQualityMenu: PlaybackDisplaySnapshot["audioQualityMenu"]) { commit({ ...read(), audioQualityMenu }); },
     setTrackDuration(durationText: string) {
       const state = read(); commit({ ...state, presentation: { ...state.presentation, duration: durationText } });
     },

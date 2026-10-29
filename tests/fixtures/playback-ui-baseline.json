@@ -423,32 +423,29 @@
           {
             "tag": "span",
             "attributes": {
-              "class": "player-pages-group",
-              "hidden": ""
+              "class": "player-quality-controls"
             },
             "children": [
               {
                 "tag": "button",
                 "attributes": {
-                  "aria-label": "查看分P",
-                  "class": "page-count-badge player-pages-button",
-                  "hidden": "",
-                  "id": "player-pages-button",
-                  "title": "查看分P",
-                  "type": "button"
-                },
-                "children": []
-              },
-              {
-                "tag": "button",
-                "attributes": {
-                  "aria-label": "跳过本次合集，播放下一首",
-                  "class": "player-skip-video-button",
-                  "id": "skip-video-button",
-                  "title": "跳过本次合集",
+                  "aria-controls": "player-quality-menu",
+                  "aria-expanded": "false",
+                  "aria-haspopup": "menu",
+                  "aria-label": "音质",
+                  "class": "player-quality-button",
+                  "disabled": "",
+                  "id": "player-audio-quality",
                   "type": "button"
                 },
                 "children": [
+                  {
+                    "tag": "span",
+                    "attributes": {},
+                    "children": [
+                      "音质"
+                    ]
+                  },
                   {
                     "tag": "svg",
                     "attributes": {
@@ -456,21 +453,79 @@
                       "class": "ui-icon",
                       "fill": "none",
                       "focusable": "false",
-                      "height": "16",
+                      "height": "12",
                       "stroke": "currentColor",
                       "stroke-linecap": "round",
                       "stroke-linejoin": "round",
                       "stroke-width": "1.8",
                       "viewBox": "0 0 24 24",
-                      "width": "16"
+                      "width": "12"
                     },
                     "children": [
                       {
                         "tag": "path",
                         "attributes": {
-                          "d": "M3 6l8 6-8 6ZM11 6l8 6-8 6ZM21 6v12"
+                          "d": "M6 9l6 6 6-6"
                         },
                         "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "span",
+                "attributes": {
+                  "class": "player-pages-group",
+                  "hidden": ""
+                },
+                "children": [
+                  {
+                    "tag": "button",
+                    "attributes": {
+                      "aria-label": "查看分P",
+                      "class": "page-count-badge player-pages-button",
+                      "hidden": "",
+                      "id": "player-pages-button",
+                      "title": "查看分P",
+                      "type": "button"
+                    },
+                    "children": []
+                  },
+                  {
+                    "tag": "button",
+                    "attributes": {
+                      "aria-label": "跳过本次合集，播放下一首",
+                      "class": "player-skip-video-button",
+                      "id": "skip-video-button",
+                      "title": "跳过本次合集",
+                      "type": "button"
+                    },
+                    "children": [
+                      {
+                        "tag": "svg",
+                        "attributes": {
+                          "aria-hidden": "true",
+                          "class": "ui-icon",
+                          "fill": "none",
+                          "focusable": "false",
+                          "height": "16",
+                          "stroke": "currentColor",
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "1.8",
+                          "viewBox": "0 0 24 24",
+                          "width": "16"
+                        },
+                        "children": [
+                          {
+                            "tag": "path",
+                            "attributes": {
+                              "d": "M3 6l8 6-8 6ZM11 6l8 6-8 6ZM21 6v12"
+                            },
+                            "children": []
+                          }
+                        ]
                       }
                     ]
                   }

@@ -14,8 +14,39 @@ const SPI_URL: &str = "https://api.bilibili.com/x/frontend/finger/spi";
 const VIEW_URL: &str = "https://api.bilibili.com/x/web-interface/wbi/view";
 const PLAYURL_URL: &str = "https://api.bilibili.com/x/player/wbi/playurl";
 const AUDIO_PROBE_RANGE: &str = "bytes=0-4095";
-const PREFERRED_AUDIO_IDS: [i64; 2] = [30232, 30216];
-const SPECIAL_AUDIO_IDS: [i64; 2] = [30250, 30251];
+pub const AAC_AUDIO_IDS: [i64; 3] = [30280, 30232, 30216];
+
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, Deserialize, Eq, PartialEq)]
+pub enum AudioQuality {
+    #[default]
+    #[serde(rename = "highest")]
+    Highest,
+    #[serde(rename = "192k")]
+    Aac192,
+    #[serde(rename = "132k")]
+    Aac132,
+    #[serde(rename = "64k")]
+    Aac64,
+}
+
+impl AudioQuality {
+    pub fn candidates(self) -> [i64; 3] {
+        match self {
+            Self::Highest | Self::Aac192 => AAC_AUDIO_IDS,
+            Self::Aac132 => [30232, 30216, 30280],
+            Self::Aac64 => [30216, 30232, 30280],
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Highest => "highest",
+            Self::Aac192 => "192k",
+            Self::Aac132 => "132k",
+            Self::Aac64 => "64k",
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct GuestAudioProbe {
@@ -36,6 +67,7 @@ pub struct GuestAudioProbe {
 
 #[derive(Clone, Debug, Default)]
 pub struct GuestPageHint {
+    pub quality: AudioQuality,
     pub cid: Option<u64>,
     pub page: Option<u32>,
     pub part: Option<String>,
@@ -134,46 +166,51 @@ impl GuestPlayurlClient {
         ensure_not_cancelled(cancellation)?;
 
         // DASH 音频轨优先；新投稿可能只有 durl 混合流，作为兜底。
-        let (audio_url, muxed_preview) = match select_audio(playurl.data.as_ref()) {
-            Ok(audio) => {
-                #[cfg(debug_assertions)]
-                stream_diag_tracks(playurl.data.as_ref(), Some(audio.id));
-                #[cfg(debug_assertions)]
-                {
-                    diag.probe_started = Some(Instant::now());
-                }
-                let audio_url = first_working_audio_url(&self.client, audio).await?;
-                #[cfg(debug_assertions)]
-                {
-                    diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
-                }
-                (audio_url.to_owned(), false)
-            }
-            Err(audio_error) => {
-                #[cfg(debug_assertions)]
-                stream_diag_tracks(playurl.data.as_ref(), None);
-                let durl = select_muxed_durl(playurl.data.as_ref());
-                match durl {
-                    Ok(durl) => {
-                        #[cfg(debug_assertions)]
-                        {
-                            diag.probe_started = Some(Instant::now());
-                        }
-                        let url = first_working_muxed_url(&self.client, durl).await?;
-                        #[cfg(debug_assertions)]
-                        {
-                            diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
-                        }
-                        (url, true)
+        let quality = page_hint
+            .as_ref()
+            .map(|hint| hint.quality)
+            .unwrap_or_default();
+        let (audio_url, muxed_preview, audio_id) =
+            match select_audio(playurl.data.as_ref(), quality) {
+                Ok(audio) => {
+                    #[cfg(debug_assertions)]
+                    stream_diag_tracks(playurl.data.as_ref(), Some(audio.id));
+                    #[cfg(debug_assertions)]
+                    {
+                        diag.probe_started = Some(Instant::now());
                     }
-                    Err(durl_error) => {
-                        return Err(format!(
-                            "{audio_error}; durl fallback unavailable: {durl_error}"
-                        ));
+                    let audio_url = first_working_audio_url(&self.client, audio).await?;
+                    #[cfg(debug_assertions)]
+                    {
+                        diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
+                    }
+                    (audio_url.to_owned(), false, Some(audio.id))
+                }
+                Err(audio_error) => {
+                    #[cfg(debug_assertions)]
+                    stream_diag_tracks(playurl.data.as_ref(), None);
+                    let durl = select_muxed_durl(playurl.data.as_ref());
+                    match durl {
+                        Ok(durl) => {
+                            #[cfg(debug_assertions)]
+                            {
+                                diag.probe_started = Some(Instant::now());
+                            }
+                            let url = first_working_muxed_url(&self.client, durl).await?;
+                            #[cfg(debug_assertions)]
+                            {
+                                diag.probe_elapsed = diag.probe_started.take().unwrap().elapsed();
+                            }
+                            (url, true, None)
+                        }
+                        Err(durl_error) => {
+                            return Err(format!(
+                                "{audio_error}; durl fallback unavailable: {durl_error}"
+                            ));
+                        }
                     }
                 }
-            }
-        };
+            };
         ensure_not_cancelled(cancellation)?;
 
         let title = page_hint
@@ -189,6 +226,8 @@ impl GuestPlayurlClient {
             .unwrap_or(view.duration_seconds);
 
         Ok(StreamAudioInfo {
+            audio_id,
+            is_fallback: false,
             audio_url,
             title,
             uploader: view.uploader,
@@ -335,7 +374,7 @@ pub async fn verify_guest_audio_playurl(bvid: &str) -> Result<GuestAudioProbe, S
         || crate::wbi::fetch_mixin_key(&client, Some(&cookie_header)),
     )
     .await?;
-    let audio = select_audio(playurl.data.as_ref())?;
+    let audio = select_audio(playurl.data.as_ref(), AudioQuality::default())?;
     let audio_url = audio
         .base_url()
         .filter(|value| !value.trim().is_empty())
@@ -1162,7 +1201,7 @@ where
     parsed.map_err(WbiAttemptError::Fatal)
 }
 
-fn select_audio(data: Option<&PlayurlData>) -> Result<&AudioStream, String> {
+fn select_audio(data: Option<&PlayurlData>, quality: AudioQuality) -> Result<&AudioStream, String> {
     let audio = data
         .and_then(|data| data.dash.as_ref())
         .map(|dash| dash.audio.as_slice())
@@ -1171,24 +1210,20 @@ fn select_audio(data: Option<&PlayurlData>) -> Result<&AudioStream, String> {
         return Err("Bilibili playurl response data.dash.audio is empty".to_owned());
     }
 
-    for preferred_id in PREFERRED_AUDIO_IDS {
+    for preferred_id in quality.candidates() {
         if let Some(stream) = audio.iter().find(|stream| stream.id == preferred_id) {
             return Ok(stream);
         }
     }
 
-    audio
-        .iter()
-        .filter(|stream| !SPECIAL_AUDIO_IDS.contains(&stream.id))
-        .find(|stream| stream.looks_browser_playable())
-        .ok_or_else(|| {
-            let ids = audio
-                .iter()
-                .map(|stream| stream.id.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("no browser-playable AAC audio stream found in data.dash.audio; ids: {ids}")
-        })
+    Err({
+        let ids = audio
+            .iter()
+            .map(|stream| stream.id.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("no browser-playable AAC audio stream found in data.dash.audio; ids: {ids}")
+    })
 }
 
 /// 新投稿兜底：DASH 音频轨缺失时，回退到 durl 混合流（音视频合一的渐进式 mp4）。
@@ -1534,6 +1569,50 @@ impl AudioStream {
 
 #[cfg(test)]
 mod tests {
+    use super::AudioQuality;
+
+    #[test]
+    fn audio_quality_selects_all_aac_subsets_and_ignores_other_tracks() {
+        let qualities = [
+            AudioQuality::Highest,
+            AudioQuality::Aac192,
+            AudioQuality::Aac132,
+            AudioQuality::Aac64,
+        ];
+        let expected = [
+            [None, None, None, None],
+            [Some(30280), Some(30280), Some(30280), Some(30280)],
+            [Some(30232), Some(30232), Some(30232), Some(30232)],
+            [Some(30280), Some(30280), Some(30232), Some(30232)],
+            [Some(30216), Some(30216), Some(30216), Some(30216)],
+            [Some(30280), Some(30280), Some(30216), Some(30216)],
+            [Some(30232), Some(30232), Some(30232), Some(30216)],
+            [Some(30280), Some(30280), Some(30232), Some(30216)],
+        ];
+        for (mask, row) in expected.iter().enumerate() {
+            let mut ids = vec![30250, 30251, 99999];
+            for (bit, id) in super::AAC_AUDIO_IDS.iter().enumerate().rev() {
+                if mask & (1 << bit) != 0 {
+                    ids.push(*id);
+                }
+            }
+            let data: super::PlayurlData = serde_json::from_value(serde_json::json!({"dash":{"audio":ids.into_iter().map(|id|serde_json::json!({"id":id,"codecs":"mp4a.40.2","mimeType":"audio/mp4"})).collect::<Vec<_>>()}})).unwrap();
+            for (quality, expected_id) in qualities.into_iter().zip(row) {
+                assert_eq!(
+                    super::select_audio(Some(&data), quality)
+                        .ok()
+                        .map(|audio| audio.id),
+                    *expected_id,
+                    "mask={mask} quality={quality:?}"
+                );
+            }
+        }
+        let empty: super::PlayurlData =
+            serde_json::from_value(serde_json::json!({"dash":{"audio":[]}})).unwrap();
+        for quality in qualities {
+            assert!(super::select_audio(Some(&empty), quality).is_err());
+        }
+    }
     use super::{
         first_working_audio_url, first_working_muxed_url, ordered_candidates, select_audio,
         select_muxed_durl, should_retry, signed_view_url, AudioStream, DashData, DurlStream,
@@ -1875,7 +1954,12 @@ mod tests {
             durl: vec![],
         };
 
-        assert_eq!(select_audio(Some(&data)).unwrap().id, 30232);
+        assert_eq!(
+            select_audio(Some(&data), AudioQuality::default())
+                .unwrap()
+                .id,
+            30232
+        );
     }
 
     #[test]
@@ -1885,10 +1969,10 @@ mod tests {
             durl: vec![],
         };
 
-        assert!(select_audio(Some(&data))
+        assert!(select_audio(Some(&data), AudioQuality::default())
             .unwrap_err()
             .contains("data.dash.audio is empty"));
-        assert!(select_audio(None)
+        assert!(select_audio(None, AudioQuality::default())
             .unwrap_err()
             .contains("no data.dash.audio"));
     }
@@ -1909,7 +1993,7 @@ mod tests {
             }],
         };
 
-        assert!(select_audio(Some(&data)).is_err());
+        assert!(select_audio(Some(&data), AudioQuality::default()).is_err());
         let candidates = select_muxed_durl(Some(&data)).unwrap().url_candidates();
         assert_eq!(
             candidates,

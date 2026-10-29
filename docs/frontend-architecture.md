@@ -135,3 +135,5 @@ AppShell装配稳定observeFloatingSurface回调，FloatingBackdrop以typed ref�
 track-columns.ts非标题拖动先读取可见标题、数值列和末端spacer几何，临时CSS投影采用当前布局；只持久化用户拖动列与冻结后的标题，不改变存储格式。复用既有pointer capture、委托pointerdown/keydown及按下期间window监听；松开恢复常规偏好投影。原生写权仍九项文档根列宽/容量变量，仅数字来源扩展为当前几何或偏好。
 
 FloatingBackdrop仅为公开Vue生命周期/ref导入新增一条精确vueImports登记；未放宽其他SFC的导入或原生写权。
+
+播放栏音质菜单沿用该浮层端口；仅展开时以 playerQualityRefs 中的 button/menu typed ref 读取几何、contains 与选项焦点。root-playback.ts 在打开期间安装 document click/keydown 和 window resize，关闭配对移除；焦点操作仍属于控制器。菜单在 AppShell 独立渲染，FloatingBackdrop 复用原 ResizeObserver，质量浮层只新增一个几何查询条目，无原生显示写入或启动监听。菜单只调用既有音质设置 action，不进入播放/取流状态机，迷你窗不变，G0 保持193/149。

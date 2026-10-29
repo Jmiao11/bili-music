@@ -671,7 +671,7 @@ installSettingsCallbacks({
   theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else if(kind === "alpha") setPanelAlpha(value); else setBackgroundDim(value); },
   chooseBackground: async () => { await getSettingsActions().chooseBackground(); }, resetBackground: () => resetBackground(),
   saveAi: saveAiConfig, testAi: testAiConnection, aiFormat: updateAiBaseUrlPlaceholder,
-  source: async value => { await getSettingsActions().changeSource(value); }, cache: saveAudioCacheSettings,
+  source: async value => { await getSettingsActions().changeSource(value); }, quality: value => getSettingsActions().setAudioQuality(value), cache: saveAudioCacheSettings,
   collection: (kind,value) => getSettingsActions().saveCollection(kind,value), clearCache: async () => { await getSettingsActions().clearCache(); },
 });
 window.addEventListener("bilibili-music-audio-cache-updated", () => {
@@ -808,6 +808,7 @@ getPlaybackMedia().subscribe("emptied", () => {
 initializeAccentColor();
 initializeTrackColumnPreferences();
 initializeShortcutSettings();
+getSettingsActions().restoreAudioQuality();
 applyTheme(readSettingsPreference(THEME_KEY), false);
 applyVolume(localStorage.getItem(VOLUME_KEY), false);
 initializeLoudnessNormalization();

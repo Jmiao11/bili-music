@@ -1,5 +1,6 @@
 
 type SettingsCallbacks = {
+  quality(value: string): void;
   theme(value: string): void; accent(value: string): void;
   slider(kind: "blur" | "alpha" | "dim", value: string): void;
   chooseBackground(): void; resetBackground(): void; saveAi(): void; testAi(): void; aiFormat(): void;
@@ -9,6 +10,7 @@ type SettingsCallbacks = {
 };
 const settingsHandlers: Partial<SettingsCallbacks> = {};
 const settingsCallbacks = Object.freeze<SettingsCallbacks>({
+  quality: value => settingsHandlers.quality?.(value),
   theme: value => settingsHandlers.theme?.(value), accent: value => settingsHandlers.accent?.(value), slider: (kind, value) => settingsHandlers.slider?.(kind, value),
   chooseBackground: () => settingsHandlers.chooseBackground?.(), resetBackground: () => settingsHandlers.resetBackground?.(), saveAi: () => settingsHandlers.saveAi?.(), testAi: () => settingsHandlers.testAi?.(), aiFormat: () => settingsHandlers.aiFormat?.(),
   source: value => settingsHandlers.source?.(value), cache: () => settingsHandlers.cache?.(), collection: (kind, value) => settingsHandlers.collection?.(kind, value), clearCache: () => settingsHandlers.clearCache?.(), clearHistory: () => settingsHandlers.clearHistory?.(),

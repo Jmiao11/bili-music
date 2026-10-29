@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { playbackFixture, track } from "./playback-ui-fixture.ts";
-import { responses } from "./tracks-fixture.ts";
+import { responses, deferred } from "./tracks-fixture.ts";
+import { nextDomEventTurn } from "./event-turn.ts";
 
 test("list commits repaint only affected highlights favorites and page metadata", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
@@ -270,4 +271,110 @@ test("cover color crossfades and presentation refreshes never redraw track rows"
     h.window.dispatchEvent(new h.window.CustomEvent("bilibili-music-trackchange",{detail:{hasCurrent:false}}));
     assert.equal(h.doc.querySelector(".dynamic-background-layer.is-visible")!.getAttribute("style"),current);
   } finally { h.dispose();if(originalImage)Object.defineProperty(globalThis,"Image",originalImage);else Reflect.deleteProperty(globalThis,"Image"); }
+});
+
+test("quality select persists for the next playback while the label follows the actual track", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const items = [track(1), track(2)];
+  let audioId: number | null = 30280, isFallback = false;
+  h.reply(async command => command === "prepare_audio" ? { audioId, isFallback, audioUrl: "http://127.0.0.1/audio/quality", title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 } : responses(items)(command));
+  const select = h.node<HTMLSelectElement>("audio-quality-select");
+  assert.equal(select.value, "highest");
+  assert.deepEqual([...select.options].map(option => option.text), ["最高可用", "192K", "132K", "64K"]);
+  h.core.playListItem("ranking", items, 0); await h.microtasks();
+  assert.equal(h.node("player-audio-quality").textContent, "192K");
+  const src = h.audio.src, count = h.calls.filter(call => call.command === "prepare_audio").length;
+  await h.fire(h.node("open-settings-button"), "click"); h.raf(); await h.microtasks();
+  await nextDomEventTurn(); select.value = "64k"; await h.fire(select, "change");
+  assert.equal(h.window.localStorage.getItem("bilibili-music.audio-quality"), "64k");
+  assert.equal(h.audio.src, src);
+  assert.equal(h.calls.filter(call => call.command === "prepare_audio").length, count);
+  assert.equal(h.node("player-audio-quality").textContent, "192K");
+  audioId = 30232;
+  h.core.playListItem("ranking", items, 1); await h.microtasks();
+  assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.quality, "64k");
+  assert.equal(h.node("player-audio-quality").textContent, "132K");
+  let nextIndex = 0;
+  for (const [id, fallback, label] of [[30216, false, "64K"], [null, true, "兜底"], [null, false, "音质"]] as const) {
+    audioId = id; isFallback = fallback;
+    h.core.playListItem("ranking", items, nextIndex); await h.microtasks();
+    nextIndex = 1 - nextIndex;
+    assert.equal(h.doc.getElementById("player-audio-quality")?.textContent ?? null, label);
+  }
+});
+
+test("quality menu opens and closes with paired transient listeners and shares the settings action", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const button = h.node<HTMLButtonElement>("player-audio-quality");
+  assert.equal(button.textContent, "音质"); assert.equal(button.disabled, true);
+  assert.equal(h.store.getState().playbackDisplay.audioQualityMenu, null);
+  assert.equal(h.listeners.some(item => /outsideQualityMenu|qualityMenuKeydown|dismissQualityMenu/.test(typeof item.callback === "function" ? item.callback.name : "")), false);
+  h.reply(responses([track(1)])); h.core.playListItem("ranking", [track(1)], 0); await h.microtasks();
+  assert.equal(button.disabled, false);
+  const calls = h.calls.length, media = h.platform.filter(item => ["play", "pause", "load"].includes(item.operation)).length, source = h.audio.src;
+  const before = h.listeners.length;
+  const removed: { type: string; callback: EventListenerOrEventListenerObject | null }[] = [];
+  const docRemove = h.doc.removeEventListener.bind(h.doc), winRemove = h.window.removeEventListener.bind(h.window);
+  h.doc.removeEventListener = (type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => { removed.push({ type, callback }); docRemove(type, callback, options); };
+  h.window.removeEventListener = (type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => { removed.push({ type, callback }); winRemove(type, callback, options); };
+  await h.fire(button, "click");
+  assert.equal(button.getAttribute("aria-haspopup"), "menu"); assert.equal(button.getAttribute("aria-expanded"), "true");
+  const menu = h.node("player-quality-menu"); assert.equal(menu.getAttribute("role"), "menu");
+  const options = [...menu.querySelectorAll<HTMLButtonElement>("[role='menuitemradio']")];
+  assert.deepEqual(options.map(item => item.textContent), ["最高可用", "192K", "132K", "64K"]);
+  assert.equal(options[0].getAttribute("aria-checked"), "true"); assert.equal(h.doc.activeElement, options[0]);
+  assert.equal(menu.querySelector("p")?.textContent, "切换后从下一首开始生效");
+  const transient = h.listeners.slice(before).filter(item => item.target === h.doc || item.target === h.window);
+  assert.deepEqual(transient.map(item => item.type), ["click", "keydown", "resize"]);
+  await h.fire(button, "click"); assert.equal(h.doc.getElementById("player-quality-menu"), null);
+  for (const item of transient) assert.ok(removed.some(value => value.type === item.type && value.callback === item.callback));
+  await h.fire(button, "click");
+  await h.fire(h.doc.querySelector("[data-quality='132k']")!, "click");
+  assert.equal(h.store.getState().settings.audioQuality, "132k");
+  assert.equal(h.window.localStorage.getItem("bilibili-music.audio-quality"), "132k");
+  assert.equal(h.node<HTMLSelectElement>("audio-quality-select").value, "132k");
+  assert.equal(button.getAttribute("aria-expanded"), "false"); assert.equal(h.doc.activeElement, button);
+  assert.equal(h.audio.src, source); assert.equal(h.calls.length, calls);
+  assert.equal(h.platform.filter(item => ["play", "pause", "load"].includes(item.operation)).length, media);
+  await h.fire(button, "click"); assert.equal(h.doc.querySelector("[data-quality='132k']")?.getAttribute("aria-checked"), "true");
+  await h.fire(h.node("title"), "click"); assert.equal(h.doc.getElementById("player-quality-menu"), null);
+});
+
+test("quality menu keyboard navigation selects with Enter and Space and Escape restores focus", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  h.reply(responses([track(1)])); h.core.playListItem("ranking", [track(1)], 0); await h.microtasks();
+  const button = h.node("player-audio-quality");
+  const active = () => h.doc.activeElement as HTMLElement;
+  const key = (value: string) => h.fire(active(), "keydown", { key: value });
+  button.focus(); await key("ArrowDown"); assert.equal(active().dataset.quality, "highest");
+  await key("ArrowDown"); assert.equal(active().dataset.quality, "192k");
+  await key("Enter"); assert.equal(h.store.getState().settings.audioQuality, "192k"); assert.equal(active(), button);
+  await key("ArrowUp"); assert.equal(active().dataset.quality, "192k");
+  await key("End"); assert.equal(active().dataset.quality, "64k");
+  await key("ArrowDown"); assert.equal(active().dataset.quality, "highest");
+  await key("Home"); await key("ArrowUp"); assert.equal(active().dataset.quality, "64k");
+  await key(" "); assert.equal(h.store.getState().settings.audioQuality, "64k"); assert.equal(active(), button);
+  await h.fire(button, "click"); await key("Escape");
+  assert.equal(button.getAttribute("aria-expanded"), "false"); assert.equal(active(), button);
+  await h.fire(button, "click"); await key("Tab"); assert.equal(h.doc.getElementById("player-quality-menu"), null);
+});
+
+test("late quality response cannot overwrite the current label or its cache identity", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const items = [track(1), track(2)].map(item => ({ ...item, thumbnailUrl: "https://example.test/cover" })), old = deferred();
+  Object.defineProperty(h.audio, "currentSrc", { configurable: true, get: () => h.audio.src });
+  h.reply(async (command, args) => command === "prepare_audio" ? args.bvId === items[0].bvid ? old.promise : { audioId: 30216, isFallback: false, audioUrl: "http://127.0.0.1/audio/new", title: "当前", uploader: "作者", thumbnailUrl: "https://example.test/cover", durationSeconds: 60 } : responses(items)(command));
+  h.core.playListItem("ranking", items, 0); await h.microtasks();
+  h.core.playListItem("ranking", items, 1); await h.microtasks();
+  old.resolve({ audioId: 30280, isFallback: false, audioUrl: "http://127.0.0.1/audio/old", title: "迟到", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
+  await h.microtasks();
+  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.equal(h.store.getState().playbackDisplay.audioQuality.audioId, 30216);
+  h.media.currentTime = 31;
+  await nextDomEventTurn(); await h.fire(h.audio, "timeupdate");
+  const cache = h.calls.find(call => call.command === "cache_track_audio");
+  assert.ok(cache);
+  assert.equal(cache.args.bvid, items[1].bvid);
+  assert.equal(cache.args.audioId, 30216);
+  assert.equal(cache.args.audioUrl, "http://127.0.0.1/audio/new");
 });

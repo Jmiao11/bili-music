@@ -7,6 +7,7 @@ let homeHintInput: HTMLInputElement;
 let homeHintApply: HTMLButtonElement;
 let playbackBarNode: HTMLElement;
 let playerPagesButton: HTMLButtonElement;
+const playerQualityRefs = { button: null as HTMLButtonElement | null, menu: null as HTMLElement | null };
 let resumePlayPauseButton: HTMLButtonElement;
 let favoritesList: HTMLUListElement;
 let playlistsList: HTMLUListElement;
@@ -28,6 +29,8 @@ const mainWindowRefs={
  homeHintApply:(node:HTMLButtonElement|null):void=>{if(node)homeHintApply=node;},
  result:(node:HTMLElement|null):void=>{if(node)playbackBarNode=node;},
  playerPagesButton:(node:HTMLButtonElement|null):void=>{if(node)playerPagesButton=node;},
+ playerQualityButton:(node:HTMLButtonElement|null):void=>{playerQualityRefs.button=node;},
+ playerQualityMenu:(node:HTMLElement|null):void=>{playerQualityRefs.menu=node;},
  resumePlayPauseButton:(node:HTMLButtonElement|null):void=>{if(node)resumePlayPauseButton=node;},
  favoritesList:(node:HTMLUListElement|null):void=>{if(node)favoritesList=node;},
  playlistsList:(node:HTMLUListElement|null):void=>{if(node)playlistsList=node;},
@@ -42,3 +45,4 @@ const mainWindowRefs={
 };
 export { audio, searchResults, homeRankingError, homeRankingList, refreshRankingButton, homeHintInput, homeHintApply, playbackBarNode, playerPagesButton, resumePlayPauseButton, favoritesList, playlistsList, playlistTracks, libraryModal, closeLibraryModalButton, libraryModalBody, pagesModal, pagesModalRestoreAll, pagesModalList, pagesModalClose, homeModeTabs };
 export {mainWindowRefs};
+export {playerQualityRefs};

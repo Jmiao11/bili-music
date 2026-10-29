@@ -101,6 +101,8 @@ pub struct AudioInfo {
 
 #[derive(Debug)]
 pub struct StreamAudioInfo {
+    pub audio_id: Option<i64>,
+    pub is_fallback: bool,
     pub audio_url: String,
     pub title: String,
     pub uploader: String,
@@ -319,6 +321,8 @@ pub fn resolve_bilibili_audio_cancellable_with_page(
     }
 
     Ok(StreamAudioInfo {
+        audio_id: None,
+        is_fallback: true,
         audio_url: parsed.audio_url,
         title: parsed.title,
         uploader: parsed.uploader,

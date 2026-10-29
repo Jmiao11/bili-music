@@ -37,6 +37,16 @@ impl Versioned for LoudnessFile {
 }
 
 fn validate_loudness_key(key: &str) -> Result<(), String> {
+    if let Some((base, audio_id)) = key.rsplit_once(':') {
+        if base.contains(':') {
+            validate_loudness_key(base)?;
+            let id = audio_id.parse::<i64>().map_err(|_| "无效的响度音轨 ID。")?;
+            if !crate::guest_playurl::AAC_AUDIO_IDS.contains(&id) || audio_id != id.to_string() {
+                return Err("无效的响度音轨 ID。".to_owned());
+            }
+            return Ok(());
+        }
+    }
     let (bvid, cid) = key.split_once(':').ok_or("响度键必须是 bvid:cid。")?;
     let normalized = normalize_bvid(bvid)?;
     let cid = cid
@@ -48,6 +58,17 @@ fn validate_loudness_key(key: &str) -> Result<(), String> {
         return Err("响度键必须是规范的 bvid:cid。".to_owned());
     }
     Ok(())
+}
+
+pub(crate) fn measurement_key(key: &str, audio_id: Option<i64>) -> Result<Option<String>, String> {
+    validate_loudness_key(key)?;
+    let Some(id) = audio_id else {
+        return Ok(None);
+    };
+    if key.matches(':').count() != 1 || !crate::guest_playurl::AAC_AUDIO_IDS.contains(&id) {
+        return Err("无效的响度音轨 ID。".to_owned());
+    }
+    Ok(Some(format!("{key}:{id}")))
 }
 
 fn get_track_loudness_at(
@@ -65,7 +86,10 @@ fn get_track_loudness_at(
 }
 
 #[tauri::command]
-pub fn get_track_loudness(key: String) -> Result<Option<f64>, String> {
+pub fn get_track_loudness(key: String, audio_id: Option<i64>) -> Result<Option<f64>, String> {
+    let Some(key) = measurement_key(&key, audio_id)? else {
+        return Ok(None);
+    };
     let storage_guard = crate::storage::lock_storage()?;
     let guard = &storage_guard;
     get_track_loudness_at(guard, &library_file_path(guard, LOUDNESS_FILE)?, &key)
@@ -127,6 +151,35 @@ mod tests {
     use super::super::test_support::test_path;
     use super::*;
     use std::fs;
+
+    #[test]
+    fn audio_quality_measurement_keys_do_not_reuse_legacy_values() {
+        assert_eq!(
+            measurement_key("BV1GF4X6MEb1:1", Some(30280))
+                .unwrap()
+                .as_deref(),
+            Some("BV1GF4X6MEb1:1:30280")
+        );
+        assert_eq!(measurement_key("BV1GF4X6MEb1:1", None).unwrap(), None);
+        assert!(measurement_key("BV1GF4X6MEb1:1", Some(30251)).is_err());
+        let path = test_path();
+        let guard = crate::storage::lock_storage().unwrap();
+        save_track_loudness_at(&guard, &path, "BV1GF4X6MEb1:1", -8.0, 1).unwrap();
+        let high = measurement_key("BV1GF4X6MEb1:1", Some(30280))
+            .unwrap()
+            .unwrap();
+        let low = measurement_key("BV1GF4X6MEb1:1", Some(30216))
+            .unwrap()
+            .unwrap();
+        assert_eq!(get_track_loudness_at(&guard, &path, &high).unwrap(), None);
+        save_track_loudness_at(&guard, &path, &high, -12.0, 2).unwrap();
+        assert_eq!(get_track_loudness_at(&guard, &path, &low).unwrap(), None);
+        assert_eq!(
+            get_track_loudness_at(&guard, &path, &high).unwrap(),
+            Some(-12.0)
+        );
+        fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn loudness_round_trip_missing_key_and_update() {

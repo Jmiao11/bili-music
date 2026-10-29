@@ -1,5 +1,5 @@
 use crate::audio_cache;
-use crate::guest_playurl::{GuestPageHint, GuestPlayurlClient};
+use crate::guest_playurl::{AudioQuality, GuestPageHint, GuestPlayurlClient};
 #[cfg(test)]
 use crate::proxy::{build_proxy_client, ProxyState};
 use crate::proxy::{validate_cdn_url, StreamEntry, StreamLocation, STREAM_SESSION_TTL};
@@ -31,6 +31,16 @@ pub(crate) struct ResolveJob {
 }
 
 impl ResolveCoordinator {
+    fn run_if_current(&self, id: u64, write: impl FnOnce()) {
+        let current = self.current.lock().expect("resolve coordinator poisoned");
+        if current
+            .as_ref()
+            .is_some_and(|job| job.id == id && !job.cancellation.load(Ordering::Acquire))
+        {
+            write();
+        }
+    }
+
     pub(crate) fn begin(&self) -> ResolveJob {
         let job = ResolveJob {
             id: self.next_id.fetch_add(1, Ordering::Relaxed),
@@ -76,6 +86,8 @@ impl ResolveCoordinator {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AudioResponse {
+    pub(crate) audio_id: Option<i64>,
+    pub(crate) is_fallback: bool,
     pub(crate) audio_url: String,
     pub(crate) title: String,
     pub(crate) uploader: String,
@@ -94,6 +106,8 @@ pub(crate) async fn prepare_audio(
     page: Option<u32>,
     part: Option<String>,
     duration_seconds: Option<f64>,
+    quality: Option<AudioQuality>,
+    audio_id: Option<i64>,
 ) -> Result<AudioResponse, String> {
     prepare_audio_with_dependencies(
         &state,
@@ -103,16 +117,28 @@ pub(crate) async fn prepare_audio(
         page,
         part,
         duration_seconds,
+        quality.unwrap_or_default(),
+        audio_id,
         &RealPrepareDependencies,
     )
     .await
 }
 
 trait PrepareDependencies: Sync {
+    fn remember_audio_quality(
+        &self,
+        bvid: &str,
+        cid: Option<u64>,
+        quality: AudioQuality,
+        audio_id: i64,
+    );
+
     fn lookup_cached_file(
         &self,
         bvid: &str,
         cid: Option<u64>,
+        quality: AudioQuality,
+        audio_id: Option<i64>,
     ) -> Result<Option<audio_cache::CachedAudio>, String>;
 
     fn guest(
@@ -141,12 +167,24 @@ trait PrepareDependencies: Sync {
 struct RealPrepareDependencies;
 
 impl PrepareDependencies for RealPrepareDependencies {
+    fn remember_audio_quality(
+        &self,
+        bvid: &str,
+        cid: Option<u64>,
+        quality: AudioQuality,
+        audio_id: i64,
+    ) {
+        let _ = audio_cache::remember_audio_quality(bvid, cid, quality, audio_id);
+    }
+
     fn lookup_cached_file(
         &self,
         bvid: &str,
         cid: Option<u64>,
+        quality: AudioQuality,
+        audio_id: Option<i64>,
     ) -> Result<Option<audio_cache::CachedAudio>, String> {
-        audio_cache::lookup_cached_file(bvid, cid)
+        audio_cache::lookup_cached_file(bvid, cid, quality, audio_id)
     }
 
     async fn guest(
@@ -179,13 +217,18 @@ async fn prepare_audio_with_dependencies(
     page: Option<u32>,
     part: Option<String>,
     duration_seconds: Option<f64>,
+    quality: AudioQuality,
+    audio_id: Option<i64>,
     dependencies: &impl PrepareDependencies,
 ) -> Result<AudioResponse, String> {
     let job = state.resolver.begin();
     let job_id = job.id;
     let cancellation = job.cancellation;
     let result = async {
-        let cached = match dependencies.lookup_cached_file(&bv_id, cache_cid) {
+        if audio_id.is_some_and(|id| !crate::guest_playurl::AAC_AUDIO_IDS.contains(&id)) {
+            return Err("invalid audio track ID".to_owned());
+        }
+        let cached = match dependencies.lookup_cached_file(&bv_id, cache_cid, quality, audio_id) {
             Ok(cached) => cached,
             Err(error) => {
                 #[cfg(debug_assertions)]
@@ -221,6 +264,8 @@ async fn prepare_audio_with_dependencies(
 
             // 索引中的封面 URL 来自前端已规范化的值，命中时直接使用。
             return Ok(AudioResponse {
+                audio_id: Some(cached.audio_id),
+                is_fallback: false,
                 audio_url: format!("{}/audio/{token}", state.proxy_base_url),
                 title: cached.metadata.title,
                 uploader: cached.metadata.uploader,
@@ -230,6 +275,12 @@ async fn prepare_audio_with_dependencies(
         }
         let resolving_bv_id = bv_id.clone();
         let page_hint = GuestPageHint {
+            quality: match audio_id {
+                Some(30280) => AudioQuality::Aac192,
+                Some(30232) => AudioQuality::Aac132,
+                Some(30216) => AudioQuality::Aac64,
+                _ => quality,
+            },
             cid,
             page,
             part,
@@ -333,6 +384,13 @@ async fn prepare_audio_with_dependencies(
         );
         drop(streams);
 
+        if let Some(audio_id) = info.audio_id {
+            state.resolver.run_if_current(job_id, || {
+                // 备忘写入与请求替换互斥，磁盘故障不阻断已经成功的取流。
+                dependencies.remember_audio_quality(&bv_id, cache_cid, quality, audio_id);
+            });
+        }
+
         let thumbnail_url = info
             .thumbnail_url
             .strip_prefix("http://")
@@ -344,6 +402,8 @@ async fn prepare_audio_with_dependencies(
         );
 
         Ok(AudioResponse {
+            audio_id: info.audio_id,
+            is_fallback: info.is_fallback,
             audio_url: format!("{}/audio/{token}", state.proxy_base_url),
             title: info.title,
             uploader: info.uploader,
@@ -488,6 +548,7 @@ mod prepare_tests {
     }
 
     struct FakeDependencies {
+        remembered: Mutex<Vec<i64>>,
         cached: Mutex<Option<Result<Option<CachedAudio>, String>>>,
         guest_result: Mutex<Option<Result<StreamAudioInfo, String>>>,
         ytdlp_result: Mutex<Option<Result<StreamAudioInfo, String>>>,
@@ -500,6 +561,7 @@ mod prepare_tests {
     impl FakeDependencies {
         fn new() -> Self {
             Self {
+                remembered: Mutex::new(Vec::new()),
                 cached: Mutex::new(Some(Ok(None))),
                 guest_result: Mutex::new(Some(Ok(stream_info()))),
                 ytdlp_result: Mutex::new(Some(Ok(stream_info()))),
@@ -516,10 +578,22 @@ mod prepare_tests {
     }
 
     impl PrepareDependencies for FakeDependencies {
+        fn remember_audio_quality(
+            &self,
+            _bvid: &str,
+            _cid: Option<u64>,
+            _quality: AudioQuality,
+            audio_id: i64,
+        ) {
+            self.remembered.lock().unwrap().push(audio_id);
+        }
+
         fn lookup_cached_file(
             &self,
             bvid: &str,
             cid: Option<u64>,
+            _quality: AudioQuality,
+            _audio_id: Option<i64>,
         ) -> Result<Option<CachedAudio>, String> {
             assert_eq!(bvid, "BV1234567890");
             assert_eq!(cid, Some(29));
@@ -579,6 +653,8 @@ mod prepare_tests {
             .as_str()
             .unwrap();
         StreamAudioInfo {
+            audio_id: Some(30280),
+            is_fallback: false,
             audio_url: format!("https://{host}/audio.m4s"),
             title: "曲目".into(),
             uploader: "作者".into(),
@@ -590,6 +666,7 @@ mod prepare_tests {
 
     fn cached_audio() -> CachedAudio {
         CachedAudio {
+            audio_id: 30280,
             key: "BV1234567890:29".into(),
             path: std::env::temp_dir().join(format!("prepare-{}.m4a", Uuid::new_v4())),
             metadata: AudioCacheMetadata {
@@ -639,6 +716,8 @@ mod prepare_tests {
             Some(3),
             Some("分P".into()),
             Some(120.5),
+            AudioQuality::Highest,
+            None,
             dependencies,
         )
         .await
@@ -688,6 +767,54 @@ mod prepare_tests {
             );
             assert!(!state.resolver.is_current(0));
         });
+    }
+
+    #[test]
+    fn prepare_records_actual_audio_only_for_active_remote_result() {
+        tauri::async_runtime::block_on(async {
+            let state = app_state(StreamSource::Guest);
+            let dependencies = FakeDependencies::new();
+            let response = prepare(&state, &dependencies).await.unwrap();
+            assert_eq!(response.audio_id, Some(30280));
+            assert_eq!(*dependencies.remembered.lock().unwrap(), [30280]);
+            for replace in [false, true] {
+                let state = app_state(StreamSource::Guest);
+                let mut dependencies = FakeDependencies::new();
+                let (gate, ready, release) = Gate::new();
+                dependencies.guest_gate = Some(gate);
+                let dependencies = Arc::new(dependencies);
+                let worker_state = state.clone();
+                let worker_dependencies = dependencies.clone();
+                let task = tauri::async_runtime::spawn(async move {
+                    prepare(&worker_state, &worker_dependencies).await
+                });
+                ready.await.unwrap();
+                if replace {
+                    state.resolver.begin();
+                } else {
+                    state.resolver.cancel_current();
+                }
+                release.send(()).unwrap();
+                assert_eq!(
+                    task.await.unwrap().err().unwrap(),
+                    AUDIO_RESOLUTION_CANCELLED
+                );
+                assert!(dependencies.remembered.lock().unwrap().is_empty());
+            }
+        });
+    }
+
+    #[test]
+    fn memo_write_guard_rejects_cancelled_and_superseded_jobs() {
+        let coordinator = ResolveCoordinator::default();
+        let first = coordinator.begin();
+        let second = coordinator.begin();
+        let mut written = Vec::new();
+        coordinator.run_if_current(first.id, || written.push(first.id));
+        coordinator.run_if_current(second.id, || written.push(second.id));
+        coordinator.cancel_current();
+        coordinator.run_if_current(second.id, || written.push(second.id));
+        assert_eq!(written, [second.id]);
     }
 
     #[test]

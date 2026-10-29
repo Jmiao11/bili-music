@@ -9,6 +9,7 @@ import type {SettingsControl,SettingsControls} from '../settings-controls.ts';
 import type {SettingsSnapshot} from '../settings-state.ts';
 import type {SettingsCallbacks} from '../root-settings.ts';
 const props=defineProps<{draftBindings:typeof draftBindings;surfaceVisible?:boolean;background?:DynamicBackgroundPresentation;onGeometry?:(element:HTMLElement)=>()=>void;appearanceStatus:string;purgeBusy:boolean;state:SettingsSnapshot;model:SettingsControls;callbacks:SettingsCallbacks;normalization:boolean;normalizationVersion:number}>();
+const changeQuality = (event: Event) => props.callbacks.quality((event.target as HTMLSelectElement).value);
 const empty:SettingsControl={};
 const field=(name:string)=>props.model[name]??empty;
 const vField:ObjectDirective<HTMLInputElement|HTMLSelectElement,SettingsControl>={mounted:(element,binding)=>applySettingsField(element,binding.value),updated:(element,binding)=>applySettingsField(element,binding.value,binding.oldValue ?? undefined)};
@@ -85,6 +86,18 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
 
         <details class="setting-group collapsible-group">
           <summary><h3>音频</h3></summary>
+          <div class="setting-subgroup">
+            <label class="setting-row" for="audio-quality-select">
+              <span>音质</span>
+              <select id="audio-quality-select" class="settings-select" :value="state.audioQuality" aria-describedby="audio-quality-note" :onChange="surfaceVisible ? changeQuality : undefined">
+                <option value="highest">最高可用</option>
+                <option value="192k">192K</option>
+                <option value="132k">132K</option>
+                <option value="64k">64K</option>
+              </select>
+            </label>
+            <small id="audio-quality-note" class="setting-note">下次播放生效；档位不可用时优先选择较低档，最低档缺失时选择可用的最低档。yt-dlp 兜底保持原音质。</small>
+          </div>
           <div class="setting-subgroup audio-source-section">
             <label class="select-row audio-source-row" for="stream-source-select">
               <span>音频获取方式</span>

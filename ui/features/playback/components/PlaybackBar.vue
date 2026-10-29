@@ -13,6 +13,7 @@ const videoTitle = () => {
   return collection ? collection.data.snapshot.items[collection.memberIndex]?.title ?? "" : entry()?.title ?? "";
 };
 const playing = () => props.display.view.buttonVersion ? String(props.display.buttonPlaying) : undefined;
+const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({ 30280: "192K", 30232: "132K", 30216: "64K" } as Record<number, string>)[props.display.audioQuality.audioId ?? 0] ?? "音质";
 </script>
 <template>
 <footer id="result" :ref="element => mainWindowRefs.result(element as HTMLElement|null)" class="player-bar panel" aria-label="当前播放">
@@ -58,12 +59,15 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
       </div>
 
       <div class="right-tools">
+        <span class="player-quality-controls">
+        <button id="player-audio-quality" :ref="element => mainWindowRefs.playerQualityButton(element as HTMLButtonElement|null)" class="player-quality-button" type="button" aria-label="音质" aria-haspopup="menu" aria-controls="player-quality-menu" :aria-expanded="!!display.audioQualityMenu" :disabled="!display.currentTrack.hasCurrent" :onClick="display.currentTrack.hasCurrent ? callbacks.qualityToggle : undefined" :onKeydown="display.currentTrack.hasCurrent ? callbacks.qualityKeydown : undefined"><span>{{ qualityLabel() }}</span><Icon name="chevronDown" :size="12" /></button>
         <span class="player-pages-group" :hidden="controls.pagesHidden && !group()">
           <span v-if="group()" class="player-collection-position">合集 {{ group()!.memberIndex + 1 }}/{{ group()!.data.snapshot.items.length }}</span>
           <button id="player-pages-button" :ref="element => mainWindowRefs.playerPagesButton(element as HTMLButtonElement|null)" class="page-count-badge player-pages-button" type="button" title="查看分P" :hidden="controls.pagesHidden" :aria-label="controls.pagesLabel" @click="callbacks.pages()" >{{ controls.pagesText }}</button>
           <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本次合集" aria-label="跳过本次合集，播放下一首" @click="callbacks.skip()" >
             <Icon name="skip" />
           </button>
+        </span>
         </span>
         <span id="queue-position" class="queue-position">{{ controls.queuePosition }}</span>
         <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo()" :disabled="!display.currentTrack.bvid" >

@@ -378,10 +378,14 @@ pub async fn analyze_track_loudness(
     state: tauri::State<'_, crate::AppState>,
     audio_url: String,
     key: String,
+    audio_id: Option<i64>,
 ) -> Result<Option<f64>, String> {
-    if let Some(lufs) = crate::library::get_track_loudness(key.clone())? {
+    if let Some(lufs) = crate::library::get_track_loudness(key.clone(), audio_id)? {
         return Ok(Some(lufs));
     }
+    let Some(key) = crate::library::loudness_store::measurement_key(&key, audio_id)? else {
+        return Ok(None);
+    };
     let local_path = crate::audio_cache::cached_file_path_for_analysis(&key)?;
     #[cfg(debug_assertions)]
     let source = if local_path.is_some() {

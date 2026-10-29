@@ -68,6 +68,8 @@ ZIP 继续使用原白名单和容器：导出只包含当前活动资料库，�
 
 音频缓存 `cache/audio` 保留 `AUDIO_CACHE_INDEX_LOCK` 和 `cache_busy`。`audio_cache.rs` 仅通过别名接到 `read_json_or_default_without_storage_lock`、`write_json_atomic_without_storage_lock`；这两个入口的名字只能出现在 `storage.rs` 和 `audio_cache.rs`。
 
+Q-2 的音频缓存/响度测量用 `BV:CID:音轨ID` 区分实际 AAC 轨，旧项保留但不复用。缓存 version 1 索引的可选 `qualityMemos` 保存 `BV:CID:请求档位 → {audioId, recordedAt}`，有效期7天；损坏备忘视为缺失，清空缓存同时清空备忘。写入复用既有索引原子写入，并与当前 resolve 身份互斥；完整规则见 [音质设计](design/audio-quality.md)。
+
 直接文件 I/O 的生产例外按文件与函数固定，不能使用通配符：
 
 | 文件 | 函数 | 原因 |

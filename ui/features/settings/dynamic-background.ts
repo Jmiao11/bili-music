@@ -331,7 +331,7 @@ let floatingPresentation: DynamicBackgroundPresentation | undefined;
 function projectFloatingSurfaceBackground(base: DynamicBackgroundPresentation): DynamicBackgroundPresentation {
   if (typeof document === "undefined" || !["image","dynamic"].includes(document.documentElement?.dataset.theme ?? "")) return base;
   const surfaces: Record<string,Record<string,string>> = {};
-  for (const [name,selector] of Object.entries({settings:"#settings-modal > .settings-panel",library:"#library-modal > .settings-panel",pages:"#pages-modal > .settings-panel",help:"#ai-help-bubble",notice:"#playback-notice"})) {
+  for (const [name,selector] of Object.entries({settings:"#settings-modal > .settings-panel",library:"#library-modal > .settings-panel",pages:"#pages-modal > .settings-panel",help:"#ai-help-bubble",notice:"#playback-notice",quality:"#player-quality-menu"})) {
     const rect = document.querySelector?.(selector)?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0 || rect.height <= 0) continue;
     surfaces[name] = { "--floating-clip": `inset(${Math.max(0,rect.top+1)}px ${Math.max(0,window.innerWidth-rect.right+1)}px ${Math.max(0,window.innerHeight-rect.bottom+1)}px ${Math.max(0,rect.left+1)}px round 7px)`, "--floating-left": `${rect.left}px`, "--floating-top": `${rect.top}px` };

@@ -24,6 +24,7 @@ import HomeSetupHint from "../../features/home/components/HomeSetupHint.vue";
 import HomeHint from "../../features/home/components/HomeHint.vue";
 import HomeUpdateNotice from "../../features/home/components/HomeUpdateNotice.vue";
 import PlaybackBar from "../../features/playback/components/PlaybackBar.vue";
+import AudioQualityMenu from "../../features/playback/components/AudioQualityMenu.vue";
 import ImmersivePlayer from "../../features/immersive/components/ImmersivePlayer.vue";
 import PlaybackNotice from "../../features/playback/components/PlaybackNotice.vue";
 import type { HomeControls, PageCallbacks } from "../root-controls.ts";
@@ -194,6 +195,7 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
     <PlaybackNotice :on-geometry="observeFloatingSurface" :surface-style="background.surfaces?.notice" :background="background" :theme="snapshot.settings.theme" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
     <PlaybackBar :data-image-region-scheme="foreground?.regions.bar" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
+    <AudioQualityMenu v-if="snapshot.playbackDisplay.audioQualityMenu" :main-window-refs="mainWindowRefs" :preference="snapshot.settings.audioQuality" :position="snapshot.playbackDisplay.audioQualityMenu" :theme="snapshot.settings.theme" :background="background" :on-geometry="observeFloatingSurface" :on-choose="callbacks.qualityChoose" />
 
 
     <div :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" id="settings-modal" class="settings-mask" :class="{'is-open':stages.settings.open}" :aria-hidden="!stages.settings.open" :hidden="stages.settings.hidden">
