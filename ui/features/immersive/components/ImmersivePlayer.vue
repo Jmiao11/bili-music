@@ -46,7 +46,7 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
 
             <div class="timeline immersive-timeline">
               <span id="immersive-current-time">{{ timeline().currentTime }}</span>
-              <input id="immersive-progress-slider" type="range" min="0" step="0.01" aria-label="沉浸播放进度"  :max="timeline().max" :value="timeline().value" :style="timeline().styled ? { '--progress': timeline().progress } : undefined" @pointerdown="callbacks.seekStart()" @input="callbacks.preview(($event.target as HTMLInputElement).value)" @change="callbacks.seek(($event.target as HTMLInputElement).value)" />
+              <input id="immersive-progress-slider" type="range" min="0" step="0.01" aria-label="沉浸播放进度"  :max="timeline().max" :value="timeline().value" :style="timeline().styled ? { '--progress': timeline().progress } : undefined" @pointerdown="callbacks.seekStart()" @input="callbacks.preview(($event.target as HTMLInputElement).value)" @pointerup="display.isSeeking && callbacks.seek(($event.target as HTMLInputElement).value)" @pointercancel="display.isSeeking && callbacks.seek(($event.target as HTMLInputElement).value)" @lostpointercapture="display.isSeeking && callbacks.seek(($event.target as HTMLInputElement).value)" @change="display.isSeeking && callbacks.seek(($event.target as HTMLInputElement).value)" />
               <span id="immersive-duration">{{ timeline().duration }}</span>
             </div>
 

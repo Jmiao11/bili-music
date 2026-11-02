@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 149,
+  "firstTrackchange": 155,
   "sequence": [
     {
       "action": "window-set",
@@ -179,6 +179,24 @@
     {
       "action": "listen",
       "target": "#immersive-progress-slider",
+      "type": "pointerup",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "pointercancel",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
+      "type": "lostpointercapture",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#immersive-progress-slider",
       "type": "change",
       "options": null
     },
@@ -264,6 +282,24 @@
       "action": "listen",
       "target": "#progress-slider",
       "type": "input",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "pointerup",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "pointercancel",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#progress-slider",
+      "type": "lostpointercapture",
       "options": null
     },
     {
