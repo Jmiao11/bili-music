@@ -188,3 +188,22 @@ test("unchanged lyric visibility still cancels and resets the existing idle time
   assert.equal(match.classList.contains("is-idle"), false); assert.equal(notifications, 2);
   await nextDomEventTurn(); await h.fire(match, "mouseenter"); assert.equal(notifications, 2);
 });
+
+test("both progress sliders commit on pointer release without requiring a native change event", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  for (const id of ["progress-slider", "immersive-progress-slider"]) for (const endEvent of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    h.media.currentTime = 15; h.dispatch(h.audio, "timeupdate");
+    const slider = h.node<HTMLInputElement>(id);
+    await h.fire(slider, "pointerdown");
+    slider.value = "75"; await h.fire(slider, "input");
+    assert.equal(h.audio.currentTime, 15);
+    await h.fire(slider, endEvent);
+    assert.equal(h.audio.currentTime, 75);
+    assert.equal(h.store.getState().playbackDisplay.isSeeking, false);
+    h.media.currentTime = 76;
+    await h.fire(slider, "change");
+    assert.equal(h.audio.currentTime, 76, "late change must not seek a second time");
+    h.dispatch(h.audio, "timeupdate");
+    assert.equal(slider.value, "76");
+  }
+});
