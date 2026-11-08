@@ -4,7 +4,9 @@ import type {mainWindowRefs} from "../../../platform/main-window-refs.ts";
 import type { ApplicationSnapshot } from "../../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../root-playback.ts";
 import { projectPlaybackProgress } from "../playback-display-view.ts";
-const props = defineProps<{mainWindowRefs:typeof mainWindowRefs; display: ApplicationSnapshot["playbackDisplay"]; settings: ApplicationSnapshot["playbackSettings"]; queue: ApplicationSnapshot["playbackQueue"]; controls: PlaybackControls; callbacks: PlaybackCallbacks; status: string }>();
+import type { QueueDrawerView } from "../queue-drawer-view.ts";
+import type { queueDrawerCallbacks } from "../queue-drawer.ts";
+const props = defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks;mainWindowRefs:typeof mainWindowRefs; display: ApplicationSnapshot["playbackDisplay"]; settings: ApplicationSnapshot["playbackSettings"]; queue: ApplicationSnapshot["playbackQueue"]; controls: PlaybackControls; callbacks: PlaybackCallbacks; status: string }>();
 const timeline = () => projectPlaybackProgress(props.display);
 const entry = () => props.queue.queue[props.queue.currentIndex];
 const group = () => entry()?.collection;
@@ -69,7 +71,7 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
           </button>
         </span>
         </span>
-        <span id="queue-position" class="queue-position">{{ controls.queuePosition }}</span>
+        <button id="queue-position" :ref="element => mainWindowRefs.queueButton(element as HTMLButtonElement|null)" class="queue-position" type="button" aria-label="播放队列" aria-controls="queue-drawer" :aria-expanded="drawer.stage.open" :disabled="drawer.count === 0" @click="drawerCallbacks.toggle">{{ controls.queuePosition }}</button>
         <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo()" :disabled="!display.currentTrack.bvid" >
           <Icon name="external" />
         </button>

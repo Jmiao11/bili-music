@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 155,
+  "firstTrackchange": 156,
   "sequence": [
     {
       "action": "window-set",
@@ -317,6 +317,12 @@
     {
       "action": "listen",
       "target": "#skip-video-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#queue-position",
       "type": "click",
       "options": null
     },

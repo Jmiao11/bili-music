@@ -534,10 +534,15 @@
             ]
           },
           {
-            "tag": "span",
+            "tag": "button",
             "attributes": {
+              "aria-controls": "queue-drawer",
+              "aria-expanded": "false",
+              "aria-label": "播放队列",
               "class": "queue-position",
-              "id": "queue-position"
+              "id": "queue-position",
+              "disabled": "",
+              "type": "button"
             },
             "children": [
               "♪0/0"

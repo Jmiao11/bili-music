@@ -44,6 +44,10 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 | ref端口 | 保留理由 |
 |---|---|
+| `queueButton` | 队列入口 ref，仅关闭后 focus；click 由 PlaybackBar 的 Vue handler 安装 |
+| `queueDrawer` | 常驻壳 ref，仅 transitionend 目标核验；关闭阶段由 Vue 投影 |
+| `queueDrawerList` | 列表容器 ref，只查询 aria-current 子节点并由控制器 scrollIntoView 居中 |
+| `queueDrawerClose` | 关闭按钮 ref，仅打开后 focus |
 | `searchResults` | 分页滚动几何与原生scroll监听 |
 | `homeRankingError` | 重试事件接线 |
 | `homeRankingList` | 列表存在性、observer和行会话目标 |
@@ -96,7 +100,7 @@ C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collec
 | G0、HTML精确比较、平台产物一致、开发入口 | verify:dist及其内置错误脚本/标签反例，real-module-startup来源与覆盖探针 |
 | 安全隐私与固化边界 | settings-privacy、备份/Rust日志隐私、media-volume-ownership、播放控制/请求/会话/mini宿主守卫 |
 
-G0 当前200条、首个trackchange索引155，Git/LF SHA256 `0b46fab6237fd126936164332e3db46cdd04b0f2f1fbcab9f92cac50acaae395`。本轮进度条修复经用户批准，仅为两个滑条各新增 pointerup / pointercancel / lostpointercapture，共6条监听；剔除这6条后与此前194/149序列完全一致。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
+G0 当前201条、首个trackchange索引156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同，完整 IPC/跨窗同步也已逐条核对。本轮进度条修复经用户批准，仅为两个滑条各新增 pointerup / pointercancel / lostpointercapture，共6条监听；剔除这6条后与此前194/149序列完全一致。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
 
 UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新九项列宽偏好/余量CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
 
@@ -137,3 +141,9 @@ track-columns.ts非标题拖动先读取可见标题、数值列和末端spacer�
 FloatingBackdrop仅为公开Vue生命周期/ref导入新增一条精确vueImports登记；未放宽其他SFC的导入或原生写权。
 
 播放栏音质菜单沿用该浮层端口；仅展开时以 playerQualityRefs 中的 button/menu typed ref 读取几何、contains 与选项焦点。root-playback.ts 在打开期间安装 document click/keydown 和 window resize，关闭配对移除；焦点操作仍属于控制器。菜单在 AppShell 独立渲染，FloatingBackdrop 复用原 ResizeObserver，质量浮层只新增一个几何查询条目，无原生显示写入或启动监听。菜单只调用既有音质设置 action，不进入播放/取流状态机，迷你窗不变，G0 保持193/149。
+
+### Q-3b 播放队列抽屉
+
+QueueDrawer/QueueDrawerRow 仅接稳定显示模型、回调、typed ref 与主题投影。queue-drawer-view 缓存 queue 引用、currentIndex 与本地阶段；同引用的纯进度提交跳过抽屉，父索引变化复用其他行模型。展开状态只在行组件本地，子项只读。app/main.ts 后置接线既有 playQueueIndex；playback-core.ts 仅新增导出，函数实现、队列算法、Rust、IPC 合同与 mini 源码均不改。
+
+queue-drawer.ts 沿 shell-stages 的本地 hidden/open + refreshPresentation 模式维护阶段，RAF/transitionend、focus/scrollIntoView 和打开期间 capture keydown 均归控制器。仅入口 click 在启动安装，关闭/过渡 handler 随可见阶段由 Vue 安装；Esc 在设置/资料库/分P模态任一未隐藏时不消费；无外部点击关闭。四个 ref 均无原生显示写入，现有 native-writes 守卫不需新增例外或放宽。FloatingBackdrop 仅抽屉 open 且 image/dynamic 时挂载，复用原 ResizeObserver 生命周期；dynamic-background 浮层几何清单新增 queue: #queue-drawer。

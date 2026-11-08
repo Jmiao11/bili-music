@@ -1,3 +1,5 @@
+import { installQueueDrawerPlayback } from "../features/playback/queue-drawer.ts";
+import { playQueueIndex } from "../features/playback/playback-core.ts";
 import { installRecentController } from "../features/recent/recent-controller.ts";
 import { readApplicationStore } from "../store/application-store.ts";
 import {finishPagesTransition} from "../features/pages/pages-view.ts";
@@ -87,6 +89,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", savePlaybackState);
 
+installQueueDrawerPlayback(playQueueIndex);
 initPlaybackModes();
 
 installPlaybackCallbacks({ favorite: () => { toggleFavorite(); }, addPlaylistImmersive: () => { choosePlaylistAndAdd(); } });

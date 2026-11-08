@@ -29,16 +29,17 @@ type Modules = {
   rootLists?: typeof import("../../ui/features/tracks/root-lists.ts");
   home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
+  core: { playSearchResult(index:number):void; playPrevious():void; playQueueIndex(index:number):void; updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
+async function fixture(options: { queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
   if(options.displayCounters) for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel"]) renderCounts[name]=0;
+  if(options.queueCounters) for(const name of ["QueueDrawer","QueueDrawerRow"]) renderCounts[name]=0;
   const ipcListeners = new Map<string,(event:{payload?:unknown})=>void>(), emissions: {label:string;name:string;payload:unknown}[]=[];
   const rowRenders: { list: string | null; bvid: string }[] = [];
   const regions: { operation: string; host: Element }[] = [], warnings: unknown[][] = [];
@@ -98,6 +99,8 @@ async function fixture(options: { updateReply?: Promise<unknown>; trackColumns?:
   const harness = { played, updated() { queueUpdates++; } };
   const nativeListen = window.EventTarget.prototype.addEventListener;
   window.EventTarget.prototype.addEventListener = function(type, callback, options) { listeners.push({ target: this, type, callback, options }); nativeListen.call(this, type, callback, options); };
+  const nativeRemove = window.EventTarget.prototype.removeEventListener;
+  if(options.queueCounters) window.EventTarget.prototype.removeEventListener = function(type, callback, capture) { platform.push({ operation: "removeEventListener", target: this, detail: {type, callback, capture} }); nativeRemove.call(this,type,callback,capture); };
   const nativeFocus = window.HTMLElement.prototype.focus;
   window.HTMLElement.prototype.focus = function(options?: FocusOptions) { platform.push({ operation: "focus", target: this, detail: options }); nativeFocus.call(this, options); };
   window.HTMLElement.prototype.scrollIntoView = function(options?: boolean | ScrollIntoViewOptions) { platform.push({ operation: "scrollIntoView", target: this, detail: options }); };
@@ -148,8 +151,8 @@ async function fixture(options: { updateReply?: Promise<unknown>; trackColumns?:
           .replace("render(h(App, {", "render(h(App, { onVnodeUpdated: () => globalThis.__rootRenderProbe.during?.(),");
       }
       if(options.normalizationFailure && file.endsWith("/features/settings/appearance.ts")) return code.replace(/function applyLoudnessNormalization[^{]+\{/, match => match + ' if(enabled === true) throw Error("normalization test failure");');
-      const component = /\/components\/(TrackList|TrackRow|PlaylistList|PlaybackBar|PlaybackNotice|ImmersivePlayer|LyricsDisplay|SettingsPanel)\.vue/.exec(file)?.[1];
-      if (component && (options.displayCounters || ["TrackList","TrackRow","PlaylistList"].includes(component))) return instrumentComponentRender(code, component);
+      const component = /\/components\/(TrackList|TrackRow|PlaylistList|PlaybackBar|PlaybackNotice|ImmersivePlayer|LyricsDisplay|SettingsPanel|QueueDrawer|QueueDrawerRow)\.vue/.exec(file)?.[1];
+      if (component && (options.displayCounters && !component.startsWith("QueueDrawer") || options.queueCounters && component.startsWith("QueueDrawer") || ["TrackList","TrackRow","PlaylistList"].includes(component))) return instrumentComponentRender(code, component);
       if (file.includes("/features/tracks/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
         const hooks = "function rootListHooks(id) { const host = () => document.getElementById(String(id)); return { onVnodeMounted: () => globalThis.__tracksVueRecords.push({operation: 'create', host: host()}), onVnodeUpdated: () => globalThis.__tracksVueRecords.push({operation: 'update', host: host()}), onVnodeBeforeUnmount: () => globalThis.__tracksVueRecords.push({operation: 'unmount', host: host()}) }; }\n";
         return hooks + code.replace(/h\(TrackList,\s*\{/g, "h(TrackList, { ...rootListHooks(attrs.id),").replace(/h\(PlaylistList,\s*\{/g, "h(PlaylistList, { ...rootListHooks(attrs.id),");
