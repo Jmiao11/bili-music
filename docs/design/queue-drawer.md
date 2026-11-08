@@ -187,3 +187,62 @@
 2. UI 与监听：推荐新紧凑组件、非模态抽屉、queue-position 原生按钮；接受实施时申请最少 1 条新增启动监听及冻结结构变更，其他监听仅在打开阶段存在。
 3. 性能：推荐先稳定全父项渲染、合集按需展开，以实际 WebView 测量决定是否窗口化，不预加库；明确运行时长队列与恢复最多200父项是两件事。
 4. 二期删除后来源：推荐首次结构编辑即脱离为 direct，不再接受原来源分页，也不删除收藏/歌单实体；当前项删除的后继/停止策略须另批确认。
+
+## 第一期实现记录（Q-3b，2026-11-08）
+
+本节以 Q-3b 批准行为为准，前面的 Q-3a 方案为调研历史。实现基线 origin/master 为6008f1e107da72bd514389223ab4be876c4342a9；功能分支 feat/queue-drawer 从该提交创建，初始 HEAD 相等，同名远程分支不存在。主工作区已有版本改动保持；实现使用仓库外独立 worktree。
+
+### 基线漂移复核
+
+94ef03b..6008f1e 的提交为1b1c085（进度条结束修复）、2d39770（对应合并）、6008f1e（队列方案）。变更文件为 AGENTS.md、docs/frontend-architecture.md、docs/design/queue-drawer.md、tests/dom/mini-host-loading.dom.ts、tests/dom/playback-ui-characterization.dom.ts、tests/dom/startup-classic-characterization.dom.ts、tests/fixtures/playback-startup-installation.json、ui/features/immersive/components/ImmersivePlayer.vue、ui/features/playback/components/PlaybackBar.vue。
+
+| 方案引用点 | 基线复核结论 |
+|---|---|
+| playQueueIndex / playListItem / playNext | playback-core.ts 相对94ef03b未改；本批仍只导出playQueueIndex，不改实现 |
+| PlaybackBar #queue-position | 仍为原span；变化仅在进度条的pointerup/pointercancel/lostpointercapture与change条件 |
+| AppShell / root-playback / shell-stages / dynamic-background浮层清单 | 相对94ef03b均未改，无行为方案失效项 |
+| G0启动序列 | 两个滑条合计新增6条监听，200/155；旧方案194/149数字不用于本批验收 |
+
+### 批准行为与调研建议的差异
+
+- 空队列入口禁用；取消“空列表也可打开”的原建议。只允许入口、关闭按钮、Esc三种关闭，不做外部点击关闭。
+- 合集重入不新增说明文案；当前父项点击无动作，子项只读。展开状态在QueueDrawerRow的本地ref中，当前项默认展开，其他默认收起。
+- 抽屉阶段采用shell-stages同形的本地hidden/open + refreshPresentation模式，放在queue-drawer控制器中，不新增业务store。关闭按钮与transition handler初始不安装；RAF只管理开关动画。
+- 按批准要求复用FloatingBackdrop，在image/dynamic且open时挂载；几何清单新增queue。复用ResizeObserver，不新增启动observer或scroll监听。
+- app/main.ts后置安装稳定父项选择回调。QueueDrawer及行组件不访问store/actions/invoke/window；新增四个typed ref只做读取、focus、事件目标核验和scrollIntoView。没有新增原生显示写入，native-writes.ts及其白名单未改。
+
+### G0与冻结结构登记
+
+| 基线 | 条数 / 首个trackchange dispatch索引（0起始） | Git/LF SHA256 |
+|---|---|---|
+| 本批旧基线 | 200 / 155 | 0b46fab6237fd126936164332e3db46cdd04b0f2f1fbcab9f92cac50acaae395 |
+| 本批新基线 | 201 / 156 | 2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab |
+
+新增记录严格只有{action:listen,target:#queue-position,type:click,options:null}，来源PlaybackBar.vue的入口button。去掉这一条后，真实启动探针的旧新事件序列逐条完全相同；另以completeStartup + recordIpc逐条对比，媒体、请求、trackchange、四项IPC监听和跨窗消息均保持。旧fixture存档在仓库外任务报告目录old-g0.json，未覆盖旧档。
+
+| 展示冻结/环境登记 | 最小变化；原业务断言保持 |
+|---|---|
+| playback-ui-baseline.json 的 queue-position 节点 | tag span→button；增加type=button、aria-label=播放队列、aria-controls=queue-drawer、aria-expanded=false、disabled空属性；class/id/♪0/0及其他完整结构相同，另用结构对照脚本验证 |
+| mini-host-loading.dom.ts | 仅序列数量200→201及首次索引155→156 |
+| startup-classic-characterization.dom.ts | 仅首次索引155→156 |
+| real-module-startup.dom.ts / module-graph.test.ts | 仅模块数量70→72、文件集合登记新增queue-drawer.ts与queue-drawer-view.ts |
+| vue-toolchain.test.ts / groups.ts / tsconfig | 精确登记queue-drawer.dom.ts和投影测试；分组反例环境补同名空文件，不改变反例断言 |
+| tracks-fixture.ts | 新增显式选择queueCounters，默认旧计数路径不变；为新测试暴露既有core方法，记录removeEventListener和真实组件render；旧断言/预期不改 |
+
+冻结展示fixture新Git/LF SHA256为c7f1a25c7e6d22b4c83ab33a6b04c83ccb61dae8d510b37c8e588aeddfc22475；环境helper新Git/LF SHA256为6d8407bb8b42ae8b8bf97cd77b4a14ed68fbeac00c08e9d03f560158bac6dcc4。完整SHA与结构对照结果保存在仓库外verification.json。
+
+### 实测与验证
+
+隔离Edge headless专用profile、1100×760、真实App根与组件、纯合成数据，未启动Tauri或访问业务服务。安装耗时包括向真实store装入队列并完成同步渲染；打开/展开/滚动耗时包括等待两帧，受调度影响，不是纯CPU耗时，也不设门槛。
+
+| 场景 | 装入队列ms | 打开ms | 展开ms | 滚动ms |
+|---|---:|---:|---:|---:|
+| 500 parents | 20.7 | 32.2 | — | 26.4 |
+| 1000 parents | 18.5 | 45.4 | — | 29.7 |
+| 50 collection members | 5.4 | 3.2 | 33.2 | 33.1 |
+
+真实App测试：入口/ARIA/开关阶段/三种关闭/焦点返回/模态Esc隔离；顺序父项、随机remaining与history及上一首、当前项无请求、连续跳转的迟到结果隔离；合集冻结与只读成员/本地展开；搜索分页追加、recent CID提示；reduced-motion及image浮层卸载；1000行下100次纯进度抽屉/行render=0，currentIndex切换仅2行render。
+
+按顺序全量node --test（535通过，0跳过）→npm ci→test:dom（429通过，0跳过）→typecheck（各项目0诊断）→verify:dist（G0、windows/darwin六文件逐字节一致、AST 0/0）均通过。本机仅有Node24.21.0，.nvmrc为22.23.3；Node22结果以分支CI为准。本批未改Rust、IPC合同或mini源码，不跑本地Cargo。
+
+仓库外独立副本执行两处变异：①移除prepare_audio结果的当前请求核验，迟到播放结果测试失败；②移除抽屉close中的Esc解绑，监听配对测试失败。两处均恢复原字节，副本git status干净；未改业务断言以适配变异。原始日志、性能数字、截图和存档随仓库外报告保留。
