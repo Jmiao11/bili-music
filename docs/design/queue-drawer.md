@@ -276,3 +276,184 @@
 修改前隐藏DOM中分别有500/1000行；修改后均为0，打开后恢复对应全部行。延后挂载减少隐藏替换开销，同时把行挂载成本移到打开阶段；首次打开变慢属实测取舍，不声明整体速度提升。浏览器profile与干净基线worktree已清理；原始5次数字和测量脚本保留在仓库外F:/学习资料/前后端项目/BIlibili_music-reports/Q-3b/。
 
 本批顺序全量node --test（535通过、0跳过）→npm ci→test:dom（433通过、0跳过）→typecheck（main/mini/node/SFC均0诊断）→verify:dist全部通过。真实产物探针仍为201条/首个trackchange索引156，与原fixture逐条一致；Git/LF SHA256仍为2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab，fixture未改，无新增启动监听。双平台六文件字节一致，AST直接eval/new Function为0/0。本机仍为Node24.21.0，Node22与远程CI结果另见仓库外报告；未启动Tauri，未执行Rust检查。
+
+## 第二期方案：队列编辑（Q-4a，2026-11-15）
+
+调研基线为origin/master `48a1a0b4ba1f76615d2f91315f68756d62a8c988`，本地master相等，写入前再次fetch未漂移。以下“现有”均指该提交的代码/测试；“建议”是待批准的实现选择，不代表已实现或已获得功能授权。第一期审核修正是本节前提：隐藏时不挂载行（`ui/features/playback/components/QueueDrawer.vue:14–17`），Esc让位于沉浸页/音质菜单及原模态（`ui/features/playback/queue-drawer.ts:19–23`），仅打开居中、后续就近滚动（同文件`:40–47`）。前面Q-3a对二期的泛化讨论为历史，本节细化为“下一首播放”和“非当前父项移出”；当前项移除/清空另批。
+
+### A. 索引事务
+
+#### 1. 插入、移除必须同步维护的清单
+
+设编辑位置为p，旧父索引i的映射为：插入时i<p保持、i≥p加1；删除时i=p丢弃、i>p减1，其余保持，未选择的-1保持。**先按旧索引生成一次映射，再同时变换所有引用**，不能边splice边调整历史。建议本期只插入普通父项、移除非当前父项，保证旧当前父条目及实际BV/分P不变。
+
+| 状态 | 同一事务内的处理及边界 | 现有证据 |
+|---|---|---|
+| queue、currentIndex | 新queue数组；存量entry保持引用，currentIndex按映射指向同一父条目。不得复用replaceQueue，它会把currentIndex置-1并清空history | `ui/features/playback/playback-queue-state.ts:8–19,34–35,60–65`；`tests/playback-queue-actions.test.ts:12–18` |
+| randomRemaining | 映射存活父索引、删除被移出项，保持既有栈顺序和已消耗状态；随机插入的新索引放栈尾。不能resetRandom补回旧项；非随机不为新项创建随机候选 | `ui/features/playback/playback-queue-state.ts:98–112,137–138`；`tests/dom/queue-drawer.dom.ts:50–56` |
+| history | 对每条记录重排index；删除目标父项的全部记录，包括pageLevel记录。保留存活记录的cid、pageLevel、entryId、bvid及track快照和原顺序，不能只按BV删（独立视频与合集成员可能同BV） | `ui/features/playback/playback-queue-state.ts:63–65,121–131`；`tests/collection-playback-queue.test.ts:66–80` |
+| 各合集冻结状态 | 存活父项的data/snapshot、memberIndex、remaining、playedCount、unitCharged、chargedUnits、historyTrack整体随父项保留，**成员索引不按父索引重排**。删除合集即丢弃其完整冻结对象及所属历史；不是删除其中同BV的独立父项 | `ui/features/playback/playback-queue-state.ts:27–40,70–85,158–169`；`tests/collection-playback-queue.test.ts:86–108` |
+| 当前分P与展示 | 当前父项身份未变时，currentPageIndex、currentDisplayTrack、randomPageRound、collectionNeedsRefresh均保持；不调用selectIndex/resetPage/freezeCollection。currentDisplayTrack是分P展示快照，不含父索引；不能误清导致播放栏退回父标题 | `ui/features/playback/playback-queue-state.ts:11–13,74,88–96,177`；`ui/features/playback/playback-core.ts:37–61` |
+| 来源与策略 | 建议首次结构编辑同时设置queueSource=direct、queueSearchVersion=null、playlistId=null；保留loopMode/shuffle，不改展示搜索、收藏、歌单实体 | `ui/features/playback/playback-queue-state.ts:9–13,60–61,99–102`；来源后果见第4项 |
+| 其他切片/副作用 | currentPages、pendingResume、resumeInProgress、播放位置、恢复次数、播放记录/缓存/响度标记、requestVersion/activeAudio身份、playbackDisplay及音频元素均保留。实际曲目不变不发trackchange；根投影自动更新计数/高亮，事务后保存一次。新空队列播放则走既有播放入口，属于另外的启动路径 | `ui/features/playback/playback-session-state.ts:3–20`；`ui/features/playback/playback-request-state.ts:3–15`；`ui/features/playback/playback-core.ts:132–147,178–208,811–857` |
+
+历史身份不是装饰：v2保存会按history.index找父项，再核验entryId及成员BV/历史track；漏改索引可能保存失败，也可能在重复BV时指向错误出现位置。证据：`src-tauri/src/library/playback_state.rs:180–207`。运行时纯视频history允许只有index/cid，后来插入普通视频不应凭空伪造合集身份；已有混合队列则必须保留全部身份字段。
+
+#### 2. 跨await父索引审计与最小防护
+
+检索了ui中的currentIndex、队列读写、playQueueIndex、fillTrackMetadata/fillSearchMetadata及相关异步回调。**直接捕获当前队列父索引再跨await使用的主位置只有loadCurrentTrack中的index**；分P/合集内部索引、展示列表索引与存盘字段不是同一种索引。该函数各等待阶段不能只看最终prepare_audio一次：
+
+| 等待/回填位置 | 结构编辑而requestVersion不变时的后果 | 建议 |
+|---|---|---|
+| index在505捕获；521读取entry后，525等待合集解析（内部还可能等待资料库快照保存） | 后续freezeCollection按**实时当前项**工作；只要编辑保持当前父项就不会冻结错父项，但末尾旧index仍会失效。解析前捕获的资料库reference还可能在编辑转direct后完成一次已发起的快照更新 | `ui/features/playback/playback-core.ts:505–529`；`ui/features/collections/collection-state.ts:35–46`。保持当前父项不变，版本检查继续保留；明确允许已发起的原资料库快照刷新完成，direct只切断后续新请求的来源关联，不承诺撤销已发出的写入 |
+| 534等待loadPagesForCurrentVideo；其内部100网络、112磁盘缓存等待 | 只校验requestVersion，随后写currentPages/currentPageIndex；若未来允许删除当前项，旧分P会落到新曲目。限定为非当前编辑时，当前实际BV不变，分P结果仍属于它 | `ui/features/playback/playback-core.ts:97–129,533–564`；`tests/dom/recent-plays.dom.ts:76`已有迟到缓存隔离用例。保留现有版本守卫，新增编辑中请求测试；不能由队列事务切换当前项 |
+| 570等待旧recovery；573等待prepare_audio；602/612使用旧index | 例：原当前B位于1，删除其前A后B变0；解析完成仍fillTrackMetadata(1)，会写到后继C。仅转direct不能修复队列回填；仅有requestVersion检查也不能发现索引移动。搜索回填若保留旧版本，还可能写错展示结果 | `ui/features/playback/playback-core.ts:566–617`；`ui/features/playback/playback-queue-state.ts:178–179`；`ui/features/search/search-state.ts:115–118`。批准后改为“校验当前请求所属父条目/实际成员身份，再取其**现位置**回填”；本期当前父项不变，可用已通过版本检查的实时currentIndex，辅以父身份/BV/分P核对，不能用findIndex(bvid)区分重复出现。direct清空queueSearchVersion后跳过搜索回填；保留来源方案则另按展示BV/来源版本映射 |
+| 635等待音频metadata；657等待play；catch/finally | 此时旧index不再回填，但会恢复位置、更新状态、保存实时队列，失败还可能按实时当前项推进。未来删除当前项必须使旧请求失效，不能只修602 | `ui/features/playback/playback-core.ts:634–720`。本期维持当前身份及requestVersion；后续当前项编辑另批覆盖全部等待阶段及失败推进 |
+
+相关异步链也逐项核对：recoverCurrentAudio保存video/page/version/sourceUrl，不保存父index（`ui/features/playback/playback-core.ts:350–398`）；响度查询/分析保存BV/CID/版本，缓存与播放记录提交实际身份（同文件`:441–493,1019–1063`）；restorePlaybackState是await后读取持久化state.currentIndex，且先检查运行队列仍为空（同文件`:223–254`）；resumePendingPlayback保存恢复参数再等待loadCurrentTrack（同文件`:724–740`）。这些不是第二个“捕获旧父索引”的位置，但必须在编辑测试中证明没有被重启、丢恢复参数或误计次数。搜索/合集分页await后按来源版本追加，需由direct原子脱离阻断（`ui/features/search/search-state.ts:87–106`；`ui/features/collections/collection-state.ts:79–90`）。分P模态保存video和展示行onPlay回调，TrackRow会话回读展示index，不把它当队列index（`ui/features/pages/video-pages.ts:215–242`；`ui/features/tracks/track-list-ui.ts:60,87–88`），不因队列结构编辑改其播放语义。
+
+“每次编辑都使在途请求失效”是备选，风险更高：现有beginRequest后activeAudioVersion即不匹配；若只加版本不重新协调音频，ended会被拒绝，若取消重载则会中断当前音频/恢复流程。证据：`ui/features/playback/playback-request-state.ts:9–15`；`ui/features/playback/playback-core.ts:162–169`；`ui/app/main.ts:49–59`。推荐本期修身份回填并保持当前播放，不用全队列编辑触发取消；不能以此绕过未来当前项删除的失效授权。
+
+#### 3. 纯事务与action边界
+
+可行：在`playback-queue-state.ts`内部增加纯编辑函数，输入旧PlaybackQueueSnapshot与明确操作，输出新快照；按一次旧→新索引映射生成queue/currentIndex/randomRemaining/history/来源，其余字段结构共享。随机“下一首”无需在事务中调用Math.random，现有随机顺序保持，新索引确定性压尾；不接DOM、时钟、invoke或任意patch对象。领域action建议`insertNextVideo`、后批`removeNonCurrentEntry`，每个action仅commit完整结果一次；控制器负责空队列启动、身份核对、保存、提示与焦点。现有工厂接入会自动暴露新增action，不需另建store：`ui/store/app-state.ts:212,229`；同步提交/其他切片共享的既有测试为`tests/playback-queue-actions.test.ts:54–58`。
+
+这不是替换next/previous/随机/失败状态机，但**新增结构编辑能力本身触及既有禁止改队列规则**；需单项批准插入/删除事务、randomRemaining和history映射、direct脱离、元数据身份回填及保存触发，不能归为普通UI调整。`AGENTS.md:28–31,64–66`是授权依据。最小实现分两批：第一批只落插入操作及其消费者，第二批扩展同一事务加入移除，避免先交付无入口的删除action。
+
+### B. 来源身份
+
+#### 4. direct的确切含义及脱离后的表现
+
+direct是replaceQueue的默认来源，不是“只能播放粘贴BV”的类型；setQueue和未命中现有队列的playBvId会使用它。命中已有普通BV时playBvId直接跳现队列，**不改原来源**。证据：`ui/features/playback/playback-queue-state.ts:60–61`；`ui/features/playback/playback-core.ts:260–271,743–761`；`tests/playback-queue-characterization.test.ts:75–82`。当前没有结构编辑即转direct的action；下表是新增事务同时设置direct/null/null后的推导。
+
+| 调用方 | 编辑后的表现；是否用户可感知 | 证据 |
+|---|---|---|
+| 首页榜单/推荐 | 来源不再匹配，当前行高亮消失；播放栏和抽屉仍高亮真实当前父项，可感知 | `ui/features/tracks/track-list-ui.ts:37–47`；`ui/features/playback/queue-drawer-view.ts:10–15` |
+| 搜索结果 | 当前实现高亮**只比较queueSearchVersion，不额外判断queueSource**；必须清空版本才可靠脱离。清空后结果列表不再显示当前行，可感知 | `ui/features/tracks/track-list-ui.ts:39–40`；既有来源测试`tests/dom/playback-tree.dom.ts:56–68` |
+| 合集详情普通视频列表 | collection来源和版本不匹配，高亮消失；新分页仍扩展示列表，但不再扩播放队列。这里的collection来源列表不同于冻结的合集父条目 | `ui/features/tracks/track-list-ui.ts:37–38`；`ui/features/collections/collection-controller.ts:38–48` |
+| 搜索分页与搜索元数据 | 新页继续展示，却不再appendSearchQueue；已经在途的分页回调也会被来源检查拒绝。queueSearchVersion=null使播放器不再把解析元数据回写搜索列表，结果中已有展示数据保留；标题/时长不再随解析修正可感知 | `ui/features/playback/playback-queue-state.ts:99–102`；`ui/features/playback/playback-core.ts:275–287,599–617`；`ui/features/search/search-state.ts:38–52` |
+| 最近播放 | 来源门槛使最近页当前行高亮消失，时间/缓存标志仍来自recent切片；后续loadCurrentTrack不再默认套recentPage(lastCid/lastPage)，可能改从默认启用分P开始，**可感知且需明确接受**。当前已在播分P及pendingResume不清；显式历史cid/恢复参数仍走原入口 | `ui/features/tracks/track-list-ui.ts:41,47`；`ui/features/playback/playback-core.ts:501,554–559,724–734,850–856`；`ui/features/recent/recent-state.ts:28–30`；`tests/dom/queue-drawer.dom.ts:140–151` |
+| 收藏/歌单entryId高亮 | entryId不从queue/history删除，但来源先被拒绝，资料库高亮消失；不按BV误高亮同BV独立视频。重新点击来源列表会按playListItem重建那个来源队列，放弃临时编辑，可感知。合集未来新入场时不再带资料库reference更新来源快照；已发起的刷新见第2项 | `ui/features/tracks/track-list-ui.ts:42–47`；`ui/features/playback/playback-core.ts:523–524,785–808`；`tests/dom/collection-playback.dom.ts:49–68` |
+| 保存与恢复 | 存储没有queueSource/queueSearchVersion/playlistId字段，direct不会作为新格式写盘；恢复统一为restored，原来源关联本就不恢复。当前BV/成员/分P恢复仍依赖现有v1/v2字段及200项限制，可感知边界见第11项 | `src-tauri/src/library/playback_state.rs:83–92`；`ui/features/playback/playback-core.ts:191–205,237–253`；`ui/features/playback/playback-queue-state.ts:87` |
+
+不能调用replaceQueue来“顺便转direct”，否则会丢历史/当前选择；也不能只改queueSource却保留搜索版本，导致错误高亮和元数据回填。当前来源资料库被外部编辑不会反向改播放队列，已有隔离测试保持：`tests/playback-queue-characterization.test.ts:85–90`。
+
+#### 5. 保留来源并按身份映射的替代
+
+| 方案 | 工作量/风险比较 | 建议 |
+|---|---|---|
+| 首次结构编辑整体direct脱离 | 中等：纯重排事务、当前请求回填修正、来源变更回归；不改来源列表/存储协议。代价是第4项高亮与recent分P行为变化 | 推荐第一批，用户先明确接受这些代价 |
+| 保留原来源，队列/展示分开按身份映射 | 高：搜索/首页高亮不能再用父index，资料库需entryId与队列出现位置，重复BV需明确高亮规则；分页还需决定是否继续扩队列、避免手动插入与新页重复；搜索回填按展示BV/版本找位置，recent按条目记录提示 | 若要求编辑后来源体验保持，再独立立项；不是只保留queueSource字段即可 |
+| 每个父项携带来源与起播提示 | 最高：混合来源、重复出现和重启后身份需要新的表示；若写进CommandContract/持久化需另审Rust/IPC与版本兼容 | 不在本期引入 |
+
+比较依据是现有高亮位置规则、分页准入和recent单一来源默认值（`ui/features/tracks/track-list-ui.ts:37–47`；`ui/features/playback/playback-queue-state.ts:99–102`；`ui/features/playback/playback-core.ts:501,609–617`），不是已有“混合来源队列”能力。
+
+### C. 下一首播放
+
+#### 6. 建议语义与现有推进顺序
+
+“下一首”建议定义为**下一个父条目**，保留分P与合集推进，不保证下一段音频立刻就是新增视频。正常下一首命令先advance，ended也先advancePageWithinCurrentBv，再进入playNext；playNext自身对合集先advanceCollection([])，相当于先试下一成员、不会在这里遍历当前成员分P。证据：`ui/features/playback/playback-commands.ts:42–48`；`ui/app/main.ts:49–59`；`ui/features/playback/playback-core.ts:862–879,894–918`。不能把“playNext本身先分P”写成现有行为。
+
+| 决策 | 推荐与理由；需要改变的范围 | 证据 |
+|---|---|---|
+| 插入位置/连续添加 | 每次紧跟当前父项，后加先播：当前A，先加B再加C得到A,C,B；不新增“上次添加尾部”游标。若选先加先播，必须同时维护待播段及随机栈顺序，不能只改插入位置 | 顺序下个父项为currentIndex+1；随机取栈尾：`ui/features/playback/playback-queue-state.ts:105–118` |
+| 当前是合集 | 等当前合集本轮推进结束再到新增父项；顺序模式会继续启用分P/成员，随机模式可能达到既有音频配额提前离开，不能承诺所有成员总会播完。仅插父项即可保留此规则。若要求打断合集，须在next/ended选择前新增优先级分支并决定冻结游标/计次/重入，另行授权 | `ui/features/playback/playback-queue-state.ts:158–169`；`tests/collection-playback-queue.test.ts:18–38`；`tests/dom/collection-playback.dom.ts:30–45` |
+| 随机模式 | 映射旧栈后，把新父索引压尾即可保证**下次选择父项**时取它；不重洗、不补回消耗项。历史只在实际跳转时由原playQueueIndex记录，加入动作本身不造history；上一首不把已消耗新项补回。若选连续添加FIFO，新索引需插在已有优先待播段之前的栈位置，单纯压尾不成立 | `ui/features/playback/playback-queue-state.ts:104–112,121–138`；`ui/features/playback/playback-core.ts:834–850,922–931`；`tests/dom/queue-drawer.dom.ts:50–56` |
+| 单曲/列表循环 | 不切换loopMode。自动单曲继续重播当前分P，新增项等手动推进或退出单曲；手动正常下一首仍先分P/成员。列表循环照常到尾回绕；随机轮次保持原耗尽规则。若要求新增项越过自动单曲，属于新增状态机优先级，不推荐本批做 | `ui/features/playback/playback-core.ts:862–879`；`ui/features/playback/playback-queue-state.ts:105–119`；`tests/playback-queue-actions.test.ts:45–51` |
+| 同一BV已在队列 | 允许普通视频重复出现，不移动旧项，不删除/跳过当前项，也不从合集抽成员；新增的是独立父出现位置。比移动少一套删除与历史语义。重排按旧索引/出现位置，元数据核对当前请求，不能按BV查到第一个就回填 | queue为数组且normalizeQueueEntry无去重，抽屉key含index：`ui/features/playback/playback-queue-state.ts:34–35,60–61`；`ui/features/playback/components/QueueDrawer.vue:17`。来源搜索去重只作用于展示追加：`ui/features/search/search-state.ts:38–44` |
+| 空队列/无当前 | 推荐立即开始播放，避免“下一首”永不启动；空队列复用playListItem(direct,[video],0)。若存在非空但currentIndex=-1的队列，前插新项后用既有playQueueIndex(0,{recordCurrent:false})，保留其他条目，不以替换整队列丢数据 | 既有空选择无法next：`ui/features/playback/playback-queue-state.ts:116`；播放入口`ui/features/playback/playback-core.ts:775–808,811–857` |
+| 合集能否作为父项插入 | 数据上可用libraryQueueEntries形成完整冻结输入，真正入场时再按现有规则刷新/冻结；但第一批只支持普通视频，合集行不出现新按钮，不做无回调占位。整合集插入的quota/重复entryId/离线快照/升级备份另批 | `ui/features/playback/playback-queue-state.ts:27–35,70–74`；`ui/features/playback/playback-core.ts:521–531`；`tests/collection-playback-queue.test.ts:86–108` |
+
+#### 7. 行内入口与列宽影响
+
+现有TrackRow在操作区域有收藏和加入/移出歌单两个原生按钮，回调来自稳定RowSession（`ui/features/tracks/components/TrackRow.vue:34–42`；`ui/features/tracks/track-list-ui.ts:60–88`）。有效模板末轨68px、固定开销188px，操作在第9轨；偏好状态里没有“操作宽度”字段（`ui/styles.css:5481–5490,5509–5510`；`ui/features/tracks/track-column-state.ts:1–5`）。
+
+推荐在共用TrackRow的**普通视频行**增加第三个有真实控制器回调的“下一首播放”图标按钮，原生键盘click，阻止冒泡到播放入口；可复用已有next图形并以aria-label/title区分（`ui/app/components/Icon.vue:8`）。32px命中区、4px间距下三按钮需104px，不能硬塞68px；同一列表合集行仍保留操作列占位宽度，但不造第三个空按钮。需同步有效CSS模板、按钮对齐、固定开销188→224、表头/行共同收缩，并实测重算744/680/616/516的断点。五个用户列宽偏好、容量和localStorage格式可保持，不给操作列新增可拖动分隔线/监听。证据：`docs/design/track-columns.md:3–13`；`ui/styles.css:4996–4999,5478–5510`。`tests/track-column-fit.test.ts:21–28`中的352px标题、188固定加总等预期会受影响（同条件标题将为316），这些是**需明确批准的布局断言变更**，不是改常量就当然获准；`tests/track-column-state.test.ts:5–31`的偏好业务预期应保持。
+
+| 入口方案 | G0、冻结/UI规格影响 | 评价 |
+|---|---|---|
+| 共用普通视频行第三图标 | 冷启动无数据行时预算+0；实际挂载N个普通行就增加N个click。TrackRow真实结构/展示冻结、104px列/窄窗规格需批准，适用于首页/搜索/资料库/最近/合集详情中的普通视频 | 推荐，一套有回调的完整入口；不新增“更多”菜单 |
+| 只在搜索等部分列表提供 | 仍需该列表104px模板、模型能力与回调选择、冻结差异及ui-spec注明入口范围；冷启动预算仍取决于真实行数，不天然比共用入口少。其他列表继续68px会引入两套操作布局 | 可降低第一批来源覆盖，但使用不一致，不推荐长期保留 |
+| 分P模态中增加已接线的操作 | 可不改TrackRow列，但单P/未打开模态的行没有直接入口，且需明确选择分P或整个BV；若静态按钮在隐藏模态壳挂载会增加启动监听，须按内容与回调挂载阶段实测 | 不作为完整替代，不为了省列宽增加这条路径 |
+
+ui-spec明确“不新增更多按钮”和保持现有标签/行为，不能借该功能暗改收藏、歌单移除或双击分P：`docs/ui-spec.md:74–90`。冻结需逐项查看`tests/fixtures/vue/tracks-baseline.json`及`library-lists-baseline.json`等实际覆盖，申请只允许新按钮/必要布局；不重录整套原断言掩盖差异。首屏监听预算详见第12项。
+
+#### 8. 添加反馈
+
+推荐由**播放器队列编辑控制器**在成功入队后复用`showPlaybackNotice("已加入下一首播放",{kind:"info"})`，2秒、不排队、不抢焦点、不自动打开抽屉；空队列直接开始播放沿用既有播放状态，不重复成功提示。普通TrackRow只调稳定回调，不直接调用notice；移出后行消失已经解释结果，默认不额外提示。现有info会让位于error，不能清除错误/业务状态来强行显示成功，不能把“内存已入队”说成“已保存到磁盘”（现有保存失败只写日志）。证据：`ui/features/playback/playback-notice.ts:27–39`；`ui/features/playback/playback-core.ts:206–208`。
+
+遵守`docs/notification-guidelines.md:11–18,22–39,61–75`：优先近处反馈；播放器域单一入口；显式info，沿用2秒/错误优先级及polite播报；不弹普通结果确认、不发系统通知；新增反馈文案/语义必须同步规范和测试。该规范`:33,65`仍写旧ui/main.js/.cjs路径，实际入口与测试是`playback-notice.ts`、`tests/playback-notice.test.ts`；本次只指出，不顺带修改其他文档。既有notice会同步mini，见第13项，不能宣称消息内容完全不变。
+
+### D. 移出队列
+
+#### 9. 非当前父项
+
+推荐在抽屉`.queue-parent`内增加与播放按钮/合集展开按钮**并列**的原生32px图标按钮，aria-label/title为“移出队列”，只操作父条目；普通44px、合集36px行高不变。默认visibility:hidden保留位置，父行:hover/:focus-within及按钮:focus-visible时显示；键盘先聚焦父播放按钮即可显露操作，再Tab进入，不能仅鼠标悬停可用。当前父项不提供移出入口；没有有效当前项时也不开放该批删除，避免把“移出非当前项”扩成清空。依据：`docs/ui-spec.md:45,74–82,112`；`ui/styles.css:4996–4999`；`ui/features/playback/components/QueueDrawerRow.vue:15–30`。
+
+删除提交前控制器记录“焦点是否在被删行”和位置；仅该行持有焦点时，提交后优先聚焦同位置的后继行移出按钮，若后继是当前项则聚焦父播放按钮；无后继转前一行，极端无目标转抽屉关闭按钮。用既有list ref定位，必要时scrollIntoView(nearest)，焦点/滚动归控制器，不写组件DOM、不把DOM存进store。保留焦点在其他区域时不抢焦点。当前抽屉滚动identity含父index，删除当前项之前的行也会触发自动滚动（`ui/features/playback/queue-drawer.ts:40–47`）；建议将“同一当前父项仅位置移动”的编辑提交与实际切歌区分，编辑焦点恢复优先，避免先滚到远处当前项再把焦点留在屏外；真实切换仍保持nearest，打开仍仅一次center。新增测试必须覆盖此冲突，而不是仅断言activeElement。
+
+删除合集父项只清其queue对象、randomRemaining索引和所属全部历史，存活合集冻结状态/当前成员不重新冻结；不调用收藏/歌单实体删除。队列仅剩当前项时，仍能播放和打开抽屉，计数1、无移出入口；原单曲/列表循环、分P历史与边界提示照常，不禁用原上一首/下一首来隐藏边界。证据：`ui/features/playback/playback-queue-state.ts:104–134,158–169`；`docs/notification-guidelines.md:57–59`；v2历史清理要求`src-tauri/src/library/playback_state.rs:180–207`。建议临时队列移出不弹确认（不删除资料库内容）；若要求确认/撤销，需另批准规范、显示状态及测试，不预做撤销栈。
+
+#### 10. 当前项移除与清空（独立后批概要）
+
+高风险：涉及停止/更换真实音频、在途请求/恢复失效、后继选择、合集配额/历史、空状态、分P/响度/缓存标记及持久化清除；清空还需决定自定义确认与播放是否同时停止。本期不提供入口，不设计后继细则。需单项批准播放/请求失效状态机、当前项后继及空队列行为、确认/焦点/通知规格、保存失败交互；任何Rust/IPC/存储格式、G0、业务冻结预期变化再分别申请。现有副作用边界见`ui/features/playback/playback-core.ts:154–175,178–208,811–857`和`src-tauri/src/library/playback_state.rs:296–304`，禁止只splice当前项后继续消费旧ended/旧解析。
+
+### E. 持久化、监听、性能
+
+#### 11. playback-state v1/v2及200项边界
+
+格式原则上可沿用：前端按是否含合集选择v1/v2、当前索引/位置/分P及v2 traversal（`ui/features/playback/playback-core.ts:178–208`）；后端再次按实际保留的队列决定版本，v1移除traversal和entryId（`src-tauri/src/library/playback_state.rs:215–228`）。因此移除最后一个合集会回落v1，存活普通父项的运行时随机/history不应清空，但下次恢复v1本就不还原这些轮次而重新resetRandom。v2的冻结成员/历史可恢复，已有测试见`tests/collection-playback-queue.test.ts:86–95`，v1按需写回见`src-tauri/src/library/playback_state.rs:432–446`。编辑控制器需主动触发现有savePlaybackState，不能只等timeupdate周期；复用格式并不等于无需保存接线或无需身份验证。
+
+首次需要v2时在同一storage锁下先backup_before_v2，再原子写；备份失败/无效不写新状态，原文件保持，已有备份不覆盖（`src-tauri/src/library/playback_state.rs:239–242,289–293,451–481`；`src-tauri/src/library/entries.rs:198–235`；`src-tauri/src/storage.rs:188–220`）。本期普通视频添加不会凭空升级；在已有合集队列中仍保持v2。不增新存储字段、不修改备份/原子写路径。保存接口目前fire-and-forget，失败只有console.warn，不应承诺编辑已持久化；若需要可重试错误反馈，另审返回值/调用方与通知策略。
+
+**200限制是后端保存截断，不是运行时队列上限**：先取前200项，再夹current_index到199，过滤越界random/history，最后normalize版本（`src-tauri/src/library/playback_state.rs:271–293`）。0起始插入索引≥200（第201项起）的新增父项只在本次运行有效，重启会丢；插入到前200会挤掉原第200项。若正在播放的父项本来就在截断区外，索引被夹到另一条目，而position/page/cid仍是原曲目字段，存在恢复身份错配风险；若合集只在截断区外，落盘还会降成v1。不能用改前端currentIndex或重排保存队列掩盖。推荐本期保持现有200限制、明确接受长队列尾部不保证恢复；扩大/改为保留当前项窗口需独立Rust/持久化授权。纯视频v1不保存随机栈/历史，故随机“下一父项优先”重启后也不保证延续；如需持久保证，另批审格式，不借普通视频加入强制v2。
+
+#### 12. 启动监听/G0预算
+
+当前G0为201/156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`（`AGENTS.md:65–66`）。建议预算：**下一首+0、移出+0、共享事务+0启动监听**；不新增全局keydown、click、resize、observer或轮询。理由：初始store的来源列表为空，TrackList的骨架没有操作按钮（`ui/store/app-state.ts:60–66`；`ui/features/tracks/components/TrackList.vue:10–13`）；新原生行按钮只需一个click，原生键盘激活不再注册keydown；抽屉隐藏时无行，即使恢复了非空队列也不挂移出按钮（`ui/features/playback/components/QueueDrawer.vue:14–17`）。
+
+这不是免测承诺：**如果实测首屏已有N个普通TrackRow，新按钮就会新增N条click**，CSS悬停隐藏不会推迟监听，不能用“入口不可见”声称+0。按部分列表方案也应数实际首屏行；若改列表委托，则每个初始宿主会多一条委托监听，同样须申请，不能偷偷转成全局监听规避记录。实现后用真实探针对比整序列/受保护投影，变化先查原因，按AGENTS格式申请新条数/首trackchange索引/SHA，批准前不改fixture；需重建时仓库外存档旧值。当前Esc配对、四项IPC及媒体监听保持（`ui/features/playback/queue-drawer.ts:15,19–30`；`AGENTS.md:65`）。
+
+#### 13. 重绘、隐藏行与迷你窗
+
+现有投影缓存仅依赖queue引用/currentIndex/开关阶段；每行按原位置比较entry与active，key为index+entryId/BV（`ui/features/playback/queue-drawer-view.ts:5–15`；`ui/features/playback/components/QueueDrawer.vue:17`）。故插/删p时，p之前引用不变的行可跳过；p及后缀因位置/序号/key变化会重绘，通常重挂载，尾部新增仅新行、尾部删除仅卸载目标。结构编辑不能套用“始终只重绘两行”；当前项高亮不变的前缀不应重绘。存活合集的**业务冻结状态**保持，但后缀组件因key变化重挂会按原默认值重置本地展开；若要求结构编辑保留全部展开状态，需要稳定的“队列出现位置身份”（重复BV不可仅用BV做key），另行决定，不在首批预加持久ID。
+
+移出入口是行模型的稳定可用性/回调，不读取进度或临时悬停store；将可移出判断绑定到行active即可，回调由控制器稳定转发。隐藏期queue可变、模型仍可做O(n)纯投影，但`stage.hidden=true`时**不创建QueueDrawerRow、按钮、事件监听或行DOM**；壳/头部/list/ref继续常驻，关闭动画结束才卸载行，不能为方便移出操作把行移回隐藏DOM。可见期间100次纯进度提交仍返回同一模型引用，抽屉/行render=0，普通currentIndex切换仍只换两行；这两项原断言保留，另加结构编辑的前缀复用/后缀重排与焦点测试（`tests/queue-drawer-view.test.ts:7–18`；`tests/dom/queue-drawer.dom.ts:80–95`）。不引入虚拟滚动或改开关阶段，保留Q-3b-fix的Esc、一次center/后续nearest契约。
+
+迷你窗无队列编辑UI、无父索引/计数字段；保持当前实际曲目时其title/播放/收藏等投影不变，不需改迷你窗源码、尺寸、Rust/IPC或启动跨窗序列（`ui/mini/mini-player-projection.ts:5–20`）。但“下一首已加入”的info会通过现有notice-change和notice字段同步到mini，这是正常的**内容变化**，不能声称编辑期间跨窗消息内容/次数完全不变；不新增消息类型/监听，移出操作也不伪造trackchange。证据：`ui/features/playback/playback-notice.ts:35–36`；`ui/mini/mini-player-host.ts:90–96,175–181`。下一首真正播放时仍走原跨窗同步。
+
+### F. 分批与授权
+
+#### 14. 实施清单、测试与变异
+
+下列是未来功能分支的改动清单，本次不改任何产品/测试/脚本。每批1–3个中文Conventional提交，相关文档随对应实现；受影响的原业务断言不改，需改变的展示/布局冻结先逐项授权。依据：`AGENTS.md:39–43,60–68`。
+
+##### Q-4b：普通视频下一首＋共用事务基础
+
+- 产品文件：`ui/features/playback/playback-queue-state.ts`增加纯插入/索引映射及insertNextVideo；`ui/features/playback/playback-core.ts`增加队列编辑入口/保存/空队列起播；`ui/features/tracks/track-list-model.ts`、`ui/features/tracks/track-list-ui.ts`、`ui/features/tracks/components/TrackRow.vue`增加稳定回调与真实按钮；`ui/styles.css`调整104px操作轨与拟合。复用Icon的next，不新增图标库；`ui/store/app-state.ts`沿用同一工厂的类型推导，无需为新增action改写。
+- 文档文件：`docs/ui-spec.md`、`docs/design/track-columns.md`、`docs/notification-guidelines.md`、本方案、`docs/where-to-change.md`、`CHANGELOG.md`随实现同步。
+- 新增`tests/playback-queue-edit.test.ts`：插入映射、重复出现、栈顺序/消费、history身份、共享引用。新增`tests/dom/queue-edit.dom.ts`：各普通来源按钮、无冒泡播放/分P、空/无当前、LIFO、随机＋上一首、单曲/列表/多P/合集配额、direct高亮/分页/搜索回填/recent后果、pendingResume保持。deferred覆盖合集刷新/分P网络与磁盘/prepare_audio期间插入后仍回填原当前条目；插入总在当前之后，不伪造当前索引已移动的场景。补`tests/playback-notice.test.ts`、`tests/track-column-fit.test.ts`及`tests/dom/playback-tree.dom.ts`列宽检查；原偏好断言保持。
+- 变异1处：让插入事务错误地把currentIndex选到新项，当前播放身份保持测试必须失败；针对新入队身份边界，在仓库外副本执行并恢复。
+- 单项授权：插入/随机历史索引映射/来源脱离；空队列起播与通知文案；104px及断点ui-spec；第三按钮展示快照/受影响布局预期（如352→316）逐条批准；G0预算0，真实差异另申请。保留来源/FIFO/打断合集不包含在推荐范围内。
+
+##### Q-4c：非当前父项移出＋在途回填修正
+
+- 产品文件：同一`ui/features/playback/playback-queue-state.ts`事务扩展removeNonCurrentEntry；`ui/features/playback/playback-core.ts`落地第2项当前请求身份回填与保存；`ui/features/playback/queue-drawer-view.ts`仅按需增加稳定操作字段，`ui/features/playback/queue-drawer.ts`增加稳定回调/编辑焦点与滚动协调；`ui/features/playback/components/QueueDrawer.vue`、`ui/features/playback/components/QueueDrawerRow.vue`仅按需传回调/并列按钮，保留hidden行条件；`ui/styles.css`增加显隐/焦点样式。不改迷你窗/媒体契约。
+- 文档文件：本方案、`docs/ui-spec.md`、`docs/where-to-change.md`、`CHANGELOG.md`随实现同步。
+- 扩展`tests/playback-queue-edit.test.ts`：删前/后/尾、所有被删父项历史清理、随机不补回、同BV不同父项、合集整个移出与剩余冻结引用、剩一当前项、最后合集降v1保存参数。扩展`tests/dom/queue-edit.dom.ts`和`tests/dom/queue-drawer.dom.ts`：悬停/键盘入口、当前项不能移出、各焦点后继、保持当前音频/分P/恢复、无错滚、隐藏1000项零行render/零行监听、打开及关闭过渡；100次进度零重绘/切换两行的原断言保持。在所有等待阶段删除当前项之前的父项并断言正确身份回填，含重复BV。
+- 变异2处：①退回捕获旧index回填；②移除非当前项保护，尝试移除当前项必须失败。针对新竞态/身份边界，每处1个，在仓库外副本执行并恢复。
+- 单项授权：删除重排/历史过滤/来源脱离；当前请求元数据身份回填（不是重写取流）及保存；临时队列移出不确认、焦点/滚动ui-spec；仅新行内控件展示差异，原业务/冻结断言不改；G0预算0，变化另审。若要求保留展开状态/稳定出现ID，另列范围。
+
+##### 后批：当前项移除/清空、整合集插入、持久恢复增强
+
+当前/清空只按第10项重新立方案；整合集插入及第200项之后恢复分别审队列/存储边界，不与普通行按钮打包。届时补当前/末项/空状态、在途恢复/解析/媒体事件、后继和保存失败测试；若改Rust测试/生产格式再列具体文件与Cargo检查。播放/请求/恢复/失败状态机、后继策略、确认/通知、冻结预期、G0及Rust/IPC/持久化分别授权，本节不视为批准。
+
+新增DOM文件须精确登记`scripts/tests/groups.ts`及`scripts/typecheck/tsconfig.node.json`，纯模块测试位于tests/*.test.ts；按新增入口仅补必要的冻结helper环境接线，默认行为保持。真实App/真实store测试可复用`tests/dom/tracks-fixture.ts:15–38`的deferred、显式queueCounters与控制器入口；事件遵守`tests/dom/event-turn.ts`。Rust格式/200截断/备份生产逻辑不在上述两批改动清单；若必须新增`src-tauri/src/library/playback_state.rs`测试或改存储，先单项授权并加Cargo验收，不能以测试为名越界。每批按AGENTS全量顺序验收，G0与受保护投影实测，变异只覆盖新竞态/身份边界；原有200恢复限制应列手测与产品取舍，未实施的场景不写“通过”。
+
+### 待决定项（推荐）
+
+1. 来源：接受首次结构编辑direct脱离，并清空版本/playlistId；理由是避免把编辑后父索引误用为来源列表位置。代价是来源高亮与recent默认分P提示不再跟随，恢复上限/随机轮次限制保持。
+2. 下一首：普通视频、紧跟当前父项、后加先播、允许重复；当前合集/多P按原轮次先推进、自动单曲不被打断；空队列立即开始。理由是不新增优先播放分支和待播尾游标。若产品必须“下一段音频立刻播放”或连续FIFO，应另选更大方案。
+3. 入口：共用普通TrackRow第三图标、104px操作轨；理由是各来源一致且有真实回调。需明确批准布局与冻结变化，不能塞回68px或加占位/更多按钮。
+4. 移出：先仅非当前父项、无确认/无撤销、焦点就近恢复；理由是保留正在播放的成员/分P与请求身份，避免混入当前项后继/清空状态机。
+5. 持久化与显示：首批保持200项及v1/v2格式，接受长队列尾部/纯视频随机优先不保证重启恢复、结构重排后缀合集展开可能重置；理由是不为队列编辑顺带升级存储和出现ID体系。如不接受，应先拆出恢复/稳定身份专项。
