@@ -178,6 +178,8 @@
     "../../tests/dom/settings-privacy.dom.ts",
     "../../tests/dom/application-nodes.ts",
     "../../tests/helpers/controller-context.ts",
-    "../../tests/controller-context.test.ts"
+    "../../tests/controller-context.test.ts",
+    "../../tests/queue-drawer-view.test.ts",
+    "../../tests/dom/queue-drawer.dom.ts"
   ]
 }

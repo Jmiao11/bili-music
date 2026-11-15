@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type {mainWindowRefs} from "../../platform/main-window-refs.ts";
 import type {draftBindings} from "../../platform/draft-ports.ts";
+import type { QueueDrawerView } from "../../features/playback/queue-drawer-view.ts";
+import type { queueDrawerCallbacks } from "../../features/playback/queue-drawer.ts";
 import type { ShellProjection } from "../shell-projection.ts";
 import type { ShellStages,SidebarPresentation } from "../shell-stages.ts";
 import type { ImageForegroundPresentation } from "../../features/settings/dynamic-background.ts";
@@ -23,6 +25,7 @@ import SearchForm from "../../features/search/components/SearchForm.vue";
 import HomeSetupHint from "../../features/home/components/HomeSetupHint.vue";
 import HomeHint from "../../features/home/components/HomeHint.vue";
 import HomeUpdateNotice from "../../features/home/components/HomeUpdateNotice.vue";
+import QueueDrawer from "../../features/playback/components/QueueDrawer.vue";
 import PlaybackBar from "../../features/playback/components/PlaybackBar.vue";
 import AudioQualityMenu from "../../features/playback/components/AudioQualityMenu.vue";
 import ImmersivePlayer from "../../features/immersive/components/ImmersivePlayer.vue";
@@ -43,7 +46,7 @@ import { displayThumbnailUrl } from "../../shared/track-utils.ts";
 const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
 installTrackColumnInitialization(initializeTrackColumns);
 
-defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation;foreground?:ImageForegroundPresentation|null; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
+defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks;mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBindings;shell:ShellProjection; stages:ShellStages;sidebar:SidebarPresentation;maximized:boolean|null;background:DynamicBackgroundPresentation;foreground?:ImageForegroundPresentation|null; modals:RootModals; libraryCallbacks:typeof libraryCallbacks; pagesCallbacks:typeof pagesCallbacks; settingsControls:SettingsControls;settingsCallbacks:SettingsCallbacks;homeControls: HomeControls; pageCallbacks: PageCallbacks; lists: RootLists; snapshot: ApplicationSnapshot; callbacks: PlaybackCallbacks; collectionCallbacks:typeof collectionCallbacks; playback: PlaybackControls }>();
 </script>
 <template>
     <link rel="stylesheet" :href="tokensHref" />
@@ -205,7 +208,8 @@ defineProps<{mainWindowRefs:typeof mainWindowRefs;draftBindings:typeof draftBind
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
     <PlaybackNotice :on-geometry="observeFloatingSurface" :surface-style="background.surfaces?.notice" :background="background" :theme="snapshot.settings.theme" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
-    <PlaybackBar :data-image-region-scheme="foreground?.regions.bar" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
+    <QueueDrawer :model="drawer" :callbacks="drawerCallbacks" :refs="mainWindowRefs" :background="background" :theme="snapshot.settings.theme" :on-geometry="observeFloatingSurface" />
+    <PlaybackBar :drawer="drawer" :drawer-callbacks="drawerCallbacks" :data-image-region-scheme="foreground?.regions.bar" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
     <AudioQualityMenu v-if="snapshot.playbackDisplay.audioQualityMenu" :main-window-refs="mainWindowRefs" :preference="snapshot.settings.audioQuality" :position="snapshot.playbackDisplay.audioQualityMenu" :theme="snapshot.settings.theme" :background="background" :on-geometry="observeFloatingSurface" :on-choose="callbacks.qualityChoose" />
 
 

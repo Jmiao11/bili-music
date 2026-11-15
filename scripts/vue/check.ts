@@ -8,6 +8,8 @@ import { compileTemplate, parse } from "vue/compiler-sfc";
 const productSfc = (file: string) => /^ui\/(?:app|mini|features\/[^/]+)\/(?:components\/)?[^/]+\.vue$/.test(file);
 const fixture = "tests/fixtures/vue/ToolchainSmoke.vue";
 const vueImports: Record<string, string[]> = {
+  "ui/features/playback/components/QueueDrawer.vue": ["vue"],
+  "ui/features/playback/components/QueueDrawerRow.vue": ["vue"],
   "ui/features/settings/components/FloatingBackdrop.vue": ["vue"],
   "ui/app/track-columns.ts": ["vue"],
  "ui/features/immersive/components/LyricsDisplay.vue":["vue"],
