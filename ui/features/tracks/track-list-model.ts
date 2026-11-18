@@ -10,7 +10,7 @@ export type TrackRowModel = Readonly<{
   onDragStart?(event: DragEvent): void; onDragOver?(event: DragEvent): void; onDragLeave?(event: DragEvent): void; onDrop?(event: DragEvent): void; onDragEnd?(): void;
   onNodes(item: HTMLElement | null, button: HTMLButtonElement | null): void;
   onClick(event: MouseEvent): void; onDoubleClick(event: MouseEvent): void;
-  onBadge(): void; onFavorite(): void; onAdd(): void;
+  onQueueNext(): void; onBadge(): void; onFavorite(): void; onAdd(): void;
 }>;
 
 export type LibraryDragVisual = Readonly<{ sourceKey: string | null; targetKey: string | null; direction: "before" | "after" | null; touched: ReadonlySet<string> }>;

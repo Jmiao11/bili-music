@@ -18,9 +18,9 @@ function fit(preferences:Readonly<TrackColumnWidths>,width:number){
 }
 test("shared CSS shrinks title first then columns proportionally without changing preferences",()=>{
   const saved=Object.freeze({title:600,uploader:320,pages:120,plays:120,duration:100});
-  const titleOnly=fit(saved,1200);assert.equal(titleOnly.title,352);assert.equal(titleOnly.up,320);assert.equal(titleOnly.pages,120);
+  const titleOnly=fit(saved,1200);assert.equal(titleOnly.title,316);assert.equal(titleOnly.up,320);assert.equal(titleOnly.pages,120);
   const narrow=fit(saved,900);assert.equal(narrow.title,240);
-  assert.ok(Math.abs(Object.values(narrow).reduce((a,b)=>a+b,188)-900)<1e-6);
+  assert.ok(Math.abs(Object.values(narrow).reduce((a,b)=>a+b,224)-900)<1e-6);
   const ratios=[[narrow.up,100,220],[narrow.pages,56,64],[narrow.plays,64,56],[narrow.duration,56,44]].map(([value,min,capacity])=>(value-min)/capacity);
   assert.ok(ratios.every(r=>r>=0&&r<=1&&Math.abs(r-ratios[0])<1e-6));
   assert.equal(fit(saved,1600).title,600);assert.equal(fit(saved,1600).up,320);

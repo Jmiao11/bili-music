@@ -808,6 +808,23 @@ function playListItem(
   playQueueIndex(index, { recordCurrent: false, startPage, pages });
 }
 
+function queueVideoNext(video: CommandContract.TrackSnapshotInput): void {
+  const state = getQueueSnapshot();
+  if (!state.queue.length) {
+    playListItem("direct", [video], 0);
+    return;
+  }
+
+  const inserted = getQueueActions().insertNextVideo(video);
+  if (state.currentIndex < 0) playQueueIndex(0, { recordCurrent: false });
+  if (inserted) savePlaybackState();
+  if (state.currentIndex < 0) return;
+
+  const message = state.queue[state.currentIndex].collection ? "已加入，将在当前合集播完后播放"
+    : hasMultipleCurrentPages() ? "已加入，将在当前视频播完后播放" : "已加入下一首播放";
+  showPlaybackNotice(message, { kind: "info" });
+}
+
 function playQueueIndex(
   index: number,
   {
@@ -1083,4 +1100,4 @@ installPlaybackCallbacks({
 }
 
 
-export { playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };
+export { queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };

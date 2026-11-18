@@ -14,7 +14,7 @@ for (const source of ["ranking", "recommendation", "search"] as const) {
     assert.equal(row.querySelector(".eq")?.getAttribute("aria-hidden"), "true"); assert.equal(row.querySelector(".eq")?.children.length, 3);
     assert.equal(row.querySelector("img")?.referrerPolicy, "no-referrer");
     assert.equal(row.querySelector(".track-up")?.textContent, "作者"); assert.equal(row.querySelector(".track-play")?.textContent, "1");
-    assert.equal(row.querySelector(".track-duration")?.textContent, "1:00"); assert.equal(row.querySelectorAll(".track-actions button").length, 2);
+    assert.equal(row.querySelector(".track-duration")?.textContent, "1:00"); assert.equal(row.querySelectorAll(".track-actions button").length, 3);
     assert.equal(row.querySelectorAll(".track-pubdate").length, source === "search" ? 1 : 0);
   }));
   test(`track DOM ${source} highlight uses existing source and search version conditions`, () => run(async h => {

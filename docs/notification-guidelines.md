@@ -30,7 +30,9 @@
 
 ## 当前统一入口
 
-播放器域的唯一入口是 `ui/main.js` 中的 `showPlaybackNotice()`，复用已有 `#playback-notice`，不新建第二套 toast。边界和普通成功反馈**必须**显式传入 `showPlaybackNotice(message, { kind: "info" })`；该函数默认 `kind: "error"`，不得依赖默认值发送普通提示。
+播放器域的唯一入口是 `ui/features/playback/playback-notice.ts` 中的 `showPlaybackNotice()`，复用已有 `#playback-notice`，不新建第二套 toast。边界和普通成功反馈**必须**显式传入 `showPlaybackNotice(message, { kind: "info" })`；该函数默认 `kind: "error"`，不得依赖默认值发送普通提示。
+
+普通视频加入下一首后显示“已加入下一首播放”。当前为合集时显示“已加入，将在当前合集播完后播放”，当前为多分P普通视频时显示“已加入，将在当前视频播完后播放”。这些 info 提示持续 2 秒，已有错误优先，首次起播不提示。
 
 播放失败调用使用 `kind: "error"`；短暂错误显示 3200 毫秒，只有会阻止继续播放、且等待当前播放流程恢复的错误才使用 `persistent: true`。持久错误必须由对应的成功恢复、显式重试或播放流程终止调用 `clearPlaybackNotice()` 清除。`clearPlaybackNotice()` 只清除通知内容和定时器并同步窗口，绝不重置业务状态。当前 API 仅支持 info/error，其他类型使用上表规定的区域组件，不杜撰新 kind。
 
@@ -62,7 +64,7 @@ mini 使用单行摘要和「全文」按钮。展开后全文仅占用上方标
 
 以下任一变更都必须同步更新本文件，并补充或更新自动化测试：新增反馈类型、修改文案或持续时间、修改优先级或清除时机、增加新的展示位置、改变焦点/无障碍行为、改变 mini 或其他窗口间的事件与状态协议。
 
-播放器通知改动至少覆盖 `tests/playback-notice.test.cjs`；涉及 mini 同步时同时覆盖 `tests/mini-player-window.test.cjs`。测试至少验证优先级、重复触发的计时刷新、显式清除、跨窗口同步和提示到期。涉及用户操作结果时，还应覆盖成功路径不会遗留旧提示。
+播放器通知改动至少覆盖 `tests/playback-notice.test.ts`；涉及 mini 同步时同时覆盖 `tests/dom/mini-player-window.dom.ts`。测试至少验证优先级、重复触发的计时刷新、显式清除、跨窗口同步和提示到期。涉及用户操作结果时，还应覆盖成功路径不会遗留旧提示。
 
 ## 贡献者验收
 

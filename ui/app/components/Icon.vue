@@ -6,6 +6,7 @@ const paths = {
   pause: "M8 5v14M16 5v14",
   previous: "M5 5v14M19 5l-10 7 10 7Z",
   next: "M19 5v14M5 5l10 7-10 7Z",
+  queueNext: "M3 5h17M3 11h11M3 17h7M15 13v8l6-4Z",
   skip: "M3 6l8 6-8 6ZM11 6l8 6-8 6ZM21 6v12",
   shuffle: "M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5",
   repeat: "M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3",

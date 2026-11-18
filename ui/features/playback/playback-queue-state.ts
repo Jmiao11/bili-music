@@ -54,9 +54,32 @@ function shuffledQueueIndexes(values: readonly number[], random: () => number): 
   return result;
 }
 
+function insertVideoAfterCurrent(state: PlaybackQueueSnapshot, video: CommandContract.TrackSnapshotInput): PlaybackQueueSnapshot {
+  const position = state.currentIndex + 1;
+  const adjacent = state.queue[position];
+  if (state.currentIndex >= 0 && adjacent && !adjacent.collection && adjacent.bvid.toLowerCase() === video.bvid.toLowerCase()) return state;
+
+  const shift = (index: number) => index >= position ? index + 1 : index;
+  return {
+    ...state,
+    queue: [...state.queue.slice(0, position), normalizeTrack(video), ...state.queue.slice(position)],
+    queueSource: "direct", queueSearchVersion: null, playlistId: null,
+    randomRemaining: state.shuffle ? [...state.randomRemaining.map(shift), position] : state.randomRemaining.map(shift),
+    history: state.history.some(entry => entry.index >= position)
+      ? state.history.map(entry => entry.index >= position ? { ...entry, index: shift(entry.index) } : entry)
+      : state.history,
+  };
+}
+
 function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (next: PlaybackQueueSnapshot) => void) {
   const update = (fields: Partial<PlaybackQueueSnapshot>) => commit({ ...read(), ...fields });
   const remaining = (random: () => number) => shuffledQueueIndexes(read().queue.map((_, index) => index).filter(index => index !== read().currentIndex), random);
+  function insertNextVideo(video: CommandContract.TrackSnapshotInput): boolean {
+    const state = read(), next = insertVideoAfterCurrent(state, video);
+    if (next === state) return false;
+    commit(next);
+    return true;
+  }
   function replaceQueue(videos: readonly DeepReadonly<QueueInput>[], source = "direct", searchVersion: number | null = null, playlistId: string | null = null): void {
     update({ queue: videos.map(normalizeQueueEntry), queueSource: source, queueSearchVersion: source === "search" || source === "collection" ? searchVersion : null, playlistId: source === "playlist" ? playlistId : null, currentIndex: -1, history: [], collectionNeedsRefresh: false });
   }
@@ -178,7 +201,7 @@ function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (
   function fillTrackMetadata(index: number, metadata: Pick<CommandContract.TrackSnapshotInput, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void {
     update({ queue: read().queue.map((track, position) => position !== index ? track : track.collection ? { ...track, collection: { ...track.collection, ...(track.collection.historyTrack ? { historyTrack: { ...track.collection.historyTrack, ...metadata } } : { data: { ...track.collection.data, snapshot: { ...track.collection.data.snapshot, items: track.collection.data.snapshot.items.map((member, memberIndex) => memberIndex === track.collection?.memberIndex ? { ...member, ...metadata } : member) } } }) } } : { ...track, ...metadata }) });
   }
-  return { activeTrack: () => activeQueueTrack(read()), persistedQueue: () => playbackQueueEntries(read()), persistedTraversal: () => playbackTraversal(read()), advanceCollection, freezeCollection, settleCollectionUnit, restoreTraversal, advancePage, appendSearchQueue, changeShuffle, cycleLoop, fillTrackMetadata, markPlayed, nextNavigation, previousNavigation, replaceQueue, resetPage, resetRandom, restoreSelection, retreatPage, selectIndex, selectPage, selectCollectionPage, setDisplayTrack, takeRandomNext: drawNextQueueIndex };
+  return { insertNextVideo, activeTrack: () => activeQueueTrack(read()), persistedQueue: () => playbackQueueEntries(read()), persistedTraversal: () => playbackTraversal(read()), advanceCollection, freezeCollection, settleCollectionUnit, restoreTraversal, advancePage, appendSearchQueue, changeShuffle, cycleLoop, fillTrackMetadata, markPlayed, nextNavigation, previousNavigation, replaceQueue, resetPage, resetRandom, restoreSelection, retreatPage, selectIndex, selectPage, selectCollectionPage, setDisplayTrack, takeRandomNext: drawNextQueueIndex };
 }
 
 export { createPlaybackQueueActions, initialPlaybackQueueState, activeQueueTrack, playbackQueueEntries, playbackTraversal, libraryQueueEntries };

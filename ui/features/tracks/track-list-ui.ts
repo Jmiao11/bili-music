@@ -11,13 +11,13 @@ import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowMod
 import { getHomeSnapshot } from "../home/home.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite, toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist } from "../library/library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "../pages/video-pages.ts";
-import { playListItem, playSearchResult } from "../playback/playback-core.ts";
+import { playListItem, playSearchResult, queueVideoNext } from "../playback/playback-core.ts";
 import { playCollectionItem, openLibraryCollection } from "../collections/collection-controller.ts";
 
 type Snapshot = ReturnType<ReturnType<typeof createApplicationStore>["getState"]>;
 type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
 type Play = (index: number, selection?: PageSelection) => void;
-type RowSession = { entry: Snapshot["library"]["favorites"][number] | undefined; model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
+type RowSession = { entry: Snapshot["library"]["favorites"][number] | undefined; model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onQueueNext" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
 type Projection = { recent?: Snapshot["recent"]; library?: { entries: Snapshot["library"]["favorites"]; playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
 let homeProjection: Projection | null = null;
 let searchProjection: Projection | null = null;
@@ -72,6 +72,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
         onClick: event => current.activation?.handleClick(event),
         onDoubleClick: event => current.activation?.doubleClick(event),
         onBadge() { const trigger = current.button?.parentElement?.querySelector<HTMLButtonElement>(".page-count-badge"); if (trigger) current.activation?.badge(trigger); },
+        onQueueNext: () => queueVideoNext(current.video),
         onFavorite: () => { void (current.entry?.kind === "collection" ? toggleFavoriteCollection(current.entry) : toggleFavorite(current.video)); },
         onAdd: () => current.entry?.kind === "collection" ? choosePlaylistAndAddCollection(current.entry) : choosePlaylistAndAdd(current.video),
         onRemove: () => { void (current.entry?.kind === "collection" ? removeCollectionFromPlaylist(current.playlistId, current.entry.entryId) : removeTrackFromPlaylist(current.playlistId, current.video.bvid)); },

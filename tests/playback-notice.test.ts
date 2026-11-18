@@ -179,3 +179,14 @@ test('real sequential, random and page selectors preserve navigation semantics',
   assert.equal(c.retreatPageWithinCurrentBv(), true);
   assert.equal(loads, 2);
 });
+
+test("三种队列编辑提示均保留已有错误及其定时器", () => {
+  const {context, notice, timers} = setup();
+  context.showPlaybackNotice("播放失败");
+  const pending = [...timers];
+  for (const message of ["已加入下一首播放", "已加入，将在当前合集播完后播放", "已加入，将在当前视频播完后播放"]) {
+    context.showPlaybackNotice(message, {kind:"info"});
+    assert.equal(notice.textContent, "播放失败");
+    assert.deepEqual([...timers], pending);
+  }
+});

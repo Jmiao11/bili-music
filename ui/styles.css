@@ -4994,7 +4994,8 @@ input[type="range"]::-webkit-slider-thumb {
   & .track-row.is-unavailable .track-title { color: var(--text3); text-decoration: line-through; }
   & .track-row.is-unavailable .track-cover { opacity: .4; }
   & .track-action { grid-column: 8; justify-self: end; width: var(--icon-hit-size); height: var(--icon-hit-size); border-radius: var(--r-sm); visibility: hidden; opacity: 1; color: var(--text2); }
-  & .favorite-button { justify-self: start; }
+  & .queue-next-button { justify-self: start; }
+  & .favorite-button { justify-self: center; }
   & .track-row:is(:hover, :focus-within) .track-action { visibility: visible; }
   & .track-action:focus-visible { visibility: visible; }
   & .track-action:hover { background: var(--line2); color: var(--text); }
@@ -5478,31 +5479,32 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
   --fit-minimum: calc(var(--fit-up-min) + var(--fit-pages-min) + var(--fit-plays-min) + var(--fit-duration-min));
   --fit-preferred: calc(var(--fit-up-pref) + var(--fit-pages-pref) + var(--fit-plays-pref) + var(--fit-duration-pref));
   --fit-capacity: max(1, calc(var(--fit-up-capacity) + var(--fit-pages-capacity) + var(--fit-plays-capacity) + var(--fit-duration-capacity)));
-  --fit-surplus: calc(100% - 188px - 240px - var(--fit-minimum));
-  --fit-title: max(240px, min(var(--track-title-width, 100%), calc(100% - 188px - var(--fit-preferred))));
+  --fit-surplus: calc(100% - 224px - 240px - var(--fit-minimum));
+  --fit-title: max(240px, min(var(--track-title-width, 100%), calc(100% - 224px - var(--fit-preferred))));
   --fit-up: clamp(var(--fit-up-min), calc(var(--fit-up-min) + var(--fit-surplus) * var(--fit-up-capacity) / var(--fit-capacity)), var(--fit-up-pref));
   --fit-pages: clamp(var(--fit-pages-min), calc(var(--fit-pages-min) + var(--fit-surplus) * var(--fit-pages-capacity) / var(--fit-capacity)), var(--fit-pages-pref));
   --fit-plays: clamp(var(--fit-plays-min), calc(var(--fit-plays-min) + var(--fit-surplus) * var(--fit-plays-capacity) / var(--fit-capacity)), var(--fit-plays-pref));
   --fit-duration: clamp(var(--fit-duration-min), calc(var(--fit-duration-min) + var(--fit-surplus) * var(--fit-duration-capacity) / var(--fit-capacity)), var(--fit-duration-pref));
-  --track-columns: 24px 32px var(--fit-title) var(--fit-up) var(--fit-pages) var(--fit-plays) var(--fit-duration) minmax(0px, 1fr) 68px;
+  --track-columns: 24px 32px var(--fit-title) var(--fit-up) var(--fit-pages) var(--fit-plays) var(--fit-duration) minmax(0px, 1fr) 104px;
   min-width: 0; overflow-x: hidden;
 }
-:root #app .track-surface:has(#favorites-list, #playlist-tracks, #recent-list):not(:has(.track-play)) > :is(.track-columns, .tracklist) { --track-min-width: 0px; --fit-plays-min: 0px; --fit-plays-pref: 0px; --fit-plays-capacity: 0; --track-columns: 24px 32px var(--fit-title) var(--fit-up) var(--fit-pages) 0px var(--fit-duration) minmax(0px, 1fr) 68px; }
+:root #app .track-surface:has(#favorites-list, #playlist-tracks, #recent-list):not(:has(.track-play)) > :is(.track-columns, .tracklist) { --track-min-width: 0px; --fit-plays-min: 0px; --fit-plays-pref: 0px; --fit-plays-capacity: 0; --track-columns: 24px 32px var(--fit-title) var(--fit-up) var(--fit-pages) 0px var(--fit-duration) minmax(0px, 1fr) 104px; }
 :root #app .track-surface > :is(.track-columns, .tracklist) { min-width: 0; width: 100%; overflow-x: hidden; }
 /* Thresholds include content padding and the stable scrollbar gutter. */
-@container (max-width: 744px) {
+@container (max-width: 780px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-plays-min: 0px; --fit-plays-pref: 0px; --fit-plays-capacity: 0; }
   :root #app .track-surface :is(.column-play, .track-play) { visibility: hidden; }
 }
-@container (max-width: 680px) {
+@container (max-width: 716px) {
+  :root #app #search-results .track-pubdate { display: none; }
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-pages-min: 0px; --fit-pages-pref: 0px; --fit-pages-capacity: 0; }
   :root #app .track-surface :is(.column-pages, .page-count-badge, .track-unavailable) { visibility: hidden; }
 }
-@container (max-width: 616px) {
+@container (max-width: 652px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-up-min: 0px; --fit-up-pref: 0px; --fit-up-capacity: 0; }
   :root #app .track-surface :is(.column-uploader, .track-up, .track-creator) { visibility: hidden; }
 }
-@container (max-width: 516px) {
+@container (max-width: 552px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-duration-min: 0px; --fit-duration-pref: 0px; --fit-duration-capacity: 0; }
   :root #app .track-surface :is(.column-duration, .track-duration) { visibility: hidden; }
 }
