@@ -1377,6 +1377,52 @@ mod backup_tests {
     }
 
     #[test]
+    fn long_playback_state_preserves_current_collection_across_export_import_and_save() {
+        use super::super::{playback_state, read_json_or_default, test_support::track};
+
+        let mut state: playback_state::PlaybackState = serde_json::from_slice(include_bytes!(
+            "../../../tests/fixtures/contract/playback-state-collection.json"
+        ))
+        .unwrap();
+        let current = state.queue[0].clone();
+        let mut prefix = vec![track("other entry").into(); 240];
+        prefix.append(&mut state.queue);
+        state.queue = prefix;
+        state.current_index = 240;
+        state.traversal.as_mut().unwrap().history[0].index = 240;
+
+        let source = temp_root();
+        let target = temp_root();
+        fs::write(
+            source.join(PLAYBACK_STATE_FILE),
+            serde_json::to_vec(&state).unwrap(),
+        )
+        .unwrap();
+        let zip = export_data_at(&source, Cursor::new(Vec::new())).unwrap();
+        import_data_at(&target, zip, crate::storage::write_bytes_atomic).unwrap();
+        let guard = crate::storage::lock_storage().unwrap();
+        let path = target.join(PLAYBACK_STATE_FILE);
+        let imported: playback_state::PlaybackState = read_json_or_default(&guard, &path).unwrap();
+        assert_eq!(imported.queue.len(), 241);
+        assert_eq!(imported.current_index, 240);
+        playback_state::save_playback_state_to(&guard, &path, imported).unwrap();
+        let restored: playback_state::PlaybackState = read_json_or_default(&guard, &path).unwrap();
+        assert_eq!(restored.version, 2);
+        assert_eq!(restored.current_index, 199);
+        assert_eq!(restored.queue.len(), 200);
+        assert_eq!(
+            serde_json::to_value(&restored.queue[199]).unwrap(),
+            serde_json::to_value(current).unwrap()
+        );
+        assert_eq!(restored.position_seconds, state.position_seconds);
+        assert_eq!(restored.cid, state.cid);
+        assert_eq!(restored.page, state.page);
+        assert_eq!(restored.traversal.unwrap().history[0].index, 199);
+        fs::remove_dir_all(source).unwrap();
+        fs::remove_dir_all(target).unwrap();
+    }
+
+    #[test]
     fn playback_v2_import_backs_up_v1_and_rolls_back_partial_writes() {
         let root = temp_root();
         let v1 = include_bytes!("../../../tests/fixtures/contract/playback-state-some.json");

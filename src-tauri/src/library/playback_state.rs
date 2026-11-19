@@ -12,6 +12,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const PLAYBACK_STATE_VERSION: u32 = 1;
+const SAVED_QUEUE_LIMIT: usize = 200;
+const SAVED_QUEUE_LOOKBEHIND: usize = 50;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -268,7 +270,7 @@ fn get_playback_state_from(
     Ok(Some(state))
 }
 
-fn save_playback_state_to(
+pub(super) fn save_playback_state_to(
     guard: &crate::storage::StorageGuard,
     path: &Path,
     mut state: PlaybackState,
@@ -276,15 +278,33 @@ fn save_playback_state_to(
     if state.queue.is_empty() {
         return clear_playback_state_at(guard, path);
     }
-    state.queue.truncate(200);
-    state.current_index = state.current_index.min(state.queue.len() - 1);
+    let len = state.queue.len();
+    let start = if state.current_index < len {
+        state
+            .current_index
+            .saturating_sub(SAVED_QUEUE_LOOKBEHIND)
+            .min(len.saturating_sub(SAVED_QUEUE_LIMIT))
+    } else {
+        // Keep clamping malformed input to the end of the saved prefix.
+        0
+    };
+    let end = len.min(start + SAVED_QUEUE_LIMIT);
+    let window = start..end;
+    state.queue.truncate(end);
+    state.queue.drain(..start);
+    state.current_index = state.current_index.min(end - 1) - start;
     if let Some(traversal) = &mut state.traversal {
-        traversal
-            .random_remaining
-            .retain(|&index| index < state.queue.len());
+        let rebase = |index: &mut usize| {
+            if !window.contains(index) {
+                return false;
+            }
+            *index -= start;
+            true
+        };
+        traversal.random_remaining.retain_mut(rebase);
         traversal
             .history
-            .retain(|entry| entry.index < state.queue.len());
+            .retain_mut(|entry| rebase(&mut entry.index));
     }
     state = normalize_for_write(state)?;
     if state.version == 2 {
@@ -369,6 +389,86 @@ mod tests {
         assert_eq!(restored.cid, Some(123));
     }
 
+    fn video_queue(len: usize, current_index: usize) -> PlaybackState {
+        PlaybackState {
+            queue: (0..len)
+                .map(|index| {
+                    let mut video = track(&format!("video {index}"));
+                    video.bvid = format!("BV{index:010}");
+                    video.into()
+                })
+                .collect(),
+            current_index,
+            position_seconds: 42.5,
+            page: Some(3),
+            cid: Some(321),
+            saved_at: 456,
+            ..PlaybackState::default()
+        }
+    }
+
+    fn save_and_read(state: PlaybackState) -> PlaybackState {
+        let path = test_path();
+        let guard = crate::storage::lock_storage().unwrap();
+        save_playback_state_to(&guard, &path, state).unwrap();
+        let restored = get_playback_state_from(&guard, &path).unwrap().unwrap();
+        fs::remove_file(path).unwrap();
+        restored
+    }
+
+    #[test]
+    fn saved_queue_window_boundaries() {
+        for (len, index, start) in [
+            (200, 199, 0),
+            (201, 0, 0),
+            (201, 49, 0),
+            (201, 50, 0),
+            (201, 51, 1),
+            (201, 200, 1),
+            (440, 439, 240),
+        ] {
+            let restored = save_and_read(video_queue(len, index));
+            assert_eq!(restored.queue.len(), 200);
+            assert_eq!(restored.current_index, index - start);
+            assert_eq!(restored.queue[0].video.title, format!("video {start}"));
+            assert_eq!(
+                restored.queue[199].video.title,
+                format!("video {}", start + 199)
+            );
+        }
+    }
+
+    #[test]
+    fn saves_and_restores_the_same_video_beyond_first_200() {
+        let state = video_queue(440, 220);
+        let restored = save_and_read(state.clone());
+        assert_eq!(
+            restored.queue[restored.current_index].video.bvid,
+            state.queue[220].video.bvid
+        );
+        assert_eq!(restored.queue[0].video.bvid, state.queue[170].video.bvid);
+        assert_eq!(restored.current_index, 50);
+        assert_eq!(restored.version, 1);
+        assert_eq!(restored.position_seconds, state.position_seconds);
+        assert_eq!(restored.page, state.page);
+        assert_eq!(restored.cid, state.cid);
+        assert_eq!(restored.saved_at, state.saved_at);
+    }
+
+    #[test]
+    fn saving_invalid_current_index_keeps_the_clamped_prefix() {
+        for len in [2, 220] {
+            let state = video_queue(len, usize::MAX);
+            let restored = save_and_read(state.clone());
+            assert_eq!(restored.queue.len(), len.min(200));
+            assert_eq!(restored.queue[0].video.bvid, state.queue[0].video.bvid);
+            assert_eq!(restored.current_index, len.min(200) - 1);
+            assert_eq!(restored.position_seconds, state.position_seconds);
+            assert_eq!(restored.page, state.page);
+            assert_eq!(restored.cid, state.cid);
+        }
+    }
+
     fn collection_state() -> PlaybackState {
         let data = super::super::entries::tests::collection();
         PlaybackState {
@@ -410,6 +510,135 @@ mod tests {
                 loop_mode: "sequence".to_owned(),
             }),
         }
+    }
+
+    #[test]
+    fn rebases_parent_occurrences_without_changing_frozen_members_or_page_round() {
+        let mut state = video_queue(450, 250);
+        let sample = collection_state();
+        state.version = 2;
+        state.queue[250] = sample.queue[0].clone();
+        let group = state.queue[250].collection.as_mut().unwrap();
+        group.remaining = vec![0];
+        let mut history_member = track("previously frozen member");
+        history_member.bvid = "BV1234567890".to_owned();
+        group.history_track = Some(history_member.clone());
+
+        // Same BV occurs on both sides of the window edge.
+        state.queue[310].video.bvid = state.queue[199].video.bvid.clone();
+        let mut traversal = sample.traversal.unwrap();
+        traversal.random_page_round.as_mut().unwrap().bvid = history_member.bvid.clone();
+        let video_history = |index: usize| PlaybackHistory {
+            index,
+            cid: Some(45),
+            page_level: None,
+            entry_id: format!(
+                "video:{}",
+                state.queue[index].video.bvid.to_ascii_lowercase()
+            ),
+            bvid: state.queue[index].video.bvid.clone(),
+            track: None,
+        };
+        let mut group_history = traversal.history[0].clone();
+        group_history.index = 250;
+        group_history.bvid = history_member.bvid.clone();
+        group_history.track = Some(history_member);
+        traversal.history = vec![
+            video_history(310),
+            video_history(199),
+            group_history,
+            video_history(402),
+            video_history(200),
+        ];
+        traversal.random_remaining = vec![399, 400, 199, 310, 200];
+        state.traversal = Some(traversal.clone());
+
+        let restored = save_and_read(state.clone());
+        assert_eq!(restored.current_index, 50);
+        assert_eq!(restored.version, 2);
+        assert_eq!(restored.queue.len(), 200);
+        assert_eq!(restored.queue[110].video.title, "video 310");
+        assert_eq!(
+            serde_json::to_value(&restored.queue[50]).unwrap(),
+            serde_json::to_value(&state.queue[250]).unwrap()
+        );
+        assert_eq!(restored.position_seconds, state.position_seconds);
+        assert_eq!(restored.cid, state.cid);
+        assert_eq!(restored.page, state.page);
+        let restored_traversal = restored.traversal.unwrap();
+        assert_eq!(restored_traversal.random_remaining, [199, 110, 0]);
+        let expected_history: Vec<_> = [0, 2, 4]
+            .into_iter()
+            .zip([110, 50, 0])
+            .map(|(index, position)| {
+                let mut entry = traversal.history[index].clone();
+                entry.index = position;
+                entry
+            })
+            .collect();
+        assert_eq!(
+            serde_json::to_value(&restored_traversal.history).unwrap(),
+            serde_json::to_value(expected_history).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&restored_traversal.random_page_round).unwrap(),
+            serde_json::to_value(&traversal.random_page_round).unwrap()
+        );
+        assert_eq!(restored_traversal.shuffle, traversal.shuffle);
+        assert_eq!(restored_traversal.loop_mode, traversal.loop_mode);
+    }
+
+    #[test]
+    fn collections_outside_window_write_v1() {
+        let sample = collection_state();
+        let mut state = video_queue(450, 250);
+        state.version = 2;
+        state.queue[199] = sample.queue[0].clone();
+        state.queue[400] = sample.queue[0].clone();
+        state.queue[250].entry_id = Some("video:current".to_owned());
+        let mut traversal = sample.traversal.unwrap();
+        traversal.history[0].index = 199;
+        state.traversal = Some(traversal);
+        let restored = save_and_read(state);
+        assert_eq!(restored.version, 1);
+        assert_eq!(restored.current_index, 50);
+        assert_eq!(restored.queue[50].video.title, "video 250");
+        assert!(restored.queue.iter().all(|entry| entry.entry_id.is_none()));
+        assert!(restored.traversal.is_none());
+    }
+
+    #[test]
+    fn collection_window_keeps_v1_backup_and_leaves_file_unchanged_on_backup_error() {
+        let dir =
+            std::env::temp_dir().join(format!("bili-playback-window-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&dir).unwrap();
+        let path = dir.join(PLAYBACK_STATE_FILE);
+        let backup = path.with_extension("v1.bak.json");
+        let prior = include_bytes!("../../../tests/fixtures/contract/playback-state-some.json");
+        fs::write(&path, prior).unwrap();
+        let sample = collection_state();
+        let mut state = video_queue(450, 250);
+        state.version = 2;
+        state.queue[250] = sample.queue[0].clone();
+        let mut traversal = sample.traversal.unwrap();
+        traversal.history[0].index = 250;
+        state.traversal = Some(traversal);
+        let guard = crate::storage::lock_storage().unwrap();
+
+        fs::create_dir(&backup).unwrap();
+        assert!(save_playback_state_to(&guard, &path, state.clone())
+            .unwrap_err()
+            .contains("自动备份"));
+        assert_eq!(fs::read(&path).unwrap(), prior);
+        fs::remove_dir(&backup).unwrap();
+
+        save_playback_state_to(&guard, &path, state).unwrap();
+        assert_eq!(fs::read(&backup).unwrap(), prior);
+        let restored = get_playback_state_from(&guard, &path).unwrap().unwrap();
+        assert_eq!(restored.version, 2);
+        assert_eq!(restored.current_index, 50);
+        assert!(restored.queue[50].collection.is_some());
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
