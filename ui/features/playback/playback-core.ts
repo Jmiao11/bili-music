@@ -208,6 +208,15 @@ function savePlaybackState() {
   });
 }
 
+function renderPlaybackTrack(track: Pick<CommandContract.TrackSnapshotInput, "title" | "uploader" | "thumbnailUrl">) {
+  const { queue, currentIndex } = getQueueSnapshot();
+  const entry = queue[currentIndex], collection = entry?.collection;
+  const videoTitle = collection ? collection.data.snapshot.items[collection.memberIndex]?.title ?? "" : entry?.title ?? "";
+  getApplicationStore().actions.playbackDisplay.setRenderedTrack({
+    title: track.title, uploader: track.uploader, thumbnailUrl: displayThumbnailUrl(track.thumbnailUrl), videoTitle,
+  });
+}
+
 function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, positionSeconds: number) {
   const totalSeconds = Math.max(0, Number(track.durationSeconds) || 0);
   const safePosition = Math.max(
@@ -215,7 +224,7 @@ function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, pos
     Math.min(Number(positionSeconds) || 0, totalSeconds || Number(positionSeconds) || 0),
   );
   const sliderMax = Math.max(totalSeconds, safePosition);
-  getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: track.title, uploader: track.uploader, thumbnailUrl: displayThumbnailUrl(track.thumbnailUrl) });
+  renderPlaybackTrack(track);
   getApplicationStore().actions.playbackDisplay.restoreProgress(safePosition, sliderMax, formatDuration(totalSeconds));
   setPlaybackStatus("已恢复上次播放，点击播放继续。");
 }
@@ -626,7 +635,7 @@ async function loadCurrentTrack({
       thumbnailUrl: displayThumbnailUrl(info.thumbnailUrl),
       durationSeconds: info.durationSeconds,
     };
-    getApplicationStore().actions.playbackDisplay.setRenderedTrack({ title: visibleTrack.title, uploader: visibleTrack.uploader, thumbnailUrl: displayThumbnailUrl(visibleTrack.thumbnailUrl) });
+    renderPlaybackTrack(visibleTrack);
     getApplicationStore().actions.playbackDisplay.setTrackDuration(formatDuration(visibleTrack.durationSeconds));
     emitCurrentTrackChanged();
     (page?.cid ?? getSessionSnapshot().currentPages[0]?.cid) && window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: video.bvid, cid: page?.cid ?? getSessionSnapshot().currentPages[0].cid } }));

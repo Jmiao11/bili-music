@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { responses } from "./tracks-fixture.ts";
+import { deferred, responses } from "./tracks-fixture.ts";
+import { collection, collectionEntry, collectionPage } from "../helpers/collections.ts";
+import { libraryQueueEntries } from "../../ui/features/playback/playback-queue-state.ts";
 import { playbackFixture, playbackStructure, track } from "./playback-ui-fixture.ts";
 
 const baseline = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "../fixtures/playback-ui-baseline.json"), "utf8"));
@@ -206,4 +208,95 @@ test("both progress sliders commit on pointer release without requiring a native
     h.dispatch(h.audio, "timeupdate");
     assert.equal(slider.value, "76");
   }
+});
+
+function visibleTrackText(h: Awaited<ReturnType<typeof playbackFixture>>) {
+  return [h.node("title").textContent, h.node("uploader").textContent, h.doc.querySelector(".player-video-title")?.textContent?.trim() ?? null];
+}
+
+const audioResult = (id: number) => ({
+  audioUrl: "http://127.0.0.1/audio/" + id, title: "解析标题" + id,
+  uploader: "UP" + id, thumbnailUrl: "", durationSeconds: 60,
+});
+const splitPages = (id: number) => [1, 2].map(page => ({
+  cid: id * 100 + page, page, part: `分P ${id}-${page}`, durationSeconds: 60,
+}));
+const videoId = (args: Record<string, unknown>) => Number(String(args.bvId).slice(2));
+
+test("播放栏标题与所属视频在普通曲目、合集及合集成员切换时同步", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const data = collection(2), gates = [deferred(), deferred(), deferred()];
+  const queue = [track(7), track(8), ...libraryQueueEntries([collectionEntry(data)])];
+  h.reply(async (cmd, args) => {
+    if (cmd === "get_collection_page") return collectionPage(data);
+    const id = videoId(args);
+    if (cmd === "get_video_pages") return splitPages(id);
+    if (cmd === "prepare_audio") return id === 7 ? audioResult(id) : gates[id === 8 ? 0 : id].promise;
+    return responses()(cmd);
+  });
+  h.core.playListItem("favorites", queue, 0); await h.microtasks();
+  let previous = ["分P 7-1", "UP7", "· 曲目7"];
+  assert.deepEqual(visibleTrackText(h), previous);
+  for (const [i, id] of [8, 1, 2].entries()) {
+    if (i < 2) h.core.playQueueIndex(i + 1);
+    else h.core.playNext();
+    await h.microtasks();
+    assert.equal(h.calls.filter(c => c.command === "prepare_audio").at(-1)?.args.bvId, track(id).bvid);
+    assert.deepEqual(visibleTrackText(h), previous);
+    gates[i].resolve(audioResult(id)); await h.microtasks();
+    previous = [`分P ${id}-1`, `UP${id}`, `· 曲目${id}`];
+    assert.deepEqual(visibleTrackText(h), previous);
+  }
+});
+
+test("自动跳过解析失败项时保留上一首完整文字，下一首成功后一起更新", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const failed = deferred(), next = deferred();
+  h.reply(async (cmd, args) => {
+    const id = videoId(args);
+    if (cmd === "get_video_pages") return id === 8 ? [] : splitPages(id);
+    if (cmd === "prepare_audio") return id === 7 ? audioResult(id) : id === 8 ? failed.promise : next.promise;
+    return responses()(cmd);
+  });
+  const old = ["分P 7-1", "UP7", "· 曲目7"];
+  h.core.playListItem("direct", [track(7), track(8), track(9)], 0); await h.microtasks();
+  h.core.playNext(); await h.microtasks(); assert.deepEqual(visibleTrackText(h), old);
+  failed.reject(Error("synthetic audio failure")); await h.microtasks();
+  assert.equal(h.core.getQueueSnapshot().currentIndex, 2);
+  assert.equal(h.calls.filter(c => c.command === "prepare_audio").at(-1)?.args.bvId, track(9).bvid);
+  assert.deepEqual(visibleTrackText(h), old);
+  next.resolve(audioResult(9)); await h.microtasks();
+  assert.deepEqual(visibleTrackText(h), ["分P 9-1", "UP9", "· 曲目9"]);
+});
+
+test("恢复冻结合集时所属视频来自保存的成员位置，续播后仍与分P标题对应", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const data = collection(2), entry = libraryQueueEntries([collectionEntry(data)])[0], gate = deferred();
+  const historyTrack = { ...track(3), title: "历史成员标题", uploader: "历史作者" };
+  const mediaType = Object.getOwnPropertyDescriptor(globalThis, "HTMLMediaElement");
+  Object.defineProperty(globalThis, "HTMLMediaElement", { configurable: true, value: h.window.HTMLMediaElement });
+  t.after(() => {
+    if (mediaType) Object.defineProperty(globalThis, "HTMLMediaElement", mediaType);
+    else Reflect.deleteProperty(globalThis, "HTMLMediaElement");
+  });
+  Object.defineProperty(h.audio, "readyState", { configurable: true, value: h.window.HTMLMediaElement.HAVE_METADATA });
+  h.reply(async (cmd, args) => {
+    if (cmd === "get_playback_state") return {
+      version: 2, queue: [{ ...entry, collection: { ...entry.collection, historyTrack } }],
+      currentIndex: 0, positionSeconds: 12, page: 2, cid: 302, savedAt: 1,
+      traversal: { randomRemaining: [], history: [], randomPageRound: null, shuffle: false, loopMode: "sequence" },
+    };
+    if (cmd === "get_video_pages") return splitPages(videoId(args));
+    if (cmd === "prepare_audio") return gate.promise;
+    return responses()(cmd);
+  });
+  await h.core.restorePlaybackState();
+  assert.deepEqual(visibleTrackText(h), ["历史成员标题", "历史作者", "· 曲目1"]);
+  await h.fire(h.node("play-pause-button"), "click"); await h.microtasks();
+  assert.equal(h.calls.filter(c => c.command === "prepare_audio").at(-1)?.args.cid, 302);
+  assert.deepEqual(visibleTrackText(h), ["历史成员标题", "历史作者", "· 曲目1"]);
+  gate.resolve(audioResult(3)); await h.microtasks();
+  assert.deepEqual(visibleTrackText(h), ["分P 3-2", "UP3", "· 曲目1"]);
+  assert.equal(h.calls.filter(c => c.command === "prepare_audio").length, 1);
+  assert.equal(h.audio.currentTime, 12);
 });

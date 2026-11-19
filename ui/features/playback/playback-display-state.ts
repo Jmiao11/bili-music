@@ -5,7 +5,7 @@ type PlaybackSessionTrack = { hasCurrent: boolean; title: string; uploader: stri
 function initialPlaybackDisplayState() {
   const audioQuality = { preference: "highest" as CommandContract.AudioQuality, audioId: null as number | null, isFallback: false };
   return { currentTime: 0, duration: NaN, paused: true, ended: false, playbackRate: 1, isPlaying: false, buttonPlaying: false, isSeeking: false,
-    audioQuality, audioQualityMenu: null as { left: number; bottom: number } | null, renderedTrack: { title: "尚未播放", uploader: "—", thumbnailUrl: "" },
+    audioQuality, audioQualityMenu: null as { left: number; bottom: number } | null, renderedTrack: { title: "尚未播放", uploader: "—", thumbnailUrl: "", videoTitle: "" },
     currentTrack: { bvid: "", title: "尚未播放", uploader: "—", thumbnailUrl: "", durationSeconds: 0, hasCurrent: false },
     progress: { position: 0, duration: 0 }, track: null as PlaybackSessionTrack | null,
     presentation: { duration: "0:00", restoredPosition: null as number | null, restoredMax: 0,
@@ -35,8 +35,8 @@ function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commi
     hideImmersive() {
       const state = read(); commit({ ...state, presentation: { ...state.presentation, immersiveHidden: true } });
     },
-    setRenderedTrack(track: { title: string; uploader: string; thumbnailUrl: string }) {
-      commit({ ...read(), presentation: { ...read().presentation, thumbnailSet: true }, renderedTrack: { title: track.title, uploader: track.uploader, thumbnailUrl: track.thumbnailUrl } });
+    setRenderedTrack(track: { title: string; uploader: string; thumbnailUrl: string; videoTitle?: string }) {
+      commit({ ...read(), presentation: { ...read().presentation, thumbnailSet: true }, renderedTrack: { title: track.title, uploader: track.uploader, thumbnailUrl: track.thumbnailUrl, videoTitle: track.videoTitle ?? "" } });
     },
     setCurrentTrack(track: Partial<PlaybackDisplaySnapshot["currentTrack"]>) {
       const before = read(), next = { ...before.currentTrack, ...track };

@@ -10,10 +10,6 @@ const props = defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueD
 const timeline = () => projectPlaybackProgress(props.display);
 const entry = () => props.queue.queue[props.queue.currentIndex];
 const group = () => entry()?.collection;
-const videoTitle = () => {
-  const collection = group();
-  return collection ? collection.data.snapshot.items[collection.memberIndex]?.title ?? "" : entry()?.title ?? "";
-};
 const playing = () => props.display.view.buttonVersion ? String(props.display.buttonPlaying) : undefined;
 const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({ 30280: "192K", 30232: "132K", 30216: "64K" } as Record<number, string>)[props.display.audioQuality.audioId ?? 0] ?? "音质";
 </script>
@@ -26,7 +22,7 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
         </button>
         <div class="track-copy">
           <strong id="title">{{ display.renderedTrack.title }}</strong>
-          <span class="player-subtitle"><span id="uploader">{{ display.renderedTrack.uploader }}</span><span v-if="videoTitle() && videoTitle() !== display.renderedTrack.title" class="player-video-title"> · {{ videoTitle() }}</span></span>
+          <span class="player-subtitle"><span id="uploader">{{ display.renderedTrack.uploader }}</span><span v-if="display.renderedTrack.videoTitle && display.renderedTrack.videoTitle !== display.renderedTrack.title" class="player-video-title"> · {{ display.renderedTrack.videoTitle }}</span></span>
         </div>
       </div>
 
