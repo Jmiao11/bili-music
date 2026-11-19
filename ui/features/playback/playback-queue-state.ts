@@ -54,32 +54,39 @@ function shuffledQueueIndexes(values: readonly number[], random: () => number): 
   return result;
 }
 
-function insertVideoAfterCurrent(state: PlaybackQueueSnapshot, video: CommandContract.TrackSnapshotInput): PlaybackQueueSnapshot {
-  const position = state.currentIndex + 1;
+type QueueEdit = { insert: CommandContract.TrackSnapshotInput } | { remove: number };
+function editQueue(state: PlaybackQueueSnapshot, operation: QueueEdit): PlaybackQueueSnapshot {
+  const video = "insert" in operation ? operation.insert : undefined;
+  const position = "remove" in operation ? operation.remove : state.currentIndex + 1;
   const adjacent = state.queue[position];
-  if (state.currentIndex >= 0 && adjacent && !adjacent.collection && adjacent.bvid.toLowerCase() === video.bvid.toLowerCase()) return state;
+  if (video) {
+    if (state.currentIndex >= 0 && adjacent && !adjacent.collection && adjacent.bvid.toLowerCase() === video.bvid.toLowerCase()) return state;
+  } else if (!Number.isInteger(position) || !adjacent || state.currentIndex < 0 || position === state.currentIndex) return state;
 
-  const shift = (index: number) => index >= position ? index + 1 : index;
-  return {
-    ...state,
-    queue: [...state.queue.slice(0, position), normalizeTrack(video), ...state.queue.slice(position)],
+  const survives = (index: number) => !!video || index !== position;
+  const shift = (index: number) => index < position ? index : index + (video ? 1 : -1);
+  const queue = [...state.queue];
+  if (video) queue.splice(position, 0, normalizeTrack(video));
+  else queue.splice(position, 1);
+  const randomRemaining = state.randomRemaining.filter(survives).map(shift);
+  if (video && state.shuffle) randomRemaining.push(position);
+  return { ...state, queue, currentIndex: shift(state.currentIndex), randomRemaining,
     queueSource: "direct", queueSearchVersion: null, playlistId: null,
-    randomRemaining: state.shuffle ? [...state.randomRemaining.map(shift), position] : state.randomRemaining.map(shift),
     history: state.history.some(entry => entry.index >= position)
-      ? state.history.map(entry => entry.index >= position ? { ...entry, index: shift(entry.index) } : entry)
-      : state.history,
+      ? state.history.filter(entry => survives(entry.index)).map(entry => entry.index < position ? entry : { ...entry, index: shift(entry.index) }) : state.history,
   };
 }
 
 function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (next: PlaybackQueueSnapshot) => void) {
   const update = (fields: Partial<PlaybackQueueSnapshot>) => commit({ ...read(), ...fields });
   const remaining = (random: () => number) => shuffledQueueIndexes(read().queue.map((_, index) => index).filter(index => index !== read().currentIndex), random);
-  function insertNextVideo(video: CommandContract.TrackSnapshotInput): boolean {
-    const state = read(), next = insertVideoAfterCurrent(state, video);
+  function applyEdit(operation: QueueEdit): boolean {
+    const state = read(), next = editQueue(state, operation);
     if (next === state) return false;
-    commit(next);
-    return true;
+    commit(next); return true;
   }
+  const insertNextVideo = (insert: CommandContract.TrackSnapshotInput) => applyEdit({ insert });
+  const removeNonCurrentEntry = (remove: number) => applyEdit({ remove });
   function replaceQueue(videos: readonly DeepReadonly<QueueInput>[], source = "direct", searchVersion: number | null = null, playlistId: string | null = null): void {
     update({ queue: videos.map(normalizeQueueEntry), queueSource: source, queueSearchVersion: source === "search" || source === "collection" ? searchVersion : null, playlistId: source === "playlist" ? playlistId : null, currentIndex: -1, history: [], collectionNeedsRefresh: false });
   }
@@ -201,7 +208,7 @@ function createPlaybackQueueActions(read: () => PlaybackQueueSnapshot, commit: (
   function fillTrackMetadata(index: number, metadata: Pick<CommandContract.TrackSnapshotInput, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void {
     update({ queue: read().queue.map((track, position) => position !== index ? track : track.collection ? { ...track, collection: { ...track.collection, ...(track.collection.historyTrack ? { historyTrack: { ...track.collection.historyTrack, ...metadata } } : { data: { ...track.collection.data, snapshot: { ...track.collection.data.snapshot, items: track.collection.data.snapshot.items.map((member, memberIndex) => memberIndex === track.collection?.memberIndex ? { ...member, ...metadata } : member) } } }) } } : { ...track, ...metadata }) });
   }
-  return { insertNextVideo, activeTrack: () => activeQueueTrack(read()), persistedQueue: () => playbackQueueEntries(read()), persistedTraversal: () => playbackTraversal(read()), advanceCollection, freezeCollection, settleCollectionUnit, restoreTraversal, advancePage, appendSearchQueue, changeShuffle, cycleLoop, fillTrackMetadata, markPlayed, nextNavigation, previousNavigation, replaceQueue, resetPage, resetRandom, restoreSelection, retreatPage, selectIndex, selectPage, selectCollectionPage, setDisplayTrack, takeRandomNext: drawNextQueueIndex };
+  return { removeNonCurrentEntry, insertNextVideo, activeTrack: () => activeQueueTrack(read()), persistedQueue: () => playbackQueueEntries(read()), persistedTraversal: () => playbackTraversal(read()), advanceCollection, freezeCollection, settleCollectionUnit, restoreTraversal, advancePage, appendSearchQueue, changeShuffle, cycleLoop, fillTrackMetadata, markPlayed, nextNavigation, previousNavigation, replaceQueue, resetPage, resetRandom, restoreSelection, retreatPage, selectIndex, selectPage, selectCollectionPage, setDisplayTrack, takeRandomNext: drawNextQueueIndex };
 }
 
 export { createPlaybackQueueActions, initialPlaybackQueueState, activeQueueTrack, playbackQueueEntries, playbackTraversal, libraryQueueEntries };

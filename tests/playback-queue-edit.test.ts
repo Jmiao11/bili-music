@@ -47,3 +47,33 @@ test("紧邻合集的锚点不参与视频去重，搜索版本随结构编辑�
   assert.ok(store.getState().queue[2].collection);
   assert.equal(store.getState().queueSearchVersion, null);
 });
+
+test("移出非当前出现：索引、历史与冻结引用在一次提交通知内一致", () => {
+  const data = collection(4), [a,b,c] = data.snapshot.items;
+  const group = libraryQueueEntries([collectionEntry(data)])[0];
+  for (const position of [0,2,3,4]) {
+    const s = createStateStore(initialPlaybackQueueState(), createPlaybackQueueActions, {freeze:true}), q=s.actions;
+    q.replaceQueue([group,a,group,a,c],"playlist",null,"p"); q.selectIndex(1,false,null);
+    const history=s.getState().queue.flatMap((item,index)=>[true,false].map(pageLevel=>({index,cid:index+1,pageLevel,entryId:item.entryId,bvid:item.bvid,track:b})));
+    q.restoreTraversal({loopMode:"sequence",shuffle:true,randomRemaining:[4,0,2],history,randomPageRound:null});
+    const old=s.getState();let commits=0;s.subscribe(()=>commits++);
+    for(const invalid of [1,-1,5,1.5]) assert.equal(q.removeNonCurrentEntry(invalid),false);
+    assert.equal(s.getState(),old);assert.equal(commits,0);
+    assert.equal(q.removeNonCurrentEntry(position),true);assert.equal(commits,1);
+    const after=s.getState(),shift=(i:number)=>i>position?i-1:i;
+    assert.equal(after.queue[after.currentIndex],old.queue[1]);
+    old.queue.forEach((entry,i)=>{if(i!==position)assert.equal(after.queue[shift(i)],entry);});
+    assert.deepEqual(after.randomRemaining,old.randomRemaining.filter(i=>i!==position).map(shift));
+    const kept=old.history.filter(h=>h.index!==position);
+    assert.deepEqual(after.history,kept.map(h=>({...h,index:shift(h.index)})));
+    after.history.forEach((h,i)=>assert.equal(h.track,kept[i].track));
+    assert.deepEqual([after.queueSource,after.playlistId,after.queueSearchVersion],["direct",null,null]);
+  }
+});
+
+test("插入后移出恢复原队列与遍历",()=>{
+  const [a,b,c]=collection(3).snapshot.items,s=createStateStore(initialPlaybackQueueState(),createPlaybackQueueActions),q=s.actions;
+  q.replaceQueue([a,b],"search",4);assert.equal(q.removeNonCurrentEntry(0),false);q.selectIndex(0,false,null);q.changeShuffle(true,()=>0);
+  const before=s.getState();q.insertNextVideo(c);q.removeNonCurrentEntry(1);
+  assert.deepEqual(s.getState(),{...before,queueSource:"direct",queueSearchVersion:null});
+});

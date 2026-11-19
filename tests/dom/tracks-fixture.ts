@@ -29,16 +29,17 @@ type Modules = {
   rootLists?: typeof import("../../ui/features/tracks/root-lists.ts");
   home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { queueVideoNext(video: CommandContract.TrackSnapshotInput): void; playNext(options?: {automatic: boolean}): boolean; advancePageWithinCurrentBv(options: {automatic: boolean}): boolean; playSearchResult(index:number):void; playPrevious():void; playQueueIndex(index:number):void; updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
+  core: { removeQueueEntry(index: number): void; queueVideoNext(video: CommandContract.TrackSnapshotInput): void; playNext(options?: {automatic: boolean}): boolean; advancePageWithinCurrentBv(options: {automatic: boolean}): boolean; playSearchResult(index:number):void; playPrevious():void; playQueueIndex(index:number):void; updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
+async function fixture(options: { queueLifecycle?: boolean; queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
   if(options.displayCounters) for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel"]) renderCounts[name]=0;
+  if(options.queueLifecycle) renderCounts.mount = renderCounts.unmount = 0;
   if(options.queueCounters) for(const name of ["QueueDrawer","QueueDrawerRow"]) renderCounts[name]=0;
   const ipcListeners = new Map<string,(event:{payload?:unknown})=>void>(), emissions: {label:string;name:string;payload:unknown}[]=[];
   const rowRenders: { list: string | null; bvid: string }[] = [];
@@ -48,6 +49,11 @@ async function fixture(options: { queueCounters?: boolean; updateReply?: Promise
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-tracks-dom-"));
   for (const file of tracked) {
     const target = path.join(root, file.slice(3)); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.copyFileSync(path.join(project, file), target);
+  }
+  if (options.queueLifecycle) {
+    const row = path.join(root, "features/playback/components/QueueDrawerRow.vue");
+    const source = fs.readFileSync(row, "utf8");
+    fs.writeFileSync(row, source.replace('<script setup lang="ts">', '<script setup lang="ts">\nimport { onMounted, onUnmounted } from "vue"; onMounted(() => globalThis.__rootRenderCounts.mount++); onUnmounted(() => globalThis.__rootRenderCounts.unmount++);'));
   }
   if(options.legacySortTabs) {
     const file=path.join(root,"features/search/components/SearchTabs.vue");

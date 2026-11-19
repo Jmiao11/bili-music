@@ -204,7 +204,7 @@ export { readDynamicBackgroundPresentation, readDynamicPalette, subscribeDynamic
 export type { DynamicBackgroundPresentation };
 
 type ImageScheme = "light" | "dark";
-type ImageRegion = "sidebar" | "content" | "bar" | "titlebar";
+type ImageRegion = "sidebar" | "content" | "bar" | "titlebar" | "queue";
 type RegionSample = Readonly<{ mean: number; variance: number }>;
 type ImageForegroundPresentation = Readonly<{ scheme: ImageScheme; averageLuminance: number; regions: Partial<Record<ImageRegion, ImageScheme>> }>;
 let lastImageScheme: ImageScheme | null = null;
@@ -246,6 +246,7 @@ function createImageForeground() {
   let source = "", version = 0, active = false, dim = 90;
   let image: HTMLImageElement | null = null, raster: ImageData | null = null;
   let aspect = 0, geometry = "", averageLuminance = 0;
+  let queueGeometry = "", queueMean = 0;
   let samples: Partial<Record<ImageRegion, RegionSample>> = {};
   let regions: Partial<Record<ImageRegion, ImageScheme>> = {};
   let presentation: ImageForegroundPresentation | null = null;
@@ -267,7 +268,7 @@ function createImageForeground() {
     const w = decoded.naturalWidth * scale, h = decoded.naturalHeight * scale;
     context.drawImage(decoded, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
     raster = context.getImageData(0, 0, canvas.width, canvas.height);
-    aspect = height / width; geometry = "";
+    aspect = height / width; geometry = ""; queueGeometry = "";
     return raster;
   }
   async function updateImageForeground(state: ImageAppearance): Promise<void> {
@@ -294,7 +295,7 @@ function createImageForeground() {
       for (const listener of backgroundListeners ?? []) listener();
     } catch { /* Keep the last scheme when the image cannot be read. */ }
   }
-  function readImageForegroundPresentation(): ImageForegroundPresentation | null {
+  function readImageForegroundPresentation(queueOpen = false): ImageForegroundPresentation | null {
     if (!active || !raster) return null;
     const scheme = readImageScheme(), low = imageMaskOpacity(dim) < .55;
     let next: Partial<Record<ImageRegion, ImageScheme>> = {};
@@ -310,8 +311,20 @@ function createImageForeground() {
         for (const {name,rect} of rects) samples[name] = sampleRegion(raster.data,raster.width,raster.height,rect);
         geometry = key;
       }
-      next = {...regions};
       for (const {name} of rects) next[name] = regionForeground(regions[name] ?? scheme,samples[name]?.mean ?? averageLuminance,imageMaskOpacity(dim),scheme);
+      if (queueOpen) {
+        // Sample the final viewport region while the drawer is still sliding in.
+        const drawer = document.querySelector("#queue-drawer")?.getBoundingClientRect();
+        if (drawer?.width) {
+          const rect = [1 - drawer.width / width, drawer.top / height, 1, drawer.bottom / height];
+          const key = JSON.stringify(rect);
+          if (key !== queueGeometry) {
+            queueMean = sampleRegion(raster.data, raster.width, raster.height, rect).mean;
+            queueGeometry = key;
+          }
+          next.queue = regionForeground(regions.queue ?? scheme, queueMean, imageMaskOpacity(dim), scheme);
+        }
+      }
     }
     if (!presentation || presentation.scheme !== scheme || presentation.averageLuminance !== averageLuminance || JSON.stringify(presentation.regions) !== JSON.stringify(next)) {
       regions = next; presentation = {scheme,averageLuminance,regions};
@@ -322,7 +335,7 @@ function createImageForeground() {
   return readImageForegroundPresentation;
 }
 let readImageForegroundPort: (() => ImageForegroundPresentation | null) | undefined;
-function readImageForegroundPresentation(): ImageForegroundPresentation | null { return (readImageForegroundPort ??= createImageForeground())(); }
+function readImageForegroundPresentation(queueOpen = false): ImageForegroundPresentation | null { return (readImageForegroundPort ??= createImageForeground())(queueOpen); }
 export { relativeLuminance, imageMaskOpacity, effectiveImageMask, imageScheme, readImageScheme, regionForeground, sampleRegion, readImageForegroundPresentation };
 export type { ImageScheme, ImageForegroundPresentation };
 
@@ -331,7 +344,7 @@ let floatingPresentation: DynamicBackgroundPresentation | undefined;
 function projectFloatingSurfaceBackground(base: DynamicBackgroundPresentation): DynamicBackgroundPresentation {
   if (typeof document === "undefined" || !["image","dynamic"].includes(document.documentElement?.dataset.theme ?? "")) return base;
   const surfaces: Record<string,Record<string,string>> = {};
-  for (const [name,selector] of Object.entries({settings:"#settings-modal > .settings-panel",library:"#library-modal > .settings-panel",pages:"#pages-modal > .settings-panel",help:"#ai-help-bubble",notice:"#playback-notice",quality:"#player-quality-menu",queue:"#queue-drawer"})) {
+  for (const [name,selector] of Object.entries({settings:"#settings-modal > .settings-panel",library:"#library-modal > .settings-panel",pages:"#pages-modal > .settings-panel",help:"#ai-help-bubble",notice:"#playback-notice",quality:"#player-quality-menu"})) {
     const rect = document.querySelector?.(selector)?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0 || rect.height <= 0) continue;
     surfaces[name] = { "--floating-clip": `inset(${Math.max(0,rect.top+1)}px ${Math.max(0,window.innerWidth-rect.right+1)}px ${Math.max(0,window.innerHeight-rect.bottom+1)}px ${Math.max(0,rect.left+1)}px round 7px)`, "--floating-left": `${rect.left}px`, "--floating-top": `${rect.top}px` };

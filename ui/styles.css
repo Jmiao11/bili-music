@@ -5587,8 +5587,9 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 .floating-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(10,12,16,.04); }
 :root[data-theme="image"] .floating-backdrop::after { background: rgba(var(--image-mask-color),max(var(--floating-mask-floor,.55),var(--image-mask))); }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app :is(.settings-panel,.ai-help-bubble):has(> .floating-backdrop) {
-  isolation: isolate; transform: none; background: var(--floating-surface); backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  isolation: isolate; background: var(--floating-surface); backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
+:root:is([data-theme="image"],[data-theme="dynamic"]) #app :is(.settings-panel,.ai-help-bubble):has(> .floating-backdrop) { transform: none; }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app .settings-panel:has(> .floating-backdrop) :is(.settings-header,.modal-actions,.library-modal-actions) { background: transparent !important; }
 :root:is([data-theme="image"],[data-theme="dynamic"]) #app .playback-notice:has(> .floating-backdrop) { isolation: isolate; }
 
@@ -5651,10 +5652,13 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root #app .track-title-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root #app .track-cached { flex-shrink: 0; }
 
-/* Q-3: queue drawer */
+/* The main area and drawer meet at the same moving edge. */
+#app { --queue-drawer-width: min(360px, 100vw); --queue-drawer-motion: .18s ease; }
+.main-panel.queue-drawer-sliding { clip-path: inset(0); transition: clip-path var(--queue-drawer-motion); }
+.main-panel.queue-drawer-open { clip-path: inset(0 var(--queue-drawer-width) 0 0); }
 :root #app #queue-position { background: transparent; border: 0; padding: 0; cursor: pointer; }
 :root #app #queue-position:disabled { cursor: default; opacity: .5; }
-#queue-drawer { position: fixed; z-index: 35; top: var(--titlebar-height); bottom: var(--player-height); right: 0; width: 360px; max-width: 100%; display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--dialog-shadow); transform: translateX(100%); transition: transform .18s ease; overflow: hidden; }
+#queue-drawer { position: fixed; z-index: 35; top: var(--titlebar-height); bottom: var(--player-height); right: 0; width: var(--queue-drawer-width); display: flex; flex-direction: column; background: transparent; border: 0; border-radius: 0; border-left: 1px solid var(--line); box-shadow: none; transform: translateX(100%); transition: transform var(--queue-drawer-motion); overflow: hidden; }
 #queue-drawer[hidden] { display: none; }
 #queue-drawer.is-open { transform: translateX(0); }
 #queue-drawer > header { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; height: 48px; flex: none; padding: 0 12px; border-bottom: 1px solid var(--line); }
@@ -5672,9 +5676,13 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 .queue-meta { color: var(--text2); font-size: var(--fs-xs); white-space: nowrap; }
 .queue-group > .queue-parent { height: 36px; }
 .queue-group .queue-track > .queue-title { flex: 1; }
+.queue-remove { flex: 0 0 32px; width: 32px; height: 32px; margin-right: 8px; visibility: hidden; }
+.queue-remove::before { content: ""; width: 10px; border-top: 1.5px solid currentColor; }
+.queue-drawer-list > li:not(.queue-group) { content-visibility: auto; contain-intrinsic-block-size: 44px; }
+.queue-parent:hover .queue-remove, .queue-parent:focus-within .queue-remove, .queue-remove:focus-visible { visibility: visible; }
 .queue-expand { flex: none; margin-right: 8px; }
 .queue-members { list-style: none; margin: 0; padding: 0 0 0 16px; }
 .queue-members li { height: 44px; display: flex; align-items: center; padding: 0 12px; }
 #queue-drawer .is-current { background: var(--active); }
 #queue-drawer .is-current > .queue-title, #queue-drawer .is-current > .queue-track .queue-title { color: var(--accent-text); font-weight: 600; }
-@media (prefers-reduced-motion: reduce) { #queue-drawer { transition: none; } }
+@media (prefers-reduced-motion: reduce) { :is(#queue-drawer, .main-panel.queue-drawer-sliding) { transition: none; } }

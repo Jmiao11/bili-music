@@ -121,3 +121,76 @@ test("多分P提示持续两秒，继续播放当前视频下一P", async t => {
   assert.equal(h.core.getQueueSnapshot().currentPageIndex,1);
   assert.equal(h.core.getQueueSnapshot().currentIndex,0);
 });
+
+for (const wait of ["get_collection_page","get_video_pages","get_cached_video_pages","prepare_audio"]) test("移出前项时在途元数据只回填当前出现 " + wait, async t => {
+  const h=await fixture({playback:true});t.after(h.dispose);
+  const data=collection(2), gate=deferred(), group=wait==="get_collection_page", a=track(1), sibling={...a,title:"同 BV 后继"};
+  const metadata={audioUrl:"http://127.0.0.1/audio/q4c",title:"当前出现的元数据",uploader:"作者",thumbnailUrl:"",durationSeconds:60};
+  h.reply(async cmd=>{if(cmd===wait)return gate.promise;if(cmd==="get_video_pages"){if(wait==="get_cached_video_pages")throw Error("offline");return [];}return cmd==="prepare_audio"?metadata:responses()(cmd);});
+  h.core.playListItem("favorites",[a,group?libraryQueueEntries([collectionEntry(data)])[0]:a,sibling],1);await h.microtasks();
+  assert.ok(h.calls.some(c=>c.command===wait));h.core.removeQueueEntry(0);
+  gate.resolve(group?collectionPage(data):wait==="prepare_audio"?metadata:wait==="get_cached_video_pages"?{[a.bvid]:{pages:[{cid:11,page:1,part:"片段",duration:60}]}}:[]);await h.microtasks();
+  const state=h.core.getQueueSnapshot();assert.equal(state.currentIndex,0);assert.equal(state.queue[1].title,sibling.title);
+  assert.equal((group?state.queue[0].collection?.data.snapshot.items[0]:state.queue[0])?.title,metadata.title);
+});
+
+test("千项抽屉的出现身份与同列表重选",async t=>{
+  const h=await fixture({playback:true,queueCounters:true,queueLifecycle:true});t.after(h.dispose);
+  const items=Array.from({length:1000},(_,i)=>track(i+1)),q=h.store.actions.playbackQueue;
+  const counts=()=>[h.renderCounts.mount,h.renderCounts.unmount];
+  const installed=h.listeners.length;q.replaceQueue(items);assert.equal(h.listeners.length,installed);assert.equal(h.renderCounts.QueueDrawerRow,0);
+  await h.fire(h.doc.querySelector("#queue-position")!,"click");h.raf();assert.equal(h.doc.querySelector(".queue-remove"),null);assert.deepEqual(counts(),[1000,0]);
+  q.selectIndex(0,false,null);assert.equal(h.doc.querySelector('.is-current .queue-remove'),null);
+  h.core.queueVideoNext(track(1002));assert.deepEqual(counts(),[1001,0]);h.core.removeQueueEntry(1);assert.deepEqual(counts(),[1001,1]);
+  h.renderCounts.QueueDrawerRow=0;
+  const withoutCurrent: number[]=[];
+  const off=h.store.subscribe(state=>{
+    if(state.playbackQueue.currentIndex<0)withoutCurrent.push(h.doc.querySelectorAll(".queue-remove").length);
+  });
+  h.reply(async cmd=>cmd==="get_video_pages"?[]:responses()(cmd));h.core.playListItem("direct",items,1);
+  off();assert.ok(withoutCurrent.length>0);assert.ok(withoutCurrent.every(n=>n===0));
+  assert.equal(h.renderCounts.QueueDrawerRow,2);assert.equal(h.doc.querySelectorAll(".queue-remove").length,999);
+  await h.microtasks();assert.deepEqual(counts(),[1001,1]);
+  q.replaceQueue([track(1100)]);assert.deepEqual(counts(),[1002,1001]);
+});
+
+test("合集手动收起跨回填与成员推进保持，编辑邻项保留展开",async t=>{
+  const h=await fixture({playback:true,queueCounters:true,queueLifecycle:true});t.after(h.dispose);const q=h.store.actions.playbackQueue;
+  q.replaceQueue([...libraryQueueEntries([collectionEntry(collection(3))]),track(7)]);q.selectIndex(0,false,null,false);
+  await h.fire(h.doc.querySelector("#queue-position")!,"click");h.raf();const expand=h.doc.querySelector<HTMLButtonElement>(".queue-expand")!;
+  await h.fire(expand,"click");q.fillTrackMetadata(0,{...track(1),title:"新成员标题"});q.advanceCollection([],new Map(),()=>0,{order:"sequence",limit:10},null,false);
+  assert.equal(q.activeTrack()?.bvid,track(2).bvid);assert.equal(expand.getAttribute("aria-expanded"),"false");assert.deepEqual([h.renderCounts.mount,h.renderCounts.unmount],[2,0]);
+  await h.fire(expand,"click");q.selectIndex(1,false,null);h.core.queueVideoNext(track(8));h.core.removeQueueEntry(2);
+  assert.equal(h.doc.querySelector(".queue-expand"),expand);assert.equal(expand.getAttribute("aria-expanded"),"true");
+});
+
+test("移出焦点后继、前驱和关闭回退；外部焦点、播放与恢复不动",async t=>{
+  const h=await fixture({playback:true,queueCounters:true});t.after(h.dispose);const q=h.store.actions.playbackQueue;
+  const group=libraryQueueEntries([collectionEntry(collection(2))])[0];h.reply(responses());
+  h.core.playListItem("favorites",[track(4),group,track(3),track(7),track(8)],2);await h.microtasks();await h.fire(h.doc.querySelector("#queue-position")!,"click");h.raf();
+  const row=(i:number)=>h.doc.querySelector(`[data-queue-index="${i}"]`)!.parentElement!,remove=(i:number)=>row(i).querySelector<HTMLButtonElement>(".queue-remove")!;
+  const audio=h.doc.querySelector("audio")!.src;h.store.actions.playbackSession.setPendingResume({cid:11,page:1,positionSeconds:7});const pending=h.core.getSessionSnapshot().pendingResume, page=h.core.getQueueSnapshot().currentPageIndex;
+  const scrolls=()=>h.platform.filter(e=>e.operation==="scrollIntoView").length,baseline=scrolls();
+  remove(0).focus();await h.fire(remove(0),"click");assert.equal(h.doc.activeElement,remove(0));
+  const saved=h.calls.filter(c=>c.command==="save_playback_state").length;await h.fire(remove(0),"click");assert.equal(h.doc.activeElement,row(0).querySelector(".queue-track"));
+  const saves=h.calls.filter(c=>c.command==="save_playback_state");assert.equal(saves.length,saved+1);assert.equal((saves.at(-1)!.args.state as {version:number}).version,1);
+  assert.equal(scrolls(),baseline);assert.equal(h.doc.querySelector("audio")!.src,audio);assert.equal(h.core.getQueueSnapshot().currentPageIndex,page);assert.equal(h.core.getSessionSnapshot().pendingResume,pending);
+  remove(2).focus();await h.fire(remove(2),"click");assert.equal(h.doc.activeElement,remove(1));
+  const close=h.doc.querySelector<HTMLButtonElement>("#queue-drawer header button")!;close.focus();await h.fire(remove(1),"click");assert.equal(h.doc.activeElement,close);
+  q.insertNextVideo(track(9));remove(1).focus();const off=h.store.subscribe(s=>{if(s.playbackQueue.queue.length===1)q.replaceQueue([]);});await h.fire(remove(1),"click");off();assert.equal(h.doc.activeElement,close);
+});
+
+test("同一请求冻结合集后回填成员；多分P只更新当前分P显示，不覆盖父标题",async t=>{
+  const h=await fixture({playback:true});t.after(h.dispose);const data=collection(2),meta={audioUrl:"http://127.0.0.1/audio/q4c",title:"解析标题",uploader:"解析作者",thumbnailUrl:"",durationSeconds:60};
+  const pages=[{cid:11,page:1,part:"第一部分",durationSeconds:21},{cid:22,page:2,part:"第二部分",durationSeconds:39}];
+  const base=responses();let multi=false;
+  h.reply(async cmd=>cmd==="get_collection_page"?collectionPage(data):cmd==="get_video_pages"?(multi?pages:[]):cmd==="prepare_audio"?meta:base(cmd));
+  h.core.playListItem("favorites",libraryQueueEntries([collectionEntry(data)]),0);await h.microtasks();
+  const group=h.core.getQueueSnapshot().queue[0].collection!;
+  assert.equal(group.data.snapshot.items[group.memberIndex].title,meta.title);
+  assert.equal(group.data.snapshot.items[1].title,data.snapshot.items[1].title);
+  multi=true;h.core.playListItem("direct",[track(7)],0);await h.microtasks();
+  const state=h.core.getQueueSnapshot();
+  assert.equal(state.queue[0].title,track(7).title);assert.equal(state.currentDisplayTrack?.title,pages[0].part);
+  assert.equal(state.currentDisplayTrack?.uploader,meta.uploader);assert.equal(state.currentDisplayTrack?.durationSeconds,pages[0].durationSeconds);
+});

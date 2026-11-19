@@ -502,7 +502,7 @@ async function loadCurrentTrack({
   resumePosition = null,
   randomStartPage = false,
 }: { keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
-  const index = getQueueSnapshot().currentIndex;
+  let owner = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
   let video = getQueueActions().activeTrack();
   if (!video) {
     return;
@@ -518,13 +518,15 @@ async function loadCurrentTrack({
   setPlaybackStatus("正在解析音频…");
 
   try {
-    const entry = getQueueSnapshot().queue[index];
+    const entry = owner;
     if (entry.collection && getQueueSnapshot().collectionNeedsRefresh) {
       const reference = entry.entryId && (getQueueSnapshot().queueSource === "favorites" || getQueueSnapshot().queueSource === "playlist")
         ? { entryId: entry.entryId, playlistId: getQueueSnapshot().playlistId } : null;
       const result = await getApplicationStore().actions.collection.resolveForPlayback(entry.collection.data, reference, () => getRequestActions().isCurrent(requestVersion));
       if (!result) return;
+      const sameOwner = getQueueSnapshot().queue[getQueueSnapshot().currentIndex] === owner;
       getQueueActions().freezeCollection(result.snapshot, readShuffleCollectionPrefs().order, Math.random);
+      if (sameOwner) owner = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
       if (result.notice) showPlaybackNotice(result.notice);
       video = getQueueActions().activeTrack();
       if (!video) return;
@@ -598,7 +600,8 @@ async function loadCurrentTrack({
 
     const displayTrack = buildDisplayTrack(video, info, page);
     getQueueActions().setDisplayTrack(displayTrack);
-    if (!displayTrack) {
+    const index = getQueueSnapshot().currentIndex;
+    if (!displayTrack && getQueueSnapshot().queue[index] === owner) {
       getQueueActions().fillTrackMetadata(index, {
         title: info.title,
         uploader: info.uploader,
@@ -806,6 +809,10 @@ function playListItem(
   clearPlaybackNotice();
   resetRandomRemaining();
   playQueueIndex(index, { recordCurrent: false, startPage, pages });
+}
+
+function removeQueueEntry(index: number): void {
+  if (getQueueActions().removeNonCurrentEntry(index)) savePlaybackState();
 }
 
 function queueVideoNext(video: CommandContract.TrackSnapshotInput): void {
@@ -1100,4 +1107,4 @@ installPlaybackCallbacks({
 }
 
 
-export { queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };
+export { removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };

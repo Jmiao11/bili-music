@@ -49,7 +49,7 @@ function renderSnapshot(snapshot: ApplicationSnapshot): void {
     (pagesModalList?.contains(document.activeElement) || document.activeElement === pagesModalRestoreAll);
   lastPages = modals.pages;
   const drawer = projectDrawer(snapshot.playbackQueue, readQueueDrawerStage());
-  render(h(App, { drawer, drawerCallbacks:queueDrawerCallbacks, mainWindowRefs,draftBindings,shell:projectShell(snapshot), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(),foreground:readImageForegroundPresentation(), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
+  render(h(App, { drawer, drawerCallbacks:queueDrawerCallbacks, mainWindowRefs,draftBindings,shell:projectShell(snapshot), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(),foreground:readImageForegroundPresentation(drawer.stage.open), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
   syncQueueDrawer(drawer);
   if (pageFocus) pagesModalClose?.focus({preventScroll:true});
 }

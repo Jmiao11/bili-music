@@ -63,3 +63,53 @@ test("floating geometry port owns and releases only its surface observer and scr
   assert.equal(observed,surface); callback?.();listeners.get("scroll")?.();assert.equal(renders,2);
   dispose();assert.equal(disconnected,1);assert.equal(listeners.size,0);
 });
+
+test("抽屉透明贴边，主区同步裁剪，其他浮层保留独立表面",()=>{
+  const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8");
+  const drawer=css.match(/#queue-drawer \{([^}]*)\}/g)?.find(rule=>rule.includes("position: fixed")) ?? "";
+  assert.match(drawer,/top: var\(--titlebar-height\); bottom: var\(--player-height\); right: 0/);
+  assert.match(drawer,/background: transparent; border: 0; border-radius: 0; border-left: 1px solid var\(--line\); box-shadow: none/);
+  assert.match(drawer,/width: var\(--queue-drawer-width\)/);
+  assert.match(drawer,/transition: transform var\(--queue-drawer-motion\)/);
+  assert.match(css,/\.main-panel\.queue-drawer-sliding \{ clip-path: inset\(0\); transition: clip-path var\(--queue-drawer-motion\)/);
+  assert.match(css,/\.main-panel\.queue-drawer-open \{ clip-path: inset\(0 var\(--queue-drawer-width\) 0 0\)/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{ :is\(#queue-drawer, \.main-panel\.queue-drawer-sliding\) \{ transition: none/);
+  assert.match(css,/:is\(\.settings-panel,\.ai-help-bubble\):has\(> \.floating-backdrop\) \{[^}]*isolation: isolate;[^}]*background: var\(--floating-surface\)/);
+  assert.match(css,/\.settings-panel:has\(> \.floating-backdrop\) :is\(\.settings-header,\.modal-actions,\.library-modal-actions\) \{ background: transparent/);
+  assert.match(css,/\.playback-notice \.floating-backdrop \{[^}]*--floating-left[^}]*--floating-top[^}]*width: 100vw; height: 100vh/);
+});
+
+test("抽屉低档用同一份像素判定区域前景，互不改变原四区，高档不输出",async()=>{
+  let project: (state: unknown)=>void=()=>{};
+  let reads=0;
+  const context=vm.createContext({
+    window:{innerWidth:1200,innerHeight:800,Image:class {naturalWidth=1200;naturalHeight=800;async decode() {} }},
+    document:{
+      querySelector(selector:string) {
+        return { getBoundingClientRect: () => selector==="#queue-drawer"
+          ? {left:1200,top:34,right:1560,bottom:730,width:360}
+          : {left:0,top:0,right:800,bottom:800} };
+      },
+      createElement() {return {width:0,height:0,getContext() {return {
+        fillRect(){},drawImage(){},getImageData(_x:number,_y:number,width:number,height:number){
+          reads++;const data=new Uint8ClampedArray(width*height*4);
+          for(let y=0;y<height;y++)for(let x=0;x<width;x++) {
+            const i=(y*width+x)*4; data.fill(x<width*.7 ? 255 : 0,i,i+3); data[i+3]=255;
+          }
+          return {data,width,height};
+        }
+      };}};}
+    },
+    installImageForegroundPort(port: typeof project) {project=port;},refreshPresentation(){}
+  });
+  vm.runInContext(readFileSync(fileURLToPath(new URL("../ui/features/settings/dynamic-background.ts",import.meta.url)),"utf8"),context);
+  const read=(open=false)=>JSON.parse(vm.runInContext("JSON.stringify(readImageForegroundPresentation("+open+").regions)",context));
+  vm.runInContext("readImageForegroundPresentation()",context);
+  const state={theme:"image",backgroundDim:0,background:{dataUrl:"synthetic"}};
+  project(state);
+  for(let i=0;i<4;i++) await Promise.resolve();
+  const original=read();assert.deepEqual(original,{sidebar:"light",content:"light",bar:"light",titlebar:"light"});
+  assert.deepEqual(read(true),{...original,queue:"dark"});assert.deepEqual(read(),original);
+  project({...state,backgroundDim:60});
+  assert.deepEqual(read(true),{});assert.equal(reads,1);
+});

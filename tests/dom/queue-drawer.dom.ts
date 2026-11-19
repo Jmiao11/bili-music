@@ -151,14 +151,50 @@ test("queue drawer receives matching search pages and recent jumps retain known 
   assert.equal(h.store.getState().playbackQueue.queueSource,'recent');
 });
 
-test("queue drawer reduced motion closes immediately and floating observers are scoped to open image surfaces", async t => {
+test("queue drawer reduced motion closes immediately without mounting an image surface", async t => {
   const h=await setup();t.after(h.dispose);
   Object.defineProperty(h.window,'matchMedia',{configurable:true,value:()=>({matches:true,addEventListener(){},removeEventListener(){}})});
   h.store.actions.playbackQueue.replaceQueue([track(1)]);h.store.actions.playbackQueue.selectIndex(0,false,null);
   h.store.actions.settings.setTheme('image');await h.open();
-  assert.ok(h.node('queue-drawer').querySelector('.floating-backdrop'));
+  assert.equal(h.node('queue-drawer').querySelector('.floating-backdrop'),null);
   assert.equal((h.platform.filter(e=>e.operation==='scrollIntoView').at(-1)?.detail as ScrollIntoViewOptions).behavior,'auto');
   const start=h.platform.length;await h.click(h.node('queue-drawer').querySelector('header button')!);
   assert.equal(h.node('queue-drawer').hidden,true);assert.equal(h.node('queue-drawer').querySelector('.floating-backdrop'),null);
-  assert.ok(h.platform.slice(start).some(e=>e.operation==='disconnect'));
+  assert.ok(!h.platform.slice(start).some(e=>e.operation==='disconnect'));
+});
+
+test("抽屉打开裁剪主区，关闭动画结束解除裁剪，未安装 resize 或浮层观察",async t=>{
+  const h=await setup();t.after(h.dispose);
+  h.store.actions.playbackQueue.replaceQueue([track(1)]);h.store.actions.settings.setTheme("dynamic");
+  const drawer=h.node("queue-drawer"), main=h.doc.querySelector(".main-panel")!;
+  const adds=()=>h.listeners.filter(e=>e.target===h.window&&e.type==="resize");
+  const deletes=()=>h.platform.filter(e=>e.target===h.window&&e.operation==="removeEventListener"&&(e.detail as {type:string}).type==="resize");
+  const start=adds().length,removed=deletes().length,observed=h.observed.size;
+  for(let i=0;i<2;i++){
+    await h.open();assert.equal(adds().length,start);assert.equal(h.observed.size,observed);
+    assert.ok(main.classList.contains("queue-drawer-open"));
+    const end=new h.window.Event("transitionend",{bubbles:true});Object.defineProperty(end,"propertyName",{value:"transform"});drawer.dispatchEvent(end);
+    assert.ok(drawer.classList.contains("is-open"));assert.ok(main.classList.contains("queue-drawer-sliding"));
+    h.window.dispatchEvent(new h.window.Event("resize"));assert.ok(main.classList.contains("queue-drawer-open"));
+    await h.click(drawer.querySelector("header button")!);
+    assert.equal(deletes().length,removed);
+    assert.equal(main.classList.contains("queue-drawer-open"),false);
+    assert.ok(main.classList.contains("queue-drawer-sliding"));assert.equal(drawer.hidden,false);
+    drawer.dispatchEvent(end);
+    assert.equal(main.classList.contains("queue-drawer-sliding"),false);assert.equal(drawer.hidden,true);
+  }
+});
+
+test("减少动效时抽屉打开同步采用最终位置，不等待观察器或过渡事件",async t=>{
+  const h=await setup();t.after(h.dispose);
+  Object.defineProperty(h.window,"matchMedia",{configurable:true,value:()=>({matches:true,addEventListener(){},removeEventListener(){}})});
+  const drawer=h.node("queue-drawer");
+  const main=h.doc.querySelector(".main-panel")!;
+  h.store.actions.playbackQueue.replaceQueue([track(1)]);h.store.actions.settings.setTheme("image");
+  await h.click(h.node("queue-position"));h.raf();
+  assert.ok(main.classList.contains("queue-drawer-open"));
+  assert.equal(drawer.querySelector(".floating-backdrop"),null);
+  await h.click(drawer.querySelector("header button")!);
+  assert.equal(main.classList.contains("queue-drawer-sliding"),false);
+  assert.equal(main.classList.contains("queue-drawer-open"),false);
 });

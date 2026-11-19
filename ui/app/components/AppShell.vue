@@ -57,7 +57,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
     <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
       <Sidebar :data-image-region-scheme="foreground?.regions.sidebar" :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
-      <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" aria-labelledby="queue-heading">
+      <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" :class="{ 'queue-drawer-sliding': !drawer.stage.hidden, 'queue-drawer-open': drawer.stage.open }" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
           <div class="home-stage">
             <header class="home-head">
@@ -208,7 +208,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
 
     <ImmersivePlayer :draft-bindings="draftBindings" :lyrics="snapshot.lyricsDisplay" :display="snapshot.playbackDisplay" :controls="playback" :callbacks="callbacks" />
     <PlaybackNotice :on-geometry="observeFloatingSurface" :surface-style="background.surfaces?.notice" :background="background" :theme="snapshot.settings.theme" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :messages="snapshot.playbackMessages" :prompt="snapshot.collection.prompt" :on-expand="collectionCallbacks.open" />
-    <QueueDrawer :model="drawer" :callbacks="drawerCallbacks" :refs="mainWindowRefs" :background="background" :theme="snapshot.settings.theme" :on-geometry="observeFloatingSurface" />
+    <QueueDrawer :model="drawer" :callbacks="drawerCallbacks" :refs="mainWindowRefs" :data-image-region-scheme="foreground?.regions.queue" />
     <PlaybackBar :drawer="drawer" :drawer-callbacks="drawerCallbacks" :data-image-region-scheme="foreground?.regions.bar" :main-window-refs="mainWindowRefs" :hidden="shell.resultHidden" :display="snapshot.playbackDisplay" :settings="snapshot.playbackSettings" :queue="snapshot.playbackQueue" :style="background.palettes[background.front] ? { '--cover-color': background.palettes[background.front]?.[0] } : undefined" :controls="playback" :callbacks="callbacks" :status="snapshot.playbackMessages.status" />
     <AudioQualityMenu v-if="snapshot.playbackDisplay.audioQualityMenu" :main-window-refs="mainWindowRefs" :preference="snapshot.settings.audioQuality" :position="snapshot.playbackDisplay.audioQualityMenu" :theme="snapshot.settings.theme" :background="background" :on-geometry="observeFloatingSurface" :on-choose="callbacks.qualityChoose" />
 
