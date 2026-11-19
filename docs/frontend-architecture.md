@@ -106,11 +106,11 @@ UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听�
 
 ## 验证与交付
 
-常规合并验收：全量Node→npm ci→DOM→typecheck→verify:dist；改Rust才加fmt/build/test。只对新竞态、启动可靠性、安全边界做定向变异。守卫改动跑对应canary，阶段完整回归跑全部保留项：错误JS/CJS、any/类型/id/命令契约、缺窗口初始化、纯状态/时钟/快照写入、越界媒体写入/模拟click/宿主DOM读取/旧桥接、命令端口类型、提示写权、启动求值、副作用/IPC、Vue平台/props/readonly/SFC导入、测试分组、eval/new Function；已删除设施的canary随之退役。
+第二、三档本地全量验收：Node→npm ci→DOM→typecheck→verify:dist；改Rust才加fmt/build/test。档位见 [AGENTS.md「CI 分档」](../AGENTS.md#ci-分档)。只对新竞态、启动可靠性、安全边界做定向变异。守卫改动跑对应canary，阶段完整回归跑全部保留项：错误JS/CJS、any/类型/id/命令契约、缺窗口初始化、纯状态/时钟/快照写入、越界媒体写入/模拟click/宿主DOM读取/旧桥接、命令端口类型、提示写权、启动求值、副作用/IPC、Vue平台/props/readonly/SFC导入、测试分组、eval/new Function；已删除设施的canary随之退役。
 
 F8最终回归及发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、双平台CI及Windows/Mac全应用手测。相同机器构建darwin配置仅证明产物一致，不能当Mac手测。真实窗口性能记录20秒根渲染平均/P95及纯进度列表/行重绘，不设数值门槛；策略拦截则交付可运行脚本，不绕过。
 
-报告在仓库外一页内，列删除规模、接线短表、适用的分支CI链接/GitHub操作次数与待手测项。涉及产品代码或测试时，Codex负责本地提交、推送功能分支和只读查看该分支CI；CI和用户手测通过后只报告“可合并”。由用户本地执行 `git merge --squash`，每批在master上只留一条提交。仅改文档、配置或规则且不改产品代码和测试的小改动，可直接在本地master提交，Codex不推送，由用户检查后推送。推送master、删除分支和PR操作均由用户执行；具体分支命名及Git权限以AGENTS.md为准。
+报告在仓库外一页内，列删除规模、接线短表、待手测项及 GitHub 操作次数，并按档位列适用的 CI 链接。Codex 的提交、功能分支、推送、只读查看 CI 和报告“可合并”的时机均按 [AGENTS.md「CI 分档」](../AGENTS.md#ci-分档) 执行。由用户本地执行 `git merge --squash`，每批在 master 上只留一条提交。推送 master、删除分支和 PR 操作均由用户执行，具体分支命名及 Git 权限以 AGENTS.md 为准。
 
 ## 迷你窗同步根与产物隔离
 

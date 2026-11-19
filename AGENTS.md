@@ -57,17 +57,17 @@
 
 ## 验收与审批
 
-- 合并前依次全量 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist；类型零诊断，验证 G0、windows/darwin 产物字节一致及 AST 0/0。改 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；纯换行不算改 Rust。
+- 第二、三档按「CI 分档」在本地依次全量运行 node --test、npm ci、npm run test:dom、npm run typecheck、npm run verify:dist；类型零诊断，验证 G0、windows/darwin 产物字节一致及 AST 0/0。改 Rust 才加 cargo fmt --all -- --check、cargo build --workspace、cargo test --workspace；纯换行不算改 Rust。
 - 安装前测试及其依赖只用 Node 内置/本地模块；安装后精确登记 tests/dom/*.dom.ts，用 test:dom，不能被 node --test 默认重复发现。优先直接测真实 store/控制器或挂载后的 SFC，不复制产品业务实现。公共 helper 新能力显式选择，默认行为保持。
 - DOM 测试在挂载或重渲染后派发合成事件，须使用 `tests/dom/event-turn.ts` 等待下一个真实毫秒，避免触发 Vue 事件时间戳保护；不得修改或绕过该保护。最早一次 macOS“旧搜索测试”失败未复现，如再出现须单独排查，不能直接归因于已修复的冒泡问题。
-- 日常仅受影响测试、typecheck 与必要构建，不要求报告。未改冻结文件以 git diff 证明，仅修改/新建的冻结文件报告 SHA。
+- 开发过程中的日常检查仅运行受影响测试、typecheck 与必要构建，不要求单独报告。交付按「CI 分档」执行。未改冻结文件以 git diff 证明，仅修改/新建的冻结文件报告 SHA。
 - 业务断言原文、含义或预期值改变须申请；任何保留断言次数变0立即停止。真实 App 挂载、SFC 扫描、冻结 helper 的纯环境接线预先授权，原断言/预期/执行次数保持，以短表登记；不做常规全量断言次数统计。不能用接线掩盖行为变化。
-- 每批 verify:dist 照跑；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。
+- 第二、三档均运行 verify:dist；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。
 - 当前 G0 为201/156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同。新增或重建须存档旧 fixture 到仓库外。
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
 - 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件调整/fixture 登记不触发全套。
 - 跨平台完整回归只在发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。
-- 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单及 GitHub 操作次数。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过；任务要求用户手测时，须等用户明确“手测通过，允许合并”后，Codex只报告“可合并”，后续合并由用户执行。发布前由用户核对最新 master 远程 CI 与发布前全应用回归均已通过。
+- 报告放仓库外，正文一页内：改动、验收表、需决定事项、手测清单和 GitHub 操作次数，并按「CI 分档」列适用的 CI 链接。默认 Windows 清单不超过8项，任务明确给定上限时从其规定。未测不写通过。“可合并”的报告时机按「CI 分档」执行，由用户手测并执行合并。发布前由用户核对最新 master 远程 CI 与发布前全应用回归均已通过。
 
 ## 发版
 
@@ -76,16 +76,42 @@
 - 版本提交为 `chore: 版本号 X → Y`，由 Codex 在本地 master 提交、不推送。
 - 用户推送 master、确认 CI 通过并完成发布前全应用回归后，推送 `vX.Y.Z` tag 触发 Release 工作流；检查草稿中的 3 个产物（Windows x64 ZIP、macOS arm64 DMG、macOS x64 DMG）后手动发布。Codex 不打 tag、不发布。
 
+## CI 分档
+
+任务书须写明本批档位。实施中发现改动进入更高档位时，停止并报告，不得自行降档。
+
+### 第一档：纯文档与协作规则
+
+- 范围：只改 `.md` 文档或规则文件，不改产品代码、测试、脚本、配置、依赖或工作流。
+- 流程：Codex 在本地 master 直接提交，提交信息末尾加 `[skip ci]`，不推送。用户检查后推送。
+
+### 第二档：普通前端改动
+
+- 范围：Vue 组件、样式、显示投影、前端状态与控制器中不属于第三档的部分，以及对应测试。
+- 流程：Codex 在主仓库或共享引用的 git worktree 中建功能分支，本地提交并完成全量验收，报告“可合并”。Codex 不推送功能分支、不查看远程 CI。用户手测通过后在本地 `git merge --squash` 合并分支并推送 master，以 master 的 CI 作为唯一一次远程验证。
+- 前提：本地验收必须使用 `.nvmrc` 指定的 Node 版本。本机缺少该版本时按第三档执行，并在报告中注明。
+- master CI 失败时，由用户决定回滚，或由 Codex 在新的 fix/ 分支修复，修复按其自身档位执行。
+
+### 第三档：高风险改动
+
+- 范围：任一 Rust 代码，持久化格式与存储，取流链路与播放/请求状态机，启动、ReadyGate/watchdog 与任何 G0 变化，项目配置（含窗口配置、capability 与 `package.json`、Vite、`tauri.conf.json` 等构建配置），依赖与锁文件，CI/Release 工作流，安全隐私边界，需要 macOS 验证的平台差异。
+- 流程：Codex 本地提交、推送功能分支并只读查看双平台 CI。两平台 CI 通过，且用户明确“手测通过，允许合并”后，Codex 报告“可合并”，由用户合并。
+
+### 通用
+
+- 修正轮次在本地累积，最后只推送一次，不逐次推送。
+- 推送前必须完成本档规定的本地全量验收。
+- 只读查看 CI 的次数尽量少，一次确认结果即可。
+- 发版流程与发布前全应用回归不受本节影响。
+
 ## Git 与 GitHub
 
 - 分支命名：按类型使用 `feat/`、`fix/`、`style/`、`refactor/`、`chore/`、`test/`，后接简短英文描述，不再使用 `codex/` 前缀。
-- Codex负责本地提交、推送功能分支、只读查看该分支的CI。
+- Codex 的本地提交、功能分支、推送与只读查看 CI 均按「CI 分档」执行。
 - Codex不执行合并到master、推送master、删除分支、创建或合并PR、force push；这些操作由用户执行。
 - 本地协作分支由用户使用 `git merge --squash` 合并，每批在master上只保留一条提交；GitHub PR 由维护者使用 Squash and merge，最终提交信息由维护者整理。
 - 每批提交数1–3个；提交信息使用中文Conventional风格，不含任何AI署名或痕迹。
-- 只改文档、配置或规则，且不改产品代码和测试的小改动，可以直接在本地master上提交，不建分支；Codex只提交、不推送，由用户检查后推送。
-- 涉及产品代码或测试的改动，仍须走功能分支、跑CI和手测。
 - 每次推送前先fetch，确认远程目标是本地祖先；首次推送确认同名远程分支不存在。发现分叉、基线不符或非预期改动立即停止，不rebase、不reset --hard、不改remote、凭证或git配置。
 - 外部贡献者的PR由用户在GitHub上审查并Squash and merge。仅在用户要求时，Codex可用 `git fetch origin pull/<编号>/head` 在本地获取PR代码，只做只读审查与验收，不评论、不合并。
 - GitHub CLI/API仅限只读查看CI，其他操作一律禁止；包括不得重跑或取消CI、手动触发workflow、操作Issue/评论/Release/tag/label及仓库设置。
-- 任务书中“手测通过，允许合并”之后的步骤，改为由Codex报告“可合并”，由用户执行合并及后续操作。
+- Codex 按「CI 分档」报告“可合并”，由用户执行合并及后续操作。
