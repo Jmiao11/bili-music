@@ -6,6 +6,19 @@ import { readFileSync } from "./helpers/module-syntax.ts";
 import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn, trackColumnCapacities } from "../ui/features/tracks/track-column-state.ts";
 import { effectiveImageMask } from "../ui/features/settings/dynamic-background.ts";
 
+test("long lists skip offscreen row painting without containing focus rings or insertion lines", () => {
+  const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules=[...css.matchAll(/([^{}]+)\{([^{}]*\bcontent-visibility\s*:[^{}]*)\}/g)];
+  assert.deepEqual(rules.map(([,selector])=>selector.trim()), [
+    "#app :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #recent-list, #collection-results) > .track-row:not(:focus-within, .is-drop-before, .is-drop-after)",
+    ".queue-drawer-list > li:not(.queue-group)",
+  ]);
+  assert.match(css, /@supports \(overflow-clip-margin: 4px\)\s*\{\s*#app :is\(#home-ranking-list,/);
+  assert.match(rules[0][2], /\bcontent-visibility:\s*auto;/);
+  assert.match(rules[0][2], /\bcontain-intrinsic-size:\s*auto var\(--track-height\);/);
+  assert.match(rules[0][2], /\boverflow-clip-margin:\s*4px;/);
+});
+
 test("image mode drops outlines and raises only the dark uniform mask for readability", () => {
   const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8");
   assert.equal(css.includes("data-image-halo"),false);

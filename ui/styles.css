@@ -5516,6 +5516,15 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root #app .column-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 :root #app .tracklist :is(.page-count-badge, .track-unavailable) { max-width: 100%; }
 
+/* Preserve row-edge painting and leave focus rings and insertion lines in normal paint order. */
+@supports (overflow-clip-margin: 4px) {
+  #app :is(#home-ranking-list, #search-results, #favorites-list, #playlist-tracks, #recent-list, #collection-results) > .track-row:not(:focus-within, .is-drop-before, .is-drop-after) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto var(--track-height);
+    overflow-clip-margin: 4px;
+  }
+}
+
 :root[data-theme="dynamic"] { text-shadow: none; }
 :root[data-theme="dynamic"] .dynamic-background { background: var(--root); }
 @media (prefers-reduced-motion: reduce) { .dynamic-background-layer { animation: none !important; transition: none !important; } }
