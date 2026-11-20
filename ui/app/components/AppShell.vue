@@ -57,7 +57,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
     <div class="app-shell" :class="{'immersive-open':snapshot.playbackDisplay.presentation.immersiveOpen}">
       <Sidebar :data-image-region-scheme="foreground?.regions.sidebar" :model="sidebar" :current-view="shell.currentView" :playlists="snapshot.library.playlists" :selected-playlist-id="snapshot.library.selectedPlaylistId" :playlist-detail="snapshot.library.view.playlistDetail" :on-playlist="pageCallbacks.playlist" />
 
-      <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" :class="{ 'queue-drawer-sliding': !drawer.stage.hidden, 'queue-drawer-open': drawer.stage.open }" aria-labelledby="queue-heading">
+      <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" :class="{ 'queue-drawer-sliding': !drawer.stage.hidden, 'queue-drawer-open': drawer.stage.open, 'queue-drawer-reserved': drawer.stage.opening || drawer.stage.open }" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
           <div class="home-stage">
             <header class="home-head">

@@ -42,6 +42,36 @@ test("queue drawer phases focus three close paths modal Esc and listener pairing
   assert.deepEqual(removed.map(e=>(e.detail as {callback:unknown}).callback),added.map(e=>e.callback));
 });
 
+test("queue drawer reserves layout at the start of opening and restores it at the start of closing", async t => {
+  const h = await setup(); t.after(h.dispose);
+  const button = h.node<HTMLButtonElement>("queue-position"), drawer = h.node("queue-drawer");
+  const main = h.doc.querySelector(".main-panel")!;
+  const key = "bilibili-music.track-columns";
+  const preferences = JSON.stringify({ title: 420, uploader: 180, pages: 72, plays: 80, duration: 72 });
+  h.window.localStorage.setItem(key, preferences);
+  h.store.actions.playbackQueue.replaceQueue([track(1), track(2)]);
+  const reserved = () => main.classList.contains("queue-drawer-reserved");
+  assert.equal(reserved(), false);
+  await h.click(button);
+  assert.equal(reserved(), true);
+  assert.equal(drawer.hidden, false);
+  assert.equal(main.classList.contains("queue-drawer-open"), false);
+  h.raf();
+  assert.equal(reserved(), true);
+  assert.equal(main.classList.contains("queue-drawer-open"), true);
+  assert.equal(h.window.localStorage.getItem(key), preferences);
+  await h.click(button);
+  assert.equal(reserved(), false);
+  assert.equal(main.classList.contains("queue-drawer-sliding"), true);
+  assert.equal(drawer.hidden, false);
+  assert.equal(h.window.localStorage.getItem(key), preferences);
+  const end = new h.window.Event("transitionend", { bubbles: true });
+  Object.defineProperty(end, "propertyName", { value: "transform" });
+  drawer.dispatchEvent(end);
+  assert.equal(reserved(), false);
+  assert.equal(drawer.hidden, true);
+});
+
 test("queue drawer real jumps retain random history and reject late playback results", async t => {
   const h=await setup();t.after(h.dispose);
   const base=responses([track(1),track(2),track(3)]);

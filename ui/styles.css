@@ -5656,6 +5656,14 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 #app { --queue-drawer-width: min(360px, 100vw); --queue-drawer-motion: .18s ease; }
 .main-panel.queue-drawer-sliding { clip-path: inset(0); transition: clip-path var(--queue-drawer-motion); }
 .main-panel.queue-drawer-open { clip-path: inset(0 var(--queue-drawer-width) 0 0); }
+.main-panel { container: queue-main / inline-size; }
+@container queue-main (min-width: 904px) {
+  .main-panel.queue-drawer-reserved > .view { width: calc(100% - var(--queue-drawer-width)); }
+}
+/* The global reduced-motion duration can otherwise transition the page width. */
+@media (prefers-reduced-motion: reduce) {
+  .main-panel > .view { transition-property: none; }
+}
 :root #app #queue-position { background: transparent; border: 0; padding: 0; cursor: pointer; }
 :root #app #queue-position:disabled { cursor: default; opacity: .5; }
 #queue-drawer { position: fixed; z-index: 35; top: var(--titlebar-height); bottom: var(--player-height); right: 0; width: var(--queue-drawer-width); display: flex; flex-direction: column; background: transparent; border: 0; border-radius: 0; border-left: 1px solid var(--line); box-shadow: none; transform: translateX(100%); transition: transform var(--queue-drawer-motion); overflow: hidden; }

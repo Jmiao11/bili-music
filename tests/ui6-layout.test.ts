@@ -79,6 +79,13 @@ test("抽屉透明贴边，主区同步裁剪，其他浮层保留独立表面",
   assert.match(css,/\.playback-notice \.floating-backdrop \{[^}]*--floating-left[^}]*--floating-top[^}]*width: 100vw; height: 100vh/);
 });
 
+test("抽屉让位只由主区容器门槛和让位阶段控制",()=>{
+  const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8");
+  assert.match(css,/\.main-panel \{ container: queue-main \/ inline-size; \}/);
+  assert.match(css,/@container queue-main \(min-width: 904px\) \{\s*\.main-panel\.queue-drawer-reserved > \.view \{ width: calc\(100% - var\(--queue-drawer-width\)\); \}\s*\}/);
+  assert.match(css,/@media \(prefers-reduced-motion: reduce\) \{\s*\.main-panel > \.view \{ transition-property: none; \}\s*\}/);
+});
+
 test("抽屉低档用同一份像素判定区域前景，互不改变原四区，高档不输出",async()=>{
   let project: (state: unknown)=>void=()=>{};
   let reads=0;

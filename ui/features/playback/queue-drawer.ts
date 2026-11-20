@@ -27,7 +27,7 @@ function toggle(): void {
   if (!stage.hidden && (stage.open || frame !== 0)) { close(); return; }
   if (!readApplicationStore().getState().playbackQueue.queue.length) return;
   cancelAnimationFrame(frame);
-  stage = { hidden: false, open: false }; refreshPresentation();
+  stage = { hidden: false, open: false, opening: true }; refreshPresentation();
   document.addEventListener("keydown", keydown, true);
   frame = requestAnimationFrame(() => {
     frame = 0; stage = { hidden: false, open: true }; lastIdentity = ""; centerOnOpen = true; refreshPresentation();

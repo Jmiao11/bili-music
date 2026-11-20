@@ -1,6 +1,6 @@
 import type { PlaybackQueueSnapshot } from "./playback-queue-state.ts";
 
-type QueueDrawerStage = Readonly<{ hidden: boolean; open: boolean }>;
+type QueueDrawerStage = Readonly<{ hidden: boolean; open: boolean; opening?: true }>;
 type Entry = PlaybackQueueSnapshot["queue"][number];
 type QueueDrawerRow = Readonly<{ id: number; entry: Entry; active: boolean; memberIndex?: number }>;
 function sameDisplay(a: Entry, b: Entry): boolean {
