@@ -84,12 +84,14 @@ function setup() {
     document,
     EventTarget,
     Event,
+    performance,
     CustomEvent: class CustomEvent extends Event {
       declare detail: unknown;
       constructor(type: string, options: { detail?: unknown } = {}) { super(type); this.detail = options.detail; }
     },
     console: { warn() {}, error() {} },
   })({
+    readStore: () => store,
     getSnapshot: () => {
       // Legacy DOM inputs enter real actions at the publication boundary.
       store.actions.playbackMessages.setStatus(controls["#status"].textContent);
@@ -128,11 +130,11 @@ test("ready publishes the current track and the four commands click existing con
   const track = { ...fixture.setTrack(), title: "测试歌曲", uploader: "测试 UP" };
   fixture.store.actions.playbackQueue.replaceQueue([track]);
   fixture.store.actions.playbackQueue.selectIndex(0, false, null);
-  fixture.store.actions.playbackDisplay.setRenderedTrack(track);
+  fixture.store.actions.playbackDisplay.setRenderedTrack({ ...track, actionTrack: track });
   fixture.node("#title").textContent = track.title;
   fixture.node("#uploader").textContent = track.uploader;
   fixture.node("#status").textContent = "在线播放中。";
-  const app = { emitted: fixture.emissions, fire: (name: string, payload: { action?: string } = {}) => fixture.fire(name, payload.action) };
+  const app = { emitted: fixture.emissions, fire: (name: string, payload: { action?: string; bvid?: string } = {}) => fixture.fire(name, payload.action, payload.bvid) };
   await settle();
 
   app.fire("mini-player-ready");
@@ -156,19 +158,22 @@ test("ready publishes the current track and the four commands click existing con
     canNext: true,
     isPlaying: false,
     isFavorited: false,
+    favoriteBvid: track.bvid,
+    progress: { seq: 1 },
     theme: "dark",
     accent: { r: 251, g: 114, b: 153 },
   });
 
   for (const action of ["previous", "toggle_play", "next", "toggle_favorite", "unknown"]) {
-    app.fire("mini-player-command", { action });
+    app.fire("mini-player-command", action === "toggle_favorite" ? { action, bvid: track.bvid } : { action });
   }
   await fixture.flush();
   // src-tauri/src/library/favorites.rs:49: toggle_favorite command.
   const favoriteCalls = fixture.invoked.filter(command => command === "toggle_favorite").length;
   fixture.store.actions.playbackQueue.replaceQueue([]);
+  fixture.store.actions.playbackDisplay.setRenderedTrack({ title: "", uploader: "", thumbnailUrl: "" });
   fixture.node("#favorite-current-button").disabled = true;
-  await app.fire("mini-player-command", { action: "toggle_favorite" });
+  await app.fire("mini-player-command", { action: "toggle_favorite", bvid: track.bvid });
   await fixture.flush();
   assert.deepEqual({ previous: fixture.navigation.filter(action => action === "previous").length,
     next: fixture.navigation.filter(action => action === "next").length, togglePlay: fixture.audio.operations.filter(action => action === "play").length,

@@ -88,9 +88,13 @@ TrackSnapshotInput.durationSeconds 接受非负 JSON 整数，直接保留 u64 �
 |---|---|---|
 | taskbar-media-control | previous / play_pause / next | taskbar.rs::clicked_action 与 emit；仅 Windows 实现 |
 | global-shortcut | previous / play_pause / next / volume_up / volume_down | ShortcutBindings::entries，经 shortcuts.rs emit |
-| mini-player-state | MiniPlayerStatePayload | mini-player-host.js::miniPlayerState，经 emitTo 发给 mini |
-| mini-player-command | { action: previous / toggle_play / next / toggle_favorite } | mini.js::bindControls 与 emitCommand |
+| mini-player-state | MiniPlayerStatePayload | `ui/mini/mini-player-host.ts` 经 emitTo 发给 mini |
+| mini-player-command | `{ action: "previous" \| "toggle_play" \| "next" }`，或 `{ action: "toggle_favorite", bvid }` | `ui/mini/window-controller.ts` |
 | mini-player-ready | 无载荷；Tauri event 插件把 None 序列化为 null | mini.js；Tauri 2.11.3 event/plugin.rs 的 Option<JsonValue> |
+
+状态快照仅在已有显示曲目时附 `favoriteBvid`，收藏状态也按该 BV 计算。迷你窗在点击时发送该 BV。主窗仅在它与当前已显示曲目一致时执行收藏，忽略缺失或过期的目标。
+
+`progress` 为 `{ seq, positionSeconds, durationSeconds, advancing, playbackRate, sentAtMs }`，清除态为 `{ seq }`。`seq` 按主窗进度样本递增，主题等消息可重复携带同一锚点。位置、时长单位为秒，`sentAtMs` 来自 `Date.now()`。`advancing` 表示音频正在推进，按钮仍使用 `isPlaying`。观察在迷你窗就绪后开始，关闭时解除。媒体边界事件更新锚点，连续推进时最多每 10 秒校准一次。
 
 本项目事件的 listen/emit/emitTo 使用精确载荷。框架 `tauri://`、`plugin:` 名称有独立边界；其它第三方名称需在 TauriExternalEventMap 中显式登记，默认载荷为 unknown。不得用这些重载掩盖业务事件载荷错误。
 

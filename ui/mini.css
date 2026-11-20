@@ -265,6 +265,39 @@ body {
 
 /* UI-4: the main-window palette and image travel through mini-player-state. */
 .mini-shell { isolation: isolate; overflow: hidden; }
+
+.mini-progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--line);
+  pointer-events: none;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(var(--mini-progress-start));
+}
+
+.mini-progress-fill.is-advancing {
+  animation: mini-progress-advance var(--mini-progress-duration) linear forwards;
+}
+
+@keyframes mini-progress-advance {
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-progress-fill.is-advancing {
+    animation: none;
+  }
+
+  .mini-progress-fill {
+    transform: scaleX(var(--mini-progress-sample));
+  }
+}
 :root[data-theme="image"] { --text: #fff; --text2: #e4e8ee; --line: rgba(255,255,255,.08); }
 :root[data-theme="dynamic"] { --text: #e8edf1; --text2: #a0abb4; --line: #1b252b; }
 :root:is([data-theme="image"], [data-theme="dynamic"]) .mini-shell { background: #0f1418; }

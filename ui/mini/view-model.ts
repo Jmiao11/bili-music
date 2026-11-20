@@ -1,5 +1,6 @@
 import type { DeepReadonly } from "../store/state-store.ts";
 import type { DynamicBackgroundPresentation } from "../features/settings/dynamic-background.ts";
-type MiniView = Readonly<{background?:DynamicBackgroundPresentation;backgroundUrl?:string|null;snapshot:DeepReadonly<Partial<MiniPlayerStatePayload>>;hasSnapshot:boolean;expanded:boolean;distance:string|null;duration:string|null;scrolling:boolean}>;
+type MiniProgressView = Readonly<{ seq: number; sample: number; start: number; duration: number }>;
+type MiniView = Readonly<{progress?:MiniProgressView;background?:DynamicBackgroundPresentation;backgroundUrl?:string|null;snapshot:DeepReadonly<Partial<MiniPlayerStatePayload>>;hasSnapshot:boolean;expanded:boolean;distance:string|null;duration:string|null;scrolling:boolean}>;
 type MiniCallbacks = Readonly<{command(action:TauriAppEventMap["mini-player-command"]["action"]):void;restore():void;more():void;noticeKey(event:KeyboardEvent):void;drag(event:PointerEvent):void}>;
 export type {MiniView,MiniCallbacks};

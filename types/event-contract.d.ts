@@ -1,6 +1,16 @@
 // Rust: taskbar.rs::clicked_action; shortcut_config.rs::ShortcutBindings::entries.
 // JS: mini-player-host.js::miniPlayerState; mini.js::bindControls.
+type MiniPlayerProgress = { seq: number } | {
+  seq: number;
+  positionSeconds: number;
+  durationSeconds: number;
+  advancing: boolean;
+  playbackRate: number;
+  sentAtMs: number;
+};
+
 interface MiniPlayerStatePayload {
+  progress: MiniPlayerProgress;
   imageScheme?: "light" | "dark";
   title: string;
   uploader: string;
@@ -11,6 +21,7 @@ interface MiniPlayerStatePayload {
   canNext: boolean;
   isPlaying: boolean;
   isFavorited: boolean;
+  favoriteBvid?: string;
   theme: string;
   backgroundPath?: string | null;
   backgroundDim?: number;
@@ -25,7 +36,7 @@ interface TauriAppEventMap {
   "taskbar-media-control": "previous" | "play_pause" | "next";
   "global-shortcut": "previous" | "play_pause" | "next" | "volume_up" | "volume_down";
   "mini-player-state": MiniPlayerStatePayload;
-  "mini-player-command": { action: "previous" | "toggle_play" | "next" | "toggle_favorite" };
+  "mini-player-command": { action: "previous" | "toggle_play" | "next" } | { action: "toggle_favorite"; bvid: string };
   // The event plugin receives Option<JsonValue> and emits None as JSON null.
   "mini-player-ready": null;
 }

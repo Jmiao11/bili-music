@@ -28,12 +28,16 @@ defineProps<{view:MiniView;callbacks:MiniCallbacks}>();
         <button id="mini-next" @click="callbacks.command('next')" class="mini-icon-button" type="button" aria-label="下一首" title="下一首" :disabled="!view.snapshot.canNext">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 5h2v14h-2ZM15 12 6 5v14Z" /></svg>
         </button>
-        <button id="mini-favorite" @click="callbacks.command('toggle_favorite')" class="mini-icon-button mini-favorite" :class="{'is-favorited': Boolean(view.snapshot.isFavorited)}" type="button" :aria-label="view.snapshot.isFavorited ? '取消收藏' : '收藏'" title="收藏" :disabled="!view.snapshot.hasCurrent">
+        <button id="mini-favorite" @click="callbacks.command('toggle_favorite')" class="mini-icon-button mini-favorite" :class="{'is-favorited': Boolean(view.snapshot.isFavorited)}" type="button" :aria-label="view.snapshot.isFavorited ? '取消收藏' : '收藏'" title="收藏" :disabled="!view.snapshot.favoriteBvid">
           <svg class="mini-icon-heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.2 10.7 20C5.4 15.2 2 12.2 2 8.4A5.4 5.4 0 0 1 7.5 3c1.8 0 3.5.8 4.5 2.1A5.6 5.6 0 0 1 16.5 3 5.4 5.4 0 0 1 22 8.4c0 3.8-3.4 6.8-8.7 11.6Z" /></svg>
         </button>
       </div>
       <p id="mini-notice" role="status" aria-live="polite" :hidden="!view.snapshot.notice">{{ view.snapshot.notice || "" }}</p>
       <button id="mini-notice-more" class="mini-notice-more" type="button" aria-controls="mini-notice-full" @click="callbacks.more" :aria-expanded="view.expanded" :hidden="!view.snapshot.notice">全文</button>
       <div id="mini-notice-full" class="mini-notice-full" role="region" aria-label="提醒全文" tabindex="0" @keydown="callbacks.noticeKey" :hidden="!view.expanded">{{ view.expanded ? view.snapshot.notice || "" : "" }}</div>
+      <div v-if="view.progress" class="mini-progress" aria-hidden="true">
+        <div :key="view.progress.seq" class="mini-progress-fill" :class="{ 'is-advancing': view.progress.duration > 0 }"
+          :style="{ '--mini-progress-start': view.progress.start, '--mini-progress-sample': view.progress.sample, '--mini-progress-duration': view.progress.duration + 's' }"></div>
+      </div>
     </main>
 </template>

@@ -12,8 +12,8 @@ test("mini fixture initializes real queue and pages through actions without publ
 });
 
 test("mini fixture invokes real favorite actions and uses actual play capture interception", async () => {
-  const h = await createMiniHostFixture(); h.setTrack();
-  await h.fire("mini-player-command", "toggle_favorite");
+  const h = await createMiniHostFixture(); const track = h.setTrack();
+  await h.fire("mini-player-command", "toggle_favorite", track.bvid);
   assert.equal(h.library.getState().library.favorites.length, 1);
   assert.equal(expectVideo(h.library.getState().library.favorites[0]).addedAt, "1700000000000");
   h.context.getSessionActions().setPendingResume(true); await h.fire("mini-player-command", "toggle_play");

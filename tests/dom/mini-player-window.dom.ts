@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "../helpers/module-syntax.ts";
 import path from "node:path";
 import { test, afterEach } from "node:test";
+import { nextDomEventTurn } from "./event-turn.ts";
+import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 
 
 
@@ -194,7 +196,7 @@ test("start restores a valid position, signals both handshake channels, and rend
   app.fire("mini-player-state", {
     title: "正在播放", thumbnailUrl: "https://example.com/a.jpg",
     hasCurrent: true, canPrevious: false, canNext: true,
-    isPlaying: true, isFavorited: true, theme: "light", accent: { r: 1, g: 2, b: 3 },
+    isPlaying: true, isFavorited: true, favoriteBvid: "BV0000000001", theme: "light", accent: { r: 1, g: 2, b: 3 },
   });
   assert.equal(app.controls["#mini-title"].textContent, "正在播放");
   assert.equal(app.controls["#mini-cover"].getAttribute("src"), "https://example.com/a.jpg");
@@ -204,6 +206,92 @@ test("start restores a valid position, signals both handshake channels, and rend
   assert.equal(app.controls["#mini-favorite"].classList.contains("is-favorited"), true);
   assert.equal(app.root.dataset.theme, "light");
   assert.equal(app.root.style["--accent-r"], "1");
+});
+
+test("mini favorite stays disabled for a pending first track while play remains available", async () => {
+  const app = await setup();
+  await app.controller.start();
+  app.fire("mini-player-state", { title: "尚未播放", hasCurrent: true });
+  assert.equal(app.controls["#mini-play-pause"].disabled, false);
+  assert.equal(app.controls["#mini-favorite"].disabled, true);
+  await nextDomEventTurn();
+  app.controls["#mini-favorite"].dispatchEvent(new Event("click"));
+  assert.equal(app.emitted.length, 1);
+  app.fire("mini-player-state", { title: "已解析曲目", hasCurrent: true, favoriteBvid: "BV0000000001" });
+  assert.equal(app.controls["#mini-favorite"].disabled, false);
+});
+
+test("mini delivers the clicked BV even if the main window has displayed another track in the meantime", async () => {
+  const app = await setup();
+  const main = await createMiniHostFixture();
+  const a = main.setTrack();
+  await app.controller.start();
+  await main.fire("mini-player-ready");
+  app.fire("mini-player-state", main.emissions.at(-1)!.payload);
+  await nextDomEventTurn();
+  app.controls["#mini-favorite"].dispatchEvent(new Event("click"));
+  const command = app.emitted.at(-1)!.payload as { action: string; bvid: string };
+  assert.deepEqual(command, { action: "toggle_favorite", bvid: a.bvid });
+
+  const b = { ...a, bvid: "BV0000000002", title: "下一首" };
+  main.store.actions.playbackDisplay.setRenderedTrack({ ...b, actionTrack: b });
+  await main.publishEvent("bilibili-music-trackchange");
+  app.fire("mini-player-state", main.emissions.at(-1)!.payload);
+  await main.fire("mini-player-command", command.action, command.bvid);
+  assert.deepEqual(main.invoked, []);
+  assert.equal(main.library.getState().library.favoriteBvids.size, 0);
+});
+
+test("mini progress follows new samples, freezes when hidden or paused, and clears on a new source", async t => {
+  const app = await setup();
+  await app.controller.start();
+  let hidden = false, wall = 10_500, clock = 0;
+  Object.defineProperty(app.window.document, "hidden", { configurable: true, get: () => hidden });
+  t.mock.method(Date, "now", () => wall);
+  t.mock.method(app.window.performance, "now", () => clock);
+  const document = app.window.document;
+  const control = document.getElementById("mini-play-pause");
+  const progress = { seq: 7, positionSeconds: 20, durationSeconds: 100, advancing: true, playbackRate: 2, sentAtMs: 10_000 };
+  const send = (value: MiniPlayerProgress) => app.fire("mini-player-state", { progress: value });
+  const track = () => document.querySelector<HTMLElement>(".mini-progress");
+  const fill = () => document.querySelector<HTMLElement>(".mini-progress-fill")!;
+  const css = (name: string) => fill().style.getPropertyValue("--mini-progress-" + name);
+  send(progress);
+  assert.equal(track()?.getAttribute("aria-hidden"), "true");
+  assert.equal(css("sample"), "0.2");
+  assert.equal(css("start"), "0.21");
+  assert.equal(css("duration"), "39.5s");
+  assert.equal(fill().classList.contains("is-advancing"), true);
+  const originalFill = fill();
+  send({ ...progress, seq: 6, positionSeconds: 0 });
+  assert.equal(fill(), originalFill);
+
+  hidden = true; clock = 1_000;
+  document.dispatchEvent(new app.window.Event("visibilitychange"));
+  assert.equal(fill().classList.contains("is-advancing"), false);
+  hidden = false; clock = 2_000;
+  document.dispatchEvent(new app.window.Event("visibilitychange"));
+  assert.equal(css("start"), "0.25");
+  assert.equal(css("duration"), "37.5s");
+
+  wall += 2000;
+  send({ ...progress, seq: 8, positionSeconds: 28 });
+  assert.equal(css("start"), "0.28");
+  send({ ...progress, seq: 9, positionSeconds: 31, advancing: false });
+  assert.equal(fill().classList.contains("is-advancing"), false);
+  assert.equal(css("start"), "0.31");
+  assert.equal(css("duration"), "0s");
+  send({ seq: 10 });
+  assert.equal(track(), null);
+  send({ ...progress, seq: 9 });
+  assert.equal(track(), null);
+  assert.equal(document.getElementById("mini-play-pause"), control);
+});
+
+test("mini progress is a two-pixel noninteractive line and reduced motion uses the raw sample", () => {
+  assert.match(styles, /\.mini-progress\s*\{[^}]*position: absolute;[^}]*height: 2px;[^}]*background: var\(--line\);[^}]*pointer-events: none;/s);
+  assert.match(styles, /\.mini-progress-fill\s*\{[^}]*background: var\(--accent\)/s);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.mini-progress-fill\.is-advancing\s*\{[^}]*animation: none;[^}]*\}\s*\.mini-progress-fill\s*\{[^}]*transform: scaleX\(var\(--mini-progress-sample\)\)/s);
 });
 
 test("long titles scroll by their measured overflow", async () => {
@@ -245,6 +333,8 @@ test("controls emit commands, restore invokes the backend, and drag uses the nat
   const app = await setup();
   await app.controller.start();
   await settle();
+  const favoriteBvid = "BV0000000001";
+  app.fire("mini-player-state", { favoriteBvid });
   for (const [selector, action] of [
     ["#mini-previous", "previous"],
     ["#mini-play-pause", "toggle_play"],
@@ -257,6 +347,7 @@ test("controls emit commands, restore invokes the backend, and drag uses the nat
   assert.deepEqual(app.emitted.slice(1).map(({ payload }) => (payload as { action: string }).action), [
     "previous", "toggle_play", "next", "toggle_favorite",
   ]);
+  assert.deepEqual(app.emitted[4].payload, { action: "toggle_favorite", bvid: favoriteBvid });
   app.controls["#mini-restore"].dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(app.invoked, ["mini_player_ready", "exit_mini_player"]);

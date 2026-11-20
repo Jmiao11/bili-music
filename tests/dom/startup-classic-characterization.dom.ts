@@ -31,23 +31,23 @@ test("startup four deferred controllers retain their phases and first trackchang
 
 
 test("startup mini host consumes all seven ports with real commands snapshot messages and theme notifications", async () => {
-  const h = await createMiniHostFixture(); h.setTrack();
+  const h = await createMiniHostFixture(); const track = h.setTrack();
   wireMiniHostApi(h.context, h.library);
-  const listeners = new Map<string, (event: { payload: { action: string } }) => void>(), frames: FrameRequestCallback[] = [];
+  const listeners = new Map<string, (event: { payload: { action: string; bvid?: string } }) => void>(), frames: FrameRequestCallback[] = [];
   const emissions: MiniPlayerStatePayload[] = [];
   const createHost = vm.runInContext("createMiniPlayerHost", h.context);
   const host = createHost({ window: h.context.window, document: h.context.document, console,
     // src-tauri/src/mini_player.rs:29,85: open/close commands return unit; an open error is a rejected string.
     invoke: async () => { throw "窗口创建失败"; }, setTimeoutFn: () => 0, clearTimeoutFn() {},
     requestFrame: (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; }, cancelFrame() {},
-    eventApi: { listen: async (name: string, callback: (event: { payload: { action: string } }) => void) => { listeners.set(name, callback); return () => {}; },
+    eventApi: { listen: async (name: string, callback: (event: { payload: { action: string; bvid?: string } }) => void) => { listeners.set(name, callback); return () => {}; },
       emitTo: async (_label: string, _name: string, payload: MiniPlayerStatePayload) => { emissions.push(payload); } } });
   await host.start();
   const command = listeners.get("mini-player-command")!;
   command({ payload: { action: "previous" } }); command({ payload: { action: "next" } });
   assert.deepEqual(h.navigation, ["previous", "next"]);
   command({ payload: { action: "toggle_play" } }); await h.flush(); assert.deepEqual(h.audio.operations, ["play"]);
-  command({ payload: { action: "toggle_favorite" } }); await h.flush(); assert.deepEqual(h.invoked, ["toggle_favorite"]);
+  command({ payload: { action: "toggle_favorite", bvid: track.bvid } }); await h.flush(); assert.deepEqual(h.invoked, ["toggle_favorite"]);
   listeners.get("mini-player-ready")!({ payload: { action: "" } }); await h.flush();
   assert.equal(emissions.length, 1); assert.equal(emissions[0].title, "曲目"); assert.equal(emissions[0].isFavorited, true);
   h.store.actions.settings.setTheme("light", false);

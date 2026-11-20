@@ -74,6 +74,9 @@ function createMiniPlayerController({
   let backgroundRevision: number | undefined;
   let distance: string | null = null, duration: string | null = null, scrolling = false;
   let controlsBound = false;
+  let progress: MiniPlayerProgress = { seq: -1 };
+  let progressView: MiniView["progress"];
+  let receivedAt = 0, compensatedSeconds = 0;
   const renderView = createMiniRenderer(document.body);
   const callbacks: MiniCallbacks = {
     command: action => { if(controlsBound) emitCommand(action); },
@@ -82,7 +85,7 @@ function createMiniPlayerController({
     noticeKey: event => { if(!controlsBound || event.key !== "Escape") return; expanded=false; renderRoot(); noticeMoreButton.focus?.(); },
     drag: event => { if(controlsBound) dragWindow(event); },
   };
-  function renderRoot() { renderView({snapshot,hasSnapshot,expanded,distance,duration,scrolling,backgroundUrl,background:dynamicBackground},callbacks); }
+  function renderRoot() { renderView({snapshot,progress:progressView,hasSnapshot,expanded,distance,duration,scrolling,backgroundUrl,background:dynamicBackground},callbacks); }
   renderRoot();
   const {title,titleViewport,restoreButton,noticeMoreButton,noticeFull,root}=readMiniPorts(document);
   const unlisteners: (() => void)[] = [];
@@ -133,7 +136,29 @@ function createMiniPlayerController({
     measureTitleOverflow();
   }
 
+  function updateProgressView() {
+    progressView = undefined;
+    if (!("positionSeconds" in progress) || !Number.isFinite(progress.durationSeconds) || progress.durationSeconds <= 0 ||
+        !Number.isFinite(progress.positionSeconds) || !Number.isFinite(progress.playbackRate) || progress.playbackRate <= 0) return;
+    const { seq, positionSeconds, durationSeconds, advancing, playbackRate } = progress;
+    const sampleTime = Math.min(Math.max(0, positionSeconds), durationSeconds);
+    const elapsed = advancing ? compensatedSeconds + (window.performance.now() - receivedAt) / 1000 : 0;
+    const position = Math.min(durationSeconds, sampleTime + elapsed * playbackRate);
+    progressView = {
+      seq, sample: sampleTime / durationSeconds, start: position / durationSeconds,
+      duration: advancing && !document.hidden ? (durationSeconds - position) / playbackRate : 0,
+    };
+  }
+
   function render(state: Partial<MiniPlayerStatePayload> = {}) {
+    const nextProgress = state.progress;
+    if (nextProgress && Number.isSafeInteger(nextProgress.seq) && nextProgress.seq > progress.seq) {
+      progress = nextProgress;
+      receivedAt = window.performance.now();
+      const delay = "sentAtMs" in progress ? Date.now() - progress.sentAtMs : 0;
+      compensatedSeconds = delay >= 0 && delay <= 1000 ? delay / 1000 : 0;
+      updateProgressView();
+    }
     if(!state.notice && (document.activeElement === noticeMoreButton || document.activeElement === noticeFull)) restoreButton.focus?.();
     if(!state.notice) expanded=false;
     const path = state.theme === "image" ? state.backgroundPath || null : null;
@@ -166,7 +191,10 @@ function createMiniPlayerController({
   }
 
   function emitCommand(action: TauriAppEventMap["mini-player-command"]["action"]) {
-    Promise.resolve(eventApi.emit("mini-player-command", { action }))
+    const bvid = snapshot.favoriteBvid;
+    const payload = action === "toggle_favorite" ? (bvid && { action, bvid }) : { action };
+    if (!payload) return;
+    Promise.resolve(eventApi.emit("mini-player-command", payload))
       .catch((error) => warn(`mini player command failed: ${action}`, error));
   }
 
@@ -238,7 +266,11 @@ function createMiniPlayerController({
   }
 
   async function start() {
-    const visibility = () => { dynamicBackground = { ...dynamicBackground, paused: document.hidden }; renderRoot(); };
+    const visibility = () => {
+      dynamicBackground = { ...dynamicBackground, paused: document.hidden };
+      updateProgressView();
+      renderRoot();
+    };
     document.addEventListener("visibilitychange", visibility);
     unlisteners.push(() => document.removeEventListener("visibilitychange", visibility));
     window?.addEventListener?.("beforeunload", () => {

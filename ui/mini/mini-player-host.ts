@@ -1,6 +1,6 @@
 import { readDynamicPalette, readImageScheme, subscribeDynamicBackground } from "../features/settings/dynamic-background.ts";
 import { getApplicationStore } from "../features/home/home.ts";
-import { toggleCurrentFavorite } from "../features/library/library-ui.ts";
+import { toggleFavorite } from "../features/library/library-ui.ts";
 import { getPlaybackCommands } from "../features/settings/appearance.ts";
 import { selectMiniPlayerMessages, selectMiniPlayerSnapshot } from "./mini-player-projection.ts";
 import { setPlaybackStatus } from "../features/playback/playback-messages.ts";
@@ -45,10 +45,11 @@ function createMiniPlayerHost({
   cancelFrame = id => window.cancelAnimationFrame(id),
   commands = () => getPlaybackCommands(),
   setStatus = setPlaybackStatus,
-  favorite = toggleCurrentFavorite,
-}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: (listener: () => void) => () => void; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<typeof getMiniPlayerHostSnapshot>; commands?: () => Pick<ReturnType<typeof getPlaybackCommands>, "previous" | "togglePlayPause" | "next">; setStatus?: (message: string) => void; favorite?: typeof toggleCurrentFavorite }) {
+  favorite = toggleFavorite,
+  readStore = getApplicationStore,
+}: { eventApi: TauriEventApi; invoke: CommandInvoke; document: Document; window: Window; console: Console; setTimeoutFn?: Window["setTimeout"]; clearTimeoutFn?: Window["clearTimeout"]; subscribeTheme?: (listener: () => void) => () => void; requestFrame?: (callback: FrameRequestCallback) => number; cancelFrame?: (id: number) => void; getSnapshot?: () => ReturnType<typeof getMiniPlayerHostSnapshot>; commands?: () => Pick<ReturnType<typeof getPlaybackCommands>, "previous" | "togglePlayPause" | "next">; setStatus?: (message: string) => void; favorite?: typeof toggleFavorite; readStore?: typeof getApplicationStore }) {
   const openButton = document.querySelector("#mini-player-button");
-  const audio = document.querySelector("#audio");
+  const audio = document.querySelector("#audio") as HTMLAudioElement | null;
   const unlisteners: (() => void)[] = [];
   let disposed = false;
   let miniReady = false;
@@ -57,11 +58,21 @@ function createMiniPlayerHost({
   let themeFrame: number | null = null;
   let unlistenTheme: (() => void) | null = null;
   let watchingClose = false;
+  let stopProgress = () => {};
+  let progress: MiniPlayerProgress = { seq: 0 };
+  let sourceReady = false, advancing = false;
+  let lastProgressAt = 0;
 
   function stopThemeSync() {
     unlistenTheme?.(); unlistenTheme = null;
     if (themeFrame !== null) { cancelFrame(themeFrame); themeFrame = null; }
   }
+  function stopMiniSync() {
+    miniReady = false;
+    stopThemeSync();
+    stopProgress();
+  }
+
   function scheduleThemeSync() {
     if (disposed || !miniReady || themeFrame !== null) return;
     themeFrame = requestFrame(() => { themeFrame = null; publish(); });
@@ -71,7 +82,7 @@ function createMiniPlayerHost({
     // Register only after ready so startup listener installation remains unchanged.
     if (!watchingClose) {
       watchingClose = true;
-      void eventApi.listen("tauri://destroyed", stopThemeSync, { target: { kind: "Window", label: MINI_PLAYER_LABEL } })
+      void eventApi.listen("tauri://destroyed", stopMiniSync, { target: { kind: "Window", label: MINI_PLAYER_LABEL } })
         .then(unlisten => { if (disposed) unlisten(); else unlisteners.push(unlisten); })
         .catch(error => { watchingClose = false; console.warn("mini player close listener failed:", error); });
     }
@@ -87,12 +98,86 @@ function createMiniPlayerHost({
     setStatus(message);
   }
 
+  function hasMetadata() {
+    return Boolean(audio?.currentSrc && audio.src === audio.currentSrc && audio.readyState > 0);
+  }
+
+  function canAdvance() {
+    return Boolean(audio && audio.readyState >= 3 && !audio.paused && !audio.ended && !audio.seeking && !audio.error);
+  }
+
+  function sampleProgress(force = false) {
+    const { playbackDisplay, playbackSession } = readStore().getState();
+    const resume = playbackSession.pendingResume;
+    const media = sourceReady && hasMetadata() ? audio : null;
+    const duration = resume ? playbackDisplay.renderedTrack.actionTrack?.durationSeconds ?? 0 : media?.duration ?? 0;
+    const position = resume ? resume.positionSeconds : media?.currentTime ?? 0;
+    const rate = media?.playbackRate ?? 1;
+    const playing = !resume && !!media && advancing && canAdvance();
+    const seq = progress.seq + 1;
+    let next: MiniPlayerProgress = { seq };
+    if (Number.isFinite(duration) && duration > 0 && Number.isFinite(position)) {
+      next = { seq, durationSeconds: duration, positionSeconds: Math.min(Math.max(0, position), duration),
+        advancing: playing, playbackRate: Number.isFinite(rate) && rate > 0 ? rate : 1, sentAtMs: Date.now() };
+    }
+    if (!force && ("positionSeconds" in next
+      ? "positionSeconds" in progress && next.positionSeconds === progress.positionSeconds &&
+        next.durationSeconds === progress.durationSeconds && next.playbackRate === progress.playbackRate && next.advancing === progress.advancing
+      : !("positionSeconds" in progress))) return false;
+    progress = next;
+    lastProgressAt = performance.now();
+    return true;
+  }
+
+  function publishAudio(event: Event) {
+    if (!miniReady) return;
+    if (event.type !== "play") {
+      advancing = false;
+      if (event.type === "emptied") sourceReady = false;
+      sampleProgress();
+    }
+    publish();
+  }
+
+  function startProgressSync() {
+    if (!audio) return;
+    const store = readStore();
+    let before = store.getState();
+    const observe = (event: Event) => {
+      if (event.type === "loadstart") {
+        sourceReady = advancing = false;
+      } else if (event.type === "timeupdate") {
+        if (!("advancing" in progress && progress.advancing) || performance.now() - lastProgressAt < 10_000) return;
+      } else if (event.type === "waiting" || event.type === "seeking") {
+        advancing = false;
+      } else {
+        sourceReady = hasMetadata();
+        if (event.type === "playing" || event.type === "seeked") advancing = sourceReady && canAdvance();
+      }
+      if (sampleProgress(event.type === "loadstart")) publish();
+    };
+    const events = ["loadstart", "playing", "waiting", "seeking", "seeked", "durationchange", "loadedmetadata", "ratechange", "timeupdate"];
+    for (const name of events) audio.addEventListener(name, observe);
+    const unsubscribe = store.subscribe(state => {
+      const resume = state.playbackSession.pendingResume;
+      const changedResume = resume !== before.playbackSession.pendingResume ||
+        (resume && before.playbackDisplay.renderedTrack !== state.playbackDisplay.renderedTrack);
+      before = state;
+      if (changedResume && sampleProgress()) publish();
+    });
+    stopProgress = () => {
+      for (const name of events) audio.removeEventListener(name, observe);
+      unsubscribe();
+      stopProgress = () => {};
+    };
+  }
+
   function publish() {
     if (disposed || !miniReady) {
       return;
     }
     Promise.resolve(
-      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", getSnapshot()),
+      eventApi.emitTo(MINI_PLAYER_LABEL, "mini-player-state", { ...getSnapshot(), progress }),
     ).catch((error) => console.warn("mini player state publish failed:", error));
   }
   function handleCommand({ payload }: TauriEvent<TauriAppEventMap["mini-player-command"]>) {
@@ -105,25 +190,32 @@ function createMiniPlayerHost({
     } else if (action === "next") {
       commands().next();
     } else if (action === "toggle_favorite") {
-      void favorite();
+      const track = readStore().getState().playbackDisplay.renderedTrack.actionTrack;
+      if (track?.bvid && typeof payload.bvid === "string" &&
+          payload.bvid.trim().toLowerCase() === track.bvid.toLowerCase()) {
+        void favorite(track);
+      }
     }
   }
 
   function handleReady() {
-    if (disposed) {
+    if (disposed || miniReady) {
       return;
     }
     openVersion += 1;
     miniReady = true;
     clearReadyTimer();
+    sourceReady = hasMetadata();
+    advancing = sourceReady && canAdvance();
+    sampleProgress(true);
     publish();
     startThemeSync();
+    startProgressSync();
   }
 
   async function openMiniPlayer() {
     const version = ++openVersion;
-    miniReady = false;
-    stopThemeSync();
+    stopMiniSync();
     clearReadyTimer();
     try {
       await invokeMini("open_mini_player");
@@ -162,7 +254,7 @@ function createMiniPlayerHost({
     unlistenTheme = subscribeTheme(scheduleThemeSync);
     window.addEventListener("beforeunload", () => {
       disposed = true;
-      stopThemeSync();
+      stopMiniSync();
       clearReadyTimer();
       for (const unlisten of unlisteners.splice(0)) {
         Promise.resolve(unlisten()).catch(() => {});
@@ -174,7 +266,7 @@ function createMiniPlayerHost({
     ]);
     openButton?.addEventListener("click", () => void openMiniPlayer());
     for (const eventName of ["play", "pause", "ended", "emptied", "error"]) {
-      audio?.addEventListener(eventName, publish);
+      audio?.addEventListener(eventName, publishAudio);
     }
     window.addEventListener("bilibili-music-trackchange", publish);
     window.addEventListener("bilibili-music-favorite-change", publish);

@@ -9,7 +9,7 @@ import { createPlaybackControlFixture } from "./playback-control-fixture.ts";
 
 async function createMiniHostFixture() {
   const h = await createPlaybackControlFixture(), ui = path.join(import.meta.dirname, "../../ui");
-  const listeners = new Map<string, (event: { payload: { action?: string } | null }) => void>();
+  const listeners = new Map<string, (event: { payload: { action?: string; bvid?: string } | null }) => void>();
   const emissions: { label: string; name: string; payload: MiniPlayerStatePayload }[] = [];
   const listenTargets: { name: string; target?: { kind: string; label: string } }[] = [];
   const invoked: string[] = [], changes: string[] = [], installed: string[] = [];
@@ -67,6 +67,12 @@ async function createMiniHostFixture() {
     if (['--accent-r', '--accent-g', '--accent-b'].map(key => channels.get(key)).join(',') === '40,88,161') h.store.actions.settings.setAccent('blue', root.dataset.theme, false);
     return channels;
   };
+  h.context.performance = { now: () => performance.now() };
+  Object.assign(h.audio, {
+    removeEventListener(type: string, callback: unknown) {
+      h.audio.listeners.set(type, (h.audio.listeners.get(type) ?? []).filter(listener => listener.callback !== callback));
+    },
+  });
   const frames = new Map<number, FrameRequestCallback>(); let frameId = 0, themeSubscribers = 0;
   const observedStore = { ...h.store, subscribe(listener: Parameters<typeof h.store.subscribe>[0]) {
     themeSubscribers++; const unlisten = h.store.subscribe(listener);
@@ -84,13 +90,13 @@ async function createMiniHostFixture() {
     await h.flush();
   };
   const flush = async () => { await h.flush(); await flushFrame(); };
-  const host = createHost({ subscribeTheme,
+  const host = createHost({ subscribeTheme, readStore: () => h.store,
     setStatus: (text: string) => h.store.actions.playbackMessages.setStatus(text),
     requestFrame: (callback: FrameRequestCallback) => { frames.set(++frameId, callback); return frameId; }, cancelFrame: (id: number) => { frames.delete(id); },
     getSnapshot: () => {
       return { ...selectMiniPlayerSnapshot({ ...h.store.getState(), library: library.getState().library }, readDynamicPalette(), readImageScheme()), ...selectMiniPlayerMessages(h.store.getState()) };
-    }, commands: () => h.context.getPlaybackCommands(), favorite: () => h.context.toggleCurrentFavorite(), document: h.context.document, window: h.context.window, console,
-    invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string } | null }) => void, options?: { target: { kind: string; label: string } }) => { listenTargets.push({ name, target: options?.target }); installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
+    }, commands: () => h.context.getPlaybackCommands(), favorite: (track: CommandContract.TrackSnapshotInput) => h.context.toggleFavorite(track), document: h.context.document, window: h.context.window, console,
+    invoke, eventApi: { listen: async (name: string, handler: (event: { payload: { action?: string; bvid?: string } | null }) => void, options?: { target: { kind: string; label: string } }) => { listenTargets.push({ name, target: options?.target }); installed.push("tauri:" + name); listeners.set(name, handler); return () => listeners.delete(name); },
       emitTo: async (label: string, name: string, payload: MiniPlayerStatePayload) => { emissions.push({ label, name, payload: structuredClone(payload) }); } },
     setTimeoutFn: (handler: () => Promise<void>, delay: number) => { timers.push({ handler, delay }); return timers.length; }, clearTimeoutFn() {},
   });
@@ -102,7 +108,7 @@ async function createMiniHostFixture() {
     h.store.actions.playbackSession.setCurrentPages(Array.from({ length: pages }, (_, index) => ({ cid: index + 1, page: index + 1, part: "分P" + (index + 1), durationSeconds: 60 })));
     const displayed = { ...track, title: pages > 1 ? "分P1" : track.title, hasCurrent: true };
     h.store.actions.playbackQueue.setDisplayTrack(displayed);
-    h.store.actions.playbackDisplay.setRenderedTrack(displayed);
+    h.store.actions.playbackDisplay.setRenderedTrack({ ...displayed, actionTrack: track });
     h.node("#title").textContent = displayed.title;
     h.node("#uploader").textContent = track.uploader; h.node("#thumbnail").setAttribute("src", track.thumbnailUrl); favoriteButton.disabled = false;
     return track;
@@ -117,7 +123,7 @@ async function createMiniHostFixture() {
     } });
   }
   favoriteButton.disabled = true;
-  const fire = async (name: string, action?: string) => { listeners.get(name)?.({ payload: name === "mini-player-ready" || name === "tauri://destroyed" ? null : { action } }); await h.flush(); };
+  const fire = async (name: string, action?: string, bvid?: string) => { listeners.get(name)?.({ payload: name === "mini-player-ready" || name === "tauri://destroyed" ? null : { action, bvid } }); await h.flush(); };
   const publishEvent = async (name: string) => { for (const handler of windowHandlers.get(name) ?? []) handler(); await h.flush(); };
   return { ...h, flush, flushFrame, themeSubscriberCount: () => themeSubscribers, frameCount: () => frames.size, listenTargets, host, library, emissions, invoked, changes, installed, timers, root, channels, setTrack, fire, publishEvent };
 }

@@ -8,6 +8,10 @@ import { createMiniHostFixture } from "../helpers/mini-host-fixture.ts";
 import { test } from "node:test";
 import { createApplicationStore } from "../../ui/store/app-state.ts";
 import { selectMiniPlayerSnapshot } from "../../ui/mini/mini-player-projection.ts";
+import { libraryQueueEntries } from "../../ui/features/playback/playback-queue-state.ts";
+import { playbackFixture } from "./playback-ui-fixture.ts";
+import { deferred, responses, track } from "./tracks-fixture.ts";
+import { collection, collectionEntry } from "../helpers/collections.ts";
 
 const create = () => createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} }, { freeze: true });
 test("mini snapshot projection preserves displayed track independently of pending queue and media observations", () => {
@@ -40,6 +44,38 @@ test("mini snapshot uses applied accent variant and exposes only approved non-se
   store.actions.playbackDisplay.setCurrentTrack({ bvid: "BV0000000001", title: "沉浸页曲目" });
   assert.equal(store.getState().playbackDisplay.currentTrack.title, "沉浸页曲目");
   assert.equal(selectMiniPlayerSnapshot(store.getState()).title, "尚未播放");
+});
+
+test("real playback projects the restored member through failed resolution until the next audio resolves", async t => {
+  const h = await playbackFixture();
+  t.after(h.dispose);
+  const group = collection(2), member = group.snapshot.items[1], failed = track(3), next = track(4);
+  const [entry] = libraryQueueEntries([collectionEntry(group)]);
+  const rejected = deferred(), resolved = deferred();
+  h.reply(async (command, args) => {
+    if (command === "get_playback_state") return {
+      version: 2, queue: [{ ...entry, collection: { ...entry.collection, memberIndex: 1, remaining: [] } }],
+      currentIndex: 0, positionSeconds: 23, page: 1, cid: 11, savedAt: 1,
+      traversal: { randomRemaining: [], history: [], randomPageRound: null, shuffle: false, loopMode: "sequence" },
+    };
+    if (command === "get_video_pages") return [];
+    if (command === "prepare_audio") return args.bvId === failed.bvid ? rejected.promise : resolved.promise;
+    return responses()(command);
+  });
+  const snapshot = () => selectMiniPlayerSnapshot(h.store.getState());
+  assert.equal(snapshot().favoriteBvid, undefined);
+  await h.core.restorePlaybackState();
+  assert.equal(snapshot().favoriteBvid, member.bvid);
+  h.core.playListItem("direct", [failed, next], 0);
+  await h.microtasks();
+  assert.equal(snapshot().favoriteBvid, member.bvid);
+  rejected.reject(Error("synthetic resolution failure"));
+  await h.microtasks();
+  assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.bvId, next.bvid);
+  assert.equal(snapshot().favoriteBvid, member.bvid);
+  resolved.resolve({ audioUrl: "http://127.0.0.1/audio/fixture", title: next.title, uploader: next.uploader, thumbnailUrl: "", durationSeconds: 60 });
+  await h.microtasks();
+  assert.equal(snapshot().favoriteBvid, next.bvid);
 });
 
 test("mini bridge exposes exactly seven frozen functions backed by actual commands and snapshot projection", async () => {
