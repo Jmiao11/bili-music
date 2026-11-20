@@ -102,6 +102,8 @@ C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collec
 
 G0 当前201条、首个trackchange索引156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同，完整 IPC/跨窗同步也已逐条核对。本轮进度条修复经用户批准，仅为两个滑条各新增 pointerup / pointercancel / lostpointercapture，共6条监听；剔除这6条后与此前194/149序列完全一致。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
 
+旧 G0 fixture 以 Git 历史为准，不另行存档。G0 变更的报告写明新旧条数、首个 trackchange 索引与 SHA256。
+
 UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新九项列宽偏好/余量CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
 
 ## 验证与交付
@@ -110,7 +112,7 @@ UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听�
 
 F8最终回归及发布前做Node22.18.0/22.23.3、CRLF、全部保留canary、双平台CI及Windows/Mac全应用手测。相同机器构建darwin配置仅证明产物一致，不能当Mac手测。真实窗口性能记录20秒根渲染平均/P95及纯进度列表/行重绘，不设数值门槛；策略拦截则交付可运行脚本，不绕过。
 
-报告在仓库外一页内，列删除规模、接线短表、待手测项及 GitHub 操作次数，并按档位列适用的 CI 链接。Codex 的提交、功能分支、推送、只读查看 CI 和报告“可合并”的时机均按 [AGENTS.md「CI 分档」](../AGENTS.md#ci-分档) 执行。由用户本地执行 `git merge --squash`，每批在 master 上只留一条提交。推送 master、删除分支和 PR 操作均由用户执行，具体分支命名及 Git 权限以 AGENTS.md 为准。
+报告直接在回复中简洁展示，列删除规模、接线短表、待手测项及 GitHub 操作次数，并按档位列适用的 CI 链接。Codex 的提交、功能分支、推送、只读查看 CI 和报告“可合并”的时机均按 [AGENTS.md「CI 分档」](../AGENTS.md#ci-分档) 执行。由用户本地执行 `git merge --squash`，每批在 master 上只留一条提交。推送 master、删除分支和 PR 操作均由用户执行，具体分支命名及 Git 权限以 AGENTS.md 为准。
 
 ## 迷你窗同步根与产物隔离
 
