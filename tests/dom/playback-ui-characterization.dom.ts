@@ -300,3 +300,134 @@ test("恢复冻结合集时所属视频来自保存的成员位置，续播后�
   assert.equal(h.calls.filter(c => c.command === "prepare_audio").length, 1);
   assert.equal(h.audio.currentTime, 12);
 });
+
+async function actionFixture() {
+  const h = await playbackFixture();
+  const gates = new Map<number, ReturnType<typeof deferred>>();
+  const favorites = new Map<string, CommandContract.TrackSnapshot>([[track(7).bvid, track(7)]]);
+  const group = collection(2);
+  h.reply(async (cmd, args) => {
+    const id = videoId(args);
+    if (cmd === "get_collection_page") return collectionPage(group);
+    if (cmd === "get_video_pages") return id === 9 ? [] : splitPages(id);
+    if (cmd === "prepare_audio") return gates.get(id)?.promise ?? audioResult(id);
+    if (cmd === "list_favorites") return [...favorites.values()];
+    if (cmd === "list_playlists" || cmd === "list_unavailable_tracks") return [];
+    if (cmd === "toggle_favorite") {
+      const selected = args.track as CommandContract.TrackSnapshotInput;
+      const favorited = !favorites.delete(selected.bvid);
+      if (favorited) favorites.set(selected.bvid, { ...selected, addedAt: "1" });
+      return { favorited, items: [...favorites.values()] };
+    }
+    return responses()(cmd);
+  });
+  await h.store.actions.library.loadLibrary();
+  const capture = (id: number) => {
+    const gate = deferred();
+    gates.set(id, gate);
+    return gate;
+  };
+  const last = (cmd: string) => h.calls.filter(call => call.command === cmd).at(-1)?.args;
+  const press = (buttonId: string) => h.fire(h.node(buttonId), "click");
+  async function verifyFavorite(buttonId: string, id: number, before: boolean) {
+    const button = h.node<HTMLButtonElement>(buttonId);
+    assert.equal(button.classList.contains("is-favorited"), before);
+    assert.equal(button.dataset.favoriteBvid, track(id).bvid);
+    assert.equal(button.disabled, false);
+    await press(buttonId); await h.microtasks();
+    const selected = last("toggle_favorite")?.track as CommandContract.TrackSnapshotInput;
+    assert.equal(selected.bvid, track(id).bvid);
+    assert.equal(selected.title, track(id).title);
+    assert.equal(button.classList.contains("is-favorited"), !before);
+  }
+  async function verifyPlaylist(buttonId: string, id: number) {
+    await press(buttonId);
+    assert.equal(h.store.getState().library.session.kind, "choose");
+    assert.equal(h.store.getState().library.session.data.track?.bvid, track(id).bvid);
+    assert.equal(h.store.getState().library.session.data.track?.title, track(id).title);
+    assert.ok(h.node("library-modal").textContent?.includes(track(id).title));
+    await press("close-library-modal-button");
+  }
+  async function verifyOpen(id: number) {
+    await press("open-bilibili-bar-button");
+    assert.deepEqual(last("open_bilibili_video"), { bvId: track(id).bvid });
+  }
+  return { ...h, group, capture, last, press, verifyFavorite, verifyPlaylist, verifyOpen };
+}
+
+test("播放栏和沉浸页在普通切歌等待解析时各自操作可见曲目", async t => {
+  const h = await actionFixture(); t.after(h.dispose);
+  const bar = ["favorite-current-button", "add-playlist-current-button", "open-bilibili-bar-button"];
+  for (const id of [...bar, "immersive-favorite-button", "immersive-add-playlist-button"]) {
+    assert.equal(h.node<HTMLButtonElement>(id).disabled, true);
+  }
+  const first = h.capture(7), second = h.capture(8);
+  h.core.playListItem("direct", [track(7), track(8)], 0); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(7).bvid);
+  assert.equal(h.node("title").textContent, "尚未播放");
+  for (const id of bar) assert.equal(h.node<HTMLButtonElement>(id).disabled, true);
+  first.resolve(audioResult(7)); await h.microtasks();
+
+  h.core.playNext(); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(8).bvid);
+  assert.equal(h.node("title").textContent, "分P 7-1");
+  assert.equal(h.node("immersive-title").textContent, "曲目8");
+  await h.verifyFavorite(bar[0], 7, true);
+  await h.verifyFavorite(bar[0], 7, false);
+  await h.verifyPlaylist(bar[1], 7);
+  await h.verifyOpen(7);
+  await h.verifyFavorite("immersive-favorite-button", 8, false);
+  await h.verifyPlaylist("immersive-add-playlist-button", 8);
+
+  second.resolve(audioResult(8)); await h.microtasks();
+  assert.equal(h.node("title").textContent, "分P 8-1");
+  await h.verifyFavorite(bar[0], 8, true);
+  await h.verifyPlaylist(bar[1], 8);
+  await h.verifyOpen(8);
+});
+
+test("普通切入合集和合集成员切换时，操作使用各界面的成员身份", async t => {
+  const h = await actionFixture(); t.after(h.dispose);
+  const first = h.capture(1), second = h.capture(2);
+  h.core.playListItem("favorites", [track(7), ...libraryQueueEntries([collectionEntry(h.group)])], 0);
+  await h.microtasks();
+
+  h.core.playNext(); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(1).bvid);
+  assert.equal(h.node("title").textContent, "分P 7-1");
+  assert.equal(h.node("immersive-title").textContent, "曲目1");
+  await h.verifyOpen(7);
+  await h.verifyFavorite("immersive-favorite-button", 1, false);
+  first.resolve(audioResult(1)); await h.microtasks();
+  assert.equal(h.node("title").textContent, "分P 1-1");
+  await h.verifyPlaylist("add-playlist-current-button", 1);
+
+  h.core.playNext(); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(2).bvid);
+  assert.equal(h.node("title").textContent, "分P 1-1");
+  assert.equal(h.node("immersive-title").textContent, "分P 1-1");
+  await h.verifyFavorite("favorite-current-button", 1, true);
+  await h.verifyPlaylist("immersive-add-playlist-button", 1);
+  second.resolve(audioResult(2)); await h.microtasks();
+  assert.equal(h.node("title").textContent, "分P 2-1");
+  assert.equal(h.node("immersive-title").textContent, "分P 2-1");
+  await h.verifyFavorite("immersive-favorite-button", 2, false);
+  await h.verifyOpen(2);
+});
+
+test("自动跳过解析失败项时播放栏操作仍针对上一首，解析成功后切换", async t => {
+  const h = await actionFixture(); t.after(h.dispose);
+  const failed = h.capture(9), next = h.capture(8);
+  h.core.playListItem("direct", [track(7), track(9), track(8)], 0); await h.microtasks();
+  h.core.playNext(); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(9).bvid);
+  failed.reject(Error("synthetic resolution failure")); await h.microtasks();
+  assert.equal(h.last("prepare_audio")?.bvId, track(8).bvid);
+  assert.equal(h.node("title").textContent, "分P 7-1");
+  await h.verifyFavorite("favorite-current-button", 7, true);
+  await h.verifyPlaylist("add-playlist-current-button", 7);
+  await h.verifyOpen(7);
+  next.resolve(audioResult(8)); await h.microtasks();
+  assert.equal(h.node("title").textContent, "分P 8-1");
+  await h.verifyOpen(8);
+});

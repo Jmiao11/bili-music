@@ -532,14 +532,13 @@ async function testAiConnection() {
   await getSettingsActions().testAi({ apiFormat: selectedAiApiFormat(), baseUrl: aiBaseUrlInput.value, model: aiModelInput.value, apiKey: readAiKeyDraft() });
 }
 
-async function openCurrentBilibiliVideo() {
-  const currentTrack = getApplicationStore().getState().playbackDisplay.currentTrack;
-  if (!currentTrack.bvid) {
+async function openBilibiliVideo(bvid: string) {
+  if (!bvid) {
     setPlaybackStatus("当前没有可打开的 B 站视频。");
     return;
   }
   try {
-    await invokeAppearance("open_bilibili_video", { bvId: currentTrack.bvid });
+    await invokeAppearance("open_bilibili_video", { bvId: bvid });
   } catch (error) {
     setPlaybackStatus(`打开 B站失败：${error}`);
   }
@@ -742,7 +741,8 @@ window.addEventListener("keydown", (event) => {
   }
 });
 window.addEventListener("bilibili-music-trackchange", (event) => {
-  getApplicationStore().actions.playbackDisplay.setCurrentTrack(event.detail);
+  const { actions } = getApplicationStore();
+  actions.playbackDisplay.setCurrentTrack(event.detail, actions.playbackQueue.activeTrack());
   syncImmersiveTrack();
   syncMediaSessionTrack(event.detail);
 });
@@ -755,8 +755,8 @@ installPlaybackCallbacks({
   },
   previousImmersive: () => { getPlaybackCommands().previous(); },
   nextImmersive: () => { getPlaybackCommands().next(); },
-  openVideo: openCurrentBilibiliVideo,
-  addPlaylist: () => { choosePlaylistAndAdd(); },
+  openVideo: openBilibiliVideo,
+  addPlaylist: track => { if (track) choosePlaylistAndAdd(track); },
   volume: value => applyVolume(value),
   seekStart: () => getPlaybackDisplayActions().setSeeking(true),
   preview: value => { getPlaybackDisplayActions().setSeeking(true); updateProgress(Number(value)); },

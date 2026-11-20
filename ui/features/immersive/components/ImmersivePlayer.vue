@@ -50,9 +50,9 @@ const playing = () => props.display.view.buttonVersion ? String(props.display.bu
               <span id="immersive-duration">{{ timeline().duration }}</span>
             </div>
 
-            <button id="open-bilibili-button" class="secondary-button" type="button" @click="callbacks.openVideo()" :disabled="!display.currentTrack.bvid" >在 B站打开</button>
-            <button id="immersive-favorite-button" class="secondary-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="controls.favoriteDisabled" :data-favorite-bvid="controls.bvid" :class="{ 'is-favorited': controls.favorited }" :title="controls.favorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite()" >{{ controls.favorited ? '♥ 已收藏' : '♡ 收藏' }}</button>
-            <button id="immersive-add-playlist-button" class="secondary-button" type="button" @click="callbacks.addPlaylistImmersive()" >+ 加入歌单</button>
+            <button id="open-bilibili-button" class="secondary-button" type="button" @click="callbacks.openVideo(display.currentTrack.bvid)" :disabled="!display.currentTrack.bvid" >在 B站打开</button>
+            <button id="immersive-favorite-button" class="secondary-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="!display.currentTrack.actionTrack" :data-favorite-bvid="display.currentTrack.actionTrack?.bvid ?? ''" :class="{ 'is-favorited': controls.immersiveFavorited }" :title="controls.immersiveFavorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite(display.currentTrack.actionTrack)" >{{ controls.immersiveFavorited ? '♥ 已收藏' : '♡ 收藏' }}</button>
+            <button id="immersive-add-playlist-button" class="secondary-button" type="button" @click="callbacks.addPlaylistImmersive(display.currentTrack.actionTrack)" :disabled="!display.currentTrack.actionTrack" >+ 加入歌单</button>
           </div>
         </div>
       </div>

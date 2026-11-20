@@ -214,6 +214,7 @@ function renderPlaybackTrack(track: Pick<CommandContract.TrackSnapshotInput, "ti
   const videoTitle = collection ? collection.data.snapshot.items[collection.memberIndex]?.title ?? "" : entry?.title ?? "";
   getApplicationStore().actions.playbackDisplay.setRenderedTrack({
     title: track.title, uploader: track.uploader, thumbnailUrl: displayThumbnailUrl(track.thumbnailUrl), videoTitle,
+    actionTrack: currentPlayableTrack(),
   });
 }
 

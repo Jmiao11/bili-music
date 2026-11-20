@@ -68,11 +68,11 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
         </span>
         </span>
         <button id="queue-position" :ref="element => mainWindowRefs.queueButton(element as HTMLButtonElement|null)" class="queue-position" type="button" aria-label="播放队列" aria-controls="queue-drawer" :aria-expanded="drawer.stage.open" :disabled="drawer.count === 0" @click="drawerCallbacks.toggle">{{ controls.queuePosition }}</button>
-        <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo()" :disabled="!display.currentTrack.bvid" >
+        <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo(display.renderedTrack.actionTrack?.bvid ?? '')" :disabled="!display.renderedTrack.actionTrack" >
           <Icon name="external" />
         </button>
-        <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="controls.favoriteDisabled" :data-favorite-bvid="controls.bvid" :class="{ 'is-favorited': controls.favorited }" :title="controls.favorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite()" ><span class="sr-only" aria-hidden="true">{{ controls.favorited ? '♥' : '♡' }}</span><Icon name="heart" /></button>
-        <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist()" :disabled="controls.favoriteDisabled" >
+        <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="!display.renderedTrack.actionTrack" :data-favorite-bvid="display.renderedTrack.actionTrack?.bvid ?? ''" :class="{ 'is-favorited': controls.barFavorited }" :title="controls.barFavorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite(display.renderedTrack.actionTrack)" ><span class="sr-only" aria-hidden="true">{{ controls.barFavorited ? '♥' : '♡' }}</span><Icon name="heart" /></button>
+        <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist(display.renderedTrack.actionTrack)" :disabled="!display.renderedTrack.actionTrack" >
           <Icon name="plus" />
         </button>
         <span class="player-immersive-slot" aria-hidden="true"></span>

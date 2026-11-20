@@ -4,14 +4,18 @@ import type { LyricsCandidate } from "../immersive/lyrics-display-state.ts";
 import { readApplicationStore } from "../../store/application-store.ts";
 import { playerQualityRefs } from "../../platform/main-window-refs.ts";
 
-type PlaybackControls = ReturnType<typeof projectPlaybackControls>;
+type PlaybackControls = ReturnType<typeof projectPlaybackControls> & { barFavorited: boolean; immersiveFavorited: boolean };
 let rootPlaybackControls: PlaybackControls | null = null;
 let dependencies: readonly unknown[] = [];
 function projectRootPlayback(state: ApplicationSnapshot): PlaybackControls {
-  const next = [state.playbackQueue, state.playbackSession.currentPages, state.library.favoriteBvids];
+  const barBvid = state.playbackDisplay.renderedTrack.actionTrack?.bvid ?? "";
+  const immersiveBvid = state.playbackDisplay.currentTrack.actionTrack?.bvid ?? "";
+  const next = [state.playbackQueue, state.playbackSession.currentPages, state.library.favoriteBvids, barBvid, immersiveBvid];
   if (rootPlaybackControls && next.every((value, index) => value === dependencies[index])) return rootPlaybackControls;
   const projected = projectPlaybackControls(state.playbackQueue, state.playbackSession, state.library.favoriteBvids);
   rootPlaybackControls = { ...projected,
+    barFavorited: state.library.favoriteBvids.has(barBvid.toLowerCase()),
+    immersiveFavorited: state.library.favoriteBvids.has(immersiveBvid.toLowerCase()),
     ...(projected.pagesHidden && rootPlaybackControls ? { pagesText: rootPlaybackControls.pagesText, pagesLabel: rootPlaybackControls.pagesLabel } : {}),
     ...(projected.loopLabel === null && rootPlaybackControls ? { loopLabel: rootPlaybackControls.loopLabel, loopActive: rootPlaybackControls.loopActive, shuffle: rootPlaybackControls.shuffle } : {}),
   };
@@ -23,7 +27,7 @@ type PlaybackCallbacks = {
   toggle(): void; toggleImmersive(): void; previous(): void; next(): void;
   previousImmersive(): void; nextImmersive(): void; loop(): void; shuffle(checked: boolean): void;
   seekStart(): void; preview(value: string): void; seek(value: string): void; volume(value: string): void;
-  favorite(): void; addPlaylist(): void; addPlaylistImmersive(): void; openVideo(): void;
+  favorite(track: CommandContract.TrackSnapshotInput | null): void; addPlaylist(track: CommandContract.TrackSnapshotInput | null): void; addPlaylistImmersive(track: CommandContract.TrackSnapshotInput | null): void; openVideo(bvid: string): void;
   pages(): void; skip(): void; openImmersive(): void; closeImmersive(): void;
   qualityToggle(): void; qualityKeydown(event: KeyboardEvent): void; qualityChoose(quality: CommandContract.AudioQuality): void;
   immersiveTransition(event: TransitionEvent): void; immersiveBackdrop(event: MouseEvent): void;
@@ -39,8 +43,8 @@ const playbackCallbacks = Object.freeze<PlaybackCallbacks>({
   loop: () => playbackHandlers.loop?.(), shuffle: checked => playbackHandlers.shuffle?.(checked),
   seekStart: () => playbackHandlers.seekStart?.(), preview: value => playbackHandlers.preview?.(value),
   seek: value => playbackHandlers.seek?.(value), volume: value => playbackHandlers.volume?.(value),
-  favorite: () => playbackHandlers.favorite?.(), addPlaylist: () => playbackHandlers.addPlaylist?.(),
-  addPlaylistImmersive: () => playbackHandlers.addPlaylistImmersive?.(), openVideo: () => playbackHandlers.openVideo?.(),
+  favorite: track => playbackHandlers.favorite?.(track), addPlaylist: track => playbackHandlers.addPlaylist?.(track),
+  addPlaylistImmersive: track => playbackHandlers.addPlaylistImmersive?.(track), openVideo: bvid => playbackHandlers.openVideo?.(bvid),
   pages: () => playbackHandlers.pages?.(), skip: () => playbackHandlers.skip?.(),
   qualityToggle: toggleAudioQualityMenu, qualityKeydown: audioQualityButtonKeydown, qualityChoose: chooseAudioQuality,
   openImmersive: () => playbackHandlers.openImmersive?.(), closeImmersive: () => playbackHandlers.closeImmersive?.(),

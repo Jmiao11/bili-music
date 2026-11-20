@@ -92,7 +92,7 @@ window.addEventListener("beforeunload", savePlaybackState);
 installQueueDrawerPlayback(playQueueIndex, removeQueueEntry);
 initPlaybackModes();
 
-installPlaybackCallbacks({ favorite: () => { toggleFavorite(); }, addPlaylistImmersive: () => { choosePlaylistAndAdd(); } });
+installPlaybackCallbacks({ favorite: track => { if (track) void toggleFavorite(track); }, addPlaylistImmersive: track => { if (track) choosePlaylistAndAdd(track); } });
 
 
 
