@@ -171,3 +171,21 @@ test("search busy actions preserve last writer button behavior across search and
   h.actions.setPlaybackBusy(false);
   assert.equal(h.read().view.buttonDisabled, false);
 });
+test("搜索受限时首屏、恢复和翻页都在搜索区域显示同一提示", async () => {
+  const h = fixture();
+  const reject = async () => { throw "SEARCH_TEMPORARILY_RESTRICTED"; };
+  for (const restored of [false, true]) {
+    h.reply(reject);
+    await h.actions.runSearch({ userKeyword: "歌曲", restored });
+    assert.equal(h.read().view.status, "搜索暂时受限，请稍后再试");
+    assert.equal(h.read().view.buttonDisabled, false);
+  }
+  h.reply(async () => page);
+  await h.actions.runSearch({ userKeyword: "歌曲" });
+  h.reply(reject);
+  await h.actions.loadMoreSearchResults(() => "歌曲");
+  assert.equal(h.read().view.status, "搜索暂时受限，请稍后再试");
+  assert.equal(h.read().isLoadingMore, false);
+  assert.equal(h.read().results.length, page.length);
+  assert.equal(h.calls.filter(c => c.command === "search_videos").length, 4);
+});

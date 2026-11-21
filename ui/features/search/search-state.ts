@@ -20,6 +20,10 @@ type SearchAdapter = {
 };
 type SearchPageCommit = { page: number; responseLength: number };
 
+function searchFailureStatus(error: unknown, context: string): string {
+  return error === "SEARCH_TEMPORARILY_RESTRICTED" ? "搜索暂时受限，请稍后再试" : context + "：" + error;
+}
+
 function initialSearchState(): SearchState {
   return { results: [], userKeyword: "", requestKeyword: "", tids: DEFAULT_MUSIC_TIDS, order: null, rerank: true, sortMode: "all", page: 0, isLoadingMore: false, hasMore: false, requestVersion: 0,
     pendingSearchRestore: null, searchBusy: false, playbackBusy: false,
@@ -80,7 +84,7 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
       });
     } catch (error) {
       if (version !== read().requestVersion) return;
-      updateSearch({ searchBusy: false }, { buttonDisabled: false, buttonSource: "search", status: restored ? `复用上次搜索关键词「${read().userKeyword}」搜索失败：${error}` : `搜索失败：${error}` });
+      updateSearch({ searchBusy: false }, { buttonDisabled: false, buttonSource: "search", status: searchFailureStatus(error, restored ? `复用上次搜索关键词「${read().userKeyword}」搜索失败` : "搜索失败") });
     }
   }
 
@@ -103,7 +107,7 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
       if (appendPage) appendPage(videos, page); else appendResults(videos, undefined, page);
     } catch (error) {
       if (version !== read().requestVersion) return;
-      updateSearch({ isLoadingMore: false }, { status: !read().hasMore && read().results.length > 0 ? "没有更多了" : `加载更多失败：${error}` });
+      updateSearch({ isLoadingMore: false }, { status: !read().hasMore && read().results.length > 0 ? "没有更多了" : searchFailureStatus(error, "加载更多失败") });
     }
   }
 

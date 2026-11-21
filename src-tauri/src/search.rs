@@ -167,10 +167,7 @@ impl SearchClient {
             SearchAttemptError::Fatal(format!("invalid Bilibili search response: {error}"))
         })?;
         #[cfg(debug_assertions)]
-        eprintln!(
-            "[search-diag] response code={} message={}",
-            envelope.code, envelope.message
-        );
+        eprintln!("[search-diag] response code={}", envelope.code);
         if envelope.code == -412 {
             return Err(SearchAttemptError::Fatal(
                 "Bilibili search returned code -412. The guest buvid may be stale; retry later or check buvid issuance."
@@ -190,15 +187,7 @@ impl SearchClient {
         let data = envelope.data.ok_or_else(|| {
             SearchAttemptError::Fatal("Bilibili search response has no data".to_owned())
         })?;
-        if crate::wbi::should_refresh_wbi(
-            envelope.code,
-            &envelope.message,
-            data.v_voucher.is_some(),
-        ) {
-            return Err(SearchAttemptError::RefreshWbi(
-                "the response contained v_voucher".to_owned(),
-            ));
-        }
+        data.check_search_restriction()?;
 
         #[cfg(debug_assertions)]
         {
@@ -399,6 +388,21 @@ struct SearchData {
     v_voucher: Option<String>,
 }
 
+impl SearchData {
+    fn check_search_restriction(&self) -> Result<(), SearchAttemptError> {
+        if self
+            .v_voucher
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+        {
+            return Err(SearchAttemptError::Fatal(
+                "SEARCH_TEMPORARILY_RESTRICTED".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize)]
 struct RawSearchVideo {
     #[serde(rename = "type")]
@@ -578,6 +582,18 @@ fn rerank_search_results(
     enabled: bool,
     sort_mode: SortMode,
 ) -> Vec<SearchVideo> {
+    const INTENT: [&str; 6] = ["教程", "教学", "乐评", "解说", "解析", "讲解"];
+    let penalize_titles = !INTENT.iter().any(|word| keyword.contains(word));
+    score_search_results(keyword, items, enabled, sort_mode, penalize_titles)
+}
+
+fn score_search_results(
+    keyword: &str,
+    items: Vec<SearchVideo>,
+    enabled: bool,
+    sort_mode: SortMode,
+    penalize_titles: bool,
+) -> Vec<SearchVideo> {
     #[cfg(debug_assertions)]
     eprintln!("[search-diag] rerank sort_mode={sort_mode:?}");
     if !enabled {
@@ -602,13 +618,34 @@ fn rerank_search_results(
             };
             let phrase_match = exact_phrase_match_score(keyword, &normalized_title);
             let original_position = 1.0 - index as f64 / total_items as f64;
+            let penalty = if penalize_titles
+                && [
+                    "教学",
+                    "教程",
+                    "乐评",
+                    "解说",
+                    "解析",
+                    "讲解",
+                    "教会",
+                    "一节课",
+                    "保姆级",
+                    "零基础入门",
+                ]
+                .iter()
+                .any(|word| item.title.contains(word))
+            {
+                0.12
+            } else {
+                0.0
+            };
             ScoredSearchVideo {
                 original_index: index,
                 score: SearchScore {
                     total: containment * 0.60
                         + duration * 0.20
                         + phrase_match * 0.10
-                        + original_position * 0.10,
+                        + original_position * 0.10
+                        - penalty,
                     containment,
                     duration,
                     phrase_match,
@@ -1131,3 +1168,7 @@ mod tests {
         items.iter().map(|item| item.bvid.clone()).collect()
     }
 }
+
+#[cfg(test)]
+#[path = "search/evaluation_tests.rs"]
+mod evaluation_tests;
