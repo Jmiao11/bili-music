@@ -10,6 +10,6 @@ const options = [{ value: "highest", label: "最高可用" }, { value: "192k", l
   <div id="player-quality-menu" :ref="element => mainWindowRefs.playerQualityMenu(element as HTMLElement|null)" class="player-quality-menu" role="menu" aria-label="音质" :style="[{ left: `${position.left}px`, bottom: `${position.bottom}px` }, background.surfaces?.quality]">
     <FloatingBackdrop v-if="theme === 'image' || theme === 'dynamic'" :model="background" :on-geometry="onGeometry" />
     <button v-for="option in options" :key="option.value" type="button" role="menuitemradio" :aria-checked="preference === option.value" :data-quality="option.value" tabindex="-1" @click="props.onChoose(option.value)"><span class="quality-menu-check"><Icon v-if="preference === option.value" name="check" /></span><span>{{ option.label }}</span></button>
-    <p>切换后从下一首开始生效</p>
+    <p>切换后立即生效</p>
   </div>
 </template>

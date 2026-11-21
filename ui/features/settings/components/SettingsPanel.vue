@@ -91,7 +91,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
                 <option value="64k">64K</option>
               </select>
             </label>
-            <small id="audio-quality-note" class="setting-note">下次播放生效；档位不可用时优先选择较低档，最低档缺失时选择可用的最低档。yt-dlp 兜底保持原音质。</small>
+            <small id="audio-quality-note" class="setting-note">切换后立即生效；yt-dlp 兜底时保持原音质</small>
           </div>
           <div class="setting-subgroup audio-source-section">
             <label class="select-row audio-source-row" for="stream-source-select">

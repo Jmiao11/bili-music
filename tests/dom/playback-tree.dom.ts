@@ -273,23 +273,58 @@ test("cover color crossfades and presentation refreshes never redraw track rows"
   } finally { h.dispose();if(originalImage)Object.defineProperty(globalThis,"Image",originalImage);else Reflect.deleteProperty(globalThis,"Image"); }
 });
 
-test("quality select persists for the next playback while the label follows the actual track", async t => {
+test("quality select persists immediately and switches the current track at its live position", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
   const items = [track(1), track(2)];
   let audioId: number | null = 30280, isFallback = false;
-  h.reply(async command => command === "prepare_audio" ? { audioId, isFallback, audioUrl: "http://127.0.0.1/audio/quality", title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 } : responses(items)(command));
+  const incoming = deferred();
+  const response = (id: number | null, fallback = false) => ({ audioId: id, isFallback: fallback, audioUrl: `http://127.0.0.1/audio/quality-${id}`, title: "曲目", uploader: "作者", thumbnailUrl: "https://example.test/cover", durationSeconds: 60 });
+  Object.defineProperties(h.audio, { currentSrc: { get: () => h.audio.src }, readyState: { get: () => 1 } });
+  let deferFirstSwitch = true;
+  h.reply(async (command, args) => {
+    if (command === "cache_track_audio") return "busy";
+    if (command !== "prepare_audio") return responses(items)(command);
+    if (deferFirstSwitch && args.bvId === items[0].bvid && args.quality === "64k") {
+      deferFirstSwitch = false;
+      return incoming.promise;
+    }
+    return response(audioId, isFallback);
+  });
   const select = h.node<HTMLSelectElement>("audio-quality-select");
   assert.equal(select.value, "highest");
   assert.deepEqual([...select.options].map(option => option.text), ["最高可用", "192K", "132K", "64K"]);
   h.core.playListItem("ranking", items, 0); await h.microtasks();
   assert.equal(h.node("player-audio-quality").textContent, "192K");
   const src = h.audio.src, count = h.calls.filter(call => call.command === "prepare_audio").length;
+  const mediaOperations = () => h.platform.filter(item => ["load", "play", "pause"].includes(item.operation)).map(item => item.operation);
+  const operationsBefore = mediaOperations().length;
+  h.media.paused = false;
+  h.media.currentTime = 18;
   await h.fire(h.node("open-settings-button"), "click"); h.raf(); await h.microtasks();
   await nextDomEventTurn(); select.value = "64k"; await h.fire(select, "change");
   assert.equal(h.window.localStorage.getItem("bilibili-music.audio-quality"), "64k");
   assert.equal(h.audio.src, src);
-  assert.equal(h.calls.filter(call => call.command === "prepare_audio").length, count);
+  const preparations = h.calls.filter(call => call.command === "prepare_audio");
+  assert.equal(preparations.length, count + 1);
+  assert.equal(preparations.at(-1)?.args.bvId, items[0].bvid);
+  assert.equal(preparations.at(-1)?.args.quality, "64k");
+  assert.equal("audioId" in preparations.at(-1)!.args, false);
   assert.equal(h.node("player-audio-quality").textContent, "192K");
+  assert.deepEqual(mediaOperations().slice(operationsBefore), []);
+  h.media.currentTime = 29;
+  incoming.resolve(response(30216)); await h.microtasks();
+  assert.equal(h.audio.src, response(30216).audioUrl);
+  assert.equal(h.media.currentTime, 29);
+  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.deepEqual(mediaOperations().slice(operationsBefore), ["load", "play"]);
+  for (const currentTime of [31, 32]) {
+    h.media.currentTime = currentTime;
+    await nextDomEventTurn(); await h.fire(h.audio, "timeupdate");
+  }
+  const [cache, ...retries] = h.calls.filter(call => call.command === "cache_track_audio");
+  assert.equal(cache?.args.bvid, items[0].bvid);
+  assert.equal(cache?.args.audioId, 30216);
+  assert.deepEqual(retries, []);
   audioId = 30232;
   h.core.playListItem("ranking", items, 1); await h.microtasks();
   assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.quality, "64k");
@@ -323,7 +358,7 @@ test("quality menu opens and closes with paired transient listeners and shares t
   const options = [...menu.querySelectorAll<HTMLButtonElement>("[role='menuitemradio']")];
   assert.deepEqual(options.map(item => item.textContent), ["最高可用", "192K", "132K", "64K"]);
   assert.equal(options[0].getAttribute("aria-checked"), "true"); assert.equal(h.doc.activeElement, options[0]);
-  assert.equal(menu.querySelector("p")?.textContent, "切换后从下一首开始生效");
+  assert.equal(menu.querySelector("p")?.textContent, "切换后立即生效");
   const transient = h.listeners.slice(before).filter(item => item.target === h.doc || item.target === h.window);
   assert.deepEqual(transient.map(item => item.type), ["click", "keydown", "resize"]);
   await h.fire(button, "click"); assert.equal(h.doc.getElementById("player-quality-menu"), null);
@@ -377,4 +412,86 @@ test("late quality response cannot overwrite the current label or its cache iden
   assert.equal(cache.args.bvid, items[1].bvid);
   assert.equal(cache.args.audioId, 30216);
   assert.equal(cache.args.audioUrl, "http://127.0.0.1/audio/new");
+});
+
+test("next wins over a late manual quality result without cancelling the next request", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const items = [track(1), track(2)].map(item => ({ ...item, thumbnailUrl: "https://example.test/cover" }));
+  const incoming = deferred();
+  const info = (source: string, audioId: number) => ({ audioUrl: `http://127.0.0.1/audio/${source}`, audioId, isFallback: false, title: "曲目", uploader: "作者", thumbnailUrl: items[0].thumbnailUrl, durationSeconds: 60 });
+  Object.defineProperties(h.audio, { currentSrc: { get: () => h.audio.src }, readyState: { get: () => 1 } });
+  h.reply(async (command, args) => {
+    if (command === "get_video_pages") return [{ cid: 11, page: 1, part: "P1", durationSeconds: 60 }];
+    if (command !== "prepare_audio") return responses(items)(command);
+    if (args.bvId === items[1].bvid) return info("second", 30216);
+    return args.quality === "132k" ? incoming.promise : info("first", 30280);
+  });
+  h.core.playListItem("ranking", items, 0); await h.microtasks();
+  await h.fire(h.node("player-audio-quality"), "click");
+  await h.fire(h.doc.querySelector("[data-quality='132k']")!, "click");
+  assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.quality, "132k");
+  assert.equal(h.audio.src, info("first", 30280).audioUrl);
+  await h.fire(h.node("next-button"), "click");
+  assert.equal(h.audio.src, info("second", 30216).audioUrl);
+  incoming.resolve(info("superseded", 30232)); await h.microtasks();
+  assert.equal(h.audio.src, info("second", 30216).audioUrl);
+  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.equal(h.calls.some(call => call.command === "cancel_prepare_audio"), false);
+  h.media.currentTime = 31;
+  await nextDomEventTurn(); await h.fire(h.audio, "timeupdate");
+  const cache = h.calls.find(call => call.command === "cache_track_audio");
+  assert.ok(cache);
+  assert.equal(cache.args.bvid, items[1].bvid);
+  assert.equal(cache.args.audioId, 30216);
+  assert.equal(cache.args.audioUrl, info("second", 30216).audioUrl);
+});
+
+test("a quality change waits for a drag and applies the last seek and pause during metadata loading", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const item = track(1), incoming = deferred();
+  const oldUrl = "http://127.0.0.1/audio/old-quality", newUrl = "http://127.0.0.1/audio/new-quality";
+  let ready = 1;
+  Object.defineProperties(h.audio, {
+    currentSrc: { get: () => ready ? h.audio.src : "" },
+    readyState: { get: () => ready },
+  });
+  const load = h.audio.load.bind(h.audio);
+  Object.defineProperty(h.audio, "load", { value: () => {
+    load();
+    if (h.audio.src === newUrl) {
+      ready = 0;
+      h.media.paused = true; h.media.currentTime = 0; h.media.duration = NaN;
+      h.dispatch(h.audio, "pause");
+      h.dispatch(h.audio, "emptied");
+    }
+  } });
+  const info = (audioUrl: string, audioId: number) => ({ audioUrl, audioId, isFallback: false, title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
+  h.reply(async (command, args) => command === "prepare_audio" ? args.quality === "64k" ? incoming.promise : info(oldUrl, 30280) : responses([item])(command));
+  h.core.playListItem("ranking", [item], 0); await h.microtasks();
+  h.media.paused = false;
+  const playCalls = () => h.platform.filter(item => item.operation === "play").length;
+  const before = playCalls();
+  await h.fire(h.node("player-audio-quality"), "click");
+  await h.fire(h.doc.querySelector("[data-quality='64k']")!, "click");
+  const slider = h.node<HTMLInputElement>("progress-slider");
+  await nextDomEventTurn(); await h.fire(slider, "pointerdown");
+  slider.value = "24"; await h.fire(slider, "input");
+  incoming.resolve(info(newUrl, 30216)); await h.microtasks();
+  assert.equal(h.audio.src, oldUrl);
+  await nextDomEventTurn(); await h.fire(slider, "pointerup");
+  assert.equal(h.audio.src, newUrl);
+  assert.equal(h.media.currentTime, 0);
+  assert.equal(slider.value, "24");
+  assert.equal(h.node("play-pause-button").getAttribute("aria-label"), "暂停");
+
+  await h.fire(h.node("play-pause-button"), "click");
+  assert.equal(h.node("play-pause-button").getAttribute("aria-label"), "播放");
+  await nextDomEventTurn(); await h.fire(slider, "pointerdown");
+  slider.value = "28"; await h.fire(slider, "input");
+  await nextDomEventTurn(); await h.fire(slider, "pointerup");
+  ready = 1; h.media.duration = 100;
+  await h.fire(h.audio, "loadedmetadata");
+  assert.equal(h.media.currentTime, 28);
+  assert.equal(h.media.paused, true);
+  assert.equal(playCalls(), before);
 });

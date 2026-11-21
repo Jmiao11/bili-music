@@ -24,6 +24,19 @@ type PlaybackStartPage = Partial<Omit<CommandContract.VideoPage, "page" | "cid">
 let cacheRequestPromise: Promise<void> | null = null;
 let recoveryPromise: Promise<void> | null = null;
 
+type AudioSource = Pick<CommandContract.AudioResponse, "audioUrl" | "audioId" | "isFallback">;
+type SourcePosition = { position: number; playing: boolean };
+type QualitySourceSwap = {
+  version: number;
+  choice: number;
+  sourceUrl: string;
+  intent: SourcePosition & { duration: number };
+  waitingForPosition: boolean;
+  done: Promise<void>;
+};
+let qualityChoice = 0;
+let qualitySourceSwap: QualitySourceSwap | null = null;
+
 
 function getRequestSnapshot() { return getApplicationStore().getState().playbackRequest; }
 function getRequestActions() { return getApplicationStore().actions.playbackRequest; }
@@ -338,16 +351,24 @@ function refundRecoveryAttempt(version: number) {
   if (getSessionSnapshot().recoveryVersion === version) getSessionActions().setRecoveryAttempts(getSessionSnapshot().recoveryAttempts - 1);
 }
 
-function waitForRecoveryMetadata(version: number) {
-  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve(true);
+function waitForRecoveryMetadata(version: number, sourceUrl?: string) {
+  const hasSource = () => sourceUrl === undefined || audio.currentSrc === sourceUrl;
+  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA && hasSource()) return Promise.resolve(true);
   return new Promise<boolean>((resolve, reject) => {
     const cleanup = () => {
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("error", failed);
       audio.removeEventListener("emptied", emptied);
     };
-    const loaded = () => { cleanup(); resolve(true); };
-    const failed = () => { cleanup(); reject(audio.error ?? new Error("audio metadata load failed")); };
+    const loaded = () => {
+      if (hasSource()) { cleanup(); resolve(true); }
+    };
+    const failed = (event: Event) => {
+      if (sourceUrl !== undefined && (audio.src !== sourceUrl || !audio.error ||
+          (audio.currentSrc && !hasSource()) || event.timeStamp < getRequestSnapshot().audioActivatedAt)) return;
+      cleanup();
+      reject(audio.error ?? new Error("audio metadata load failed"));
+    };
     const emptied = () => {
       if (!getRequestActions().isCurrent(version)) { cleanup(); resolve(false); }
     };
@@ -355,6 +376,34 @@ function waitForRecoveryMetadata(version: number) {
     audio.addEventListener("error", failed);
     audio.addEventListener("emptied", emptied);
   });
+}
+
+async function replaceAudioAndSeek(
+  version: number,
+  info: AudioSource,
+  preference: CommandContract.AudioQuality,
+  resumeAt: () => SourcePosition,
+  ownsSource?: () => boolean,
+) {
+  const isCurrent = ownsSource ?? (() => getRequestActions().isCurrent(version));
+  const previousId = getApplicationStore().getState().playbackDisplay.audioQuality.audioId;
+  getRequestActions().replaceAudio(info.audioUrl, performance.now());
+  getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference, audioId: info.audioId ?? null, isFallback: info.isFallback ?? false });
+  if (previousId !== (info.audioId ?? null)) {
+    getSessionActions().setCacheRequested(false);
+    getSessionActions().setLoudnessAnalyzed(false);
+    refreshTrackLoudness();
+  }
+  audio.src = info.audioUrl;
+  audio.load();
+  const loaded = await waitForRecoveryMetadata(version, ownsSource ? info.audioUrl : undefined);
+  if (!loaded || !isCurrent()) return "while loading metadata";
+  const { position, playing } = resumeAt();
+  const endPadding = ownsSource ? 0 : 1;
+  const maxPosition = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - endPadding) : position;
+  audio.currentTime = Math.min(Math.max(0, position), maxPosition);
+  if (playing) await audio.play();
+  return isCurrent() ? null : "after play";
 }
 
 async function recoverCurrentAudio(version: number, sourceUrl: string, position: number, wasPlaying: boolean) {
@@ -384,27 +433,10 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
       window.recordPlaybackDiag("audio-recovery", "abandoned after prepare_audio");
       return;
     }
-    getRequestActions().replaceAudio(info.audioUrl, performance.now());
-    getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference: quality.preference, audioId: info.audioId ?? null, isFallback: info.isFallback ?? false });
-    if (quality.audioId !== (info.audioId ?? null)) {
-      getSessionActions().setCacheRequested(false);
-      getSessionActions().setLoudnessAnalyzed(false);
-      refreshTrackLoudness();
-    }
-    audio.src = info.audioUrl;
-    audio.load();
-    const loaded = await waitForRecoveryMetadata(version);
-    if (!loaded || !getRequestActions().isCurrent(version)) {
+    const abandoned = await replaceAudioAndSeek(version, info, quality.preference, () => ({ position, playing: wasPlaying }));
+    if (abandoned) {
       refundRecoveryAttempt(version);
-      window.recordPlaybackDiag("audio-recovery", "abandoned while loading metadata");
-      return;
-    }
-    const maxPosition = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - 1) : position;
-    audio.currentTime = Math.min(Math.max(0, position), maxPosition);
-    if (wasPlaying) await audio.play();
-    if (!getRequestActions().isCurrent(version)) {
-      refundRecoveryAttempt(version);
-      window.recordPlaybackDiag("audio-recovery", "abandoned after play");
+      window.recordPlaybackDiag("audio-recovery", `abandoned ${abandoned}`);
       return;
     }
     window.recordPlaybackDiag("audio-recovery", `success attempt=${getSessionSnapshot().recoveryAttempts}`);
@@ -419,7 +451,105 @@ async function recoverCurrentAudio(version: number, sourceUrl: string, position:
   }
 }
 
+function getQualitySourceSwap() {
+  return qualitySourceSwap && getRequestActions().isCurrent(qualitySourceSwap.version) ? qualitySourceSwap : null;
+}
+
+function getQualitySwitchIntent() {
+  const swap = getQualitySourceSwap();
+  return swap?.waitingForPosition ? swap.intent : null;
+}
+
+async function switchCurrentAudioQuality(quality: CommandContract.AudioQuality) {
+  const choice = ++qualityChoice;
+  const { requestVersion: version } = getRequestSnapshot();
+  const previousSwap = getQualitySourceSwap();
+  if (previousSwap) {
+    // The latest choice owns the already-started media handoff until it settles.
+    previousSwap.choice = choice;
+    await previousSwap.done;
+    if (choice !== qualityChoice || !getRequestActions().isCurrent(version)) return;
+  }
+  const { activeAudioVersion, activeAudioUrl: sourceUrl } = getRequestSnapshot();
+  const previousQuality = getApplicationStore().getState().playbackDisplay.audioQuality;
+  const session = getSessionSnapshot();
+  if (recoveryPromise || session.pendingResume || session.resumeInProgress ||
+      getSearchSnapshot().playbackBusy || activeAudioVersion !== version ||
+      !sourceUrl || audio.currentSrc !== sourceUrl || audio.ended ||
+      audio.readyState < HTMLMediaElement.HAVE_METADATA || previousQuality.audioId == null || previousQuality.isFallback || quality === previousQuality.preference) return;
+
+  const video = getQueueActions().activeTrack();
+  if (!video) return;
+  const page = currentVideoPage();
+  const isSameAudio = () => getRequestActions().isCurrent(version) &&
+    getRequestSnapshot().activeAudioUrl === sourceUrl && audio.currentSrc === sourceUrl && !audio.ended;
+  const stillSelected = () => choice === qualityChoice && !recoveryPromise;
+  let info: CommandContract.AudioResponse;
+  try {
+    info = await invoke("prepare_audio", {
+      quality,
+      bvId: video.bvid,
+      cid: page?.cid ?? null,
+      cacheCid: currentAudioCacheCid(),
+      page: page?.page ?? null,
+      part: page?.part ?? null,
+      durationSeconds: page?.durationSeconds ?? null,
+    });
+  } catch (error) {
+    if (stillSelected() && isSameAudio() && !String(error).includes("audio resolution was cancelled")) {
+      showPlaybackNotice("切换音质失败，继续使用当前音质");
+    }
+    return;
+  }
+  if (!stillSelected() || info.audioId == null || info.audioId === previousQuality.audioId) return;
+  if (getApplicationStore().getState().playbackDisplay.isSeeking) {
+    await new Promise<void>(resolve => {
+      const unsubscribe = getApplicationStore().subscribe(state => {
+        if (state.playbackDisplay.isSeeking && isSameAudio() && stillSelected()) return;
+        unsubscribe();
+        resolve();
+      });
+    });
+  }
+  if (!stillSelected() || !isSameAudio()) return;
+
+  const swap: QualitySourceSwap = {
+    version, choice, sourceUrl: info.audioUrl,
+    intent: { position: audio.currentTime, playing: !audio.paused, duration: audio.duration },
+    waitingForPosition: true,
+    done: Promise.resolve(),
+  };
+  const ownsSource = () => swap.choice === qualityChoice && getRequestActions().isCurrent(version) &&
+    getRequestSnapshot().activeAudioUrl === swap.sourceUrl && audio.src === swap.sourceUrl;
+  const seekAndResume = () => {
+    swap.waitingForPosition = false;
+    return swap.intent;
+  };
+  const changeSource = async () => {
+    try {
+      await replaceAudioAndSeek(version, info, quality, seekAndResume, ownsSource);
+    } catch (error) {
+      if (!ownsSource()) return;
+      if (!swap.waitingForPosition && audio.paused && error instanceof DOMException && error.name === "AbortError") return;
+      swap.sourceUrl = sourceUrl;
+      swap.waitingForPosition = true;
+      try {
+        const abandoned = await replaceAudioAndSeek(version, { ...previousQuality, audioUrl: sourceUrl }, previousQuality.preference, seekAndResume, ownsSource);
+        if (!abandoned && choice === qualityChoice) showPlaybackNotice("切换音质失败，已恢复原音质");
+      } catch {
+        if (ownsSource() && choice === qualityChoice) showPlaybackNotice("切换音质失败，播放已中断。", { persistent: true });
+      }
+    } finally {
+      if (qualitySourceSwap === swap) qualitySourceSwap = null;
+    }
+  };
+  qualitySourceSwap = swap;
+  swap.done = changeSource();
+  await swap.done;
+}
+
 function handleAudioRecoveryError(event: Event) {
+  if (getQualitySourceSwap()) return;
   const version = getRequestSnapshot().requestVersion;
   const isCurrent = getRequestSnapshot().activeAudioVersion === version &&
     getRequestSnapshot().activeAudioUrl === audio.currentSrc &&
@@ -441,6 +571,7 @@ function handleAudioRecoveryError(event: Event) {
   const sourceUrl = audio.currentSrc;
   const position = audio.currentTime;
   const wasPlaying = getSessionSnapshot().playbackIntended;
+  ++qualityChoice;
   const recovery = Promise.resolve().then(() => recoverCurrentAudio(version, sourceUrl, position, wasPlaying));
   recoveryPromise = recovery;
   const clear = () => { if (recoveryPromise === recovery) recoveryPromise = null; };
@@ -1117,4 +1248,4 @@ installPlaybackCallbacks({
 }
 
 
-export { removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, updateQueueUi };
+export { removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getQualitySwitchIntent, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, switchCurrentAudioQuality, updateQueueUi };

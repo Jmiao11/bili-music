@@ -35,6 +35,7 @@ function createControllerContext(seed: vm.Context, options?: vm.CreateContextOpt
   readonly(seed,"randomPageRound",()=>queueStore.getState().randomPageRound);
   seed.playerState=player;
   seed.getApplicationStore=()=>store;
+  seed.readApplicationStore=seed.getApplicationStore;
   seed.getQueueSnapshot=()=>queueStore.getState(); seed.getQueueActions=()=>queueStore.actions;
   seed.currentPlayableTrack ??= () => queueStore.actions.activeTrack();
   seed.getRequestSnapshot=()=>store.getState().playbackRequest; seed.getRequestActions=()=>store.actions.playbackRequest;

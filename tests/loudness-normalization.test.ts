@@ -348,6 +348,18 @@ test("ended analyzes loudness when normalization is enabled", () => {
   assert.equal(analysis.args.audioUrl, app.playerState.activeAudioUrl);
 });
 
+test("ended passes the finished audio ID even when navigation selects another variant", () => {
+  const { app, queries, emitEnded } = setup(new Map([[settingKey, "true"]]));
+  const display = app.getApplicationStore().actions.playbackDisplay;
+  display.setAudioQuality({ preference: "highest", audioId: 30280, isFallback: false });
+  app.playNext = () => display.setAudioQuality({ preference: "64k", audioId: 30216, isFallback: false });
+  app.audio.ended = true;
+  emitEnded();
+  const analysis = queries.find(query => query.command === "analyze_track_loudness");
+  assert.equal(analysis?.args.audioId, 30280);
+  assert.equal(analysis?.args.key, "BV1GF4X6MEb1:1");
+});
+
 test("track change resets threshold analysis for the new track", () => {
   const { app, queries, state } = setup(new Map([[settingKey, "true"]]));
   app.audio.currentTime = 30;

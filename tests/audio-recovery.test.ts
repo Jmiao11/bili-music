@@ -12,7 +12,7 @@ const policy = readFileSync(path.join(import.meta.dirname, "../ui/features/playb
 const decision = sourceSlice(policy, "ui/features/playback/playback-policy.ts", "function shouldRecoverAudio(", "// 与 src-tauri/")
   + sourceSlice(source, "ui/features/playback/playback-core.ts", "function recoveryAttemptsFor(", "function waitForRecoveryMetadata(");
 const metadataWait = sourceSlice(source, "ui/features/playback/playback-core.ts", "function waitForRecoveryMetadata(", "async function recoverCurrentAudio(");
-const recoverCurrentAudio = sourceSlice(source, "ui/features/playback/playback-core.ts", "async function recoverCurrentAudio(", "function handleAudioRecoveryError(");
+const recoverCurrentAudio = sourceSlice(source, "ui/features/playback/playback-core.ts", "async function replaceAudioAndSeek(", "function getQualitySourceSwap(");
 const loadCurrentTrack = sourceSlice(source, "ui/features/playback/playback-core.ts", "async function loadCurrentTrack(", "async function resumePendingPlayback(");
 
 test("network recovery requires the current started audio and remaining attempts", () => {

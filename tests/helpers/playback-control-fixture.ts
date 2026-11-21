@@ -70,7 +70,7 @@ async function createPlaybackControlFixture() {
   const context = createSessionContext({ document: { documentElement: node("root"), activeElement: focused, querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke }, event: { listen: async (name: string, handler: (event: { payload: string }) => void) => { registration.push(name); events.set(name, handler); return () => {}; } } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
     navigator: { mediaSession: session }, MediaMetadata: class { constructor(data: object) { Object.assign(this, data); } },
-    installPlaybackCallbacks, openCurrentPagesModal() {}, getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
+    installPlaybackCallbacks, openCurrentPagesModal() {}, getApplicationStore: () => store, getQualitySwitchIntent: () => null, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
     pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
     playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.

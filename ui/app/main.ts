@@ -55,11 +55,12 @@ audio.addEventListener("ended", (event) => {
     const bvid = currentPlayableTrack()?.bvid;
     const cid = currentVideoPage()?.cid ?? getSessionSnapshot().currentPages[0]?.cid;
     const audioUrl = getRequestSnapshot().activeAudioUrl;
+    const audioId = readApplicationStore().getState().playbackDisplay.audioQuality.audioId;
     if (!advancePageWithinCurrentBv({ automatic: true })) {
       playNext({ automatic: true });
     }
     if (bvid && cid && isLoudnessNormalizationEnabled()) {
-      invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}` }).catch((error) => {
+      invoke("analyze_track_loudness", { audioUrl, key: `${bvid}:${cid}`, ...(audioId !== null ? { audioId } : {}) }).catch((error) => {
         console.warn("analyze_track_loudness failed:", error);
       });
     }

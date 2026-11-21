@@ -6,6 +6,7 @@ import vm from "node:vm";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/store/app-state.ts";
+import { createPlaybackCommands } from "../ui/features/playback/playback-commands.ts";
 import { moduleDeclarations, stripModuleSyntax } from "./helpers/module-syntax.ts";
 
 type FixtureEvent = { type: string; detail?: unknown; prevented: boolean; immediate: boolean; preventDefault(): void; stopImmediatePropagation(): void };
@@ -39,7 +40,7 @@ async function fixture() {
   const context = createSessionContext({ document: { documentElement: node("root"), querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke: async () => null } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
     navigator: { mediaSession: session }, MediaMetadata: class { constructor(data: object) { Object.assign(this, data); } },
-    getApplicationStore: () => store, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
+    getApplicationStore: () => store, getQualitySwitchIntent: () => null, createPlaybackCommands, choosePlaylistAndAdd() {}, showLoudnessNormalizationDialog() {}, syncImmersiveTrack() {}, console,
     pendingResume: false, resumeInProgress: false, resumes: 0, resumePendingPlayback() { context.resumes++; },
     playPrevious() { navigation.push("previous"); }, playNext() { navigation.push("next"); }, retreatPageWithinCurrentBv: () => false, advancePageWithinCurrentBv: () => false });
   // Explicitly load actual state/view/media dependencies from the appearance import graph, including future display modules.

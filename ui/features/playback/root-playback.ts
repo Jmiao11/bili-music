@@ -102,6 +102,6 @@ function audioQualityButtonKeydown(event: KeyboardEvent): void {
   event.preventDefault(); toggleAudioQualityMenu();
 }
 function chooseAudioQuality(quality: CommandContract.AudioQuality): void {
-  readApplicationStore().actions.settings.setAudioQuality(quality);
+  playbackHandlers.qualityChoose?.(quality);
   closeAudioQualityMenu(true);
 }

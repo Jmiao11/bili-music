@@ -12,6 +12,8 @@ type PlaybackCommandPorts = {
   clearNotice(): void;
   media(): ReturnType<typeof createMediaAdapter>;
   observe(): { paused: boolean; duration: number; currentTime: number };
+  switchIntent?(): { position: number; duration: number; playing: boolean } | null;
+  syncPlaybackIntent?(): void;
   setSeeking(value: boolean): void;
   syncPosition(): void;
   diagnostic(kind: string, message: string): void;
@@ -20,10 +22,29 @@ type PlaybackCommandPorts = {
 
 function createPlaybackCommands(ports: PlaybackCommandPorts) {
   const hasPendingResume = () => !!ports.session().pendingResume || ports.session().resumeInProgress;
+  const observePosition = () => {
+    const intent = ports.switchIntent?.();
+    return intent ? { currentTime: intent.position, duration: intent.duration } : ports.observe();
+  };
+  const seek = (time: number) => {
+    const intent = ports.switchIntent?.();
+    if (intent) intent.position = time;
+    else ports.media().setCurrentTime(time);
+  };
   return {
     hasPendingResume,
+    isPaused() {
+      const intent = ports.switchIntent?.();
+      return intent ? !intent.playing : ports.observe().paused;
+    },
     async togglePlayPause() {
       if (hasPendingResume()) { ports.resume(); return; }
+      const intent = ports.switchIntent?.();
+      if (intent) {
+        intent.playing = !intent.playing;
+        ports.syncPlaybackIntent?.();
+        return;
+      }
       const media = ports.media();
       if (!media.getCurrentSource()) {
         ports.diagnostic("play-pause-button", "no source");
@@ -48,19 +69,19 @@ function createPlaybackCommands(ports: PlaybackCommandPorts) {
       else ports.next();
     },
     seekSlider(time: number) {
-      if (Number.isFinite(ports.observe().duration)) ports.media().setCurrentTime(time);
+      if (Number.isFinite(observePosition().duration)) seek(time);
       ports.setSeeking(false);
     },
     seekTo(time: number | undefined) {
-      const media = ports.observe();
+      const media = observePosition();
       if (!Number.isFinite(media.duration) || media.duration <= 0 || time == null) return;
-      ports.media().setCurrentTime(time); ports.syncPosition();
+      seek(time); ports.syncPosition();
     },
     seekBy(direction: number, offset: number | undefined) {
-      const media = ports.observe();
+      const media = observePosition();
       if (!Number.isFinite(media.duration) || media.duration <= 0) return;
       const time = direction < 0 ? Math.max(0, media.currentTime - (offset || 10)) : Math.min(media.duration, media.currentTime + (offset || 10));
-      ports.media().setCurrentTime(time); ports.syncPosition();
+      seek(time); ports.syncPosition();
     },
   };
 }

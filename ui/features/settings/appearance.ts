@@ -12,7 +12,7 @@ import { readShuffleCollectionPrefs } from "../playback/playback-policy.ts";
 import { clearPlaybackNotice } from "../playback/playback-notice.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { choosePlaylistAndAdd } from "../library/library-ui.ts";
-import { advancePageWithinCurrentBv, clearPendingResume, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog } from "../playback/playback-core.ts";
+import { advancePageWithinCurrentBv, clearPendingResume, getQualitySwitchIntent, getQueueSnapshot, getSessionSnapshot, playNext, playPrevious, refreshTrackLoudness, resumePendingPlayback, retreatPageWithinCurrentBv, showLoudnessNormalizationDialog, switchCurrentAudioQuality } from "../playback/playback-core.ts";
 import { finishSettingsPanelTransition, prepareSettingsPanel, renderSettingsSnapshot } from "./settings-view.ts";
 import { renderPlaybackSettingsSnapshot } from "../playback/playback-settings-view.ts";
 import { renderPlaybackMediaSession } from "../playback/playback-display-view.ts";
@@ -245,12 +245,18 @@ function readPlaybackMediaSnapshot() {
   return getPlaybackDisplaySnapshot();
 }
 
-function updateProgress(value: number | string = getPlaybackMedia().getCurrentTime()) {
-  getPlaybackDisplayActions().observeProgress(getPlaybackMedia().getObservation(), value);
+function updateProgress(value?: number | string) {
+  const media = getPlaybackMedia().getObservation();
+  const intent = getQualitySwitchIntent();
+  getPlaybackDisplayActions().observeProgress(
+    intent ? { ...media, duration: intent.duration, currentTime: intent.position } : media, value,
+  );
 }
 
 function updatePlayPauseButton() {
-  getPlaybackDisplayActions().observePlaying(getPlaybackMedia().getObservation());
+  const media = getPlaybackMedia().getObservation();
+  const intent = getQualitySwitchIntent();
+  getPlaybackDisplayActions().observePlaying(intent ? { ...media, paused: !intent.playing } : media);
 }
 
 function withMediaSession(callback: (mediaSession: MediaSession) => void) {
@@ -276,14 +282,20 @@ function syncMediaSessionPosition() {
   getPlaybackDisplayActions().observePosition(getPlaybackMedia().getObservation());
 }
 
+function changeAudioQuality(value: string) {
+  getSettingsActions().setAudioQuality(value);
+  void switchCurrentAudioQuality(getApplicationStore().getState().settings.audioQuality);
+}
+
 function getPlaybackCommands() {
   return createPlaybackCommands({
     session: () => getSessionSnapshot(), resume: () => resumePendingPlayback(),
     shuffle: () => getQueueSnapshot().shuffle,
     retreat: () => retreatPageWithinCurrentBv(), advance: () => advancePageWithinCurrentBv(),
     previous: () => playPrevious(), next: () => playNext(), clearResume: () => clearPendingResume(), clearNotice: () => clearPlaybackNotice(),
-    media: getPlaybackMedia, observe: readPlaybackMediaSnapshot,
+    media: getPlaybackMedia, observe: readPlaybackMediaSnapshot, switchIntent: getQualitySwitchIntent,
     setSeeking: value => getPlaybackDisplayActions().setSeeking(value), syncPosition: syncMediaSessionPosition,
+    syncPlaybackIntent: updatePlayPauseButton,
     diagnostic: (kind, message) => window.recordPlaybackDiag?.(kind, message),
     status: message => { setPlaybackStatus(message); },
   });
@@ -298,7 +310,7 @@ function registerMediaSessionActionHandlers() {
     const controls = createMediaSessionAdapter(mediaSession, init => new MediaMetadata(init));
     controls.setActionHandler("play", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session play");
-      if (shouldForwardMediaSessionAction("play", readPlaybackMediaSnapshot().paused)) {
+      if (shouldForwardMediaSessionAction("play", getPlaybackCommands().isPaused())) {
         void getPlaybackCommands().togglePlayPause();
       } else {
         window.recordPlaybackDiag?.("external-control", "Media Session play ignored: already playing");
@@ -306,7 +318,7 @@ function registerMediaSessionActionHandlers() {
     });
     controls.setActionHandler("pause", () => {
       window.recordPlaybackDiag?.("external-control", "Media Session pause");
-      if (shouldForwardMediaSessionAction("pause", readPlaybackMediaSnapshot().paused)) {
+      if (shouldForwardMediaSessionAction("pause", getPlaybackCommands().isPaused())) {
         void getPlaybackCommands().togglePlayPause();
       } else {
         window.recordPlaybackDiag?.("external-control", "Media Session pause ignored: already paused");
@@ -667,7 +679,7 @@ installSettingsCallbacks({
   theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else setBackgroundDim(value); },
   chooseBackground: async () => { await getSettingsActions().chooseBackground(); }, resetBackground: () => resetBackground(),
   saveAi: saveAiConfig, testAi: testAiConnection, aiFormat: updateAiBaseUrlPlaceholder,
-  source: async value => { await getSettingsActions().changeSource(value); }, quality: value => getSettingsActions().setAudioQuality(value), cache: saveAudioCacheSettings,
+  source: async value => { await getSettingsActions().changeSource(value); }, quality: changeAudioQuality, cache: saveAudioCacheSettings,
   collection: (kind,value) => getSettingsActions().saveCollection(kind,value), clearCache: async () => { await getSettingsActions().clearCache(); },
 });
 window.addEventListener("bilibili-music-audio-cache-updated", () => {
@@ -745,6 +757,7 @@ window.addEventListener("bilibili-music-trackchange", (event) => {
 });
 
 installPlaybackCallbacks({
+  qualityChoose: changeAudioQuality,
   toggle: () => { void getPlaybackCommands().togglePlayPause(); },
   toggleImmersive: () => {
     window.recordPlaybackDiag?.("external-control", "immersive button");
@@ -797,7 +810,7 @@ getPlaybackMedia().subscribe("ended", () => {
 });
 getPlaybackMedia().subscribe("emptied", () => {
   getPlaybackDisplayActions().setSeeking(false);
-  updateProgress(0);
+  updateProgress(getQualitySwitchIntent()?.position ?? 0);
   updatePlayPauseButton();
   syncMediaSessionPlaybackState("none");
 });

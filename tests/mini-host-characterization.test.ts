@@ -215,6 +215,28 @@ test("mini progress clears old audio across same-request recovery and samples th
   assert.deepEqual(progress(), { seq: progress().seq });
 });
 
+test("mini progress re-samples a paused same-track quality handoff without advancing", async () => {
+  const h = await createMiniHostFixture();
+  h.setTrack();
+  const media = Object.assign(h.audio, { src: "old-variant", currentSrc: "old-variant", currentTime: 26, duration: 60, readyState: 3, paused: true });
+  await h.fire("mini-player-ready");
+  const previous = h.emissions.at(-1)!.payload.progress;
+  assert.partialDeepStrictEqual(previous, { positionSeconds: 26, advancing: false });
+  Object.assign(media, { src: "new-variant", currentSrc: "", currentTime: 0, readyState: 0 });
+  await h.audio.fire("emptied");
+  await h.audio.fire("loadstart");
+  const cleared = h.emissions.at(-1)!.payload.progress;
+  assert.deepEqual(cleared, { seq: cleared.seq });
+  Object.assign(media, { currentSrc: media.src, readyState: 3 });
+  await h.audio.fire("loadedmetadata");
+  media.currentTime = 26;
+  await h.audio.fire("seeked");
+  const sample = h.emissions.at(-1)!.payload.progress;
+  assert.ok(sample.seq > cleared.seq);
+  assert.partialDeepStrictEqual(sample, { positionSeconds: 26, advancing: false });
+  assert.doesNotMatch(JSON.stringify(h.emissions.at(-1)), /old-variant|new-variant/);
+});
+
 test("mini theme and accent changes publish immediately and existing events still publish", async () => {
   const h = await createMiniHostFixture(); await h.fire("mini-player-ready");
   h.root.dataset.theme = "light"; h.channels.set("--accent-r", "40"); h.channels.set("--accent-g", "88"); h.channels.set("--accent-b", "161");
