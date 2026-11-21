@@ -184,12 +184,19 @@ async function cancelCurrentPlayback() {
 }
 
 let playbackStateWrite: Promise<void> | null = null;
-function enqueuePlaybackStateWrite(write: () => Promise<unknown>, errorMessage: string) {
-  const pending = (playbackStateWrite ? playbackStateWrite.then(write) : write()).then(
+let pendingPlaybackClears = 0;
+let closeSaveVersion = 0;
+function enqueuePlaybackStateWrite(write: () => Promise<unknown>, errorMessage: string, immediate = false) {
+  const previous = playbackStateWrite;
+  const operation = previous && !immediate ? previous.then(write) : write();
+  const handled = operation.then(
     () => {}, error => console.warn(errorMessage, error),
   );
+  // A later clear must wait for both saves, even if the close save finishes first.
+  const pending = previous && immediate ? Promise.all([previous, handled]).then(() => {}) : handled;
   playbackStateWrite = pending;
   void pending.then(() => { if (playbackStateWrite === pending) playbackStateWrite = null; });
+  return pending;
 }
 
 function clearPendingResume() {
@@ -198,9 +205,19 @@ function clearPendingResume() {
 }
 
 function savePlaybackState() {
+  persistPlaybackState(false);
+}
+
+function savePlaybackStateOnUnload() {
+  persistPlaybackState(true);
+}
+
+function persistPlaybackState(onUnload: boolean) {
   getSessionActions().setLastSavedAt(Date.now());
   if (getQueueSnapshot().queue.length === 0) {
-    enqueuePlaybackStateWrite(() => invoke("clear_playback_state"), "clear playback state failed:");
+    pendingPlaybackClears++;
+    void enqueuePlaybackStateWrite(() => invoke("clear_playback_state"), "clear playback state failed:")
+      .then(() => { pendingPlaybackClears--; });
     return;
   }
 
@@ -222,7 +239,13 @@ function savePlaybackState() {
     cid: resume?.cid ?? page?.cid ?? null,
     savedAt: Math.floor(Date.now() / 1000),
   };
-  enqueuePlaybackStateWrite(() => invoke("save_playback_state", { state }), "save playback state failed:");
+  const immediate = onUnload && pendingPlaybackClears === 0;
+  if (immediate) closeSaveVersion++;
+  const version = closeSaveVersion;
+  enqueuePlaybackStateWrite(async () => {
+    // An immediate close save supersedes snapshots still waiting to be sent.
+    if (version === closeSaveVersion) await invoke("save_playback_state", { state });
+  }, "save playback state failed:", immediate);
 }
 
 function renderPlaybackTrack(track: Pick<CommandContract.TrackSnapshotInput, "title" | "uploader" | "thumbnailUrl">) {
@@ -656,7 +679,8 @@ async function loadCurrentTrack({
   startPage = !keepPage && getQueueSnapshot().queueSource === "recent" ? recentPage(getApplicationStore().getState().recent.items.find(item => item.bvid.toLowerCase() === getQueueActions().activeTrack()?.bvid.toLowerCase())) : null,
   resumePosition = null,
   randomStartPage = false,
-}: { keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
+  onRequestStarted,
+}: { onRequestStarted?: (version: number) => void; keepPage?: boolean; startPage?: PlaybackStartPage | null; resumePosition?: number | null; randomStartPage?: boolean } = {}) {
   let owner = getQueueSnapshot().queue[getQueueSnapshot().currentIndex];
   let video = getQueueActions().activeTrack();
   if (!video) {
@@ -664,6 +688,7 @@ async function loadCurrentTrack({
   }
 
   const requestVersion = getRequestActions().beginRequest();
+  onRequestStarted?.(requestVersion);
   const quality = getApplicationStore().getState().settings.audioQuality;
   const previousAudioId = getApplicationStore().getState().playbackDisplay.audioQuality.audioId;
   getApplicationStore().actions.playbackDisplay.setAudioQuality({ preference: quality, audioId: null, isFallback: false });
@@ -889,10 +914,13 @@ async function resumePendingPlayback() {
     await loadCurrentTrack({ randomStartPage: getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random" });
     return;
   }
-  const version = getRequestSnapshot().requestVersion + 1;
+  let version = getRequestSnapshot().requestVersion;
   getSessionActions().setResumeInProgress(true);
   try {
-    await loadCurrentTrack({ startPage: resume, resumePosition: resume.positionSeconds });
+    await loadCurrentTrack({
+      startPage: resume, resumePosition: resume.positionSeconds,
+      onRequestStarted: actualVersion => { version = actualVersion; },
+    });
   } catch (error) {
     if (getRequestActions().isCurrent(version)) {
       clearPendingResume();
@@ -1020,9 +1048,12 @@ function removeQueueEntry(index: number): void {
   if (next) {
     if (next.collection) getQueueActions().freezeCollection(next.collection.data, order, Math.random);
     const track = currentPlayableTrack();
-    if (!track) throw new Error("找不到后继播放曲目");
-    getSessionActions().setPendingResume({ positionSeconds: 0, cid: null, page: null, startNewTrack: true });
-    renderRestoredPlaybackUi(track, 0, "已选中下一首，点击播放继续。");
+    if (track) {
+      getSessionActions().setPendingResume({ positionSeconds: 0, cid: null, page: null, startNewTrack: true });
+      renderRestoredPlaybackUi(track, 0, "已选中下一首，点击播放继续。");
+    } else {
+      getQueueActions().selectIndex(-1, false, null);
+    }
   }
   emitCurrentTrackChanged();
   savePlaybackState();
@@ -1324,4 +1355,4 @@ installPlaybackCallbacks({
 }
 
 
-export { clearPlaybackQueue, removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getQualitySwitchIntent, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, switchCurrentAudioQuality, updateQueueUi };
+export { clearPlaybackQueue, removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getQualitySwitchIntent, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, savePlaybackStateOnUnload, showLoudnessNormalizationDialog, switchCurrentAudioQuality, updateQueueUi };

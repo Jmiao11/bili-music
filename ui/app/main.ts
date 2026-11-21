@@ -20,7 +20,7 @@ import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../featur
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "../features/pages/video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setPendingSearchRestore, setSearchDivision, setSearchSort, takePendingSearchRestore, updateMusicTabs } from "../features/search/search.ts";
-import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, updateQueueUi } from "../features/playback/playback-core.ts";
+import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, savePlaybackStateOnUnload, updateQueueUi } from "../features/playback/playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "../features/settings/appearance.ts";
 initializeRootLists();
 installRecentController(readApplicationStore(), window);
@@ -88,7 +88,7 @@ for (const eventName of ["play", "pause", "ended", "error", "stalled", "waiting"
 document.addEventListener("visibilitychange", () => {
   window.recordPlaybackDiag("visibilitychange", `hidden=${document.hidden}`);
 });
-window.addEventListener("beforeunload", savePlaybackState);
+window.addEventListener("beforeunload", savePlaybackStateOnUnload);
 
 installQueueDrawerPlayback(playQueueIndex, removeQueueEntry, clearPlaybackQueue);
 initPlaybackModes();

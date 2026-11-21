@@ -306,3 +306,81 @@ test("同一请求冻结合集后回填成员；多分P只更新当前分P显示
   assert.equal(state.queue[0].title,track(7).title);assert.equal(state.currentDisplayTrack?.title,pages[0].part);
   assert.equal(state.currentDisplayTrack?.uploader,meta.uploader);assert.equal(state.currentDisplayTrack?.durationSeconds,pages[0].durationSeconds);
 });
+
+test("暂停移出后继为空合集时保留队列并取消选中", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const data = collection(1);
+  data.snapshot.items = [];
+  data.videoCount = 0;
+  const q = h.store.actions.playbackQueue;
+  q.replaceQueue([track(2), ...libraryQueueEntries([collectionEntry(data)])]);
+  q.selectIndex(0, false, null);
+  const changes: unknown[] = [];
+  h.window.addEventListener("bilibili-music-trackchange", e => changes.push(e));
+  h.core.removeQueueEntry(0);
+  assert.equal(h.core.getQueueSnapshot().currentIndex, -1);
+  assert.deepEqual(h.core.getQueueSnapshot().queue.map(entry => entry.entryId), ["reference-31"]);
+  assert.equal(h.core.getSessionSnapshot().pendingResume, null);
+  assert.equal(h.doc.querySelector("audio")!.src, "");
+  assert.equal(changes.length, 1);
+  assert.ok(h.calls.some(call => call.command === "save_playback_state"));
+});
+
+test("加载提前返回后清除恢复标记，播放按钮仍可恢复", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const q = h.store.actions.playbackQueue;
+  q.replaceQueue([track(1)]);
+  h.store.actions.playbackSession.setPendingResume({ positionSeconds: 7, page: null, cid: null });
+  await h.core.resumePendingPlayback();
+  assert.equal(h.core.getSessionSnapshot().resumeInProgress, false);
+  assert.equal(h.core.getSessionSnapshot().pendingResume?.positionSeconds, 7);
+  q.selectIndex(0, false, null);
+  h.reply(responses());
+  Object.defineProperty(h.doc.querySelector("audio")!, "readyState", { value: 1 });
+  await h.fire(h.doc.querySelector("#play-pause-button")!, "click");
+  assert.ok(h.calls.some(call => call.command === "prepare_audio"));
+});
+
+test("关窗保存立即发出，后续清除等待全部在途保存", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const first = deferred(), close = deferred();
+  let saves = 0;
+  h.reply(async cmd => cmd === "save_playback_state" ? (++saves === 1 ? first : close).promise : null);
+  h.store.actions.playbackQueue.replaceQueue([track(1)]);
+  h.core.savePlaybackState();
+  h.core.savePlaybackState();
+  h.doc.querySelector("audio")!.currentTime = 17;
+  await h.fire(h.window, "beforeunload");
+  assert.equal(saves, 2);
+  const latest = h.calls.filter(call => call.command === "save_playback_state").at(-1)!;
+  assert.equal((latest.args.state as CommandContract.PlaybackState).positionSeconds, 17);
+  h.core.clearPlaybackQueue();
+  close.resolve(null); await h.microtasks();
+  assert.equal(h.calls.filter(c => c.command === "clear_playback_state").length, 0);
+  first.resolve(null); await h.microtasks();
+  assert.equal(saves, 2);
+  assert.equal(h.calls.filter(c => c.command === "clear_playback_state").length, 1);
+});
+
+test("清除排队或在途时关窗保存仍按顺序发出", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const first = deferred(), clear = deferred();
+  let saves = 0, clears = 0;
+  h.reply(async cmd => {
+    if (cmd === "clear_playback_state") { clears++; return clear.promise; }
+    if (cmd === "save_playback_state" && ++saves === 1) return first.promise;
+    return null;
+  });
+  const q = h.store.actions.playbackQueue;
+  q.replaceQueue([track(1)]);
+  h.core.savePlaybackState();
+  h.core.clearPlaybackQueue();
+  q.replaceQueue([track(2)]);
+  await h.fire(h.window, "beforeunload");
+  assert.deepEqual([saves, clears], [1, 0]);
+  first.resolve(null); await h.microtasks();
+  await h.fire(h.window, "beforeunload");
+  assert.deepEqual([saves, clears], [1, 1]);
+  clear.resolve(null); await h.microtasks();
+  assert.deepEqual([saves, clears], [3, 1]);
+});
