@@ -7,7 +7,7 @@ function createShellProjection() {
   const view={homeMode:"ranking",homeSource:"",homeTitle:"为你推荐",homeSubtitle:"根据收藏、搜索、歌单和听歌记录生成",homeCache:"",homeList:"按你的口味生成",homeRefreshTitle:undefined as string|undefined,homeRefreshDisabled:false,homeStatus:"",homeError:"",homeNeedsSetup:false,
     searchStatus:"搜索结果会显示在这里。",resultHidden:false,queueCount:"0 首",favoritesStatus:"收藏的歌曲会显示在这里。",favoritesCount:"0 首",playlistsStatus:"创建歌单，把喜欢的歌放在一起。",playlistTitle:"选择一个歌单",playlistMeta:"歌单里的歌曲会显示在这里。",
     libraryTitle:"加入歌单",librarySubtitle:"选择一个歌单，或新建后加入。",libraryStatus:"",appearanceStatus:"",purgeBusy:false,pagesTitle:"选择分P",pagesSub:"",pagesStatus:"",restoreHidden:true,restoreDisabled:false,restoreText:"全部恢复",
-    currentView:"home",placeholderTitle:"功能开发中"};
+    currentView:"home"};
   return (snapshot:ApplicationSnapshot) => {
     const {home,search,library,pages,settings}=snapshot;
     if(home !== previous?.home) {
@@ -55,7 +55,6 @@ function createShellProjection() {
     }
     if(settings.session.navigationVersion && settings.session.navigationVersion !== previous?.settings.session.navigationVersion) {
       view.currentView=settings.session.currentView ?? "";
-      if(!["home","search","favorites","recent","playlists"].includes(view.currentView)) view.placeholderTitle=settings.session.placeholderTitle;
     }
     if (snapshot.collection.active) view.currentView="collection";
     else if (previous?.collection.active) view.currentView=settings.session.currentView ?? "home";

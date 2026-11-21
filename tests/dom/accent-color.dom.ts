@@ -35,7 +35,7 @@ function setup(stored = new Map<string, unknown>(), faults: { read?: boolean; wr
   const app = vm.createContext({
     MutationObserver: class { observe() {} },
     root, accentColorOptions: options, themeOptions: [], imageOnlyGroups: [],
-    glassBlurSlider: {}, glassBlurValue: {}, panelAlphaSlider: {}, panelAlphaValue: {},
+    glassBlurSlider: {}, glassBlurValue: {},
     backgroundDimSlider: {}, backgroundDimValue: {},
     localStorage: {
       getItem(name: string) { if (faults.read) throw Error("Unavailable"); return stored.get(name) ?? null; },

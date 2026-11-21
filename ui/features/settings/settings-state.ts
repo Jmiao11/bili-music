@@ -55,7 +55,6 @@ type SettingsState = {
   theme: string | null;
   accentColor: keyof typeof ACCENT_COLORS;
   glassBlur: number;
-  panelAlpha: number;
   backgroundDim: number;
   background: CommandContract.BackgroundImage | null;
   ytDlpAvailable: boolean;
@@ -74,7 +73,6 @@ type SettingsState = {
   };
   session: {
     currentView: string | null;
-    placeholderTitle: string;
     navigationVersion: number;
     panelOpen: boolean;
     panelVersion: number
@@ -86,7 +84,7 @@ type SettingsState = {
     }
     | null;
     sliders: {
-      kind: "all" | "blur" | "alpha" | "dim"
+      kind: "all" | "blur" | "dim"
     }
     | null;
     backgroundVersion: number;
@@ -131,7 +129,7 @@ type SettingsSnapshot = DeepReadonly<SettingsState>;
 function initialSettingsState(): SettingsState {
   return {
     controls: {dataBusy: {backupExport:false, backupImport:false, history:false}},
-    theme: null, accentColor: "pink", glassBlur: 40, panelAlpha: 72, backgroundDim: 90, background: null, ytDlpAvailable: false, streamSource: "auto", audioQuality: "highest", audioCacheSettings: null, collection: {
+    theme: null, accentColor: "pink", glassBlur: 40, backgroundDim: 90, background: null, ytDlpAvailable: false, streamSource: "auto", audioQuality: "highest", audioCacheSettings: null, collection: {
       order: "random", limit: 0
     }, shortcutBindings: {
       previous: null, playPause: null, next: null, volumeUp: null, volumeDown: null
@@ -139,7 +137,7 @@ function initialSettingsState(): SettingsState {
     ai: {
       apiFormat: "openai-chat-completions", baseUrl: "", model: "", hasKey: false, request: "idle"
     }, session: {
-      currentView: "home", placeholderTitle: "", navigationVersion: 0, panelOpen: false, panelVersion: 0
+      currentView: "home", navigationVersion: 0, panelOpen: false, panelVersion: 0
     },
     view: {
       themeVersion: 0, accent: null, sliders: null, backgroundVersion: 0, notice: null, chooseDisabled: false, shortcuts: null, availabilityVersion: 0, stream: {
@@ -226,8 +224,7 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     } catch {
     }
   }
-  function setSlider(kind: "blur" | "alpha" | "dim", value: unknown, persist = true): void {
-    if (kind === "alpha") return; // 隐藏兼容端口，不改写用户遗留值。
+  function setSlider(kind: "blur" | "dim", value: unknown, persist = true): void {
     const field = kind === "blur" ? "glassBlur" : "backgroundDim";
     const safe = kind === "blur" ? normalizeSettingsNumber(value, 0, 80, 40) : normalizeSettingsNumber(value, 0, 95, 90);
     update({
@@ -674,12 +671,9 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
     });
   }
   function navigate(currentView: string): void {
-    const labels: Record<string, string> = {
-      favorites: "我的收藏", playlists: "我的歌单", local: "本地音乐"
-    };
     update({
       session: {
-        ...read().session, currentView, placeholderTitle: `${labels[currentView] ?? "功能"}开发中`, navigationVersion: read().session.navigationVersion + 1
+        ...read().session, currentView, navigationVersion: read().session.navigationVersion + 1
       }
     });
   }

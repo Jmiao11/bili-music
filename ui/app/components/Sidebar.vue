@@ -32,12 +32,6 @@ defineProps<{model:SidebarPresentation;currentView:string;playlists:ApplicationS
           <div v-if="!model.collapsed && playlists.length" class="sidebar-playlists">
             <button v-for="playlist in playlists" :key="playlist.id" class="sidebar-playlist" :class="{'is-selected':currentView === 'playlists' && playlistDetail && selectedPlaylistId === playlist.id}" :aria-current="currentView === 'playlists' && playlistDetail && selectedPlaylistId === playlist.id ? 'page' : undefined" type="button" @click="onPlaylist(playlist.id)"><span>{{playlist.name}}</span><small>{{playlist.items.length}} 首</small></button>
           </div>
-          <!-- 兼容节点：保留启动监听；本地音乐功能落地或批准重建 G0 时可删除。 -->
-          <button class="nav-item" :class="{active:currentView === 'local'}" :aria-label="model.initialized ? '本地音乐' : undefined" :title="model.initialized ? '本地音乐' : undefined" type="button" data-view="local" style="display: none" tabindex="-1" aria-hidden="true">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 2v12h14V6Zm2 3h10v2H7Zm0 4h7v2H7Z" /></svg>
-            <span>本地音乐</span>
-            <small>待开发</small>
-          </button>
         </nav>
 
         <div class="sidebar-foot">

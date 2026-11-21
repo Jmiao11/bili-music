@@ -222,7 +222,7 @@ test("crossfade keeps only latest pending palette; reduced motion removes fade w
   assert.equal(app.tasks.size, 0);
 });
 
-test("dynamic texture stays fixed; image retains three controls and ignores legacy content settings", async (t) => {
+test("dynamic texture stays fixed; image retains both sliders and ignores legacy content settings", async (t) => {
   const appearance = readFileSync(path.join(import.meta.dirname, "../../ui/features/settings/appearance.ts"), "utf8");
   const code = sourceSlice(appearance, "ui/features/settings/appearance.ts", "const THEME_KEY", "const VOLUME_KEY")
     + sourceSlice(appearance, "ui/features/settings/appearance.ts", "function clampNumber(", "function isShortcutModifierCode(")
@@ -243,7 +243,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     }));
     const context = vm.createContext({
       root, themeOptions: [], imageOnlyGroups,
-      glassBlurSlider: {}, glassBlurValue: {}, panelAlphaSlider: {}, panelAlphaValue: {},
+      glassBlurSlider: {}, glassBlurValue: {},
       backgroundDimSlider: {}, backgroundDimValue: {},
       localStorage: {
         getItem(key: string) { reads.push(key); return stored.get(key) ?? null; },
@@ -255,22 +255,19 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     return context;
   }
   const context = load();
-  const values = (app: import("node:vm").Context) => [app.glassBlurSlider.value, app.panelAlphaSlider.value, app.backgroundDimSlider.value];
+  const values = (app: import("node:vm").Context) => [app.glassBlurSlider.value, app.backgroundDimSlider.value];
   context.applyTheme("image", false);
-  assert.deepEqual(values(context), ["40", undefined, "90"]);
-  assert.equal(context.panelAlphaSlider.min, "20");
+  assert.deepEqual(values(context), ["40", "90"]);
   assert.equal(context.backgroundDimSlider.min, "0");
   assert.ok(context.imageOnlyGroups.every((group: { classList: { disabled?: boolean } }) => !group.classList.disabled));
   context.setGlassBlur(53);
-  context.setPanelAlpha(25);
   context.setBackgroundDim(45);
   const legacySettings = [...stored];
   reads.length = 0;
   context.applyTheme("dynamic", false);
   assert.equal(reads.length, 0);
   assert.deepEqual([...stored], legacySettings);
-  assert.deepEqual(values(context), ["53", undefined, "45"]);
-  assert.equal(context.panelAlphaSlider.min, "20");
+  assert.deepEqual(values(context), ["53", "45"]);
   assert.equal(context.backgroundDimSlider.min, "0");
   assert.ok(context.imageOnlyGroups[0].classList.disabled);
   assert.ok(context.imageOnlyGroups[1].classList.disabled);
@@ -288,14 +285,13 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   assert.ok(dynamicRule.includes("clamp(0, calc((0.72 - var(--panel-alpha)) * 1.5), 0.78)"));
   assert.ok(dynamicRule.includes("text-shadow: 0 1px 2px rgba(0, 0, 0, var(--dynamic-text-shadow-alpha))"));
   assert.equal(Math.min(0.78, Math.max(0, (0.72 - Number(defaults["--panel-alpha"])) * 1.5)), 0.78);
-  // 旧动态值不再读取；切换主题不会修改背景图保留的三个保存值。
+  // 旧动态值不再读取；切换主题不会修改背景图滑块的保存值。
   stored.set("bilibili-music.glass-blur.dynamic", "8");
   context.applyTheme("dynamic", false);
   assert.equal(context.root.style["--glass-blur"], undefined);
   for (const [key, value] of legacySettings.filter(([key]) => !key.endsWith(".dynamic"))) assert.equal(stored.get(key), value);
   context.applyTheme("image", false);
-  assert.deepEqual(values(context), ["53", undefined, "45"]);
-  assert.equal(context.panelAlphaSlider.min, "20");
+  assert.deepEqual(values(context), ["53", "45"]);
   assert.equal(context.backgroundDimSlider.min, "0");
 
   const restarted = load();
@@ -310,7 +306,7 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
   for (const property of Object.keys(defaults)) assert.equal(restarted.root.style[property], undefined);
   assert.equal(reads.length, 0);
   restarted.applyTheme("image", false);
-  assert.deepEqual(values(restarted), ["53", undefined, "45"]);
+  assert.deepEqual(values(restarted), ["53", "45"]);
   for (const theme of ["dark", "light", "image", "dynamic", "unknown", null]) {
     context.applyTheme(theme);
     assert.equal(context.root.dataset.theme, (["dark", "light", "image", "dynamic"] as (string | null)[]).includes(theme) ? theme : "dark");
@@ -341,7 +337,6 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
       const app = load();
       app.applyTheme("image", false);
       app.setGlassBlur(blur, false);
-      app.setPanelAlpha(alpha, false);
       stored.set("bilibili-music.glass-blur.dynamic", String(blur));
       stored.set("bilibili-music.panel-alpha.dynamic", String(alpha));
       app.applyTheme("dynamic", false);
@@ -373,8 +368,8 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     assert.equal(stored.get("bilibili-music.content-alpha"), "75");
     assert.ok(!reads.some((key) => key.includes("content-alpha") || key.endsWith(".dynamic")));
     for (const [id, min, max, value] of [
-      ["glass-blur", 0, 80, 40], ["panel-alpha", 20, 100, 72], ["background-dim", 0, 95, 90],
-    ]) assert.ok(html.includes(`id="${id}-slider" type="range" min="${min}" max="${max}"${id === "panel-alpha" ? ' tabindex="-1" aria-hidden="true"' : ""} value="${value}"`));
+      ["glass-blur", 0, 80, 40], ["background-dim", 0, 95, 90],
+    ]) assert.ok(html.includes(`id="${id}-slider" type="range" min="${min}" max="${max}" value="${value}"`));
     const contentRules = [...css.matchAll(/([^{}]+)\{[^{}]*background: rgba\(\d+, \d+, \d+, var\(--content-panel-alpha, 0\)\);[^{}]*\}/g)];
     assert.equal(contentRules.length, 4);
     assert.equal(contentRules.reduce((count, match) => count + match[1].split(",").length, 0), 16);
@@ -385,13 +380,12 @@ test("dynamic texture stays fixed; image retains three controls and ignores lega
     const app = load();
     app.applyTheme("image", false);
     for (const [input, expected] of [
-      [-1, ["0", undefined, "0"]], [120, ["80", undefined, "95"]], ["invalid", ["40", undefined, "90"]],
-    ] as [number | string, (string | undefined)[]][]) {
+      [-1, ["0", "0"]], [120, ["80", "95"]], ["invalid", ["40", "90"]],
+    ] as [number | string, string[]][]) {
       app.setGlassBlur(input);
-      app.setPanelAlpha(input);
       app.setBackgroundDim(input);
       assert.deepEqual(values(app), expected);
-      ["glass-blur", "panel-alpha", "background-dim"].forEach((key, index) =>
+      ["glass-blur", "background-dim"].forEach((key, index) =>
         assert.equal(stored.get(`bilibili-music.${key}`), expected[index]));
     }
   });

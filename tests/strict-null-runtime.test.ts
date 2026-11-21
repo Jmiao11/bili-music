@@ -15,9 +15,9 @@ function slice(file: string, start: string | null, end: string) {
 test("theme defaults preserve null, invalid values and all supported themes", () => {
   const root = { dataset: {} as Record<string, string>, style: { removeProperty() {} } };
   const writes: [string, unknown][] = [];
-  const context = createQueueContext({ root, themeOptions: [], imageOnlyGroups: [], THEME_KEY: "theme", GLASS_BLUR_KEY: "blur", PANEL_ALPHA_KEY: "alpha", BACKGROUND_DIM_KEY: "dim",
+  const context = createQueueContext({ root, themeOptions: [], imageOnlyGroups: [], THEME_KEY: "theme", GLASS_BLUR_KEY: "blur", BACKGROUND_DIM_KEY: "dim",
     localStorage: { getItem: () => null, setItem: (key: string, value: unknown) => writes.push([key, value]) },
-    setGlassBlur() {}, setPanelAlpha() {}, setBackgroundDim() {},
+    setGlassBlur() {}, setBackgroundDim() {},
   });
   attachSettingsVm(context);
   vm.runInContext(slice("features/settings/appearance.ts", "function applyTheme(", "function setGlassBlur("), context);

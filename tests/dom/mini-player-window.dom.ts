@@ -443,14 +443,14 @@ test("mini root renders synchronously once mounted and keeps controls inert befo
 import fs from "node:fs";
 import { controlsSettingsFixture } from "./controls-settings-fixture.ts";
 
-test("all three image sliders update stored values and their document CSS variables", async t => {
+test("both image sliders update stored values and their document CSS variables", async t => {
   const h = await controlsSettingsFixture(); t.after(h.dispose);
   await h.fire(h.doc.querySelector('[data-theme-option="image"]')!, "click");
-  for (const [name, values, unit] of [["glass-blur", [0, 80], "px"], ["panel-alpha", [20, 100], ""], ["background-dim", [40, 95], ""]] as const) {
+  for (const [name, values, unit] of [["glass-blur", [0, 80], "px"], ["background-dim", [40, 95], ""]] as const) {
     for (const value of values) {
       await h.input(name + "-slider", String(value));
-      assert.equal(h.window.localStorage.getItem("bilibili-music." + name), name === "panel-alpha" ? null : String(value));
-      assert.equal(h.doc.documentElement.style.getPropertyValue("--" + name), name === "panel-alpha" ? "" : unit ? value + unit : String(value / 100));
+      assert.equal(h.window.localStorage.getItem("bilibili-music." + name), String(value));
+      assert.equal(h.doc.documentElement.style.getPropertyValue("--" + name), unit ? value + unit : String(value / 100));
     }
   }
   const css = fs.readFileSync(new URL("../../ui/styles.css", import.meta.url), "utf8");

@@ -3016,38 +3016,6 @@ svg {
   translate: none;
 }
 
-.placeholder-view {
-  align-items: center;
-  justify-content: center;
-}
-
-.empty-state {
-  display: grid;
-  max-width: 320px;
-  justify-items: center;
-  color: var(--text-2);
-  text-align: center;
-}
-
-.empty-state svg {
-  width: 42px;
-  height: 42px;
-  margin-bottom: 14px;
-  color: var(--text-3);
-}
-
-.empty-state h2 {
-  margin: 0 0 8px;
-  color: var(--text-1);
-  font-size: 21px;
-  font-weight: 600;
-}
-
-.empty-state p {
-  margin: 0;
-  font-size: 13px;
-}
-
 .player-bar {
   position: fixed;
   z-index: var(--z-player);
@@ -5210,7 +5178,7 @@ input[type="range"]::-webkit-slider-thumb {
   & #view-favorites #favorites-list .track-row { background: transparent; }
   & #view-favorites #favorites-list .track-row:hover { background: var(--hover); }
   & #view-favorites #favorites-list .track-row:has(.track[aria-current="true"]) { background: var(--active); }
-  & :is(.empty-state, .tracklist:empty, .playlist-list:empty) { color: var(--text3); font-size: var(--fs-md); text-align: center; }
+  & :is(.tracklist:empty, .playlist-list:empty) { color: var(--text3); font-size: var(--fs-md); text-align: center; }
   & :is(#view-home, #view-search, #view-favorites, #view-playlists) :is(.home-ranking-panel, .search-results-panel, .playlist-detail) { background: transparent; }
   & :is(#view-favorites, #view-playlists) .list-head { background: transparent; }
   & #view-search #search-results .track-row { background: transparent; }

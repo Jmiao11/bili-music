@@ -40,7 +40,6 @@ test("mini theme changes coalesce within each frame and publish final values in 
 test("mini theme synchronization ignores other settings and unchanged projected values", async () => {
   const h = await createMiniHostFixture(); await h.fire("mini-player-ready");
   h.store.actions.settings.setSlider("blur", 55, false);
-  h.store.actions.settings.setSlider("alpha", 80, false);
   h.store.actions.settings.setSlider("dim", 70, false);
   h.store.actions.settings.setAiFormat("openai");
   h.store.actions.settings.setTheme("dark", false);

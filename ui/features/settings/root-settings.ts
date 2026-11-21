@@ -2,7 +2,7 @@
 type SettingsCallbacks = {
   quality(value: string): void;
   theme(value: string): void; accent(value: string): void;
-  slider(kind: "blur" | "alpha" | "dim", value: string): void;
+  slider(kind: "blur" | "dim", value: string): void;
   chooseBackground(): void; resetBackground(): void; saveAi(): void; testAi(): void; aiFormat(): void;
   source(value: string): void; cache(): void; collection(kind: "order" | "limit", value: string): void;
   clearCache(): void; clearHistory(): void; exportData(): void; importData(): void; purge(): void;

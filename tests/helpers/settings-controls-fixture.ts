@@ -24,7 +24,7 @@ function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
     if (next.aiFormat) bind("aiFormat", node("aiApiFormatSelect"), "change");
     if (next.source) bind("source", node("streamSourceSelect"), "change", () => [node("streamSourceSelect").value]);
     if (next.normalization) bind("normalization", node("loudnessNormalizationToggle"), "change", () => [node("loudnessNormalizationToggle").checked]);
-    if (next.slider) for (const [kind, name] of [["blur", "glassBlurSlider"], ["alpha", "panelAlphaSlider"], ["dim", "backgroundDimSlider"]]) bind("slider", node(name), "input", () => [kind, node(name).value], name);
+    if (next.slider) for (const [kind, name] of [["blur", "glassBlurSlider"], ["dim", "backgroundDimSlider"]]) bind("slider", node(name), "input", () => [kind, node(name).value], name);
     if (next.cache) for (const name of ["audioCacheEnabled", "audioCacheCapacity"]) bind("cache", node(name), "change", () => [], name);
     if (next.collection) for (const [kind, name] of [["order", "shuffleCollectionOrder"], ["limit", "shuffleCollectionLimit"]]) bind("collection", node(name), "change", () => [kind, node(name).value], name);
     for (const button of context.themeOptions ?? []) if (next.theme) bind("theme", button, "click", () => [button.dataset.themeOption], button.dataset.themeOption);
@@ -57,7 +57,6 @@ function attachSettingsControlPorts(context: vm.Context, clearKey = false) {
       navigationVersion=state.session.navigationVersion;const current=state.session.currentView;
       for(const item of context.navItems??[])item.classList.toggle("active",item.dataset.view === current);
       for(const name of ["home","search","favorites","playlists"]) {const view=node(name+"View");if(view){view.hidden=name !== current;view.classList.toggle("is-active",name === current);}}
-      const placeholder=node("placeholderView"),title=node("placeholderTitle");if(placeholder)placeholder.hidden=["home","search","favorites","playlists"].includes(current??"");if(title && !placeholder?.hidden)title.textContent=state.session.placeholderTitle;
     }
     previous = model;
   };

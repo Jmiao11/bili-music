@@ -57,7 +57,7 @@ async function fixture(saved: [string, string][] = []) {
   const node = (selector: string) => { if (!nodes.has(selector)) nodes.set(selector, new LibraryNode(selector === "#audio" ? "audio" : "div")); return nodes.get(selector)!; };
   const themes = ["dark", "light", "image", "dynamic"].map(theme => Object.assign(new LibraryNode("button"), { dataset: { themeOption: theme } }));
   const accents = ["pink", "blue", "purple", "green", "orange", "cyan"].map(value => Object.assign(new LibraryNode("input"), { value, nextElementSibling: { style: {} } }));
-  const nav = ["home", "search", "favorites", "playlists", "local"].map(view => Object.assign(new LibraryNode("button"), { dataset: { view } }));
+  const nav = ["home", "search", "favorites", "playlists"].map(view => Object.assign(new LibraryNode("button"), { dataset: { view } }));
   const records = actions.map(shortcutAction => Object.assign(new LibraryNode("button"), { dataset: { shortcutAction } }));
   const clears = actions.map(shortcutClear => Object.assign(new LibraryNode("button"), { dataset: { shortcutClear } }));
   const groups: Record<string, LibraryNode[]> = { ".nav-item[data-view]": nav, "[data-theme-option]": themes, "[data-accent-color]": accents, "[data-shortcut-action]": records, "[data-shortcut-clear]": clears, ".image-only": [new LibraryNode()] };
@@ -79,7 +79,7 @@ async function fixture(saved: [string, string][] = []) {
   try {
     for (const name of collectModuleGraph(source, ["features/settings/appearance.ts"])) { fs.mkdirSync(path.dirname(path.join(rootPath, name)), {recursive:true}); fs.copyFileSync(path.join(source, name), path.join(rootPath, name)); } fs.writeFileSync(path.join(rootPath, "package.json"), '{"type":"module"}');
     for (const name of ["features/playback/playback-core.ts", "features/library/library-ui.ts"]) { const exports = /export\s*\{([^}]+)\};/.exec(fs.readFileSync(path.join(source, name), "utf8"))![1].split(",").map(x => x.trim()).filter(Boolean); fs.writeFileSync(path.join(rootPath, name), exports.map(x => 'function '+x+'() {}').join("\n")+'\nexport { '+exports.join(", ")+' };'); }
-    const portContext = {navItems:nav,homeView:node("#view-home"),searchView:node("#view-search"),favoritesView:node("#view-favorites"),playlistsView:node("#view-playlists"),placeholderView:node("#view-placeholder"),placeholderTitle:node("#placeholder-title"),document:doc,root:doc.documentElement,themeOptions:themes,accentColorOptions:accents,shortcutRecordButtons:records,shortcutClearButtons:clears,imageOnlyGroups:groups[".image-only"],autoSource:auto};
+    const portContext = {navItems:nav,homeView:node("#view-home"),searchView:node("#view-search"),favoritesView:node("#view-favorites"),playlistsView:node("#view-playlists"),document:doc,root:doc.documentElement,themeOptions:themes,accentColorOptions:accents,shortcutRecordButtons:records,shortcutClearButtons:clears,imageOnlyGroups:groups[".image-only"],autoSource:auto};
     const renderControls = attachSettingsControlPorts(portContext);
     install("__settingsFixtureRegister", Reflect.get(portContext,"installSettingsCallbacks"));
     fs.appendFileSync(path.join(rootPath,"features/settings/root-settings.ts"), '\nconst registerSettingsForFixture=installSettingsCallbacks; installSettingsCallbacks=function(next){registerSettingsForFixture(next);globalThis.__settingsFixtureRegister(next);};\n');
@@ -101,14 +101,15 @@ async function open(h: Awaited<ReturnType<typeof fixture>>) { await h.node("#ope
 
 test("settings themes restore defaults and switch all four themes with exact storage reads and writes", async () => {
   for (const saved of [[], [[k("theme"), "invalid"]]] as [string, string][][]) { const h = await fixture(saved); try { assert.equal(h.doc.documentElement.dataset.theme, "dark"); assert.deepEqual(h.writes, []); } finally { h.dispose(); } }
-  const h = await fixture(); try {
+  const h = await fixture([[k("panel-alpha"), "50"]]); try {
     for (const theme of h.themes) { h.reads.length = 0; h.writes.length = 0; await theme.fire("click"); await h.flush(); assert.equal(h.doc.documentElement.dataset.theme, theme.dataset.themeOption); assert.deepEqual(h.writes, [[k("theme"), theme.dataset.themeOption]]); assert.deepEqual(h.reads, theme.dataset.themeOption === "dynamic" ? [] : [k("glass-blur"), k("background-dim")]); assert.equal(h.css.has("--glass-blur"), theme.dataset.themeOption !== "dynamic"); }
+    assert.equal(h.storage.get(k("panel-alpha")), "50");
   } finally { h.dispose(); }
 });
 test("settings accents sliders persist exact keys values order and theme channel variants", async () => {
   const h = await fixture(); try {
     await h.accents[1].fire("change"); await h.flush(); assert.equal(h.css.get("--accent-r"), "122"); await h.themes[1].fire("click"); await h.flush(); assert.equal(h.css.get("--accent-r"), "40");
-    h.writes.length = 0; for (const [id, value] of [["glass-blur", "100"], ["panel-alpha", "5"], ["background-dim", "0"]]) { h.node("#"+id+"-slider").value = value; await h.node("#"+id+"-slider").fire("input"); }
+    h.writes.length = 0; for (const [id, value] of [["glass-blur", "100"], ["background-dim", "0"]]) { h.node("#"+id+"-slider").value = value; await h.node("#"+id+"-slider").fire("input"); }
     assert.deepEqual(h.writes, [[k("glass-blur"), "80"], [k("background-dim"), "0"]]); assert.equal(h.css.get("--panel-alpha"), undefined); assert.equal(h.css.get("--background-dim"), "0");
   } finally { h.dispose(); }
 });
@@ -168,7 +169,6 @@ test("settings AI restore save test success failure keep key input lifecycle and
 test("settings navigation dispatches exact viewchange and panel keeps transition and focus behavior", async () => {
   const h = await fixture(); try {
     for (const button of h.nav) { await button.fire("click"); assert.equal(h.node("#view-"+button.dataset.view).hidden, false); assert.deepEqual(h.events.at(-1)?.detail, { view: button.dataset.view }); }
-    assert.equal(h.node("#view-placeholder").hidden, false); assert.equal(h.node("#placeholder-title").textContent, "本地音乐开发中");
     await open(h); assert.equal(h.node("#settings-modal").classList.contains("is-open"), true); h.node("#settings-modal").append(h.node("#close-settings-button")); h.node("#close-settings-button").focus(); await h.node("#close-settings-button").fire("click"); assert.equal(h.doc.activeElement, h.node("#open-settings-button")); assert.equal(h.node("#settings-modal").classList.contains("is-open"), false); await h.node("#settings-modal").fire("transitionend"); assert.equal(h.node("#settings-modal").hidden, true);
   } finally { h.dispose(); }
 });

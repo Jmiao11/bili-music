@@ -52,7 +52,7 @@ test("settings input and repeated slider commits skip every list and playback co
   for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel","TrackList","TrackRow"]) assert.ok(h.renderCounts[name]>0,name);
   for(const name of Object.keys(h.renderCounts)) h.renderCounts[name]=0;
   await h.input("search-keyword","中文草稿"); await h.input("home-hint-input","提示草稿"); await h.input("ai-api-key-input","temporary-draft");
-  for(let index=0;index<20;index++) for(const [id,value] of [["glass-blur-slider",String(index)],["panel-alpha-slider",String(40+index)],["background-dim-slider",String(50+index)]]) await h.input(id,value);
+  for(let index=0;index<20;index++) for(const [id,value] of [["glass-blur-slider",String(index)],["background-dim-slider",String(50+index)]]) await h.input(id,value);
   for(const name of ["TrackList","TrackRow","PlaylistList","PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay"]) assert.equal(h.renderCounts[name],0,name);
   assert.ok(h.renderCounts.SettingsPanel>0);
   assert.equal(h.node<HTMLInputElement>("search-keyword").value,"中文草稿"); assert.equal(h.node<HTMLInputElement>("ai-api-key-input").value,"temporary-draft");

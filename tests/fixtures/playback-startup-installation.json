@@ -1,5 +1,5 @@
 {
-  "firstTrackchange": 156,
+  "firstTrackchange": 155,
   "sequence": [
     {
       "action": "window-set",
@@ -389,12 +389,6 @@
     {
       "action": "listen",
       "target": "#glass-blur-slider",
-      "type": "input",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#panel-alpha-slider",
       "type": "input",
       "options": null
     },
@@ -947,12 +941,6 @@
       "action": "dispatch",
       "target": "window",
       "type": "bilibili-music-trackchange"
-    },
-    {
-      "action": "listen",
-      "target": "button",
-      "type": "click",
-      "options": null
     },
     {
       "action": "listen",

@@ -40,7 +40,7 @@ function setup(color = "pink", failWrites = false) {
   }));
   const app = vm.createContext({
     root, accentColorOptions: options, themeOptions: [], imageOnlyGroups: [],
-    glassBlurSlider: {}, glassBlurValue: {}, panelAlphaSlider: {}, panelAlphaValue: {},
+    glassBlurSlider: {}, glassBlurValue: {},
     backgroundDimSlider: {}, backgroundDimValue: {},
     MutationObserver: class {
       constructor(callback: () => void) { notify = callback; }

@@ -40,7 +40,7 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 ### 原生端口与精确例外
 
-原44项静态查询中，24项静态查询退出（homeModeTabs只保留零项常量接口），19项改为组件ref回传，audio保留。main-window-dom.ts已删除。main-window-refs.ts中的19项均只读/事件用途，没有显示写入；生产homeModeTabs保持空集合，不新增按钮。
+原44项静态查询中，24项静态查询退出（homeModeTabs只保留零项常量接口），19项改为组件ref回传，audio保留。main-window-dom.ts已删除。main-window-refs.ts中的19项均只读/事件用途，没有显示写入；C-1 移除空 homeModeTabs 接口及其零次监听循环。
 
 | ref端口 | 保留理由 |
 |---|---|
@@ -100,7 +100,7 @@ C1 的 `library-entry.ts` 登记为无 DOM 的纯资料库转换模块。`collec
 | G0、HTML精确比较、平台产物一致、开发入口 | verify:dist及其内置错误脚本/标签反例，real-module-startup来源与覆盖探针 |
 | 安全隐私与固化边界 | settings-privacy、备份/Rust日志隐私、media-volume-ownership、播放控制/请求/会话/mini宿主守卫 |
 
-G0 当前201条、首个trackchange索引156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同，完整 IPC/跨窗同步也已逐条核对。本轮进度条修复经用户批准，仅为两个滑条各新增 pointerup / pointercancel / lostpointercapture，共6条监听；剔除这6条后与此前194/149序列完全一致。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
+G0 当前199条、首个trackchange索引155，Git/LF SHA256 `d73c88d40e8f9f1d0b49f002ae3eec2926024f17abe354f7f8dd6ece215d4c4b`。C-1 从201/156仅删除隐藏面板不透明度滑块的1条 input 和本地音乐导航项的1条 click，完整 IPC 与跨窗同步逐条相同。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同，完整 IPC/跨窗同步也已逐条核对。本轮进度条修复经用户批准，仅为两个滑条各新增 pointerup / pointercancel / lostpointercapture，共6条监听；剔除这6条后与此前194/149序列完全一致。每批verify，重建审批保留；播放/请求/trackchange/媒体监听/四项IPC listen/跨窗同步投影必须相同。UI-0 获批仅删除原独立角色控制器的9条监听，其余事件序列与完整启动 IPC/跨窗同步逐条相同；旧 fixture 已仓库外归档。
 
 旧 G0 fixture 以 Git 历史为准，不另行存档。G0 变更的报告写明新旧条数、首个 trackchange 索引与 SHA256。
 

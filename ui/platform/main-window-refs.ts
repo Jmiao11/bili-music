@@ -19,7 +19,6 @@ let pagesModal: HTMLDivElement;
 let pagesModalRestoreAll: HTMLButtonElement;
 let pagesModalList: HTMLUListElement;
 let pagesModalClose: HTMLButtonElement;
-const homeModeTabs: (HTMLElement & {dataset:DOMStringMap & {homeMode:string}})[]=[];
 const queueDrawerRefs = { button: null as HTMLButtonElement | null, drawer: null as HTMLElement | null, list: null as HTMLUListElement | null, close: null as HTMLButtonElement | null };
 const mainWindowRefs={
  queueButton:(node:HTMLButtonElement|null):void=>{queueDrawerRefs.button=node;},
@@ -48,7 +47,7 @@ const mainWindowRefs={
  pagesModalList:(node:HTMLUListElement|null):void=>{if(node)pagesModalList=node;},
  pagesModalClose:(node:HTMLButtonElement|null):void=>{if(node)pagesModalClose=node;},
 };
-export { audio, searchResults, homeRankingError, homeRankingList, refreshRankingButton, homeHintInput, homeHintApply, playbackBarNode, playerPagesButton, resumePlayPauseButton, favoritesList, playlistsList, playlistTracks, libraryModal, closeLibraryModalButton, libraryModalBody, pagesModal, pagesModalRestoreAll, pagesModalList, pagesModalClose, homeModeTabs };
+export { audio, searchResults, homeRankingError, homeRankingList, refreshRankingButton, homeHintInput, homeHintApply, playbackBarNode, playerPagesButton, resumePlayPauseButton, favoritesList, playlistsList, playlistTracks, libraryModal, closeLibraryModalButton, libraryModalBody, pagesModal, pagesModalRestoreAll, pagesModalList, pagesModalClose };
 export {mainWindowRefs};
 export {playerQualityRefs};
 

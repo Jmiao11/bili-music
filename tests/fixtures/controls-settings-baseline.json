@@ -568,46 +568,6 @@
                   {
                     "tag": "label",
                     "attributes": {
-                      "aria-hidden": "true",
-                      "class": "slider-row panel-alpha-compat",
-                      "style": "display: none;"
-                    },
-                    "children": [
-                      {
-                        "tag": "span",
-                        "attributes": {},
-                        "children": [
-                          "面板不透明度",
-                          {
-                            "tag": "output",
-                            "attributes": {
-                              "id": "panel-alpha-value"
-                            },
-                            "children": [
-                              "72%"
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "tag": "input",
-                        "attributes": {
-                          "aria-hidden": "true",
-                          "id": "panel-alpha-slider",
-                          "max": "100",
-                          "min": "20",
-                          "tabindex": "-1",
-                          "type": "range"
-                        },
-                        "value": "72",
-                        "checked": false,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "tag": "label",
-                    "attributes": {
                       "class": "slider-row",
                       "style": "--settings-fill: 94.73684210526316%;"
                     },

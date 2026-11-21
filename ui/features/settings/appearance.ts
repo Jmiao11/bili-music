@@ -57,8 +57,6 @@ const homeView = document.querySelector<HTMLElement>("#view-home")!;
 const searchView = document.querySelector<HTMLElement>("#view-search")!;
 const favoritesView = document.querySelector<HTMLElement>("#view-favorites")!;
 const playlistsView = document.querySelector<HTMLElement>("#view-playlists")!;
-const placeholderView = document.querySelector<HTMLElement>("#view-placeholder")!;
-const placeholderTitle = document.querySelector<HTMLHeadingElement>("#placeholder-title")!;
 const settingsModal = document.querySelector<HTMLDivElement>("#settings-modal")!;
 const openSettingsButton = document.querySelector<HTMLButtonElement>("#open-settings-button")!;
 const closeSettingsButton = document.querySelector<HTMLButtonElement>("#close-settings-button")!;
@@ -83,7 +81,7 @@ let playbackDisplayMounted = false;
 
 
 
-function settingsDom() { return {root,navItems,homeView,searchView,favoritesView,playlistsView,placeholderView,placeholderTitle,settingsModal,openSettingsButton}; }
+function settingsDom() { return {root,navItems,homeView,searchView,favoritesView,playlistsView,settingsModal,openSettingsButton}; }
 type SettingsDom = ReturnType<typeof settingsDom>;
 
 let settingsMounted = false;
@@ -497,7 +495,6 @@ function applyTheme(theme: string | null, persist = true) { getSettingsActions()
 
 function setGlassBlur(value: unknown, persist = true) { getSettingsActions().setSlider("blur", value, persist); }
 
-function setPanelAlpha(value: unknown, persist = true) { getSettingsActions().setSlider("alpha", value, persist); }
 
 function setBackgroundDim(value: unknown, persist = true) { getSettingsActions().setSlider("dim", value, persist); }
 
@@ -667,7 +664,7 @@ settingsModal.addEventListener("click", (event) => {
 });
 
 installSettingsCallbacks({
-  theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else if(kind === "alpha") setPanelAlpha(value); else setBackgroundDim(value); },
+  theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else setBackgroundDim(value); },
   chooseBackground: async () => { await getSettingsActions().chooseBackground(); }, resetBackground: () => resetBackground(),
   saveAi: saveAiConfig, testAi: testAiConnection, aiFormat: updateAiBaseUrlPlaceholder,
   source: async value => { await getSettingsActions().changeSource(value); }, quality: value => getSettingsActions().setAudioQuality(value), cache: saveAudioCacheSettings,

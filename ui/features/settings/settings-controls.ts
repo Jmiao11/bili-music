@@ -22,7 +22,7 @@ function createSettingsControlsProjection() {
     const before = previous?.view, view = state.view;
     if (view.themeVersion && view.themeVersion !== before?.themeVersion) for (const theme of ["dark", "light", "image", "dynamic"]) write("theme:" + theme, { selected: state.theme === theme });
     if (view.sliders && view.sliders !== before?.sliders) {
-      for (const [kind, name, value, suffix] of [["blur", "glassBlur", state.glassBlur, "px"], ["alpha", "panelAlpha", state.panelAlpha, "%"], ["dim", "backgroundDim", state.backgroundDim, "%"]] as const) if (view.sliders.kind === "all" || view.sliders.kind === kind) {
+      for (const [kind, name, value, suffix] of [["blur", "glassBlur", state.glassBlur, "px"], ["dim", "backgroundDim", state.backgroundDim, "%"]] as const) if (view.sliders.kind === "all" || view.sliders.kind === kind) {
         write(name + "Slider", { value: String(value) }); write(name + "Value", { text: value + suffix });
       }
     }

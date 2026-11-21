@@ -195,14 +195,6 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
               <ListHost id="collection-results" class="tracklist library-list" aria-label="合集视频列表" :model="lists.collection" @scroll="collectionCallbacks.scroll" />
           </div>
         </section>
-
-        <section id="view-placeholder" class="view placeholder-view" :hidden="['home','search','favorites','recent','playlists','collection'].includes(shell.currentView)">
-          <div class="empty-state">
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 5h8v2H8Zm0 4h5v2H8Z" /></svg>
-            <h2 id="placeholder-title">{{ shell.placeholderTitle }}</h2>
-            <p>这一入口先占位，不接真实数据。</p>
-          </div>
-        </section>
       </main>
     </div>
 

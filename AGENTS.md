@@ -62,7 +62,7 @@
 - 开发过程中的日常检查仅运行受影响测试、typecheck 与必要构建，不要求单独报告。交付按「CI 分档」执行。未改冻结文件以 git diff 证明，仅修改/新建的冻结文件报告 SHA。
 - 业务断言原文、含义或预期值改变须申请；任何保留断言次数变0立即停止。真实 App 挂载、SFC 扫描、冻结 helper 的纯环境接线预先授权，原断言/预期/执行次数保持，以短表登记；不做常规全量断言次数统计。不能用接线掩盖行为变化。
 - 第二、三档均运行 verify:dist；G0 改动先申请，批准前不改 fixture。申请只列受保护投影是否完全相同、其他变化简述、新条数/首个 trackchange 索引/SHA。播放、请求、trackchange、媒体监听、四项 IPC listen（taskbar-media-control/global-shortcut/mini-player-ready/mini-player-command）、跨窗同步逐条保持；不一致先查原因，不申请掩盖差异。
-- 当前 G0 为201/156，Git/LF SHA256 `2e998e7063032bddf8fcc4e515889fb1c84b166a918684228c9e8deed46720ab`。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同。旧 fixture 以 Git 历史为准，不另行存档。G0 变更的报告写明新旧条数、首个 trackchange 索引与 SHA256。
+- 当前 G0 为199/155，Git/LF SHA256 `d73c88d40e8f9f1d0b49f002ae3eec2926024f17abe354f7f8dd6ece215d4c4b`。C-1 从201/156仅删除隐藏面板不透明度滑块的1条 input 和本地音乐导航项的1条 click。Q-3b 仅新增 #queue-position 的1条授权 click，剔除后与200/155旧序列逐条相同。旧 fixture 以 Git 历史为准，不另行存档。G0 变更的报告写明新旧条数、首个 trackchange 索引与 SHA256。
 - 变异只针对新写竞态、启动可靠性、安全边界，每处1～2个，在合规仓库外副本执行、恢复。日常 canary 只跑改动守卫/脚本/分组算法对应项；不要扩成每批全量 canary。
 - 专项严格验证只针对启动可靠性、Rust、取流/播放状态机、持久化、安全隐私的风险点；普通组件调整/fixture 登记不触发全套。
 - 跨平台完整回归只在发布前执行：Node22.18.0/22.23.3 两组测试、CRLF、全部保留守卫 canary、Windows/Mac 全应用手测、分支双平台 CI。CI 代替用户在 Mac 手动运行完整命令；其他批次 Mac 界面手测只在改变平台界面行为时要求。

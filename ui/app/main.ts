@@ -9,12 +9,12 @@ import { openAiSettingsDetails, readHomeHintDraft, readSearchDraft, writeSearchD
 import { installPlaybackCallbacks } from "../features/playback/root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "../features/search/search-state.ts";
 import { invoke } from "../platform/runtime-api.ts";
-import { audio, closeLibraryModalButton, homeHintApply, homeModeTabs, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
+import { audio, closeLibraryModalButton, homeHintApply, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
 import { initializeRootLists } from "../features/tracks/track-list-ui.ts";
-import { checkForUpdate, openUpdateDownload, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, setHomeMode, updateHomeModeUi } from "../features/home/home.ts";
+import { checkForUpdate, openUpdateDownload, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, updateHomeModeUi } from "../features/home/home.ts";
 import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
@@ -131,9 +131,6 @@ installPageCallbacks({
   }
   },
 });
-for (const tab of homeModeTabs) {
-  tab.addEventListener("click", () => setHomeMode(tab.dataset.homeMode));
-}
 installPageCallbacks({
   division: value => {
     const tids = Number(value) || DEFAULT_MUSIC_TIDS;
