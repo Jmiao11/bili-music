@@ -11,10 +11,14 @@ for (const entry of baseline.matrix) test(`Vue track HTML matches old ${entry.so
   if (entry.state === "unavailable") h.store.actions.library.markUnavailable(track(1).bvid, "该视频已被删除或设为私密");
   if (entry.state === "badge") h.store.actions.pages.remember(track(1).bvid, videoMeta);
   let list: HTMLElement;
-  if (entry.state === "skeleton") { h.reply(() => new Promise(() => {})); h.home.setHomeMode("ranking"); list = h.nodes.homeRankingList!; }
+  if (entry.state === "skeleton") {
+    h.reply(async command => command === "get_ai_config" ? { hasKey: false } : new Promise(() => {}));
+    void h.home.refreshAiKeyState(); await h.microtasks();
+    list = h.nodes.homeRankingList!;
+  }
   else list = await seed(h, entry.source, items);
   if (entry.state === "favorite") { h.reply(responses(items)); await h.store.actions.library.toggleFavorite(items[0]); h.core.updateQueueUi(); }
-  if (entry.state === "playing") { h.store.actions.playbackQueue.replaceQueue(items, entry.source, entry.source === "search" ? h.search.getSearchSnapshot().requestVersion : null); h.store.actions.playbackQueue.selectIndex(0, false, null); h.core.updateQueueUi(); }
+  if (entry.state === "playing") { h.store.actions.playbackQueue.replaceQueue(items, entry.source === "ranking" ? "recommendation" : entry.source, entry.source === "search" ? h.search.getSearchSnapshot().requestVersion : null); h.store.actions.playbackQueue.selectIndex(0, false, null); h.core.updateQueueUi(); }
   assert.equal(list.innerHTML, entry.html);
   const anchors = [...list.childNodes].filter(node => node.nodeType === 3);
   assert.equal(anchors.length, entry.state === "empty" ? 0 : 2);

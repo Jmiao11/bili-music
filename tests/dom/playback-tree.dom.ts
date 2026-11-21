@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { playbackFixture, track } from "./playback-ui-fixture.ts";
-import { responses, deferred } from "./tracks-fixture.ts";
+import { responses, deferred, seed } from "./tracks-fixture.ts";
 import { nextDomEventTurn } from "./event-turn.ts";
 
 test("list commits repaint only affected highlights favorites and page metadata", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
   const items = Array.from({ length: 20 }, (_, index) => track(index + 1));
   const onePage = { videos: 1, pages: [{ cid: 11, page: 1, part: "一", duration: 60 }] };
-  h.reply(async command => command === "get_video_meta" ? onePage : command === "get_video_pages" ? onePage.pages.map(page => ({ ...page, durationSeconds: page.duration })) : responses(items)(command));
-  h.home.setHomeMode("ranking"); await h.microtasks();
+  h.reply(async command => command === "get_ai_config" ? { hasKey: true } : command === "get_video_meta" ? onePage : command === "get_video_pages" ? onePage.pages.map(page => ({ ...page, durationSeconds: page.duration })) : responses(items)(command));
+  await h.home.refreshAiKeyState();
   for (const video of items) h.store.actions.pages.remember(video.bvid, onePage);
-  h.core.playListItem("ranking", items, 0); await h.microtasks();
+  h.core.playListItem("recommendation", items, 0); await h.microtasks();
   let previous = h.store.getState(), rows = h.rowRenders.length;
   const commits: { scenario: string; slices: string[]; rows: typeof h.rowRenders }[] = [];
   let scenario = "progress";
@@ -28,7 +28,7 @@ test("list commits repaint only affected highlights favorites and page metadata"
     assert.equal(affected.length, 2, JSON.stringify(commits.slice(start)));
     for (const commit of commits.slice(start)) assert.ok(commit.rows.length <= 2, JSON.stringify(commit));
   };
-  await highlight("same-list", () => h.core.playListItem("ranking", items, 1));
+  await highlight("same-list", () => h.core.playListItem("recommendation", items, 1));
   await highlight("next", () => h.dispatch(h.node("next-button"), "click"));
   await highlight("previous", () => h.dispatch(h.node("previous-button"), "click"));
   scenario = "favorite"; const favoriteStart = commits.length;
@@ -56,11 +56,11 @@ test("list commits repaint only affected highlights favorites and page metadata"
 test("all list sources retain row props for highlights and favorite refreshes", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
   const items = Array.from({ length: 20 }, (_, index) => track(index + 1));
-  h.reply(async command => command === "list_favorites" ? items.slice(0, -1) : command === "list_playlists" ? [{ id: "test", name: "歌单", items }] : command === "list_unavailable_tracks" ? [] : responses(items)(command));
-  h.home.setHomeMode("ranking"); await h.microtasks();
+  h.reply(async command => command === "get_ai_config" ? { hasKey: true } : command === "list_favorites" ? items.slice(0, -1) : command === "list_playlists" ? [{ id: "test", name: "歌单", items }] : command === "list_unavailable_tracks" ? [] : responses(items)(command));
+  await h.home.refreshAiKeyState();
   h.nodes.searchKeyword.value = "共享列表"; await h.search.runSearch();
   await h.store.actions.library.loadLibrary();
-  for (const [source, list] of [["ranking", "home-ranking-list"], ["search", "search-results"], ["favorites", "favorites-list"], ["playlist", "playlist-tracks"]]) {
+  for (const [source, list] of [["recommendation", "home-ranking-list"], ["search", "search-results"], ["favorites", "favorites-list"], ["playlist", "playlist-tracks"]]) {
     h.store.actions.playbackQueue.replaceQueue(items, source, h.store.getState().search.requestVersion, source === "playlist" ? "test" : null);
     h.store.actions.playbackQueue.selectIndex(0, false, null);
     const start = h.rowRenders.length;
@@ -77,8 +77,7 @@ test("all list sources retain row props for highlights and favorite refreshes", 
 
 test("playback tree commits synchronously while all unrelated lists skip 100 progress updates", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
-  h.reply(responses(Array.from({ length: 1000 }, (_, index) => track(index + 1))));
-  h.home.setHomeMode("ranking"); await h.microtasks();
+  await seed(h, "ranking", Array.from({ length: 1000 }, (_, index) => track(index + 1)));
   assert.equal(h.nodes.homeRankingList!.children.length, 1000);
   const audio = h.audio, controls = h.node("progress-slider"), listenerCount = h.listeners.filter(entry => entry.target === audio).length;
   Object.assign(h.renderCounts, { TrackList: 0, TrackRow: 0, PlaylistList: 0 });
@@ -106,6 +105,21 @@ test("lyrics tree keeps offset limits candidate binding and manual input ownersh
   const draft = h.node<HTMLInputElement>("lyrics-manual-input"); draft.value = "输入法草稿";
   h.store.actions.lyricsDisplay.setIdle(true); h.store.actions.playbackMessages.setStatus("同步消息");
   assert.equal(draft.value, "输入法草稿"); assert.equal(h.doc.getElementById("lyrics-manual-input"), draft);
+});
+
+test("stopping the current song invalidates its pending lyrics result", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const incoming = deferred();
+  h.reply(async command => command === "resolve_lyrics" ? incoming.promise : null);
+  const change = (bvid: string, cid: number) => {
+    h.window.dispatchEvent(new h.window.CustomEvent("bili-track-changed", { detail: { bvid, cid } }));
+  };
+  change(track(1).bvid, 11); await h.microtasks();
+  assert.ok(h.calls.some(call => call.command === "resolve_lyrics"));
+  change("", 0); await h.microtasks();
+  incoming.resolve({ status: "candidates", candidates: [{ song_id: "obsolete", name: "上一首歌词", singer: "作者", duration: 60 }], lyrics: null });
+  await h.microtasks();
+  assert.equal(h.doc.querySelector(".lyrics-candidate"), null);
 });
 
 test("both playback surfaces invoke favorite and playlist callbacks exactly once", async t => {
@@ -165,7 +179,7 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
   const h = await fixture({ playback: true, rootRenderProbe: probe });
   let saved = "", stop = () => {};
   try {
-    h.reply(responses([track(1), track(2)])); h.home.setHomeMode("ranking"); await h.microtasks();
+    await seed(h, "ranking", [track(1), track(2)]);
     const header = h.doc.getElementById("home-ranking-list-columns")!;
     const handle = (column: string) => header.querySelector<HTMLElement>(`[data-track-column="${column}"]`)!;
     assert.deepEqual(h.listeners.filter(l => l.target === header).map(l => l.type), ["pointerdown", "keydown"]);
@@ -256,7 +270,7 @@ test("cover color crossfades and presentation refreshes never redraw track rows"
     Object.defineProperty(h.doc,"hidden",{value:false,configurable:true});
     let pixel = [220,30,80,255];
     Object.defineProperty(Object.getPrototypeOf(h.doc.createElement("canvas")),"getContext",{value:()=>({drawImage(){},getImageData(){return {data:new Uint8ClampedArray(pixel)};}}),configurable:true});
-    h.reply(responses([track(1),track(2)]));h.home.setHomeMode("ranking");await h.microtasks();
+    await seed(h, "ranking", [track(1), track(2)]);
     h.store.actions.settings.setTheme("dynamic",false);await h.microtasks();
     h.rowRenders.length=0;h.regions.length=0;
     for(const [index,color] of [[0,[220,30,80,255]],[1,[25,160,210,255]]] as const){
@@ -482,6 +496,8 @@ test("a quality change waits for a drag and applies the last seek and pause duri
   assert.equal(h.audio.src, newUrl);
   assert.equal(h.media.currentTime, 0);
   assert.equal(slider.value, "24");
+  const saved = h.calls.filter(call => call.command === "save_playback_state").at(-1)?.args.state as CommandContract.PlaybackState;
+  assert.equal(saved.positionSeconds, 24);
   assert.equal(h.node("play-pause-button").getAttribute("aria-label"), "暂停");
 
   await h.fire(h.node("play-pause-button"), "click");

@@ -10,7 +10,7 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 `index.html` 中的 audio 在 `#app` 外。`app.ts` 第一个静态导入是 `app/root-mount.ts`：启动适配先应用平台与侧栏宽度，组合模块创建唯一 store、立即安装根订阅、读取快照，用公开 `render(h(App, props), host)` 完成首屏；之后其他控制器才求值；原 main-window-dom.ts 已删除，读取/事件节点由组件类型化ref回传到 platform/main-window-refs.ts。业务订阅不能抢在根订阅之前，尤其不能在嵌套提交后让外层旧快照成为最后一帧。
 
-每次提交都同步走根投影，组件收到完整只读快照中的切片、稳定显示模型与稳定转交回调。业务回调在原控制器阶段安装，提前存在的组件事件不会提前开展业务。首页 getter 的首次订阅与首投影时机保持。主路径无 nextTick/watch/RAF 合批；RAF 只用于原有动画、焦点阶段、主题同步及音量过渡等平台行为。
+每次提交都同步走根投影，组件收到完整只读快照中的切片、稳定显示模型与稳定转交回调。业务回调在原控制器阶段安装，提前存在的组件事件不会提前开展业务。主入口直接调用首页的 `getApplicationStore()`，保持首次订阅与首投影时机。首页根据 Key 状态投影推荐或热门榜兜底。主路径无 nextTick/watch/RAF 合批；RAF 只用于原有动画、焦点阶段、主题同步及音量过渡等平台行为。
 
 根渲染按引用缓存列表、播放控件、页面/设置及浮层模型。TrackRow 复用行模型和回调；纯进度不触及列表/行，高亮只改旧、新行，收藏只改对应行。数据/来源替换允许全量更新。root-shell、application-store 与真实 DOM 测试保护同步性、最先订阅、节点身份和未绑定草稿。
 
@@ -47,7 +47,8 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 | `queueButton` | 队列入口 ref，仅关闭后 focus；click 由 PlaybackBar 的 Vue handler 安装 |
 | `queueDrawer` | 常驻壳 ref，仅 transitionend 目标核验；关闭阶段由 Vue 投影 |
 | `queueDrawerList` | 列表容器 ref，只查询 aria-current 子节点并由控制器 scrollIntoView 居中 |
-| `queueDrawerClose` | 关闭按钮 ref，仅打开后 focus |
+| `queueDrawerClose` | 关闭按钮 ref，打开抽屉或清空后 focus |
+| `queueDrawerClear`、`queueDrawerConfirm` | 清空入口及确认浮层 ref，仅用于焦点返回和确认内键盘焦点约束 |
 | `searchResults` | 分页滚动几何与原生scroll监听 |
 | `homeRankingError` | 重试事件接线 |
 | `homeRankingList` | 列表存在性、observer和行会话目标 |

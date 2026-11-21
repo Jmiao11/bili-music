@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { getEventListeners } from "node:events";
 import { test } from "node:test";
 import vm from "node:vm";
 import { createApplicationStore } from "../ui/store/app-state.ts";
@@ -104,7 +105,8 @@ function qualityFixture({ audioId = 30280 as number | null, fallback = false } =
   const calls: { args: Record<string, unknown>; resolve(value: unknown): void; reject(error: unknown): void }[] = [];
   const notices: string[] = [], loads: string[] = [], gains: (number | null)[] = [];
   const search = { playbackBusy: false };
-  let plays = 0;
+  const timers = new Map<number, { callback: () => void; delay: number }>();
+  let plays = 0, timerId = 0;
   const audio = Object.assign(new EventTarget(), {
     src: oldUrl, currentTime: 19, duration: 100, paused: true, ended: false, readyState: 1,
     error: null as { code: number } | null,
@@ -125,7 +127,11 @@ function qualityFixture({ audioId = 30280 as number | null, fallback = false } =
     playRecordedForCurrentTrack: true, cacheRequestedForCurrentTrack: true, loudnessAnalyzedForCurrentTrack: true,
     currentVideoPage: () => ({ cid: 42, page: 2, part: "P2", durationSeconds: 100 }),
     currentAudioCacheCid: () => 42, getSearchSnapshot: () => search,
-    window: { recordPlaybackDiag() {} }, performance: { now: () => 0 },
+    window: {
+      recordPlaybackDiag() {},
+      setTimeout(callback: () => void, delay: number) { timers.set(++timerId, { callback, delay }); return timerId; },
+      clearTimeout(id: number) { timers.delete(id); },
+    }, performance: { now: () => 0 },
     refreshTrackLoudness: () => gains.push(context.getApplicationStore().getState().playbackDisplay.audioQuality.audioId),
     showPlaybackNotice: (message: string) => notices.push(message),
     shouldRecoverAudio,
@@ -145,7 +151,14 @@ function qualityFixture({ audioId = 30280 as number | null, fallback = false } =
     store.actions.settings.setAudioQuality(quality);
     return context.switchCurrentAudioQuality(quality);
   };
-  return { calls, notices, loads, audio, gainIds: gains, search, store, flush, metadata, error, choose, playCount: () => plays };
+  const expire = () => {
+    const timer = [...timers.values()][0];
+    assert.equal(timer?.delay, 10_000);
+    timer.callback();
+  };
+  const intent = () => context.getQualitySwitchIntent();
+  const toggle = (): Promise<void> => context.getPlaybackCommands().togglePlayPause();
+  return { calls, notices, loads, audio, gainIds: gains, search, store, flush, metadata, error, choose, timers, expire, intent, toggle, playCount: () => plays };
 }
 
 for (const [name, audioId, isFallback] of [["yt-dlp", null, true], ["durl", null, false]] as const) {
@@ -235,7 +248,10 @@ test("navigation during a media handoff prevents late metadata from seeking or r
   h.audio.paused = false;
   const switching = h.choose("64k");
   h.calls[0].resolve(qualityInfo(30216)); await h.flush();
+  assert.equal(h.timers.size, 1);
   const version = h.store.actions.playbackRequest.beginRequest();
+  assert.equal(h.timers.size, 0);
+  assert.equal(getEventListeners(h.audio, "loadedmetadata").length, 0);
   const other = "http://127.0.0.1/audio/next-track";
   h.store.actions.playbackRequest.activateAudio(version, other, 0);
   h.audio.src = other;
@@ -277,6 +293,46 @@ for (const restored of [true, false]) {
     if (restored) assert.equal(h.audio.currentTime, 19);
   });
 }
+
+for (const restored of [true, false]) {
+  test(`metadata timeout falls back once and releases the controls after ${restored ? "recovery" : "the second timeout"}`, async () => {
+    const h = qualityFixture();
+    const switching = h.choose("64k");
+    const next = qualityInfo(30216);
+    h.calls[0].resolve(next); await h.flush();
+    assert.equal(h.timers.size, 1);
+    h.expire(); await h.flush();
+    assert.deepEqual(h.loads, [next.audioUrl, oldUrl]);
+    assert.equal(h.timers.size, 1);
+    assert.ok(h.intent());
+    if (restored) h.metadata(); else h.expire();
+    await switching;
+    await h.toggle();
+    assert.equal(h.playCount(), 1, "control must play the actual audio after metadata timeout");
+    assert.equal(h.intent(), null);
+    assert.equal(h.timers.size, 0);
+    assert.equal(getEventListeners(h.audio, "loadedmetadata").length, 0);
+    assert.equal(getEventListeners(h.audio, "emptied").length, 0);
+    assert.equal(getEventListeners(h.audio, "error").length, 1);
+    assert.deepEqual(h.notices, [restored ? "切换音质失败，已恢复原音质" : "切换音质失败，播放已中断。"]);
+    assert.equal(h.store.getState().playbackSession.recoveryAttempts, 1);
+  });
+}
+
+test("a newer switch takes over a handoff that times out without inheriting its failure notice", async () => {
+  const h = qualityFixture();
+  const first = h.choose("132k");
+  h.calls[0].resolve(qualityInfo(30232)); await h.flush();
+  const latest = h.choose("64k");
+  h.expire(); await h.flush();
+  h.metadata(); await first; await h.flush();
+  assert.equal(h.calls[1].args.quality, "64k");
+  h.calls[1].resolve(qualityInfo(30216)); await h.flush();
+  h.metadata(); await latest;
+  assert.equal(h.store.getState().playbackDisplay.audioQuality.audioId, 30216);
+  assert.deepEqual(h.notices, []);
+  assert.equal(h.timers.size, 0);
+});
 
 test("switching to a cached variant still leaves the last automatic recovery available", async () => {
   const h = qualityFixture();

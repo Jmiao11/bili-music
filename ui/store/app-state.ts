@@ -21,7 +21,6 @@ import type { LibraryCommand } from "../features/library/library-state.ts";
 
 type HomeState = {
   update: { version: string | null; opening: boolean; error: boolean };
-  mode: string;
   ranking: ReturnType<typeof normalizeTrack>[];
   recommendations: ReturnType<typeof normalizeTrack>[];
   loaded: boolean;
@@ -53,13 +52,13 @@ type HomeAdapter = {
 };
 
 function isHomePopular(home: HomeSnapshot): boolean {
-  return home.mode === "recommendation" && home.aiHasKey === false;
+  return home.aiHasKey === false;
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
   const initial: { recent: ReturnType<typeof initialRecentState>; lyricsDisplay: ReturnType<typeof initialLyricsDisplayState>; playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState>; collection: ReturnType<typeof initialCollectionState> } = { recent: initialRecentState(), lyricsDisplay: initialLyricsDisplayState(), playbackMessages: initialPlaybackMessagesState(), collection: initialCollectionState(), home: {
     update: { version: null, opening: false, error: false },
-    mode: "recommendation", ranking: [], recommendations: [], loaded: false, loading: false,
+    ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
@@ -72,8 +71,8 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       commit({ ...current, home: { ...current.home, ...fields, view: Object.keys(view).length ? { ...current.home.view, ...view } : current.home.view } });
     };
     const content = (kind: "mode" | "ranking" | "recommendations") => ({ kind });
-    const rankingVisible = () => home().mode === "ranking" || isHomePopular(home());
-    const recommendationVisible = () => home().mode === "recommendation" && !isHomePopular(home());
+    const rankingVisible = () => isHomePopular(home());
+    const recommendationVisible = () => !isHomePopular(home());
 
     async function loadRanking({ forceRefresh = false }: { forceRefresh?: boolean } = {}): Promise<void> {
       if (!forceRefresh && home().loaded && home().ranking.length > 0) {
@@ -132,7 +131,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     async function refreshKey(): Promise<void> {
       try { update({ aiHasKey: !!(await adapter.invoke("get_ai_config")).hasKey }); }
       catch (_error) { update({ aiHasKey: null }); }
-      if (home().mode === "recommendation") await loadRecommendation();
+      await loadRecommendation();
     }
 
     async function generateRecommendations({ forceRefresh = false, userHint = home().userHint }: { forceRefresh?: boolean; userHint?: string } = {}): Promise<void> {
@@ -144,7 +143,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       update({ userHint, recommendationLoading: true, recommendationError: "" }, {
         hintDisabled: true, hintText: "生成中…", refreshDisabled: true,
         status: forceRefresh ? "正在重新生成推荐…" : "正在根据搜索与收藏生成推荐…",
-        ...(home().mode === "recommendation" ? { content: content("recommendations") } : {}),
+        content: content("recommendations"),
       });
       let timeoutId = 0;
       try {
@@ -158,26 +157,15 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         const recommendations = tracks.map(normalizeTrack);
         update({ recommendations, recommendationLoaded: true, recommendationError: "", recommendationLoading: false }, {
           status: recommendations.length > 0 ? `已生成 ${recommendations.length} 首推荐。` : "暂无推荐结果。",
-          refreshDisabled: false, hintDisabled: false, hintText: "生成推荐",
-          ...(home().mode === "recommendation" ? { content: content("recommendations") } : {}),
+          refreshDisabled: false, hintDisabled: false, hintText: "生成推荐", content: content("recommendations"),
         });
       } catch (error) {
         if (version !== recommendationRequestVersion) return;
         update({ recommendationError: String((error as { message?: unknown } | null | undefined)?.message ?? error), recommendationLoading: false }, {
-          status: "为你推荐生成失败。", refreshDisabled: false, hintDisabled: false, hintText: "生成推荐",
-          ...(home().mode === "recommendation" ? { content: content("recommendations") } : {}),
+          status: "为你推荐生成失败。", refreshDisabled: false, hintDisabled: false, hintText: "生成推荐", content: content("recommendations"),
         });
         adapter.report("warn", "recommendations load failed:", error);
       }
-    }
-
-    function changeMode(mode: string): void {
-      const nextMode = mode === "recommendation" ? "recommendation" : "ranking";
-      update({ mode: nextMode }, home().mode === nextMode
-        ? { content: content(recommendationVisible() ? "recommendations" : "ranking") }
-        : { rankingError: { text: "" }, content: content("mode") });
-      if (home().mode === "recommendation") void loadRecommendation();
-      else void loadRanking();
     }
 
     function changeHint(userHint: string): void { update({ userHint }); }
@@ -226,7 +214,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         ...(disabledResult ? { pages: pagesWithDisabledError(current.pages, disabledResult.bvid, disabledResult.error) } : {}) });
     }, adapter);
     const playbackMessages = createPlaybackMessagesActions(() => getState().playbackMessages, next => commit({ ...getState(), playbackMessages: next }));
-    return { recent, lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, collection, checkForUpdate, openUpdateDownload, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint, setHomeMode: changeMode };
+    return { recent, lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, collection, checkForUpdate, openUpdateDownload, loadHomeRanking: loadRanking, loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint };
   }, options);
 }
 

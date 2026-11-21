@@ -183,6 +183,15 @@ async function cancelCurrentPlayback() {
   }
 }
 
+let playbackStateWrite: Promise<void> | null = null;
+function enqueuePlaybackStateWrite(write: () => Promise<unknown>, errorMessage: string) {
+  const pending = (playbackStateWrite ? playbackStateWrite.then(write) : write()).then(
+    () => {}, error => console.warn(errorMessage, error),
+  );
+  playbackStateWrite = pending;
+  void pending.then(() => { if (playbackStateWrite === pending) playbackStateWrite = null; });
+}
+
 function clearPendingResume() {
   getSessionActions().setPendingResume(null);
   getSessionActions().setResumeInProgress(false);
@@ -191,34 +200,29 @@ function clearPendingResume() {
 function savePlaybackState() {
   getSessionActions().setLastSavedAt(Date.now());
   if (getQueueSnapshot().queue.length === 0) {
-    invoke("clear_playback_state").catch((error) => {
-      console.warn("clear playback state failed:", error);
-    });
+    enqueuePlaybackStateWrite(() => invoke("clear_playback_state"), "clear playback state failed:");
     return;
   }
 
   const page = currentVideoPage();
   const resume = getSessionSnapshot().pendingResume;
-  const currentTime = Number(audio.currentTime);
+  const currentTime = getQualitySwitchIntent()?.position ?? Number(audio.currentTime);
   const hasCollections = getQueueSnapshot().queue.some(entry => entry.collection);
-  invoke("save_playback_state", {
-    state: {
-      version: hasCollections ? 2 : 1,
-      queue: hasCollections ? getQueueActions().persistedQueue() : getQueueSnapshot().queue.map(playbackTrackSnapshot),
-      ...(hasCollections ? { traversal: getQueueActions().persistedTraversal() } : {}),
-      currentIndex: Math.max(
-        0,
-        Math.min(getQueueSnapshot().currentIndex, getQueueSnapshot().queue.length - 1),
-      ),
-      positionSeconds: resume?.positionSeconds ??
-        (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection && getRequestSnapshot().activeAudioVersion !== getRequestSnapshot().requestVersion ? 0 : Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0),
-      page: resume?.page ?? page?.page ?? null,
-      cid: resume?.cid ?? page?.cid ?? null,
-      savedAt: Math.floor(Date.now() / 1000),
-    },
-  }).catch((error) => {
-    console.warn("save playback state failed:", error);
-  });
+  const state: CommandContract.PlaybackState = {
+    version: hasCollections ? 2 : 1,
+    queue: hasCollections ? getQueueActions().persistedQueue() : getQueueSnapshot().queue.map(playbackTrackSnapshot),
+    ...(hasCollections ? { traversal: getQueueActions().persistedTraversal() } : {}),
+    currentIndex: Math.max(
+      0,
+      Math.min(getQueueSnapshot().currentIndex, getQueueSnapshot().queue.length - 1),
+    ),
+    positionSeconds: resume?.positionSeconds ??
+      (getQueueSnapshot().queue[getQueueSnapshot().currentIndex]?.collection && getRequestSnapshot().activeAudioVersion !== getRequestSnapshot().requestVersion ? 0 : Number.isFinite(currentTime) ? Math.max(0, currentTime) : 0),
+    page: resume?.page ?? page?.page ?? null,
+    cid: resume?.cid ?? page?.cid ?? null,
+    savedAt: Math.floor(Date.now() / 1000),
+  };
+  enqueuePlaybackStateWrite(() => invoke("save_playback_state", { state }), "save playback state failed:");
 }
 
 function renderPlaybackTrack(track: Pick<CommandContract.TrackSnapshotInput, "title" | "uploader" | "thumbnailUrl">) {
@@ -231,7 +235,7 @@ function renderPlaybackTrack(track: Pick<CommandContract.TrackSnapshotInput, "ti
   });
 }
 
-function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, positionSeconds: number) {
+function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, positionSeconds: number, status = "已恢复上次播放，点击播放继续。") {
   const totalSeconds = Math.max(0, Number(track.durationSeconds) || 0);
   const safePosition = Math.max(
     0,
@@ -240,13 +244,15 @@ function renderRestoredPlaybackUi(track: CommandContract.TrackSnapshotInput, pos
   const sliderMax = Math.max(totalSeconds, safePosition);
   renderPlaybackTrack(track);
   getApplicationStore().actions.playbackDisplay.restoreProgress(safePosition, sliderMax, formatDuration(totalSeconds));
-  setPlaybackStatus("已恢复上次播放，点击播放继续。");
+  setPlaybackStatus(status);
 }
 
 async function restorePlaybackState() {
+  const version = getRequestSnapshot().requestVersion;
   try {
     const state = await invoke("get_playback_state");
     if (
+      !getRequestActions().isCurrent(version) ||
       !state ||
       !Array.isArray(state.queue) ||
       state.queue.length === 0 ||
@@ -359,6 +365,8 @@ function waitForRecoveryMetadata(version: number, sourceUrl?: string) {
       audio.removeEventListener("loadedmetadata", loaded);
       audio.removeEventListener("error", failed);
       audio.removeEventListener("emptied", emptied);
+      if (timer !== undefined) window.clearTimeout(timer);
+      unsubscribe?.();
     };
     const loaded = () => {
       if (hasSource()) { cleanup(); resolve(true); }
@@ -372,6 +380,11 @@ function waitForRecoveryMetadata(version: number, sourceUrl?: string) {
     const emptied = () => {
       if (!getRequestActions().isCurrent(version)) { cleanup(); resolve(false); }
     };
+    const unsubscribe = sourceUrl === undefined ? undefined : getApplicationStore().subscribe(emptied);
+    const timer = sourceUrl === undefined ? undefined : window.setTimeout(() => {
+      cleanup();
+      reject(new Error("audio metadata load timed out"));
+    }, 10_000);
     audio.addEventListener("loadedmetadata", loaded);
     audio.addEventListener("error", failed);
     audio.addEventListener("emptied", emptied);
@@ -554,6 +567,7 @@ function handleAudioRecoveryError(event: Event) {
   const isCurrent = getRequestSnapshot().activeAudioVersion === version &&
     getRequestSnapshot().activeAudioUrl === audio.currentSrc &&
     event.timeStamp >= getRequestSnapshot().audioActivatedAt;
+  if (!isCurrent) return;
   const attempts = recoveryAttemptsFor(version);
   if (recoveryPromise) {
     if (audio.error?.code === 2 && isCurrent) {
@@ -870,17 +884,22 @@ async function resumePendingPlayback() {
     return;
   }
   const resume = { ...getSessionSnapshot().pendingResume };
+  if (resume.startNewTrack) {
+    clearPendingResume();
+    await loadCurrentTrack({ randomStartPage: getQueueSnapshot().shuffle && readShuffleCollectionPrefs().order === "random" });
+    return;
+  }
+  const version = getRequestSnapshot().requestVersion + 1;
   getSessionActions().setResumeInProgress(true);
   try {
-    await loadCurrentTrack({
-      startPage: resume,
-      resumePosition: resume.positionSeconds,
-    });
+    await loadCurrentTrack({ startPage: resume, resumePosition: resume.positionSeconds });
   } catch (error) {
-    clearPendingResume();
-    console.warn("resume playback failed:", error);
+    if (getRequestActions().isCurrent(version)) {
+      clearPendingResume();
+      console.warn("resume playback failed:", error);
+    }
   } finally {
-    getSessionActions().setResumeInProgress(false);
+    if (getRequestActions().isCurrent(version)) getSessionActions().setResumeInProgress(false);
   }
 }
 
@@ -952,8 +971,61 @@ function playListItem(
   playQueueIndex(index, { recordCurrent: false, startPage, pages });
 }
 
+function resetEditedPlaybackSelection() {
+  clearPendingResume();
+  getSessionActions().setPendingPastedPages(null);
+  getSessionActions().setCurrentPages([]);
+  getRequestActions().resetFailures();
+  getApplicationStore().actions.collection.setPrompt("", null);
+  clearPlaybackNotice();
+}
+
+function stopEditedQueue() {
+  void cancelCurrentPlayback();
+  getApplicationStore().actions.playbackDisplay.clearRenderedPlayback();
+  setNormalizationGain(1);
+  setPlaybackStatus("");
+  window.dispatchEvent(new CustomEvent("bili-track-changed", { detail: { bvid: "", cid: 0 } }));
+}
+
+function clearPlaybackQueue(): void {
+  getQueueActions().clearQueue();
+  resetEditedPlaybackSelection();
+  stopEditedQueue();
+  emitCurrentTrackChanged();
+  savePlaybackState();
+}
+
 function removeQueueEntry(index: number): void {
-  if (getQueueActions().removeNonCurrentEntry(index)) savePlaybackState();
+  const queue = getQueueSnapshot();
+  if (index !== queue.currentIndex) {
+    if (getQueueActions().removeNonCurrentEntry(index)) savePlaybackState();
+    return;
+  }
+  if (index < 0) return;
+  const session = getSessionSnapshot();
+  const play = getQualitySwitchIntent()?.playing ??
+    (getSearchSnapshot().playbackBusy || session.resumeInProgress || (!session.pendingResume && !audio.paused));
+  const order = readShuffleCollectionPrefs().order;
+  getQueueActions().removeCurrentEntry(Math.random);
+  resetEditedPlaybackSelection();
+  const { queue: entries, currentIndex } = getQueueSnapshot();
+  const next = entries[currentIndex];
+  if (next && play) {
+    emitCurrentTrackChanged();
+    void loadCurrentTrack({ randomStartPage: queue.shuffle && order === "random" });
+    return;
+  }
+  stopEditedQueue();
+  if (next) {
+    if (next.collection) getQueueActions().freezeCollection(next.collection.data, order, Math.random);
+    const track = currentPlayableTrack();
+    if (!track) throw new Error("找不到后继播放曲目");
+    getSessionActions().setPendingResume({ positionSeconds: 0, cid: null, page: null, startNewTrack: true });
+    renderRestoredPlaybackUi(track, 0, "已选中下一首，点击播放继续。");
+  }
+  emitCurrentTrackChanged();
+  savePlaybackState();
 }
 
 function queueVideoNext(video: CommandContract.TrackSnapshotInput): void {
@@ -1110,8 +1182,10 @@ installPageCallbacks({submit: async event => {
     getApplicationStore().actions.collection.setPrompt(query, null);
     getSessionActions().setPendingPastedPages(null);
     const pasteVersion = resetSearchForBv();
-    await cancelCurrentPlayback();
-    if (pasteVersion !== getSearchSnapshot().requestVersion) return;
+    const cancellation = cancelCurrentPlayback();
+    const stopVersion = getRequestSnapshot().requestVersion;
+    await cancellation;
+    if (pasteVersion !== getSearchSnapshot().requestVersion || !getRequestActions().isCurrent(stopVersion)) return;
     if (pasteVersion === getSearchSnapshot().requestVersion) {
       getSessionActions().setPendingPastedPages({ bvid: query, requestVersion: getRequestSnapshot().requestVersion + 1 });
     }
@@ -1216,8 +1290,10 @@ audio.addEventListener("timeupdate", () => {
 }
 
 function initPlaybackRecord() {
-audio.addEventListener("timeupdate", () => {
-  if (getSessionSnapshot().playRecordedForCurrentTrack) return;
+audio.addEventListener("timeupdate", event => {
+  const request = getRequestSnapshot();
+  if (request.activeAudioVersion !== request.requestVersion || request.activeAudioUrl !== audio.currentSrc ||
+      event.timeStamp < request.audioActivatedAt || getSessionSnapshot().playRecordedForCurrentTrack) return;
   const dur = Number(audio.duration);
   const threshold = dur > 0 ? Math.min(30, dur * 0.9) : 30;
   if (audio.currentTime < threshold) return;
@@ -1248,4 +1324,4 @@ installPlaybackCallbacks({
 }
 
 
-export { removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getQualitySwitchIntent, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, switchCurrentAudioQuality, updateQueueUi };
+export { clearPlaybackQueue, removeQueueEntry, queueVideoNext, playQueueIndex, advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, appendSearchResults, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getQualitySwitchIntent, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, hasMultipleCurrentPages, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playCurrentVideoPage, playListItem, playNext, playPrevious, playSearchResult, refreshTrackLoudness, restorePlaybackState, resumePendingPlayback, retreatPageWithinCurrentBv, savePlaybackState, showLoudnessNormalizationDialog, switchCurrentAudioQuality, updateQueueUi };

@@ -8,7 +8,7 @@ function renderPlaybackDisplaySnapshot(state: PlaybackDisplaySnapshot, previous:
   formatTime(value: number): string;
   setTrack(track: PlaybackSessionTrack | null): void;
   setPlaybackState(state: "none" | "paused" | "playing"): void;
-  setPosition(position: NonNullable<PlaybackDisplaySnapshot["position"]>): void;
+  setPosition(position: PlaybackDisplaySnapshot["position"]): void;
 }): void {
   if (state.view.progressVersion && state.view.progressVersion !== previous?.view.progressVersion) {
     const projected = projectPlaybackProgress(state);

@@ -391,6 +391,15 @@ function initializeLyrics() {
         ? event.detail.bvid.trim()
         : "";
     const cid = Number(event?.detail?.cid);
+    if (event.detail?.bvid === "" && cid === 0) {
+      ++lyricsRequestVersion;
+      lastTrackKey = currentBvid = "";
+      currentCid = currentOffsetMs = 0;
+      updateOffsetValue();
+      showPlaceholder();
+      resetMatchUi();
+      return;
+    }
     if (!bvid || !Number.isSafeInteger(cid) || cid <= 0) return;
 
     const trackKey = `${bvid}:${cid}`;

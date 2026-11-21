@@ -21,12 +21,12 @@ test("queue drawer phases focus three close paths modal Esc and listener pairing
   assert.equal(button.disabled,false);
   const adds=h.listeners.length,removes=h.platform.length;
   await h.click(button);assert.equal(drawer.hidden,false);assert.equal(drawer.classList.contains("is-open"),false);assert.equal(drawer.getAttribute("aria-hidden"),"true");
-  h.raf();assert.equal(button.getAttribute("aria-expanded"),"true");assert.equal(h.doc.activeElement,h.node("queue-drawer").querySelector("header button"));
+  h.raf();assert.equal(button.getAttribute("aria-expanded"),"true");assert.equal(h.doc.activeElement,h.node("queue-drawer").querySelector('header button[aria-label="关闭"]'));
   assert.ok(h.platform.some(e=>e.operation==='scrollIntoView' && (e.detail as ScrollIntoViewOptions).block==='center'));
   for(const method of ['entry','close','escape']) {
     if(method!=='entry') await h.open();
     if(method==='entry') await h.click(button);
-    else if(method==='close') await h.click(drawer.querySelector('header button')!);
+    else if(method==='close') await h.click(drawer.querySelector('header button[aria-label="关闭"]')!);
     else {
       h.stages!.setModalStage('settings',{hidden:false,open:true});
       h.doc.dispatchEvent(new h.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(button.getAttribute('aria-expanded'),'true');
@@ -119,7 +119,7 @@ test("queue drawer skips 100 progress renders and updates exactly two current ro
   assert.equal(counts.QueueDrawer,0);assert.equal(counts.QueueDrawerRow,0);assert.equal(h.platform.filter(e=>e.operation==='scrollIntoView').length,scrolls);
   h.store.actions.playbackQueue.selectIndex(9,true,null);assert.equal(counts.QueueDrawerRow,2);
   assert.equal((h.platform.filter(e=>e.operation==='scrollIntoView').at(-1)?.detail as ScrollIntoViewOptions).block,'nearest');
-  await h.click(h.node('queue-drawer').querySelector('header button')!);
+  await h.click(h.node('queue-drawer').querySelector('header button[aria-label="关闭"]')!);
   assert.equal(h.doc.querySelectorAll('[data-queue-index]').length,1000);
   const end=new h.window.Event('transitionend',{bubbles:true});Object.defineProperty(end,'propertyName',{value:'transform'});h.node('queue-drawer').dispatchEvent(end);
   assert.equal(h.doc.querySelectorAll('[data-queue-index]').length,0);
@@ -188,7 +188,7 @@ test("queue drawer reduced motion closes immediately without mounting an image s
   h.store.actions.settings.setTheme('image');await h.open();
   assert.equal(h.node('queue-drawer').querySelector('.floating-backdrop'),null);
   assert.equal((h.platform.filter(e=>e.operation==='scrollIntoView').at(-1)?.detail as ScrollIntoViewOptions).behavior,'auto');
-  const start=h.platform.length;await h.click(h.node('queue-drawer').querySelector('header button')!);
+  const start=h.platform.length;await h.click(h.node('queue-drawer').querySelector('header button[aria-label="关闭"]')!);
   assert.equal(h.node('queue-drawer').hidden,true);assert.equal(h.node('queue-drawer').querySelector('.floating-backdrop'),null);
   assert.ok(!h.platform.slice(start).some(e=>e.operation==='disconnect'));
 });
@@ -206,7 +206,7 @@ test("抽屉打开裁剪主区，关闭动画结束解除裁剪，未安装 resi
     const end=new h.window.Event("transitionend",{bubbles:true});Object.defineProperty(end,"propertyName",{value:"transform"});drawer.dispatchEvent(end);
     assert.ok(drawer.classList.contains("is-open"));assert.ok(main.classList.contains("queue-drawer-sliding"));
     h.window.dispatchEvent(new h.window.Event("resize"));assert.ok(main.classList.contains("queue-drawer-open"));
-    await h.click(drawer.querySelector("header button")!);
+    await h.click(drawer.querySelector('header button[aria-label="关闭"]')!);
     assert.equal(deletes().length,removed);
     assert.equal(main.classList.contains("queue-drawer-open"),false);
     assert.ok(main.classList.contains("queue-drawer-sliding"));assert.equal(drawer.hidden,false);
@@ -224,7 +224,7 @@ test("减少动效时抽屉打开同步采用最终位置，不等待观察器�
   await h.click(h.node("queue-position"));h.raf();
   assert.ok(main.classList.contains("queue-drawer-open"));
   assert.equal(drawer.querySelector(".floating-backdrop"),null);
-  await h.click(drawer.querySelector("header button")!);
+  await h.click(drawer.querySelector('header button[aria-label="关闭"]')!);
   assert.equal(main.classList.contains("queue-drawer-sliding"),false);
   assert.equal(main.classList.contains("queue-drawer-open"),false);
 });

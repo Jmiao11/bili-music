@@ -19,7 +19,8 @@ for (const source of ["ranking", "recommendation", "search"] as const) {
   }));
   test(`track DOM ${source} highlight uses existing source and search version conditions`, () => run(async h => {
     const list = await seed(h, source, [track(1), track(2)]);
-    h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source, source === "search" ? h.search.getSearchSnapshot().requestVersion : null);
+    // On the popular fallback, the shared home highlight still follows the recommendation queue.
+    h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source === "ranking" ? "recommendation" : source, source === "search" ? h.search.getSearchSnapshot().requestVersion : null);
     h.store.actions.playbackQueue.selectIndex(1, false, null); h.core.updateQueueUi();
     assert.equal(list.querySelectorAll('[aria-current="true"]').length, 1); assert.equal(list.children[1].querySelector("button.track")?.getAttribute("aria-current"), "true");
     h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source === "search" ? "search" : "favorites", -1); h.core.updateQueueUi();
@@ -45,17 +46,25 @@ test("track DOM badges patch counts and preserve order before favorite and add",
   for (const list of [home, search]) { const actions = list.querySelector(".track-actions")!; assert.equal(actions.firstElementChild?.className, "page-count-badge"); assert.equal(actions.firstElementChild?.textContent, "2P"); assert.equal(actions.firstElementChild?.getAttribute("aria-label"), "查看 2 个分P"); }
 }));
 test("track DOM home loading displays eight skeleton rows", () => run(async h => {
-  const pending = deferred(); h.reply(() => pending.promise); h.home.setHomeMode("ranking");
+  const pending = deferred();
+  h.reply(async command => command === "get_ai_config" ? { hasKey: false } : pending.promise);
+  const load = h.home.refreshAiKeyState(); await h.microtasks();
   assert.equal(h.nodes.homeRankingList?.children.length, 8); assert.equal(h.nodes.homeRankingList?.querySelectorAll("li.skeleton-row").length, 8);
-  pending.resolve([]); await h.microtasks(); assert.equal(h.nodes.homeRankingList?.children.length, 0);
+  pending.resolve([]); await load; assert.equal(h.nodes.homeRankingList?.children.length, 0);
 }));
 test("track DOM empty home and search lists remain empty hosts", () => run(async h => {
   for (const source of ["ranking", "recommendation", "search"] as const) { const list = await seed(h, source, []); assert.equal(list.innerHTML, ""); assert.equal(list.matches(":empty"), true); }
 }));
 test("track DOM ranking error retry remains outside the list", () => run(async h => {
-  h.reply(async () => { throw Error("fixture ranking failure"); }); h.home.setHomeMode("ranking"); await h.microtasks();
+  h.reply(async () => { throw Error("fixture ranking failure"); }); await h.home.loadHomeRanking();
   assert.equal(h.nodes.homeRankingError.textContent, "拉取失败，点击重试"); assert.equal(h.nodes.homeRankingList?.children.length, 0);
-  h.reply(responses()); await h.fire(h.nodes.homeRankingError, "click"); assert.equal(h.nodes.homeRankingList?.children.length, 1);
+  const retry = deferred();
+  h.reply(async command => command === "get_ai_config" ? { hasKey: false } : retry.promise);
+  await h.fire(h.nodes.homeRankingError, "click");
+  assert.deepEqual(h.calls.at(-1), { command: "get_music_ranking", args: { forceRefresh: true } });
+  const load = h.home.refreshAiKeyState();
+  retry.resolve([track(1)]); await load;
+  assert.equal(h.nodes.homeRankingList?.children.length, 1);
 }));
 test("track DOM search no-more status remains outside result rows", () => run(async h => {
   const list = await seed(h, "search"); assert.match(h.nodes.searchStatus.textContent, /没有更多了/); assert.equal(list.querySelectorAll("li").length, 1); assert.equal(list.textContent?.includes("没有更多了"), false);

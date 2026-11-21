@@ -69,6 +69,56 @@ for (const success of [true, false]) test(`request cancelled ${success ? "succes
   assert.equal(h.request().requestVersion, version + 1); assert.equal(h.request().activeAudioVersion, -1); assert.equal(h.request().audioActivatedAt, Infinity);
   assert.equal(h.audio.currentSrc === "", true); assert.equal(h.writes.length, 0); assert.equal(h.events.length, eventCount); assert.equal(h.request().consecutiveResolveFailures, 0);
 });
+test("old timeupdate during successor loading cannot record a listen for the successor", async () => {
+  const h = await fixture();
+  h.context.initPlaybackRecord();
+  const first = await h.start(); await h.finish(0, true); await first.running;
+  const oldSource = h.audio.currentSrc;
+  const second = await h.start(1);
+  h.audio.currentSrc = oldSource; h.audio.currentTime = 31;
+  h.audio.fire("timeupdate", 99);
+  assert.equal(h.commands.includes("record_play"), false);
+  await h.finish(1, true); await second.running;
+  h.audio.fire("timeupdate", 100);
+  assert.equal(h.commands.filter(command => command === "record_play").length, 1);
+});
+
+test("cleared media ignores old ended and error without advancing or resetting recovery counters", async () => {
+  const h = await fixture();
+  const first = await h.start(); await h.finish(0, true); await first.running;
+  const oldVersion = h.request().requestVersion;
+  const oldSource = h.audio.currentSrc;
+  const session = h.store.actions.playbackSession;
+  session.setRecoveryVersion(oldVersion); session.setRecoveryAttempts(1);
+  await h.context.cancelCurrentPlayback();
+  h.store.actions.playbackQueue.replaceQueue([]);
+  const before = h.store.getState().playbackSession;
+  let navigation = 0;
+  h.context.advancePageWithinCurrentBv = () => { navigation++; return false; };
+  h.audio.currentSrc = oldSource; h.audio.ended = true;
+  h.audio.fire("ended", 100); h.audio.fire("error", 100); await h.flush();
+  assert.equal(navigation, 0);
+  assert.equal(h.pending.length, 1);
+  assert.equal(h.store.getState().playbackSession.recoveryAttempts, before.recoveryAttempts);
+  assert.equal(h.store.getState().playbackSession.recoveryVersion, before.recoveryVersion);
+});
+
+test("playback state clear waits behind already dispatched saves", async () => {
+  const h = await fixture();
+  const issued: string[] = [];
+  let finishSave!: () => void;
+  h.context.invoke = (command: string) => {
+    issued.push(command);
+    return command === "save_playback_state" ? new Promise<void>(resolve => { finishSave = resolve; }) : Promise.resolve();
+  };
+  h.context.savePlaybackState();
+  h.store.actions.playbackQueue.replaceQueue([]);
+  h.context.savePlaybackState();
+  assert.deepEqual(issued, ["save_playback_state"]);
+  finishSave(); await h.flush();
+  assert.deepEqual(issued, ["save_playback_state", "clear_playback_state"]);
+});
+
 test("request activation timestamp filters ended and error while playing preserves its existing source guard", async () => {
   const h = await fixture(); const first = await h.start(); await h.finish(0, true); await first.running;
   assert.equal(h.request().audioActivatedAt, 100); h.audio.ended = true;

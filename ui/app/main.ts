@@ -1,5 +1,5 @@
 import { installQueueDrawerPlayback } from "../features/playback/queue-drawer.ts";
-import { playQueueIndex, removeQueueEntry } from "../features/playback/playback-core.ts";
+import { clearPlaybackQueue, playQueueIndex, removeQueueEntry } from "../features/playback/playback-core.ts";
 import { installRecentController } from "../features/recent/recent-controller.ts";
 import { readApplicationStore } from "../store/application-store.ts";
 import {finishPagesTransition} from "../features/pages/pages-view.ts";
@@ -14,7 +14,7 @@ import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
 import { initializeRootLists } from "../features/tracks/track-list-ui.ts";
-import { checkForUpdate, openUpdateDownload, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint, updateHomeModeUi } from "../features/home/home.ts";
+import { checkForUpdate, openUpdateDownload, getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint } from "../features/home/home.ts";
 import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
@@ -90,7 +90,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", savePlaybackState);
 
-installQueueDrawerPlayback(playQueueIndex, removeQueueEntry);
+installQueueDrawerPlayback(playQueueIndex, removeQueueEntry, clearPlaybackQueue);
 initPlaybackModes();
 
 installPlaybackCallbacks({ favorite: track => { if (track) void toggleFavorite(track); }, addPlaylistImmersive: track => { if (track) choosePlaylistAndAdd(track); } });
@@ -99,14 +99,10 @@ installPlaybackCallbacks({ favorite: track => { if (track) void toggleFavorite(t
 
 
 refreshRankingButton?.addEventListener("click", () => {
-  if (getHomeSnapshot().mode === "recommendation") {
-    if (getHomeSnapshot().aiHasKey === false) {
-      loadHomeRanking({ forceRefresh: true });
-    } else {
-      loadRecommendations({ forceRefresh: true });
-    }
-  } else {
+  if (getHomeSnapshot().aiHasKey === false) {
     loadHomeRanking({ forceRefresh: true });
+  } else {
+    loadRecommendations({ forceRefresh: true });
   }
 });
 installPageCallbacks({
@@ -186,11 +182,7 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
-    if (getHomeSnapshot().mode === "recommendation") {
-      loadRecommendationHome();
-    } else {
-      loadHomeRanking();
-    }
+    loadRecommendationHome();
   }
   if (["favorites", "playlists"].includes(event.detail?.view)) {
     loadLibrary();
@@ -205,7 +197,7 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
 });
 window.addEventListener("ai-config-updated", refreshAiKeyState);
 
-updateHomeModeUi();
+getApplicationStore();
 void checkForUpdate();
 refreshAiKeyState();
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });

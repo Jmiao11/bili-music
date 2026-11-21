@@ -35,7 +35,7 @@ async function fixture() {
   const ui = path.join(import.meta.dirname, "../ui"), source = fs.readFileSync(path.join(ui, "features/settings/appearance.ts"), "utf8"), nodes = new Map<string, DisplayNode>();
   const node = (id: string) => { if (!nodes.has(id)) nodes.set(id, new DisplayNode()); return nodes.get(id)!; };
   const windowNode = new DisplayNode(), handlers = new Map<string, (details: Record<string, number>) => void>(), positions: unknown[] = [], navigation: string[] = [];
-  const session = { metadata: null as unknown, playbackState: "none", setPositionState(value: unknown) { positions.push(JSON.parse(JSON.stringify(value))); }, setActionHandler(name: string, callback: (details: Record<string, number>) => void) { handlers.set(name, callback); } };
+  const session = { metadata: null as unknown, playbackState: "none", setPositionState(value?: unknown) { positions.push(value === undefined ? null : JSON.parse(JSON.stringify(value))); }, setActionHandler(name: string, callback: (details: Record<string, number>) => void) { handlers.set(name, callback); } };
   const store = createApplicationStore({ invoke: async () => null, setTimeout: () => 0, clearTimeout() {}, report() {} });
   const context = createSessionContext({ document: { documentElement: node("root"), querySelector: node, querySelectorAll: () => [] },
     window: { __TAURI__: { core: { invoke: async () => null } }, addEventListener: windowNode.addEventListener.bind(windowNode), recordPlaybackDiag() {} },
@@ -91,6 +91,17 @@ test("playback display unknown duration and emptied reset preserve old formattin
   h.audio.duration = 100; await h.node("#progress-slider").fire("pointerdown"); h.audio.currentTime = 20; await h.audio.fire("durationchange"); assert.equal(h.node("#progress-slider").value, "20");
   h.audio.paused = true; h.audio.duration = NaN; await h.audio.fire("emptied"); assert.equal(h.node("#progress-slider").value, "0"); assert.equal(h.node("#immersive-current-time").textContent, "0:00"); assert.equal(h.session.playbackState, "none");
   h.audio.duration = 100; h.audio.currentTime = 3; await h.audio.fire("timeupdate"); assert.equal(h.node("#progress-slider").value, "3");
+});
+
+test("empty media clears the previously published system playback position", async () => {
+  const h = await fixture();
+  h.audio.duration = 80; h.audio.currentTime = 28;
+  await h.audio.fire("timeupdate");
+  assert.deepEqual(h.positions.at(-1), { duration: 80, playbackRate: 1, position: 28 });
+  h.audio.duration = NaN; h.audio.currentTime = 0;
+  await h.audio.fire("emptied");
+  assert.equal(h.session.playbackState, "none");
+  assert.equal(h.positions.at(-1), null);
 });
 
 test("playback Media Session metadata state position and unsupported probes preserve existing outputs", async () => {

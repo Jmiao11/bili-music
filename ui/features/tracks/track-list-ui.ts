@@ -41,7 +41,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : projection.source === "recent" ? queue.queueSource === "recent" ? queue.currentIndex : -1
     : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
-    : queue.queueSource === (state.home.mode === "recommendation" ? "recommendation" : "ranking") ? queue.currentIndex : -1;
+    : queue.queueSource === "recommendation" ? queue.currentIndex : -1;
   const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
   const activeEntry = queue.queue[queueIndex];
   const activeIndex = projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : projection.library ? projection.library.entries.findIndex(entry => activeEntry?.entryId ? entry.entryId === activeEntry.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;

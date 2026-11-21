@@ -4,7 +4,7 @@ import { isHomePopular } from "../store/app-state.ts";
 
 function createShellProjection() {
   let previous:ApplicationSnapshot|null=null, revealVersion=0;
-  const view={homeMode:"ranking",homeSource:"",homeTitle:"为你推荐",homeSubtitle:"根据收藏、搜索、歌单和听歌记录生成",homeCache:"",homeList:"按你的口味生成",homeRefreshTitle:undefined as string|undefined,homeRefreshDisabled:false,homeStatus:"",homeError:"",homeNeedsSetup:false,
+  const view={homeMode:"recommendation",homeSource:"",homeTitle:"为你推荐",homeSubtitle:"根据收藏、搜索、歌单和听歌记录生成",homeCache:"",homeList:"按你的口味生成",homeRefreshTitle:undefined as string|undefined,homeRefreshDisabled:false,homeStatus:"",homeError:"",homeNeedsSetup:false,
     searchStatus:"搜索结果会显示在这里。",resultHidden:false,queueCount:"0 首",favoritesStatus:"收藏的歌曲会显示在这里。",favoritesCount:"0 首",playlistsStatus:"创建歌单，把喜欢的歌放在一起。",playlistTitle:"选择一个歌单",playlistMeta:"歌单里的歌曲会显示在这里。",
     libraryTitle:"加入歌单",librarySubtitle:"选择一个歌单，或新建后加入。",libraryStatus:"",appearanceStatus:"",purgeBusy:false,pagesTitle:"选择分P",pagesSub:"",pagesStatus:"",restoreHidden:true,restoreDisabled:false,restoreText:"全部恢复",
     currentView:"home"};
@@ -16,13 +16,13 @@ function createShellProjection() {
       if(home.view.rankingError !== null && home.view.rankingError !== before?.view.rankingError) view.homeError=home.view.rankingError.text;
       if(home.view.refreshDisabled !== null && home.view.refreshDisabled !== before?.view.refreshDisabled) view.homeRefreshDisabled=home.view.refreshDisabled;
       if(content !== before?.view.content) {
-        const popular=isHomePopular(home), recommendation=home.mode === "recommendation";
-        view.homeMode=popular ? "popular" : home.mode;
-        view.homeSource=recommendation && !popular ? "AI 推荐" : "B站音乐区";
-        view.homeTitle=popular ? "热门音乐" : recommendation ? "为你推荐" : "音乐飙升榜";
-        view.homeSubtitle=popular ? "未配置 AI 推荐 · 展示 B站 音乐热门榜" : recommendation ? "根据收藏、搜索、歌单和听歌记录生成" : "B站音乐区热门视频";
-        view.homeCache="";view.homeRefreshTitle=recommendation && !popular ? "本次会话缓存，手动刷新会重新生成推荐" : "游客榜单，本次运行缓存";
-        view.homeList=popular ? "热门音乐榜" : recommendation ? "推荐列表" : "上升中的音乐视频";
+        const popular=isHomePopular(home);
+        view.homeMode=popular ? "popular" : "recommendation";
+        view.homeSource=popular ? "B站音乐区" : "AI 推荐";
+        view.homeTitle=popular ? "热门音乐" : "为你推荐";
+        view.homeSubtitle=popular ? "未配置 AI 推荐 · 展示 B站 音乐热门榜" : "根据收藏、搜索、歌单和听歌记录生成";
+        view.homeCache="";view.homeRefreshTitle=popular ? "游客榜单，本次运行缓存" : "本次会话缓存，手动刷新会重新生成推荐";
+        view.homeList=popular ? "热门音乐榜" : "推荐列表";
         if(content.kind !== "mode") {
           view.homeNeedsSetup=false;
           if(content.kind === "ranking" && !home.loading) view.homeError=home.error ? "拉取失败，点击重试" : "";

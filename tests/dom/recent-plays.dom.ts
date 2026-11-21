@@ -31,7 +31,10 @@ test("recent page reuses rows, shows cached/offline state and clicks the list in
     assert.deepEqual(h.store.getState().playbackQueue.queue.map(row => row.bvid), history().map(row => row.bvid));
     assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.cacheCid, 22);
     const audio = h.doc.querySelector("audio")!;
-    Object.defineProperty(audio, "duration", { configurable: true, value: 60 });
+    Object.defineProperties(audio, {
+      currentSrc: { configurable: true, get: () => audio.src },
+      duration: { configurable: true, value: 60 },
+    });
     audio.currentTime = 31;
     await h.fire(audio, "timeupdate");
     const record = h.calls.filter(call => call.command === "record_play").at(-1)?.args;

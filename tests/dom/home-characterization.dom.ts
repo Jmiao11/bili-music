@@ -14,8 +14,8 @@ async function loadHomeFixture() {
 test("home ranking caches nonempty results and force refresh preserves its request and busy UI", async () => {
   const h = await loadHomeFixture();
   try {
-    h.setResponse(async () => [track]);
-    h.module.setHomeMode("ranking"); await h.flush();
+    h.setResponse(async command => command === "get_ai_config" ? { hasKey: false } : [track]);
+    await h.module.refreshAiKeyState();
     assert.equal(h.nodes.homeRankingList.children.length, 1);
     const requests = h.calls.length;
     await h.module.loadHomeRanking();
@@ -40,7 +40,7 @@ test("home ranking failure leaves retry copy and no search fallback", async () =
   const h = await loadHomeFixture();
   try {
     h.setResponse(async () => { throw new Error("ranking failed"); });
-    h.module.setHomeMode("ranking"); await h.flush();
+    await h.module.loadHomeRanking();
     assert.equal(h.nodes.homeRankingError.textContent, "拉取失败，点击重试");
     assert.equal(h.nodes.homeRankingStatus.textContent, "音乐飙升榜拉取失败。");
     assert.equal(h.nodes.homeRankingList.children.length, 0);
@@ -124,22 +124,22 @@ test("home generation trims the hint caches success and times out after 95000ms"
   } finally { h.dispose(); }
 });
 
-test("home mode switches preserve tab labels and do not let a pending hidden ranking replace recommendations", async () => {
+test("home Key changes keep late ranking results from replacing recommendation rows", async () => {
   const h = await loadHomeFixture();
   try {
     const ranking = deferred();
-    h.setResponse(async command => command === "get_music_ranking" ? ranking.promise : [track]);
-    h.module.setHomeMode("ranking");
-    assert.equal(h.nodes.homeTitle.textContent, "音乐飙升榜");
-    h.module.setHomeMode("recommendation"); await h.flush();
+    let hasKey = false;
+    h.setResponse(async command => command === "get_ai_config" ? { hasKey } : command === "get_music_ranking" ? ranking.promise : [track]);
+    const pendingRanking = h.module.refreshAiKeyState(); await h.flush();
+    assert.equal(h.nodes.homeTitle.textContent, "热门音乐");
+    hasKey = true;
+    await h.module.refreshAiKeyState();
     assert.equal(h.nodes.homeTitle.textContent, "为你推荐");
     assert.equal(h.nodes.homeRankingList.children.length, 1);
     const row = h.nodes.homeRankingList.children[0];
-    ranking.resolve([]); await h.flush();
+    ranking.resolve([]); await pendingRanking;
     assert.equal(h.nodes.homeRankingList.children[0], row);
     assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 0 首音乐区热门视频。", "shared status retains the existing completion order");
-    h.module.setHomeMode("unexpected"); await h.flush();
-    assert.equal(h.nodes.homeTitle.textContent, "音乐飙升榜");
   } finally { h.dispose(); }
 });
 
@@ -170,8 +170,9 @@ test("home and search states stay isolated while ranking and recommendation clic
     h.states.searchState.requestVersion = 9;
     h.states.searchState.results = [track];
     const before = JSON.stringify(h.states.searchState);
-    h.setResponse(async () => [track]);
-    h.module.setHomeMode("ranking"); await h.flush();
+    let hasKey = false;
+    h.setResponse(async command => command === "get_ai_config" ? { hasKey } : [track]);
+    await h.module.refreshAiKeyState();
     const row = h.nodes.homeRankingList.children[0];
     row.activate?.(0, { startPage: { cid: 1 } });
     assert.equal(h.played[0][0], "ranking");
@@ -179,7 +180,8 @@ test("home and search states stay isolated while ranking and recommendation clic
     assert.deepEqual(h.played[0][3], { startPage: { cid: 1 } });
     assert.equal(JSON.stringify(h.states.searchState), before);
     assert.equal(h.states.playerState.queue.length, 0, "rendering does not start playback");
-    h.module.setHomeMode("recommendation"); await h.flush();
+    hasKey = true;
+    await h.module.refreshAiKeyState();
     h.nodes.homeRankingList.children[0].activate?.(0);
     assert.equal(h.played[1][0], "recommendation");
     h.states.searchState.requestVersion++;

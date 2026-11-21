@@ -24,7 +24,7 @@ function projectHomeControls(home: ApplicationSnapshot["home"]): HomeControls {
   if (home.view.hintText !== null) next.hintText = home.view.hintText;
   if (home.view.content !== previousHome?.view.content) {
     const popular = isHomePopular(home), kind = home.view.content.kind;
-    next.hintHidden = home.mode !== "recommendation" || popular;
+    next.hintHidden = popular;
     if (kind !== "mode") {
       next.setupHidden = true; next.setupInline = false; next.setupSettingsHidden = false;
       if (kind === "ranking" && !home.loading && !home.error && popular) Object.assign(next, { setupHidden: false, setupInline: true, setupTitle: "配置 API Key 后可生成专属推荐", setupSub: "" });

@@ -140,7 +140,7 @@ test("千项抽屉的出现身份与同列表重选",async t=>{
   const counts=()=>[h.renderCounts.mount,h.renderCounts.unmount];
   const installed=h.listeners.length;q.replaceQueue(items);assert.equal(h.listeners.length,installed);assert.equal(h.renderCounts.QueueDrawerRow,0);
   await h.fire(h.doc.querySelector("#queue-position")!,"click");h.raf();assert.equal(h.doc.querySelector(".queue-remove"),null);assert.deepEqual(counts(),[1000,0]);
-  q.selectIndex(0,false,null);assert.equal(h.doc.querySelector('.is-current .queue-remove'),null);
+  q.selectIndex(0,false,null);assert.ok(h.doc.querySelector('.is-current .queue-remove'));
   h.core.queueVideoNext(track(1002));assert.deepEqual(counts(),[1001,0]);h.core.removeQueueEntry(1);assert.deepEqual(counts(),[1001,1]);
   h.renderCounts.QueueDrawerRow=0;
   const withoutCurrent: number[]=[];
@@ -149,7 +149,7 @@ test("千项抽屉的出现身份与同列表重选",async t=>{
   });
   h.reply(async cmd=>cmd==="get_video_pages"?[]:responses()(cmd));h.core.playListItem("direct",items,1);
   off();assert.ok(withoutCurrent.length>0);assert.ok(withoutCurrent.every(n=>n===0));
-  assert.equal(h.renderCounts.QueueDrawerRow,2);assert.equal(h.doc.querySelectorAll(".queue-remove").length,999);
+  assert.equal(h.renderCounts.QueueDrawerRow,2);assert.equal(h.doc.querySelectorAll(".queue-remove").length,1000);
   await h.microtasks();assert.deepEqual(counts(),[1001,1]);
   q.replaceQueue([track(1100)]);assert.deepEqual(counts(),[1002,1001]);
 });
@@ -176,8 +176,120 @@ test("移出焦点后继、前驱和关闭回退；外部焦点、播放与恢�
   const saves=h.calls.filter(c=>c.command==="save_playback_state");assert.equal(saves.length,saved+1);assert.equal((saves.at(-1)!.args.state as {version:number}).version,1);
   assert.equal(scrolls(),baseline);assert.equal(h.doc.querySelector("audio")!.src,audio);assert.equal(h.core.getQueueSnapshot().currentPageIndex,page);assert.equal(h.core.getSessionSnapshot().pendingResume,pending);
   remove(2).focus();await h.fire(remove(2),"click");assert.equal(h.doc.activeElement,remove(1));
-  const close=h.doc.querySelector<HTMLButtonElement>("#queue-drawer header button")!;close.focus();await h.fire(remove(1),"click");assert.equal(h.doc.activeElement,close);
+  const close=h.doc.querySelector<HTMLButtonElement>('#queue-drawer header button[aria-label="关闭"]')!;close.focus();await h.fire(remove(1),"click");assert.equal(h.doc.activeElement,close);
   q.insertNextVideo(track(9));remove(1).focus();const off=h.store.subscribe(s=>{if(s.playbackQueue.queue.length===1)q.replaceQueue([]);});await h.fire(remove(1),"click");off();assert.equal(h.doc.activeElement,close);
+});
+
+test("清空确认先处理 Esc，确认后留在空抽屉并清除播放显示和存档", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const items = [track(1), track(2)];
+  const fresh = deferred();
+  h.reply(async command => command === "get_playback_state" ? fresh.promise : responses(items)(command));
+  const restore = h.core.restorePlaybackState();
+  h.core.playListItem("direct", items, 0); await h.microtasks();
+  const entry = h.doc.querySelector<HTMLButtonElement>("#queue-position")!;
+  await h.fire(entry, "click"); h.raf();
+  const drawer = h.doc.querySelector<HTMLElement>("#queue-drawer")!;
+  const clear = drawer.querySelector<HTMLButtonElement>(".queue-clear")!;
+  const close = drawer.querySelector<HTMLButtonElement>('header button[aria-label="关闭"]')!;
+  await h.fire(clear, "click");
+  assert.equal(h.doc.activeElement?.textContent, "取消");
+  await h.fire(h.doc.activeElement!, "keydown", { key: "Escape" });
+  assert.equal(h.doc.activeElement, clear);
+  assert.equal(h.store.getState().playbackQueue.queue.length, 2);
+  await h.fire(clear, "click");
+  const confirm = drawer.querySelector<HTMLButtonElement>(".queue-clear-confirm .danger-action")!;
+  await h.fire(confirm, "click");
+  assert.equal(drawer.getAttribute("aria-hidden"), "false");
+  assert.equal(h.doc.activeElement, close);
+  assert.equal(entry.disabled, true);
+  const state = h.store.getState();
+  assert.deepEqual(state.playbackQueue.queue, []);
+  assert.equal(state.playbackQueue.currentIndex, -1);
+  assert.equal(state.playbackDisplay.renderedTrack.title, "尚未播放");
+  assert.equal(state.playbackDisplay.renderedTrack.actionTrack, null);
+  assert.equal(state.playbackDisplay.audioQuality.audioId, null);
+  assert.equal(state.playbackSession.pendingResume, null);
+  assert.equal(h.doc.querySelector("audio")?.getAttribute("src"), null);
+  assert.ok(h.calls.some(call => call.command === "clear_playback_state"));
+  fresh.resolve({ version: 1, queue: items, currentIndex: 0, positionSeconds: 19, page: 1, cid: 11, savedAt: 0 });
+  await restore;
+  assert.deepEqual(h.store.getState().playbackQueue.queue, []);
+  await h.fire(close, "click");
+  assert.equal(h.doc.activeElement?.id, "play-pause-button");
+});
+
+test("清空使取消仍在途的旧BV提交失效", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const items = [track(1)], cancellation = deferred();
+  let cancels = 0;
+  h.reply(async command => {
+    if (command === "cancel_prepare_audio" && ++cancels === 1) return cancellation.promise;
+    return responses(items)(command);
+  });
+  h.core.playListItem("direct", items, 0); await h.microtasks();
+  h.nodes.searchKeyword.value = track(9).bvid;
+  await h.fire(h.doc.querySelector("#search-form")!, "submit");
+  assert.equal(cancels, 1);
+  h.core.clearPlaybackQueue();
+  cancellation.resolve(null); await h.microtasks();
+  assert.deepEqual(h.store.getState().playbackQueue.queue, []);
+  assert.deepEqual(h.calls.filter(call => call.command === "prepare_audio").map(call => call.args.bvId), [items[0].bvid]);
+});
+
+test("移出正在加载的当前父项后，迟到音源不能替换已激活的后继", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const items = [track(1), track(2)], old = deferred();
+  const first = "http://127.0.0.1/audio/removed", second = "http://127.0.0.1/audio/successor";
+  const info = (audioUrl: string, title: string) => ({ audioUrl, title, uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
+  h.reply(async (command, args) => {
+    if (command === "get_video_pages") return [];
+    if (command === "prepare_audio") return args.bvId === items[0].bvid ? old.promise : info(second, "后继");
+    return responses(items)(command);
+  });
+  h.core.playListItem("direct", items, 0); await h.microtasks();
+  await h.fire(h.doc.querySelector("#queue-position")!, "click"); h.raf();
+  const remove = h.doc.querySelector<HTMLButtonElement>(".is-current .queue-remove")!;
+  await h.fire(remove, "click");
+  const audio = h.doc.querySelector("audio")!;
+  assert.equal(audio.src, second);
+  assert.equal(h.doc.querySelector("#title")?.textContent, "后继");
+  old.resolve(info(first, "已移出")); await h.microtasks();
+  assert.equal(audio.src, second);
+  assert.equal(h.doc.querySelector("#title")?.textContent, "后继");
+  assert.deepEqual(h.store.getState().playbackQueue.history, []);
+});
+
+for (const disk of [false, true]) test(disk ? "旧存档无 CID 或页号时沿用默认恢复分P" : "暂停移出后的新待恢复从随机普通分P起播", async t => {
+  const h = await fixture({ playback: true }); t.after(h.dispose);
+  const nativeRandom = Math.random;
+  Math.random = () => 0.99; t.after(() => { Math.random = nativeRandom; });
+  const items = [track(1), track(2)];
+  const audio = h.doc.querySelector("audio")!;
+  Object.defineProperties(audio, { readyState: { value: 1 }, duration: { value: 60 } });
+  h.window.localStorage.setItem("bilibili-music.shuffle-collection-order", "random");
+  h.reply(async (command, args) => {
+    if (command === "get_playback_state") return { version: 1, queue: items, currentIndex: 1, positionSeconds: 7, cid: null, page: null, savedAt: 0 };
+    if (command === "get_video_pages") return [1, 2].map(page => ({ cid: page * 11, page, part: "P" + page, durationSeconds: 60 }));
+    if (command === "prepare_audio") return { ...(await responses(items)(command) as object), audioUrl: "http://127.0.0.1/audio/page-" + args.cid };
+    return responses(items)(command);
+  });
+  if (disk) {
+    await h.core.restorePlaybackState();
+    h.store.actions.playbackQueue.changeShuffle(true, () => 0);
+  } else {
+    h.core.playListItem("direct", items, 0); await h.microtasks();
+    h.store.actions.playbackQueue.changeShuffle(true, () => 0);
+    const count = h.calls.filter(call => call.command === "prepare_audio").length;
+    h.core.removeQueueEntry(0);
+    assert.equal(audio.src, "");
+    assert.equal(h.calls.filter(call => call.command === "prepare_audio").length, count);
+    assert.equal(h.doc.querySelector("#title")?.textContent, items[1].title);
+    assert.equal(h.store.getState().playbackSession.pendingResume?.positionSeconds, 0);
+  }
+  await h.core.resumePendingPlayback();
+  assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.cid, disk ? 11 : 22);
+  if (disk) assert.equal(audio.currentTime, 7);
 });
 
 test("同一请求冻结合集后回填成员；多分P只更新当前分P显示，不覆盖父标题",async t=>{

@@ -27,9 +27,9 @@ type Modules = {
   presentation?: typeof import("../../ui/app/presentation-refresh.ts");
   stages?: typeof import("../../ui/app/shell-stages.ts");
   rootLists?: typeof import("../../ui/features/tracks/root-lists.ts");
-  home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
+  home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { removeQueueEntry(index: number): void; queueVideoNext(video: CommandContract.TrackSnapshotInput): void; playNext(options?: {automatic: boolean}): boolean; advancePageWithinCurrentBv(options: {automatic: boolean}): boolean; playSearchResult(index:number):void; playPrevious():void; playQueueIndex(index:number):void; updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
+  core: { clearPlaybackQueue(): void; savePlaybackState(): void; resumePendingPlayback(): Promise<void>; removeQueueEntry(index: number): void; queueVideoNext(video: CommandContract.TrackSnapshotInput): void; playNext(options?: {automatic: boolean}): boolean; advancePageWithinCurrentBv(options: {automatic: boolean}): boolean; playSearchResult(index:number):void; playPrevious():void; playQueueIndex(index:number):void; updateQueueUi(): void; playListItem(source: string, videos: readonly CommandContract.TrackSnapshotInput[], index: number): void; getQueueSnapshot(): Snapshot["playbackQueue"]; getSessionSnapshot(): Snapshot["playbackSession"]; restorePlaybackState(): Promise<void> }; notice: { showPlaybackNotice(message: string, options?: { persistent?: boolean; kind?: "error" | "info" }): void; clearPlaybackNotice(): void };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
@@ -208,10 +208,9 @@ function responses(items = [track(1)]) {
   };
 }
 async function seed(h: Harness, source: Source, items = [track(1)]) {
-  h.reply(responses(items));
-  if (source === "ranking") { h.home.setHomeMode("ranking"); await h.microtasks(); }
-  else if (source === "recommendation") { h.home.setHomeMode("recommendation"); await h.microtasks(); await h.home.loadRecommendationHome(); }
-  else { h.nodes.searchKeyword.value = "测试"; await h.search.runSearch(); }
+  h.reply(command => command === "get_ai_config" ? Promise.resolve({ hasKey: source === "recommendation" }) : responses(items)(command));
+  if (source === "search") { h.nodes.searchKeyword.value = "测试"; await h.search.runSearch(); }
+  else await h.home.refreshAiKeyState();
   return source === "search" ? h.nodes.searchResults : h.nodes.homeRankingList!;
 }
 

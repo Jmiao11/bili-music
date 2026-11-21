@@ -36,6 +36,7 @@ function createControllerContext(seed: vm.Context, options?: vm.CreateContextOpt
   seed.playerState=player;
   seed.getApplicationStore=()=>store;
   seed.readApplicationStore=seed.getApplicationStore;
+  seed.getQualitySwitchIntent ??= () => null;
   seed.getQueueSnapshot=()=>queueStore.getState(); seed.getQueueActions=()=>queueStore.actions;
   seed.currentPlayableTrack ??= () => queueStore.actions.activeTrack();
   seed.getRequestSnapshot=()=>store.getState().playbackRequest; seed.getRequestActions=()=>store.actions.playbackRequest;
@@ -54,7 +55,7 @@ function createControllerContext(seed: vm.Context, options?: vm.CreateContextOpt
       retreat: () => resolve("retreatPageWithinCurrentBv")(), advance: () => resolve("advancePageWithinCurrentBv")(),
       previous: () => resolve("playPrevious")(), next: () => resolve("playNext")(),
       clearResume: () => resolve("clearPendingResume")(), clearNotice: () => resolve("clearPlaybackNotice")(),
-      media, observe: () => media().getObservation(),
+      media, observe: () => media().getObservation(), switchIntent: () => context.getQualitySwitchIntent(),
       setSeeking: value => resolve("getPlaybackDisplayActions")().setSeeking(value), syncPosition: () => resolve("syncMediaSessionPosition")(),
       diagnostic: (kind, message) => context.window?.recordPlaybackDiag?.(kind, message),
       status: message => { (context.playbackStatus ?? context.status).textContent = message; },

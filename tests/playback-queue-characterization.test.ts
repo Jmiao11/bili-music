@@ -109,7 +109,9 @@ test("queue navigation history and matching search pagination keep random remain
   vm.runInContext("Math.random = () => 0", h.context); h.nodes.shuffleToggle.checked = true; h.nodes.shuffleToggle.fire("change");
   h.context.playQueueIndex(1); assert.deepEqual(plain(h.snapshot().history), [{ index: 0, cid: null }]); h.context.playPrevious(); assert.equal(h.snapshot().currentIndex, 0); assert.deepEqual(plain(h.snapshot().history), []);
   assert.equal(h.context.appendSearchResults([track(2), track(3), track(4)]), 2); assert.deepEqual(plain(h.snapshot().queue), [normalized(1), normalized(2), normalized(3), normalized(4)]); assert.deepEqual(plain(h.snapshot().randomRemaining), [3, 2]);
-  h.audio.currentTime = 33.25; h.context.savePlaybackState(); assert.deepEqual(h.calls.at(-1), { command: "save_playback_state", args: { state: { version: 1, queue: [track(1), track(2), track(3), track(4)], currentIndex: 0, positionSeconds: 33.25, page: null, cid: null, savedAt: 1700000000 } } });
+  h.audio.currentTime = 33.25; h.context.savePlaybackState();
+  await new Promise<void>(resolve => setImmediate(resolve));
+  assert.deepEqual(h.calls.at(-1), { command: "save_playback_state", args: { state: { version: 1, queue: [track(1), track(2), track(3), track(4)], currentIndex: 0, positionSeconds: 33.25, page: null, cid: null, savedAt: 1700000000 } } });
   h.search.requestVersion++; h.context.appendSearchResults([track(5)]); assert.equal(h.snapshot().queue.length, 4); assert.deepEqual(plain(h.snapshot().randomRemaining), [3, 2]);
 });
 

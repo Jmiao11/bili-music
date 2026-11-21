@@ -36,6 +36,16 @@ function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commi
     hideImmersive() {
       const state = read(); commit({ ...state, presentation: { ...state.presentation, immersiveHidden: true } });
     },
+    clearRenderedPlayback() {
+      const state = read(), blank = initialPlaybackDisplayState();
+      commit({ ...blank,
+        audioQuality: { ...state.audioQuality, audioId: null, isFallback: false },
+        presentation: { ...blank.presentation, immersiveHidden: state.presentation.immersiveHidden, immersiveOpen: state.presentation.immersiveOpen },
+        view: { ...state.view, progressVersion: state.view.progressVersion + 1, buttonVersion: state.view.buttonVersion + 1,
+          trackVersion: state.view.trackVersion + 1, sessionVersion: state.view.sessionVersion + 1,
+          positionVersion: state.view.positionVersion + Number(state.position !== null) },
+      });
+    },
     setRenderedTrack(track: { title: string; uploader: string; thumbnailUrl: string; videoTitle?: string; actionTrack?: CommandContract.TrackSnapshotInput | null }) {
       const state = read();
       commit({ ...state, presentation: { ...state.presentation, thumbnailSet: true }, renderedTrack: {
@@ -71,7 +81,10 @@ function createPlaybackDisplayActions(read: () => PlaybackDisplaySnapshot, commi
         view: { ...state.view, trackVersion: state.view.trackVersion + 1 } });
     },
     setSessionState(sessionState: "none" | "paused" | "playing") {
-      const state = read(); commit({ ...state, sessionState, view: { ...state.view, sessionVersion: state.view.sessionVersion + 1 } });
+      const state = read();
+      const clearPosition = sessionState === "none" && state.position !== null;
+      commit({ ...state, sessionState, position: clearPosition ? null : state.position,
+        view: { ...state.view, sessionVersion: state.view.sessionVersion + 1, positionVersion: state.view.positionVersion + Number(clearPosition) } });
     },
     observePosition(media: PlaybackMediaObservation) {
       const state = observed(media);

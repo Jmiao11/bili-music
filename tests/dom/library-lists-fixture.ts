@@ -23,9 +23,9 @@ type Snapshot = ReturnType<Store["getState"]>;
 type Selection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 type Modules = {
   library: { loadLibrary(): Promise<void>; toggleFavorite(video?: CommandContract.TrackSnapshotInput): Promise<void>; getLibrarySnapshot(): Snapshot["library"] };
-  home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; setHomeMode(mode: string): void; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
+  home: { getApplicationStore(): Store; getHomeSnapshot(): Snapshot["home"]; refreshAiKeyState(): Promise<void>; loadHomeRanking(options?: { forceRefresh?: boolean }): Promise<void>; loadRecommendationHome(): Promise<void>; loadRecommendations(options?: { forceRefresh?: boolean }): Promise<void> };
   search: { getSearchSnapshot(): Snapshot["search"]; readLastSearchKeyword(): string; runSearch(options?: { userKeyword?: string; recordHistory?: boolean }): Promise<void>; loadMoreSearchResults(): Promise<void>; fillSearchMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void; renderSearchResults(): void };
-  core: { updateQueueUi(): void; playListItem(source: string, items: readonly import("../../ui/features/playback/playback-queue-state.ts").QueueInput[], index: number): void;
+  core: { removeQueueEntry(index: number): void; updateQueueUi(): void; playListItem(source: string, items: readonly import("../../ui/features/playback/playback-queue-state.ts").QueueInput[], index: number): void;
     currentPlayableTrack(): CommandContract.TrackSnapshotInput | null; currentVideoPage(): CommandContract.VideoPage | null;
     playPrevious(): void; playNext(): boolean; savePlaybackState(): void; restorePlaybackState(): Promise<void>; resumePendingPlayback(): Promise<void> };
   pages: { bindTrackActivation(item: HTMLElement, button: HTMLButtonElement, video: CommandContract.TrackSnapshotInput, play: (selection?: Selection) => void): void };

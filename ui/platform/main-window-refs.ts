@@ -19,12 +19,14 @@ let pagesModal: HTMLDivElement;
 let pagesModalRestoreAll: HTMLButtonElement;
 let pagesModalList: HTMLUListElement;
 let pagesModalClose: HTMLButtonElement;
-const queueDrawerRefs = { button: null as HTMLButtonElement | null, drawer: null as HTMLElement | null, list: null as HTMLUListElement | null, close: null as HTMLButtonElement | null };
+const queueDrawerRefs = { button: null as HTMLButtonElement | null, drawer: null as HTMLElement | null, list: null as HTMLUListElement | null, close: null as HTMLButtonElement | null, clear: null as HTMLButtonElement | null, confirm: null as HTMLElement | null };
 const mainWindowRefs={
  queueButton:(node:HTMLButtonElement|null):void=>{queueDrawerRefs.button=node;},
  queueDrawer:(node:HTMLElement|null):void=>{queueDrawerRefs.drawer=node;},
  queueDrawerList:(node:HTMLUListElement|null):void=>{queueDrawerRefs.list=node;},
  queueDrawerClose:(node:HTMLButtonElement|null):void=>{queueDrawerRefs.close=node;},
+ queueDrawerClear:(node:HTMLButtonElement|null):void=>{queueDrawerRefs.clear=node;},
+ queueDrawerConfirm:(node:HTMLElement|null):void=>{queueDrawerRefs.confirm=node;},
  searchResults:(node:HTMLUListElement|null):void=>{if(node)searchResults=node;},
  homeRankingError:(node:HTMLParagraphElement|null):void=>{if(node)homeRankingError=node;},
  homeRankingList:(node:HTMLUListElement|null):void=>{if(node)homeRankingList=node;},

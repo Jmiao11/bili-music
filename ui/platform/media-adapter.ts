@@ -41,7 +41,7 @@ function createMediaSessionAdapter(session: MediaSession, metadata: (init: Media
         artwork: track.thumbnailUrl ? [{ src: track.thumbnailUrl, sizes: "512x512", type: "image/jpeg" }] : [] }) : null;
     },
     setPlaybackState: (state: MediaSessionPlaybackState) => { session.playbackState = state; },
-    setPosition: (position: MediaPositionState) => { if (typeof session.setPositionState === "function") session.setPositionState(position); },
+    setPosition: (position: MediaPositionState | null) => { if (typeof session.setPositionState === "function") session.setPositionState(position ?? undefined); },
     setActionHandler: (action: MediaSessionAction, handler: MediaSessionActionHandler) => session.setActionHandler(action, handler),
   };
 }

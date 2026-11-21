@@ -186,6 +186,49 @@ test("five real failed collection audio units consume five slots and apply the e
   } finally { h.dispose(); }
 });
 
+test("暂停移出后曾播放的合集用本地快照开启新一轮，同一成员可跨重启待恢复", async () => {
+  const before = await setup(4);
+  let saved: CommandContract.PlaybackState | undefined;
+  let expectedMember = "";
+  try {
+    const queue = before.store.actions.playbackQueue;
+    const [group, video] = libraryQueueEntries(before.entries);
+    queue.replaceQueue([video, group], "favorites");
+    queue.selectIndex(1, false, null);
+    queue.freezeCollection(before.data, "sequential", () => 0);
+    queue.settleCollectionUnit(11);
+    queue.advanceCollection([], new Map(), () => 0, { order: "sequential", limit: 0 }, 11, false);
+    assert.equal(queue.activeTrack()?.bvid, before.data.snapshot.items[1].bvid);
+    queue.selectIndex(0, false, null);
+    Object.defineProperty(before.audio, "paused", { configurable: true, value: true });
+    before.core.removeQueueEntry(0); await before.microtasks();
+    expectedMember = before.data.snapshot.items[0].bvid;
+    const frozen = before.store.getState().playbackQueue.queue[0].collection;
+    assert.equal(queue.activeTrack()?.bvid, expectedMember);
+    assert.deepEqual(frozen?.remaining, [3, 2, 1]);
+    assert.equal(frozen?.playedCount, 0);
+    assert.deepEqual(frozen?.chargedUnits, []);
+    assert.equal(before.store.getState().playbackSession.pendingResume?.positionSeconds, 0);
+    assert.deepEqual(before.units(), []);
+    saved = before.calls.find(call => call.command === "save_playback_state")?.args.state as CommandContract.PlaybackState;
+    assert.equal(saved.version, 2);
+    await before.core.resumePendingPlayback(); await before.microtasks();
+    assert.equal(before.units()[0][0], expectedMember);
+    assert.equal(before.calls.filter(call => call.command === "get_collection_page").length, 0);
+  } finally { before.dispose(); }
+
+  const restarted = await setup(4);
+  try {
+    restarted.reply(async (command, args) => command === "get_playback_state" ? saved : restarted.baseReply(command, args));
+    await restarted.core.restorePlaybackState();
+    assert.equal(restarted.core.currentPlayableTrack()?.bvid, expectedMember);
+    await restarted.core.resumePendingPlayback();
+    assert.equal(restarted.units()[0][0], expectedMember);
+    assert.equal(restarted.store.getState().playbackQueue.queue[0].collection?.playedCount, 0);
+    assert.equal(restarted.calls.filter(call => call.command === "get_collection_page").length, 0);
+  } finally { restarted.dispose(); }
+});
+
 test("collection resume restores the frozen member page position and round without a fresh list request", async () => {
   const first = await setup(4);
   let saved: CommandContract.PlaybackState | undefined;

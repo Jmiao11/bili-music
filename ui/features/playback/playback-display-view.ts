@@ -29,10 +29,10 @@ function projectPlaybackProgress(state: PlaybackDisplaySnapshot) {
 function renderPlaybackMediaSession(state: PlaybackDisplaySnapshot, previous: PlaybackDisplaySnapshot | null, bindings: {
   setTrack(track: PlaybackSessionTrack | null): void;
   setPlaybackState(state: "none" | "paused" | "playing"): void;
-  setPosition(position: NonNullable<PlaybackDisplaySnapshot["position"]>): void;
+  setPosition(position: PlaybackDisplaySnapshot["position"]): void;
 }): void {
   if (state.view.trackVersion && state.view.trackVersion !== previous?.view.trackVersion) bindings.setTrack(state.track);
   if (state.view.sessionVersion && state.view.sessionVersion !== previous?.view.sessionVersion) bindings.setPlaybackState(state.sessionState);
-  if (state.view.positionVersion && state.view.positionVersion !== previous?.view.positionVersion && state.position) bindings.setPosition(state.position);
+  if (state.view.positionVersion && state.view.positionVersion !== previous?.view.positionVersion) bindings.setPosition(state.position);
 }
 export { projectPlaybackControls, projectPlaybackProgress, renderPlaybackMediaSession };
