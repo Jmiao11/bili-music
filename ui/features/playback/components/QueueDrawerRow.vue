@@ -9,7 +9,7 @@ defineProps<{ row: QueueDrawerRow; index: number; expanded: boolean; toggle: (ro
     <template v-if="row.entry.collection"><span class="queue-title">{{ row.entry.title }}</span><span class="queue-meta">合集 {{ row.entry.collection.data.videoCount }}</span></template>
     <template v-else>
       <span class="queue-number">{{ index + 1 }}</span>
-      <img v-if="row.entry.thumbnailUrl" :src="displayThumbnailUrl(row.entry.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" /><span v-else class="queue-cover"></span>
+      <img draggable="false" v-if="row.entry.thumbnailUrl" :src="displayThumbnailUrl(row.entry.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" /><span v-else class="queue-cover"></span>
       <span class="queue-text"><span class="queue-title">{{ row.entry.title }}</span><span class="queue-meta">{{ row.entry.uploader }}</span></span>
       <span class="queue-meta">{{ formatDuration(row.entry.durationSeconds) }}</span>
     </template>

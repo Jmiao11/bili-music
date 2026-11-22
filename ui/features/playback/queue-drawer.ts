@@ -9,6 +9,7 @@ let stage: QueueDrawerStage = { hidden: true, open: false }, frame = 0;
 let play: ((index: number) => void) | undefined;
 let removeEntry: ((index: number) => void) | undefined;
 let clearQueue: (() => void) | undefined;
+let saveOrder: (() => void) | undefined;
 let lastIdentity = "";
 let centerOnOpen = false;
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -70,7 +71,9 @@ function syncQueueDrawer(view: QueueDrawerView): void {
   queueDrawerRefs.list?.querySelector<HTMLElement>("[aria-current='true']")?.scrollIntoView({ block, behavior: reducedMotion() ? "auto" : "smooth" });
 }
 function dispose(): void { cancelAnimationFrame(frame); frame = 0; document.removeEventListener("keydown", keydown, true); stage = { hidden: true, open: false }; lastIdentity = ""; centerOnOpen = false; }
-const queueDrawerCallbacks = Object.freeze({ toggle, close, transition, dispose, openClear, dismissClear, confirmClear, remove(index: number) {
+const queueDrawerCallbacks = Object.freeze({ toggle, close, transition, dispose, openClear, dismissClear, confirmClear, move(from: number, to: number) {
+  if (readApplicationStore().actions.playbackQueue.moveParent(from, to)) saveOrder?.();
+}, remove(index: number) {
   const list = queueDrawerRefs.list;
   const row = list?.children[index];
   const restore = row?.contains(document.activeElement);
@@ -92,6 +95,6 @@ const queueDrawerCallbacks = Object.freeze({ toggle, close, transition, dispose,
 }, choose(index: number) {
   if (index !== readApplicationStore().getState().playbackQueue.currentIndex) play?.(index);
 } });
-function installQueueDrawerPlayback(handler: (index: number) => void, remove: (index: number) => void, clear: () => void): void { play = handler; removeEntry = remove; clearQueue = clear; }
+function installQueueDrawerPlayback(handler: (index: number) => void, remove: (index: number) => void, clear: () => void, save: () => void): void { saveOrder = save; play = handler; removeEntry = remove; clearQueue = clear; }
 function readQueueDrawerStage(): QueueDrawerStage { return stage; }
 export { queueDrawerCallbacks, installQueueDrawerPlayback, readQueueDrawerStage, syncQueueDrawer };

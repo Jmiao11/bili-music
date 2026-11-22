@@ -1,3 +1,4 @@
+import { rowDragHandlers } from "../../shared/controller-runtime.ts";
 import { installModalBindings } from "../../app/root-modals.ts";
 import { refreshRootLists, setRootPlaylistList } from "../tracks/root-lists.ts";
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
@@ -34,33 +35,22 @@ function finishLibraryDrag(kind: DragKind, save = false): void {
   getLibraryActions().finishDrag(kind, performance.now(), save);
 }
 function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandlers {
-  return {
-    capture(event) { if (isLibraryDragClickSuppressed(getLibrarySnapshot(), kind, performance.now())) { event.preventDefault(); event.stopImmediatePropagation(); } },
-    start(event, index, key) {
-      if (!event.dataTransfer) return;
-      if (getLibrarySnapshot().drags[kind].saving) { event.preventDefault(); return; }
+  return rowDragHandlers({
+    suppressed: () => isLibraryDragClickSuppressed(getLibrarySnapshot(), kind, performance.now()),
+    blocked: () => getLibrarySnapshot().drags[kind].saving,
+    start(index, key) {
       setLibraryDragVisual(kind, { sourceKey: key, targetKey: null, direction: null });
       getLibraryActions().startDrag(kind, index, kind === "playlistItems" ? playlistId : undefined);
-      event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(index));
     },
-    over(event, index, key) {
-      if (!event.dataTransfer) return;
-      const drag = getLibrarySnapshot().drags[kind];
-      if (!libraryDragVisuals?.has(kind) || !drag.drag || drag.saving || kind === "playlistItems" && drag.drag.playlistId !== playlistId) return;
-      event.preventDefault(); event.dataTransfer.dropEffect = "move";
-      setLibraryDragVisual(kind, { targetKey: index === drag.drag.index ? null : key, direction: index < drag.drag.index ? "before" : "after" });
-      refreshRootLists();
+    source() {
+      const { drag, saving } = getLibrarySnapshot().drags[kind];
+      return !drag || saving || kind === "playlistItems" && drag.playlistId !== playlistId ? null : drag.index;
     },
-    leave(event, key) {
-      if (libraryDragVisuals?.get(kind)?.targetKey === key && !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) {
-        setLibraryDragVisual(kind, { targetKey: null, direction: null }); refreshRootLists();
-      }
-    },
-    async drop(event, index) {
-      const drag = getLibrarySnapshot().drags[kind];
-      if (!drag.drag || drag.saving || kind === "playlistItems" && drag.drag.playlistId !== playlistId) return;
-      const from = drag.drag.index; event.preventDefault(); event.stopPropagation(); finishLibraryDrag(kind, from !== index);
-      if (from === index) return;
+    canHover: () => !!libraryDragVisuals?.has(kind),
+    target: () => libraryDragVisuals?.get(kind)?.targetKey ?? null,
+    hover(targetKey, direction) { setLibraryDragVisual(kind, { targetKey, direction }); refreshRootLists(); },
+    finish: save => finishLibraryDrag(kind, save),
+    async move(from, index) {
       try {
         const actions = getLibraryActions();
         if (kind === "favorites") await actions.reorderFavorites(from, index);
@@ -69,8 +59,7 @@ function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandle
       } catch (error) { console.warn(kind === "favorites" ? "favorite reorder failed:" : kind === "playlistItems" ? "playlist reorder failed:" : "playlist list reorder failed:", error); }
       finally { getLibraryActions().finishDragSave(kind); }
     },
-    end() { finishLibraryDrag(kind); },
-  };
+  });
 }
 function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationStore>["getState"]>): void {
   const library = state.library;

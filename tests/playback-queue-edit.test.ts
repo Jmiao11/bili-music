@@ -118,3 +118,32 @@ test("插入后移出恢复原队列与遍历",()=>{
   const before=s.getState();q.insertNextVideo(c);q.removeNonCurrentEntry(1);
   assert.deepEqual(s.getState(),{...before,queueSource:"direct",queueSearchVersion:null});
 });
+
+test("移动父项只提交一次，当前项、历史及随机剩余索引跟随原出现", () => {
+  const data = collection(4), group = libraryQueueEntries([collectionEntry(data)])[0];
+  for (const [from, to, order] of [[0, 3, [1, 2, 3, 0]], [3, 0, [3, 0, 1, 2]],
+    [1, 2, [0, 2, 1, 3]], [2, 1, [0, 2, 1, 3]]] as const) {
+    const store = createStateStore(initialPlaybackQueueState(), createPlaybackQueueActions, { freeze: true });
+    const q = store.actions, [a, b] = data.snapshot.items;
+    q.replaceQueue([a, group, b, a], "search", 19);
+    q.selectIndex(1, false, null);
+    const history = store.getState().queue.map((entry, index) => ({ index, cid: index + 11, entryId: entry.entryId, track: b }));
+    q.restoreTraversal({ shuffle: false, loopMode: "sequence", randomRemaining: [3, 0, 2], history, randomPageRound: null });
+    const before = store.getState();
+    let commits = 0;
+    store.subscribe(() => commits++);
+    assert.equal(q.moveParent(from, from), false);
+    assert.equal(store.getState(), before);
+    assert.equal(commits, 0);
+    assert.equal(q.moveParent(from, to), true);
+    const after = store.getState();
+    assert.equal(commits, 1);
+    order.forEach((oldIndex, index) => assert.equal(after.queue[index], before.queue[oldIndex]));
+    assert.equal(after.queue[after.currentIndex].collection, before.queue[1].collection);
+    const map = (index: number) => order.findIndex(old => old === index);
+    assert.deepEqual(after.randomRemaining, before.randomRemaining.map(map));
+    assert.deepEqual(after.history, history.map(item => ({ ...item, index: map(item.index) })));
+    after.history.forEach((item, index) => assert.equal(item.track, before.history[index].track));
+    assert.deepEqual([after.queueSource, after.queueSearchVersion, after.playlistId], ["direct", null, null]);
+  }
+});

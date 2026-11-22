@@ -14,10 +14,10 @@ function sameDisplay(a: Entry, b: Entry): boolean {
 }
 function createQueueDrawerProjection() {
   let previous: PlaybackQueueSnapshot | undefined, nextId = 0;
-  let model: { rows: readonly QueueDrawerRow[]; stage: QueueDrawerStage; count: number; hasCurrent: boolean };
+  let model: { rows: readonly QueueDrawerRow[]; stage: QueueDrawerStage; count: number; hasCurrent: boolean; shuffle: boolean };
   return (queue: PlaybackQueueSnapshot, stage: QueueDrawerStage) => {
     if (previous?.queue === queue.queue && previous.currentIndex === queue.currentIndex) {
-      if (model.stage !== stage) model = { ...model, stage };
+      if (model.stage !== stage || model.shuffle !== queue.shuffle) model = { ...model, stage, shuffle: queue.shuffle };
       return model;
     }
     if (previous?.queue === queue.queue) {
@@ -26,7 +26,7 @@ function createQueueDrawerProjection() {
         if (rows[i]) rows[i] = { ...rows[i], active: i === queue.currentIndex };
       }
       previous = queue;
-      return model = { ...model, rows, stage, hasCurrent: queue.currentIndex >= 0 };
+      return model = { ...model, rows, stage, shuffle: queue.shuffle, hasCurrent: queue.currentIndex >= 0 };
     }
     const old = model?.rows ?? [], byEntry = new Map<Entry, QueueDrawerRow>();
     previous?.queue.forEach((entry, index) => { if (!byEntry.has(entry)) byEntry.set(entry, old[index]); });
@@ -50,7 +50,7 @@ function createQueueDrawerProjection() {
       return { id: match?.id ?? ++nextId, entry, active, memberIndex };
     });
     previous = queue;
-    return model = { rows, stage, count: rows.length, hasCurrent: queue.currentIndex >= 0 };
+    return model = { rows, stage, count: rows.length, shuffle: queue.shuffle, hasCurrent: queue.currentIndex >= 0 };
   };
 }
 export { createQueueDrawerProjection };

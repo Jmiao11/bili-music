@@ -228,3 +228,58 @@ test("减少动效时抽屉打开同步采用最终位置，不等待观察器�
   assert.equal(main.classList.contains("queue-drawer-sliding"),false);
   assert.equal(main.classList.contains("queue-drawer-open"),false);
 });
+
+test("拖动当前项后播放不中断且仍高亮原条目", async t => {
+  const h = await setup(); t.after(h.dispose);
+  const group = collection(3);
+  const items = [track(1), ...libraryQueueEntries([collectionEntry(group)]), track(2), track(3)];
+  h.reply(responses());
+  h.core.playListItem("favorites", items, 0);
+  await h.microtasks(); await h.open();
+  const rows = () => Array.from(h.doc.querySelectorAll<HTMLElement>(".queue-parent"));
+  const [playing, album, other] = rows();
+  const expand = album.querySelector("button.queue-expand")!;
+  await h.click(expand);
+  const member = h.doc.querySelector<HTMLElement>(".queue-members > li")!;
+  const transfer = { setData() {} };
+  async function dragEvent(element: Element, type: string) {
+    await nextDomEventTurn();
+    const event = new h.window.Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: transfer });
+    element.dispatchEvent(event); await h.microtasks();
+    return event;
+  }
+  async function move(source: Element, target: Element) {
+    await dragEvent(source, "dragstart"); await dragEvent(target, "dragover");
+    await dragEvent(target, "drop"); await dragEvent(source, "dragend");
+  }
+  const q = h.store.actions.playbackQueue;
+  q.changeShuffle(true, () => 0);
+  assert.ok(rows().every(row => !row.draggable && row.title === "随机播放时不可调整顺序"));
+  await move(playing, other); assert.equal(rows()[0], playing);
+  q.changeShuffle(false, () => 0);
+  assert.ok(rows().every(row => row.draggable));
+  assert.equal(member.draggable, false);
+  await move(member, playing); await move(playing, member);
+  assert.equal(rows()[0], playing);
+  const audio = h.doc.querySelector("audio")!;
+  audio.currentTime = 17;
+  const source = audio.src, page = h.store.getState().playbackQueue.currentPageIndex;
+  assert.ok(source.endsWith("/audio/fixture"));
+  const count = (command: string) => h.calls.filter(call => call.command === command).length;
+  const saves = count("save_playback_state"), prepares = count("prepare_audio");
+  await move(playing, other);
+  assert.equal(rows()[2], playing);
+  assert.equal(playing.querySelector(".queue-track")?.getAttribute("aria-current"), "true");
+  assert.equal(audio.src, source); assert.equal(audio.currentTime, 17);
+  assert.equal(h.store.getState().playbackQueue.currentPageIndex, page);
+  assert.equal(count("prepare_audio"), prepares);
+  assert.equal(count("save_playback_state"), saves + 1);
+  await move(album, other);
+  assert.equal(rows()[1], album);
+  assert.equal(expand.getAttribute("aria-expanded"), "true");
+  assert.equal(h.doc.querySelector(".queue-members > li"), member);
+  assert.equal(count("save_playback_state"), saves + 2);
+  h.core.playNext(); await h.microtasks();
+  assert.equal(h.store.getState().playbackQueue.queue[h.store.getState().playbackQueue.currentIndex].bvid, track(3).bvid);
+});

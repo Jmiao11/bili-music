@@ -90,7 +90,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", savePlaybackStateOnUnload);
 
-installQueueDrawerPlayback(playQueueIndex, removeQueueEntry, clearPlaybackQueue);
+installQueueDrawerPlayback(playQueueIndex, removeQueueEntry, clearPlaybackQueue, savePlaybackState);
 initPlaybackModes();
 
 installPlaybackCallbacks({ favorite: track => { if (track) void toggleFavorite(track); }, addPlaylistImmersive: track => { if (track) choosePlaylistAndAdd(track); } });
