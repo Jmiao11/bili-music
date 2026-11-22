@@ -8,7 +8,7 @@ use protocol::{
 
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -644,19 +644,18 @@ fn filter_known_bvids<'a>(
         .collect()
 }
 
-fn order_videos_by_bvids(videos: Vec<SearchVideo>, ordered_bvids: &[String]) -> Vec<SearchVideo> {
-    let mut by_bvid: HashMap<String, SearchVideo> = videos
-        .into_iter()
-        .map(|video| (video.bvid.clone(), video))
-        .collect();
-    let mut ordered = Vec::new();
-    for bvid in ordered_bvids {
-        if let Some(video) = by_bvid.remove(bvid) {
-            ordered.push(video);
-        }
-    }
-    ordered.extend(by_bvid.into_values());
-    ordered
+fn order_videos_by_bvids(
+    mut videos: Vec<SearchVideo>,
+    ordered_bvids: &[String],
+) -> Vec<SearchVideo> {
+    // 最多 30 条。稳定排序保留未被 AI 点名的候选在播放量基线中的顺序。
+    videos.sort_by_key(|video| {
+        ordered_bvids
+            .iter()
+            .position(|bvid| bvid == &video.bvid)
+            .unwrap_or(ordered_bvids.len())
+    });
+    videos
 }
 
 fn read_ai_config_from_path(

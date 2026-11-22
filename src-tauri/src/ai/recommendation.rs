@@ -3,7 +3,7 @@ use super::{
     read_ai_config, rerank_candidates, AiConfig, SearchIntent,
 };
 use crate::search::{SearchClient, SearchVideo};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::future::Future;
 use std::time::Duration;
 use tokio::time::{timeout_at, Instant};
@@ -130,9 +130,9 @@ async fn generate_with_dependencies(
 
     let search_started = Instant::now();
     let search_deadline = deadline.min(search_started + budget.search);
-    let mut candidates_by_bvid = HashMap::new();
+    let mut pages = Vec::new();
     for intent in intents.into_iter().take(5) {
-        if candidates_by_bvid.len() >= 30 || Instant::now() >= search_deadline {
+        if Instant::now() >= search_deadline {
             break;
         }
         // 所有关键词共享同一个检索截止时间，不能按每个关键词重新领取预算。
@@ -141,24 +141,29 @@ async fn generate_with_dependencies(
             Ok(Err(_)) => continue,
             Err(_) => break,
         };
-        for video in videos {
-            if candidates_by_bvid.len() >= 30 {
-                break;
+        pages.push(videos.into_iter());
+    }
+    let rounds = pages.iter().map(ExactSizeIterator::len).max().unwrap_or(0);
+    let mut seen = HashSet::new();
+    let mut baseline = Vec::new();
+    'rounds: for _ in 0..rounds {
+        for video in pages.iter_mut().filter_map(Iterator::next) {
+            if seen.insert(video.bvid.clone()) {
+                baseline.push(video);
+                if baseline.len() == 30 {
+                    break 'rounds;
+                }
             }
-            candidates_by_bvid
-                .entry(video.bvid.clone())
-                .or_insert(video);
         }
     }
     eprintln!(
         "[recommendation] stage=search elapsed_ms={} candidates={}",
         search_started.elapsed().as_millis(),
-        candidates_by_bvid.len()
+        baseline.len()
     );
-    if candidates_by_bvid.is_empty() {
+    if baseline.is_empty() {
         return Err("未能获取推荐候选，请稍后重试。".to_owned());
     }
-    let mut baseline: Vec<SearchVideo> = candidates_by_bvid.into_values().collect();
     baseline.sort_by(|left, right| {
         right
             .play_count
@@ -300,6 +305,74 @@ mod tests {
             generate_with_dependencies("合成口味", fake, Instant::now() + budget.total, budget)
                 .await
         })
+    }
+
+    #[test]
+    fn candidate_search_keeps_the_default_first_page_contract() {
+        // 离线锁定生产适配器与搜索客户端的委托参数，无需游客身份或外部服务。
+        let adapter = include_str!("recommendation.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        assert!(adapter.contains("self.search.search_videos(keyword).await"));
+        let client = include_str!("../search.rs");
+        assert!(client.contains("self.search_videos_page(keyword, 1, None, None, None, true)"));
+        assert!(
+            client.contains("params.insert(\"tids\".to_owned(), tids.unwrap_or(0).to_string())")
+        );
+    }
+
+    #[test]
+    fn one_keyword_cannot_monopolize_candidates() {
+        let tied = |id: &str| SearchVideo {
+            title: "同名".into(),
+            ..video(id, 1)
+        };
+        let mut first: Vec<_> = (0..35).map(|i| tied(&format!("a{i}"))).collect();
+        first[1].uploader = "后出现的重复条目".into();
+        let fake = fake(
+            vec![
+                Step::Ready(Ok(first)),
+                Step::Ready(Err("搜索失败".into())),
+                Step::Ready(Ok(vec![tied("a1"), tied("b1"), tied("b2")])),
+            ],
+            Step::Ready(Ok(Vec::new())),
+        );
+        let results = run(&fake, BUDGET).unwrap();
+        let mut expected = vec![
+            "a0".to_owned(),
+            "a1".into(),
+            "b1".into(),
+            "a2".into(),
+            "b2".into(),
+        ];
+        expected.extend((3..28).map(|i| format!("a{i}")));
+        assert_eq!(
+            results.iter().map(|v| &v.bvid).collect::<Vec<_>>(),
+            expected.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(results[1].uploader, "测试作者");
+        assert_eq!(fake.search_calls.load(Ordering::SeqCst), 3);
+    }
+
+    #[test]
+    fn partial_ai_order_preserves_play_count_baseline_tail() {
+        for _ in 0..8 {
+            let fake = fake(
+                vec![Step::Ready(Ok(vec![
+                    video("low", 1),
+                    video("z", 8),
+                    video("high", 20),
+                    video("a", 8),
+                ]))],
+                Step::Ready(Ok(vec!["low".into(), "unknown".into(), "low".into()])),
+            );
+            let results = run(&fake, BUDGET).unwrap();
+            assert_eq!(
+                results.iter().map(|v| v.bvid.as_str()).collect::<Vec<_>>(),
+                ["low", "high", "a", "z"]
+            );
+        }
     }
 
     #[test]
