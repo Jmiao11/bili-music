@@ -238,7 +238,13 @@
     },
     {
       "action": "listen",
-      "target": "#open-immersive-button",
+      "target": "#player-pages-button",
+      "type": "click",
+      "options": null
+    },
+    {
+      "action": "listen",
+      "target": "#skip-video-button",
       "type": "click",
       "options": null
     },
@@ -310,19 +316,19 @@
     },
     {
       "action": "listen",
-      "target": "#player-pages-button",
+      "target": "#favorite-current-button",
       "type": "click",
       "options": null
     },
     {
       "action": "listen",
-      "target": "#skip-video-button",
+      "target": "#add-playlist-current-button",
       "type": "click",
       "options": null
     },
     {
       "action": "listen",
-      "target": "#queue-position",
+      "target": "#open-immersive-button",
       "type": "click",
       "options": null
     },
@@ -334,13 +340,7 @@
     },
     {
       "action": "listen",
-      "target": "#favorite-current-button",
-      "type": "click",
-      "options": null
-    },
-    {
-      "action": "listen",
-      "target": "#add-playlist-current-button",
+      "target": "#queue-position",
       "type": "click",
       "options": null
     },

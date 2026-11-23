@@ -61,42 +61,6 @@
             ]
           },
           {
-            "tag": "button",
-            "attributes": {
-              "aria-label": "打开沉浸播放页",
-              "class": "tool-button player-immersive-button",
-              "id": "open-immersive-button",
-              "type": "button"
-            },
-            "children": [
-              {
-                "tag": "svg",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "ui-icon",
-                  "fill": "none",
-                  "focusable": "false",
-                  "height": "16",
-                  "stroke": "currentColor",
-                  "stroke-linecap": "round",
-                  "stroke-linejoin": "round",
-                  "stroke-width": "1.8",
-                  "viewBox": "0 0 24 24",
-                  "width": "16"
-                },
-                "children": [
-                  {
-                    "tag": "path",
-                    "attributes": {
-                      "d": "M4 7h10M4 12h16M4 17h12"
-                    },
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          },
-          {
             "tag": "div",
             "attributes": {
               "class": "track-copy"
@@ -120,10 +84,76 @@
                   {
                     "tag": "span",
                     "attributes": {
-                      "id": "uploader"
+                      "class": "player-byline"
                     },
                     "children": [
-                      "—"
+                      {
+                        "tag": "span",
+                        "attributes": {
+                          "id": "uploader"
+                        },
+                        "children": [
+                          "—"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "tag": "span",
+                    "attributes": {
+                      "class": "player-pages-group",
+                      "hidden": ""
+                    },
+                    "children": [
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-label": "查看分P",
+                          "class": "page-count-badge player-pages-button",
+                          "hidden": "",
+                          "id": "player-pages-button",
+                          "title": "查看分P",
+                          "type": "button"
+                        },
+                        "children": []
+                      },
+                      {
+                        "tag": "button",
+                        "attributes": {
+                          "aria-label": "跳过本次合集，播放下一首",
+                          "class": "player-skip-video-button",
+                          "id": "skip-video-button",
+                          "title": "跳过本次合集",
+                          "type": "button"
+                        },
+                        "children": [
+                          {
+                            "tag": "svg",
+                            "attributes": {
+                              "aria-hidden": "true",
+                              "class": "ui-icon",
+                              "fill": "none",
+                              "focusable": "false",
+                              "height": "16",
+                              "stroke": "currentColor",
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "1.8",
+                              "viewBox": "0 0 24 24",
+                              "width": "16"
+                            },
+                            "children": [
+                              {
+                                "tag": "path",
+                                "attributes": {
+                                  "d": "M3 6l8 6-8 6ZM11 6l8 6-8 6ZM21 6v12"
+                                },
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -421,9 +451,225 @@
         },
         "children": [
           {
-            "tag": "span",
+            "tag": "div",
             "attributes": {
-              "class": "player-quality-controls"
+              "class": "player-tool-group player-library-tools"
+            },
+            "children": [
+              {
+                "tag": "button",
+                "attributes": {
+                  "aria-label": "收藏当前歌曲",
+                  "class": "tool-button favorite-current-button",
+                  "data-favorite-bvid": "",
+                  "disabled": "",
+                  "id": "favorite-current-button",
+                  "title": "收藏当前歌曲",
+                  "type": "button"
+                },
+                "children": [
+                  {
+                    "tag": "span",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "sr-only"
+                    },
+                    "children": [
+                      "♡"
+                    ]
+                  },
+                  {
+                    "tag": "svg",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
+                    },
+                    "children": [
+                      {
+                        "tag": "path",
+                        "attributes": {
+                          "d": "M12 20S4 15 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 6-8 11-8 11Z"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "button",
+                "attributes": {
+                  "aria-label": "加入歌单",
+                  "class": "tool-button",
+                  "disabled": "",
+                  "id": "add-playlist-current-button",
+                  "title": "加入歌单",
+                  "type": "button"
+                },
+                "children": [
+                  {
+                    "tag": "svg",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
+                    },
+                    "children": [
+                      {
+                        "tag": "path",
+                        "attributes": {
+                          "d": "M12 5v14M5 12h14"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "attributes": {
+              "class": "player-tool-group player-navigation-tools"
+            },
+            "children": [
+              {
+                "tag": "button",
+                "attributes": {
+                  "aria-label": "打开沉浸播放页",
+                  "class": "tool-button player-immersive-button",
+                  "id": "open-immersive-button",
+                  "type": "button"
+                },
+                "children": [
+                  {
+                    "tag": "svg",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
+                    },
+                    "children": [
+                      {
+                        "tag": "path",
+                        "attributes": {
+                          "d": "M4 7h10M4 12h16M4 17h12"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "button",
+                "attributes": {
+                  "aria-label": "在 B站打开",
+                  "class": "tool-button",
+                  "disabled": "",
+                  "id": "open-bilibili-bar-button",
+                  "type": "button"
+                },
+                "children": [
+                  {
+                    "tag": "svg",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
+                    },
+                    "children": [
+                      {
+                        "tag": "path",
+                        "attributes": {
+                          "d": "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"
+                        },
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "tag": "button",
+                "attributes": {
+                  "aria-controls": "queue-drawer",
+                  "aria-expanded": "false",
+                  "aria-label": "播放队列",
+                  "class": "queue-position",
+                  "disabled": "",
+                  "id": "queue-position",
+                  "type": "button"
+                },
+                "children": [
+                  {
+                    "tag": "svg",
+                    "attributes": {
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
+                    },
+                    "children": [
+                      {
+                        "tag": "path",
+                        "attributes": {
+                          "d": "M3 6h15M3 11h9M3 16h6M18 16V8l4-1v3l-4 1M18 16c0 2-1.3 3-3 3-1.1 0-2-.6-2-1.5S14.2 15 16 15c.8 0 1.5.3 2 1Z"
+                        },
+                        "children": []
+                      }
+                    ]
+                  },
+                  "♪0/0"
+                ]
+              }
+            ]
+          },
+          {
+            "tag": "div",
+            "attributes": {
+              "class": "player-tool-group player-sound-tools"
             },
             "children": [
               {
@@ -474,257 +720,52 @@
                 ]
               },
               {
-                "tag": "span",
+                "tag": "label",
                 "attributes": {
-                  "class": "player-pages-group",
-                  "hidden": ""
+                  "aria-label": "音量",
+                  "class": "volume-control"
                 },
                 "children": [
                   {
-                    "tag": "button",
+                    "tag": "svg",
                     "attributes": {
-                      "aria-label": "查看分P",
-                      "class": "page-count-badge player-pages-button",
-                      "hidden": "",
-                      "id": "player-pages-button",
-                      "title": "查看分P",
-                      "type": "button"
-                    },
-                    "children": []
-                  },
-                  {
-                    "tag": "button",
-                    "attributes": {
-                      "aria-label": "跳过本次合集，播放下一首",
-                      "class": "player-skip-video-button",
-                      "id": "skip-video-button",
-                      "title": "跳过本次合集",
-                      "type": "button"
+                      "aria-hidden": "true",
+                      "class": "ui-icon",
+                      "fill": "none",
+                      "focusable": "false",
+                      "height": "16",
+                      "stroke": "currentColor",
+                      "stroke-linecap": "round",
+                      "stroke-linejoin": "round",
+                      "stroke-width": "1.8",
+                      "viewBox": "0 0 24 24",
+                      "width": "16"
                     },
                     "children": [
                       {
-                        "tag": "svg",
+                        "tag": "path",
                         "attributes": {
-                          "aria-hidden": "true",
-                          "class": "ui-icon",
-                          "fill": "none",
-                          "focusable": "false",
-                          "height": "16",
-                          "stroke": "currentColor",
-                          "stroke-linecap": "round",
-                          "stroke-linejoin": "round",
-                          "stroke-width": "1.8",
-                          "viewBox": "0 0 24 24",
-                          "width": "16"
+                          "d": "M4 9v6h4l5 4V5L8 9ZM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"
                         },
-                        "children": [
-                          {
-                            "tag": "path",
-                            "attributes": {
-                              "d": "M3 6l8 6-8 6ZM11 6l8 6-8 6ZM21 6v12"
-                            },
-                            "children": []
-                          }
-                        ]
+                        "children": []
                       }
                     ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "button",
-            "attributes": {
-              "aria-controls": "queue-drawer",
-              "aria-expanded": "false",
-              "aria-label": "播放队列",
-              "class": "queue-position",
-              "id": "queue-position",
-              "disabled": "",
-              "type": "button"
-            },
-            "children": [
-              "♪0/0"
-            ]
-          },
-          {
-            "tag": "button",
-            "attributes": {
-              "aria-label": "在 B站打开",
-              "class": "tool-button",
-              "disabled": "",
-              "id": "open-bilibili-bar-button",
-              "type": "button"
-            },
-            "children": [
-              {
-                "tag": "svg",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "ui-icon",
-                  "fill": "none",
-                  "focusable": "false",
-                  "height": "16",
-                  "stroke": "currentColor",
-                  "stroke-linecap": "round",
-                  "stroke-linejoin": "round",
-                  "stroke-width": "1.8",
-                  "viewBox": "0 0 24 24",
-                  "width": "16"
-                },
-                "children": [
+                  },
                   {
-                    "tag": "path",
+                    "tag": "input",
                     "attributes": {
-                      "d": "M14 4h6v6M20 4l-9 9M18 14v5H5V6h5"
+                      "id": "volume-slider",
+                      "max": "1",
+                      "min": "0",
+                      "step": "0.01",
+                      "style": "--progress: 100%;",
+                      "type": "range"
                     },
+                    "value": "1",
+                    "checked": false,
                     "children": []
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "tag": "button",
-            "attributes": {
-              "aria-label": "收藏当前歌曲",
-              "class": "tool-button favorite-current-button",
-              "data-favorite-bvid": "",
-              "disabled": "",
-              "id": "favorite-current-button",
-              "title": "收藏当前歌曲",
-              "type": "button"
-            },
-            "children": [
-              {
-                "tag": "span",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "sr-only"
-                },
-                "children": [
-                  "♡"
-                ]
-              },
-              {
-                "tag": "svg",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "ui-icon",
-                  "fill": "none",
-                  "focusable": "false",
-                  "height": "16",
-                  "stroke": "currentColor",
-                  "stroke-linecap": "round",
-                  "stroke-linejoin": "round",
-                  "stroke-width": "1.8",
-                  "viewBox": "0 0 24 24",
-                  "width": "16"
-                },
-                "children": [
-                  {
-                    "tag": "path",
-                    "attributes": {
-                      "d": "M12 20S4 15 4 9a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 6-8 11-8 11Z"
-                    },
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "button",
-            "attributes": {
-              "aria-label": "加入歌单",
-              "class": "tool-button",
-              "disabled": "",
-              "id": "add-playlist-current-button",
-              "title": "加入歌单",
-              "type": "button"
-            },
-            "children": [
-              {
-                "tag": "svg",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "ui-icon",
-                  "fill": "none",
-                  "focusable": "false",
-                  "height": "16",
-                  "stroke": "currentColor",
-                  "stroke-linecap": "round",
-                  "stroke-linejoin": "round",
-                  "stroke-width": "1.8",
-                  "viewBox": "0 0 24 24",
-                  "width": "16"
-                },
-                "children": [
-                  {
-                    "tag": "path",
-                    "attributes": {
-                      "d": "M12 5v14M5 12h14"
-                    },
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "tag": "span",
-            "attributes": {
-              "aria-hidden": "true",
-              "class": "player-immersive-slot"
-            },
-            "children": []
-          },
-          {
-            "tag": "label",
-            "attributes": {
-              "aria-label": "音量",
-              "class": "volume-control"
-            },
-            "children": [
-              {
-                "tag": "svg",
-                "attributes": {
-                  "aria-hidden": "true",
-                  "class": "ui-icon",
-                  "fill": "none",
-                  "focusable": "false",
-                  "height": "16",
-                  "stroke": "currentColor",
-                  "stroke-linecap": "round",
-                  "stroke-linejoin": "round",
-                  "stroke-width": "1.8",
-                  "viewBox": "0 0 24 24",
-                  "width": "16"
-                },
-                "children": [
-                  {
-                    "tag": "path",
-                    "attributes": {
-                      "d": "M4 9v6h4l5 4V5L8 9ZM16 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"
-                    },
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "tag": "input",
-                "attributes": {
-                  "id": "volume-slider",
-                  "max": "1",
-                  "min": "0",
-                  "step": "0.01",
-                  "style": "--progress: 100%;",
-                  "type": "range"
-                },
-                "value": "1",
-                "checked": false,
-                "children": []
               }
             ]
           }

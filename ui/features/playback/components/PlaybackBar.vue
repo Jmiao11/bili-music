@@ -17,12 +17,19 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
 <footer id="result" :ref="element => mainWindowRefs.result(element as HTMLElement|null)" class="player-bar panel" aria-label="当前播放">
       <div class="now-playing">
         <button id="open-immersive-cover-button" class="player-cover-button" type="button" aria-label="打开沉浸页与歌词" @click="callbacks.openImmersive()"><img id="thumbnail" alt="视频封面" width="40" height="40" referrerpolicy="no-referrer"  :src="display.presentation.thumbnailSet ? display.renderedTrack.thumbnailUrl : undefined" /><Icon name="lyrics" class="player-cover-hint" /></button>
-        <button id="open-immersive-button" class="tool-button player-immersive-button" type="button" aria-label="打开沉浸播放页" @click="callbacks.openImmersive()" >
-          <Icon name="lyrics" />
-        </button>
         <div class="track-copy">
           <strong id="title">{{ display.renderedTrack.title }}</strong>
-          <span class="player-subtitle"><span id="uploader">{{ display.renderedTrack.uploader }}</span><span v-if="display.renderedTrack.videoTitle && display.renderedTrack.videoTitle !== display.renderedTrack.title" class="player-video-title"> · {{ display.renderedTrack.videoTitle }}</span></span>
+          <span class="player-subtitle">
+            <span class="player-byline"><span id="uploader">{{ display.renderedTrack.uploader }}</span><span v-if="display.renderedTrack.videoTitle && display.renderedTrack.videoTitle !== display.renderedTrack.title" class="player-video-title"> · {{ display.renderedTrack.videoTitle }}</span></span>
+            <span v-if="!controls.pagesHidden || group()" class="player-position-separator" aria-hidden="true">·</span>
+            <span class="player-pages-group" :hidden="controls.pagesHidden && !group()">
+              <span v-if="group()" class="player-collection-position">合集 {{ group()!.memberIndex + 1 }}/{{ group()!.data.snapshot.items.length }}</span>
+              <button id="player-pages-button" :ref="element => mainWindowRefs.playerPagesButton(element as HTMLButtonElement|null)" class="page-count-badge player-pages-button" type="button" title="查看分P" :hidden="controls.pagesHidden" :aria-label="controls.pagesLabel" @click="callbacks.pages()" >{{ controls.pagesText }}</button>
+              <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本次合集" aria-label="跳过本次合集，播放下一首" @click="callbacks.skip()" >
+                <Icon name="skip" />
+              </button>
+            </span>
+          </span>
         </div>
       </div>
 
@@ -57,31 +64,28 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
       </div>
 
       <div class="right-tools">
-        <span class="player-quality-controls">
-        <button id="player-audio-quality" :ref="element => mainWindowRefs.playerQualityButton(element as HTMLButtonElement|null)" class="player-quality-button" type="button" aria-label="音质" aria-haspopup="menu" aria-controls="player-quality-menu" :aria-expanded="!!display.audioQualityMenu" :disabled="!display.currentTrack.hasCurrent" :onClick="display.currentTrack.hasCurrent ? callbacks.qualityToggle : undefined" :onKeydown="display.currentTrack.hasCurrent ? callbacks.qualityKeydown : undefined"><span>{{ qualityLabel() }}</span><Icon name="chevronDown" :size="12" /></button>
-        <span class="player-pages-group" :hidden="controls.pagesHidden && !group()">
-          <span v-if="group()" class="player-collection-position">合集 {{ group()!.memberIndex + 1 }}/{{ group()!.data.snapshot.items.length }}</span>
-          <button id="player-pages-button" :ref="element => mainWindowRefs.playerPagesButton(element as HTMLButtonElement|null)" class="page-count-badge player-pages-button" type="button" title="查看分P" :hidden="controls.pagesHidden" :aria-label="controls.pagesLabel" @click="callbacks.pages()" >{{ controls.pagesText }}</button>
-          <button id="skip-video-button" class="player-skip-video-button" type="button" title="跳过本次合集" aria-label="跳过本次合集，播放下一首" @click="callbacks.skip()" >
-            <Icon name="skip" />
+        <div class="player-tool-group player-library-tools">
+          <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="!display.renderedTrack.actionTrack" :data-favorite-bvid="display.renderedTrack.actionTrack?.bvid ?? ''" :class="{ 'is-favorited': controls.barFavorited }" :title="controls.barFavorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite(display.renderedTrack.actionTrack)" ><span class="sr-only" aria-hidden="true">{{ controls.barFavorited ? '♥' : '♡' }}</span><Icon name="heart" /></button>
+          <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist(display.renderedTrack.actionTrack)" :disabled="!display.renderedTrack.actionTrack" >
+            <Icon name="plus" />
           </button>
-        </span>
-        </span>
-        <button id="queue-position" :ref="element => mainWindowRefs.queueButton(element as HTMLButtonElement|null)" class="queue-position" type="button" aria-label="播放队列" aria-controls="queue-drawer" :aria-expanded="drawer.stage.open" :disabled="drawer.count === 0" @click="drawerCallbacks.toggle">{{ controls.queuePosition }}</button>
-        <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo(display.renderedTrack.actionTrack?.bvid ?? '')" :disabled="!display.renderedTrack.actionTrack" >
-          <Icon name="external" />
-        </button>
-        <button id="favorite-current-button" class="tool-button favorite-current-button" type="button" aria-label="收藏当前歌曲" :disabled="!display.renderedTrack.actionTrack" :data-favorite-bvid="display.renderedTrack.actionTrack?.bvid ?? ''" :class="{ 'is-favorited': controls.barFavorited }" :title="controls.barFavorited ? '取消收藏当前歌曲' : '收藏当前歌曲'" @click="callbacks.favorite(display.renderedTrack.actionTrack)" ><span class="sr-only" aria-hidden="true">{{ controls.barFavorited ? '♥' : '♡' }}</span><Icon name="heart" /></button>
-        <button id="add-playlist-current-button" class="tool-button" type="button" aria-label="加入歌单" title="加入歌单" @click="callbacks.addPlaylist(display.renderedTrack.actionTrack)" :disabled="!display.renderedTrack.actionTrack" >
-          <Icon name="plus" />
-        </button>
-        <span class="player-immersive-slot" aria-hidden="true"></span>
-        <label class="volume-control" aria-label="音量">
-          <Icon name="volume" />
-          <input id="volume-slider" type="range" min="0" max="1" step="0.01"  :value="settings.userVolume" :style="settings.view.volumeVersion ? { '--progress': `${settings.userVolume * 100}%` } : undefined" @input="callbacks.volume(($event.target as HTMLInputElement).value)" />
-        </label>
+        </div>
+        <div class="player-tool-group player-navigation-tools">
+          <button id="open-immersive-button" class="tool-button player-immersive-button" type="button" aria-label="打开沉浸播放页" @click="callbacks.openImmersive()" >
+            <Icon name="lyrics" />
+          </button>
+          <button id="open-bilibili-bar-button" class="tool-button" type="button" aria-label="在 B站打开" @click="callbacks.openVideo(display.renderedTrack.actionTrack?.bvid ?? '')" :disabled="!display.renderedTrack.actionTrack" >
+            <Icon name="external" />
+          </button>
+          <button id="queue-position" :ref="element => mainWindowRefs.queueButton(element as HTMLButtonElement|null)" class="queue-position" type="button" aria-label="播放队列" aria-controls="queue-drawer" :aria-expanded="drawer.stage.open" :disabled="drawer.count === 0" @click="drawerCallbacks.toggle"><Icon name="queue" />{{ controls.queuePosition }}</button>
+        </div>
+        <div class="player-tool-group player-sound-tools">
+          <button id="player-audio-quality" :ref="element => mainWindowRefs.playerQualityButton(element as HTMLButtonElement|null)" class="player-quality-button" type="button" aria-label="音质" aria-haspopup="menu" aria-controls="player-quality-menu" :aria-expanded="!!display.audioQualityMenu" :disabled="!display.currentTrack.hasCurrent" :onClick="display.currentTrack.hasCurrent ? callbacks.qualityToggle : undefined" :onKeydown="display.currentTrack.hasCurrent ? callbacks.qualityKeydown : undefined"><span>{{ qualityLabel() }}</span><Icon name="chevronDown" :size="12" /></button>
+          <label class="volume-control" aria-label="音量">
+            <Icon name="volume" />
+            <input id="volume-slider" type="range" min="0" max="1" step="0.01"  :value="settings.userVolume" :style="settings.view.volumeVersion ? { '--progress': `${settings.userVolume * 100}%` } : undefined" @input="callbacks.volume(($event.target as HTMLInputElement).value)" />
+          </label>
+        </div>
       </div>
-
-
     </footer>
 </template>

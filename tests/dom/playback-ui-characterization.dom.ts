@@ -431,3 +431,39 @@ test("自动跳过解析失败项时播放栏操作仍针对上一首，解析�
   assert.equal(h.node("title").textContent, "分P 8-1");
   await h.verifyOpen(8);
 });
+
+test("播放栏分组保持唯一入口，并随当前条目投影位置", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const groups = {
+    ".player-library-tools": ["favorite-current-button", "add-playlist-current-button"],
+    ".player-navigation-tools": ["open-immersive-button", "open-bilibili-bar-button", "queue-position"],
+    ".player-sound-tools": ["player-audio-quality", "volume-slider"],
+    ".player-subtitle": ["uploader", "player-pages-button", "skip-video-button"],
+  };
+  for (const [selector, ids] of Object.entries(groups)) {
+    const parent = h.doc.querySelector(selector)!;
+    for (const id of ids) {
+      assert.equal(h.doc.querySelectorAll("#" + id).length, 1);
+      assert.ok(parent.contains(h.node(id)));
+    }
+  }
+  assert.equal(h.doc.querySelector(".player-immersive-slot"), null);
+  const q = h.store.actions.playbackQueue;
+  const pages = [{ page: 1, cid: 11, part: "P1", durationSeconds: 60 }, { page: 2, cid: 22, part: "P2", durationSeconds: 60 }];
+  const group = h.doc.querySelector<HTMLElement>(".player-pages-group")!;
+  assert.ok(group.hidden);
+  assert.ok(h.node<HTMLButtonElement>("queue-position").disabled);
+  for (const album of [false, true]) {
+    q.replaceQueue(album ? libraryQueueEntries([collectionEntry(collection(3))]) : [track(1)]);
+    assert.ok(group.hidden);
+    assert.equal(h.node<HTMLButtonElement>("queue-position").disabled, false);
+    q.selectIndex(0, false, null);
+    for (const count of [1, 2]) {
+      h.store.actions.playbackSession.setCurrentPages(pages.slice(0, count));
+      assert.equal(group.hidden, !album && count === 1);
+      assert.equal(h.node("player-pages-button").hidden, count === 1);
+      assert.equal(group.querySelector(".player-collection-position")?.textContent, album ? "合集 1/3" : undefined);
+      assert.equal(h.node("skip-video-button").closest("[hidden]") !== null, group.hidden);
+    }
+  }
+});
