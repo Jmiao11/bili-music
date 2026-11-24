@@ -3,6 +3,7 @@ export type TrackRowModel = Readonly<{
   collection?: import("../library/library-entry.ts").CollectionEntry;
   key: string; index: number; search: boolean; video: Readonly<CommandContract.TrackSnapshotInput & { playCount?: number | null; pubdate?: number | null }>;
   playCountText: string; pubdateText: string; active: boolean; favorited: boolean; pageCount: number; unavailableReason: string;
+  durationText?: string; thumbnailSrc?: string;
   playPagesVersion?:number;badgePagesVersion?:number;pageCountBvid?:string;onBadgeNode?(node:HTMLButtonElement|null):void;
   cached?: boolean; needsNetwork?: boolean;
   showPlayCount?: boolean; playlistId?: string; draggable?: boolean; dragClass?: string;

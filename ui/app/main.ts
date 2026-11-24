@@ -1,5 +1,5 @@
 import { installQueueDrawerPlayback } from "../features/playback/queue-drawer.ts";
-import { clearPlaybackQueue, playQueueIndex, removeQueueEntry } from "../features/playback/playback-core.ts";
+import { clearPlaybackQueue, playListItem, playQueueIndex, removeQueueEntry } from "../features/playback/playback-core.ts";
 import { installRecentController } from "../features/recent/recent-controller.ts";
 import { readApplicationStore } from "../store/application-store.ts";
 import {finishPagesTransition} from "../features/pages/pages-view.ts";
@@ -10,11 +10,11 @@ import { installPlaybackCallbacks } from "../features/playback/root-playback.ts"
 import { DEFAULT_MUSIC_TIDS } from "../features/search/search-state.ts";
 import { invoke } from "../platform/runtime-api.ts";
 import { windowReady } from "./main-window-ready.ts";
-import { audio, closeLibraryModalButton, homeHintApply, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
+import { audio, closeLibraryModalButton, homeFeedRefs, homeHintApply, installHomeRankingRetry, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
 import { initPlaybackDiagnostics } from "../features/playback/playback-diagnostics.ts";
-import { initializeRootLists } from "../features/tracks/track-list-ui.ts";
+import { initializeRootLists, playHomeTrack } from "../features/tracks/track-list-ui.ts";
 import { checkForUpdate, openUpdateDownload, getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint } from "../features/home/home.ts";
 import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
@@ -22,7 +22,7 @@ import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelected
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "../features/pages/video-pages.ts";
 import { getSearchSnapshot, loadMoreSearchResults, readLastSearchKeyword, runSearch, setPendingSearchRestore, setSearchDivision, setSearchSort, takePendingSearchRestore, updateMusicTabs } from "../features/search/search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, savePlaybackStateOnUnload, updateQueueUi } from "../features/playback/playback-core.ts";
-import { getPlaybackCommands, isLoudnessNormalizationEnabled } from "../features/settings/appearance.ts";
+import { getPlaybackCommands, isLoudnessNormalizationEnabled, setActiveView } from "../features/settings/appearance.ts";
 initializeRootLists();
 installRecentController(readApplicationStore(), window);
 initPlaybackDiagnostics();
@@ -108,6 +108,16 @@ refreshRankingButton?.addEventListener("click", () => {
 });
 installPageCallbacks({
   retryFeed: source => { void getApplicationStore().actions.retryHomeSection(source); },
+  openFeed: source => {
+    const store = getApplicationStore();
+    const previous = store.getState().home.view.section;
+    store.actions.openHomeSection(source);
+    if (source) homeFeedRefs.back?.focus();
+    else if (previous) homeFeedRefs.open[previous]?.focus();
+  },
+  playFeed: source => playHomeTrack(source, 0),
+  openRecent: () => setActiveView("recent"),
+  playRecent: index => playListItem("recent", getApplicationStore().getState().recent.items, index),
   update: () => { void openUpdateDownload(); },
   createPlaylist, renamePlaylist: renameSelectedPlaylist, deletePlaylist: deleteSelectedPlaylist, importPlaylist: importFavoritePlaylist,
   hint: () => {
@@ -139,7 +149,7 @@ installPageCallbacks({
   },
   sort: mode => { setSearchSort(mode); runSearch({ userKeyword: readSearchDraft().trim(), recordHistory: false }); },
 });
-homeRankingError?.addEventListener("click", () => {
+installHomeRankingRetry(() => {
   if (getHomeSnapshot().error) {
     void getApplicationStore().actions.retryHomeSection("ranking");
   }
@@ -184,6 +194,7 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
+    getApplicationStore().actions.openHomeSection(null);
     loadRecommendationHome();
   }
   if (["favorites", "playlists"].includes(event.detail?.view)) {

@@ -96,6 +96,10 @@ function displayThumbnailUrl(url: string): string {
     .replace(/@[^/?#]*(?=([?#]|$))/, "");
 }
 
+function homeTrackThumbnail(url: string): string {
+  return displayThumbnailUrl(url).replace(/^(https?:\/\/i\d+\.hdslb\.com\/[^?#]+)(?=[?#]|$)/i, "$1@64w_64h_1c.webp");
+}
+
 function normalizeTrack(video: TrackInput | null | undefined): CommandContract.SearchVideo & CommandContract.TrackSnapshot {
   const playCount = Number(video?.playCount);
   const pubdate = Number(video?.pubdate);
@@ -171,6 +175,10 @@ function formatDuration(seconds: number): string {
     : `${minutes}:${String(remaining).padStart(2, "0")}`;
 }
 
+function formatHomeTrackDuration(seconds: number): string {
+  return seconds > 0 ? formatDuration(seconds) : "—";
+}
+
 function formatPlayCount(value: unknown): string {
   if (value === null || value === undefined) {
     return "—";
@@ -205,4 +213,4 @@ function formatPubdate(value: unknown): string {
   ).padStart(2, "0")}`;
 }
 
-export { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatPlayCount, formatPubdate, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, snapshotForLibrary, unavailableTrackLocations, unavailableTrackReason };
+export { buildDisplayTrack, displayThumbnailUrl, formatDuration, formatHomeTrackDuration, formatPlayCount, formatPubdate, homeTrackThumbnail, isBvId, normalizeTrack, normalizeVideoPage, playbackFailureMessage, playbackTrackSnapshot, shouldOpenPastedBvPages, snapshotForLibrary, unavailableTrackLocations, unavailableTrackReason };

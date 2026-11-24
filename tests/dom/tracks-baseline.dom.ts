@@ -49,8 +49,11 @@ test("track DOM home loading displays eight skeleton rows", () => run(async h =>
   const pending = deferred();
   h.reply(async command => command === "get_ai_config" ? { hasKey: false } : pending.promise);
   const load = h.home.refreshAiKeyState(); await h.microtasks();
-  assert.equal(h.nodes.homeRankingList?.children.length, 8); assert.equal(h.nodes.homeRankingList?.querySelectorAll("li.skeleton-row").length, 8);
-  pending.resolve([]); await load; assert.equal(h.nodes.homeRankingList?.children.length, 0);
+  assert.equal(h.doc.querySelectorAll(".home-feed-skeleton").length, 2);
+  h.store.actions.openHomeSection("ranking");
+  const list = h.doc.querySelector("#home-ranking-list")!;
+  assert.equal(list.children.length, 8); assert.equal(list.querySelectorAll("li.skeleton-row").length, 8);
+  pending.resolve([]); await load; assert.equal(list.children.length, 0);
 }));
 test("track DOM empty home and search lists remain empty hosts", () => run(async h => {
   for (const source of ["ranking", "recommendation", "search"] as const) { const list = await seed(h, source, []); assert.equal(list.innerHTML, ""); assert.equal(list.matches(":empty"), true); }
@@ -64,7 +67,8 @@ test("track DOM ranking error retry remains outside the list", () => run(async h
   assert.deepEqual([h.calls.at(-1)?.command,h.calls.at(-1)?.args.source,h.calls.at(-1)?.args.mode],["get_music_ranking","ranking","retry"]);
   const load = h.home.refreshAiKeyState();
   retry.resolve([track(1)]); await load;
-  assert.equal(h.nodes.homeRankingList?.children.length, 1);
+  h.store.actions.openHomeSection("ranking");
+  assert.equal(h.doc.querySelector("#home-ranking-list")?.children.length, 1);
 }));
 test("track DOM search no-more status remains outside result rows", () => run(async h => {
   const list = await seed(h, "search"); assert.match(h.nodes.searchStatus.textContent, /没有更多了/); assert.equal(list.querySelectorAll("li").length, 1); assert.equal(list.textContent?.includes("没有更多了"), false);

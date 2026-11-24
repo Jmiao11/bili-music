@@ -39,6 +39,7 @@ type HomeState = {
   userHint: string;
   aiHasKey: boolean | null;
   view: {
+    section: FeedSource | null;
     content: { kind: "mode" | "ranking" | "recommendations" };
     status: string | null;
     rankingError: { text: string } | null;
@@ -69,7 +70,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     feed: {ranking: emptyFeed(),newSongs: emptyFeed()}, cooling:false,newSongs:[], ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
-    view: { content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
+    view: { section: null, content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
   }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState(), playbackDisplay: initialPlaybackDisplayState(), playbackQueue: initialPlaybackQueueState(), playbackRequest: options.playbackRequest ?? initialPlaybackRequestState(), playbackSession: options.playbackSession ?? initialPlaybackSessionState() };
   return createStateStore(initial, (getState, commit) => {
     let recommendationRequestVersion = 0;
@@ -79,6 +80,9 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       commit({ ...current, home: { ...current.home, ...fields, view: Object.keys(view).length ? { ...current.home.view, ...view } : current.home.view } });
     };
     const content = (kind: "mode" | "ranking" | "recommendations") => ({ kind });
+    function openHomeSection(section: FeedSource | null) {
+      if (home().view.section !== section && (section === null || isHomePopular(home()))) update({}, { section });
+    }
     const rankingVisible = () => isHomePopular(home());
     const recommendationVisible = () => !isHomePopular(home());
 
@@ -212,8 +216,11 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     }
 
     async function refreshKey(cacheOnly = false): Promise<void> {
-      try { update({ aiHasKey: !!(await adapter.invoke("get_ai_config")).hasKey }); }
-      catch (_error) { update({ aiHasKey: null }); }
+      try {
+        const aiHasKey = !!(await adapter.invoke("get_ai_config")).hasKey;
+        update({ aiHasKey }, aiHasKey ? { section: null } : {});
+      }
+      catch (_error) { update({ aiHasKey: null }, { section: null }); }
       if(cacheOnly && home().aiHasKey===false) await loadRanking({cacheOnly:true});
       else await loadRecommendation();
     }
@@ -298,7 +305,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         ...(disabledResult ? { pages: pagesWithDisabledError(current.pages, disabledResult.bvid, disabledResult.error) } : {}) });
     }, adapter);
     const playbackMessages = createPlaybackMessagesActions(() => getState().playbackMessages, next => commit({ ...getState(), playbackMessages: next }));
-    return { recent, lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, collection, checkForUpdate, openUpdateDownload, loadHomeRanking: loadRanking, retryHomeSection: (source:FeedSource)=>loadSection(source,"retry"), loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint };
+    return { recent, lyricsDisplay, playbackMessages, playbackSession, playbackRequest, playbackQueue, playbackDisplay, playbackSettings, settings, pages, library, search, collection, checkForUpdate, openUpdateDownload, openHomeSection, loadHomeRanking: loadRanking, retryHomeSection: (source:FeedSource)=>loadSection(source,"retry"), loadRecommendationHome: loadRecommendation, loadRecommendations: generateRecommendations, refreshAiKeyState: refreshKey, setHomeHint: changeHint };
   }, options);
 }
 

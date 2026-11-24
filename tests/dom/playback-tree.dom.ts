@@ -77,8 +77,8 @@ test("all list sources retain row props for highlights and favorite refreshes", 
 
 test("playback tree commits synchronously while all unrelated lists skip 100 progress updates", async t => {
   const h = await playbackFixture(); t.after(h.dispose);
-  await seed(h, "ranking", Array.from({ length: 1000 }, (_, index) => track(index + 1)));
-  assert.equal(h.nodes.homeRankingList!.children.length, 1000);
+  const list = await seed(h, "ranking", Array.from({ length: 1000 }, (_, index) => track(index + 1)));
+  assert.equal(list.children.length, 1000);
   const audio = h.audio, controls = h.node("progress-slider"), listenerCount = h.listeners.filter(entry => entry.target === audio).length;
   Object.assign(h.renderCounts, { TrackList: 0, TrackRow: 0, PlaylistList: 0 });
   for (let index = 1; index <= 100; index++) {

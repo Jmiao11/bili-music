@@ -5526,7 +5526,7 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root[data-theme="image"][data-image-scheme] .window-background-overlay { background: rgba(var(--image-mask-color),var(--image-mask)); }
 
 /* Keep setup guidance secondary in every theme, including the image scheme. */
-:root #app #view-home #home-setup-settings {
+:root #app #view-home .home-setup-hint #home-setup-settings {
   display: inline-flex; align-items: center; justify-content: center; height: 28px; min-height: 28px;
   padding: 0 12px; border: 1px solid var(--line2) !important; border-radius: var(--r-sm);
   color: var(--text) !important; background: transparent !important; font-size: 13px; font-weight: 400;
@@ -5668,18 +5668,235 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 }
 
 
-#view-home[data-home-mode="popular"] .home-ranking-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+:root #app #view-home[data-home-mode="popular"] {
+  --home-ranking-start: #ff7a59;
+  --home-ranking-end: #d8345f;
+  --home-ranking-label: #6b2638;
+  --home-new-songs-start: #22b8b0;
+  --home-new-songs-end: #2450c9;
+  --home-new-songs-label: #173d57;
+  /* Reserved token names: --home-recommendation-{start,end,label}, --home-themed-playlist-{start,end,label}. */
+  --home-card-shadow: 0 10px 28px rgba(0, 0, 0, .26);
+  --home-card-shadow-active: 0 12px 32px rgba(0, 0, 0, .36);
+  --home-section-gap: 20px;
+  padding: 24px clamp(20px, 2.5vw, 32px) 24px;
+  overflow: auto;
+  scrollbar-width: thin;
 }
-#view-home[data-home-mode="popular"] .home-ranking-bar .secondary-button {
-  height: 24px;
+:root[data-theme="light"] #app #view-home[data-home-mode="popular"] {
+  --home-card-shadow: 0 8px 22px rgba(50, 30, 42, .13);
+  --home-card-shadow-active: 0 10px 28px rgba(50, 30, 42, .22);
 }
-#view-home[data-home-mode="popular"] button.home-error {
-  align-self: flex-start;
+:root #app #view-home[data-home-mode="popular"] .home-stage { min-height: min-content; }
+:root #app #view-home[data-home-mode="popular"] .home-head { height: auto; min-height: 0; margin-bottom: 24px; }
+:root #app #view-home[data-home-mode="popular"] .home-head[hidden] { display: none; }
+:root #app #view-home[data-home-mode="popular"] .home-head h1 { font-size: 28px; font-weight: 800; }
+:root #app #view-home[data-home-mode="popular"] .home-subtitle { display: block; margin: 3px 0 0; color: var(--text3); font-size: 13px; }
+
+.home-discovery { display: flex; flex: 1; flex-direction: column; }
+.home-feed-grid {
+  --home-card-cap: min(260px, calc((100% - 40px) / 3));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, var(--home-card-cap)));
+  gap: var(--home-section-gap);
+  width: min(100%, 1100px);
+}
+@media (min-width: 1280px) {
+  .home-feed-grid { --home-card-cap: min(260px, calc((100% - 60px) / 4)); }
+}
+@media (max-width: 1000px) {
+  .home-feed-grid { --home-card-cap: min(260px, calc((100% - 20px) / 2)); }
+}
+#view-home [data-feed="ranking"] {
+  --home-feed-start: var(--home-ranking-start);
+  --home-feed-end: var(--home-ranking-end);
+  --home-feed-label-bg: var(--home-ranking-label);
+}
+#view-home [data-feed="newSongs"] {
+  --home-feed-start: var(--home-new-songs-start);
+  --home-feed-end: var(--home-new-songs-end);
+  --home-feed-label-bg: var(--home-new-songs-label);
+}
+.home-feed-card {
+  position: relative;
+  min-width: 0;
+  container-type: inline-size;
+  border-radius: 16px;
+  box-shadow: var(--home-card-shadow);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.home-feed-card:has(.home-feed-open):is(:hover, :focus-within) {
+  transform: translateY(-2px);
+  box-shadow: var(--home-card-shadow-active);
+}
+.home-feed-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: #fff;
   cursor: pointer;
 }
-#view-home[data-home-mode="popular"] button.home-error:disabled { cursor: default; }
-#home-new-songs:empty::before { content: none; }
+.home-feed-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 10 / 9;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 16px 16px 0 0;
+  color: #fff;
+  background: linear-gradient(145deg, var(--home-feed-start), var(--home-feed-end));
+}
+.home-feed-cover img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.45);
+  filter: blur(24px);
+}
+.home-feed-cover::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background: linear-gradient(150deg, #0002, #12072255),
+    radial-gradient(ellipse at 8% 4%, color-mix(in srgb, var(--home-feed-start) 46%, transparent), transparent 64%),
+    linear-gradient(145deg, color-mix(in srgb, var(--home-feed-start) 74%, transparent), color-mix(in srgb, var(--home-feed-end) 88%, #110921));
+}
+.home-feed-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .56);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.home-feed-cover-title {
+  font-size: 12.5cqw;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 8px #0007;
+}
+.home-feed-label {
+  display: flex;
+  height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 0 0 16px 16px;
+  background: var(--home-feed-label-bg);
+  font-size: 12px;
+  color: rgba(255, 255, 255, .8);
+}
+.home-feed-label strong { color: #fff; font-size: 15px; font-weight: 700; }
+.home-feed-play {
+  position: absolute;
+  right: 12px;
+  bottom: 76px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #141418;
+  box-shadow: 0 5px 15px #0004;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+.home-feed-card:is(:hover, :focus-within) .home-feed-play { opacity: 1; }
+.home-feed-skeleton {
+  height: calc(90cqw + 64px);
+  border-radius: inherit;
+  background: linear-gradient(145deg, var(--input), var(--hover));
+}
+.home-text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text2);
+  font: inherit;
+  cursor: pointer;
+}
+.home-text-button:hover:not(:disabled) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.home-text-button:disabled { opacity: .55; cursor: default; }
+.home-recent { container: home-recent / inline-size; margin-top: 34px; }
+.home-recent-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.home-recent-head h2 { margin: 0; color: var(--text); font-size: 18px; font-weight: 700; }
+.home-recent-head button { font-size: 13px; }
+.home-recent-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 116px);
+  gap: 20px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.home-recent-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; width: 100%; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
+.home-recent-cover { display: block; width: 116px; height: 116px; margin-bottom: 2px; overflow: hidden; border-radius: 10px; background: var(--input); }
+.home-recent-cover img { width: 100%; height: 100%; object-fit: cover; }
+.home-recent-item:hover .home-recent-track { text-decoration: underline; }
+.home-recent-track, .home-recent-uploader { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-recent-track { font-size: 13px; }
+.home-recent-uploader { color: var(--text3); font-size: 12px; }
+@container home-recent (width < 1340px) { .home-recent-items > :nth-child(n+10) { display: none; } }
+@container home-recent (width < 1204px) { .home-recent-items > :nth-child(n+9) { display: none; } }
+@container home-recent (width < 1068px) { .home-recent-items > :nth-child(n+8) { display: none; } }
+@container home-recent (width < 932px) { .home-recent-items > :nth-child(n+7) { display: none; } }
+@container home-recent (width < 796px) { .home-recent-items > :nth-child(n+6) { display: none; } }
+@container home-recent (width < 660px) { .home-recent-items > :nth-child(n+5) { display: none; } }
+@container home-recent (width < 524px) { .home-recent-items > :nth-child(n+4) { display: none; } }
+@container home-recent (width < 388px) { .home-recent-items > :nth-child(n+3) { display: none; } }
+@container home-recent (width < 252px) { .home-recent-items > :nth-child(n+2) { display: none; } }
+.home-discovery-setup { margin: auto 0 0; padding-top: 44px; color: var(--text3); font-size: 12px; }
+.home-discovery-setup button { color: var(--text2); text-decoration: underline; }
+
+.home-feed-back { display: block; margin-bottom: 18px; font-size: 13px; }
+.home-feed-head { display: flex; align-items: center; gap: 26px; margin-bottom: 24px; }
+.home-feed-head .home-feed-cover { flex: 0 0 200px; aspect-ratio: 1; container-type: inline-size; border-radius: 16px; box-shadow: var(--home-card-shadow); }
+.home-feed-copy { min-width: 0; }
+.home-feed-copy h1 { margin: 4px 0 8px; color: var(--text); font-size: 42px; font-weight: 800; line-height: 1.15; }
+.home-feed-copy p { margin: 0; color: var(--text3); font-size: 13px; }
+.home-feed-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px; }
+:root #app .home-feed-actions :is(.primary-cta, .secondary-button) { height: 40px; padding: 0 18px; border-radius: 999px; }
+.home-feed-actions .primary-cta { display: inline-flex; align-items: center; gap: 6px; }
+.home-feed-actions button:disabled { opacity: .5; }
+.home-feed-feedback { min-height: 18px; margin-top: 8px; color: var(--text3); font-size: 13px; }
+.home-feed-feedback button, .home-feed-feedback button:hover:not(:disabled) { color: var(--danger); }
+:root #app .home-feed-tracks > :is(.track-columns, .tracklist) {
+  --fit-title: max(120px, min(var(--track-title-width, 100%), calc(100% - 224px - var(--fit-preferred))));
+  --fit-surplus: calc(100% - 224px - 120px - var(--fit-minimum));
+  flex: none;
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+:root #app .home-feed-no-pages > :is(.track-columns, .tracklist) { --fit-pages-min: 0px; --fit-pages-pref: 0px; --fit-pages-capacity: 0; }
+#app .home-feed-no-pages .column-pages { display: none; }
+#app .home-feed-tracks .column-play { grid-column: 6; }
+:root #app .home-feed-tracks :is(.column-play, .column-uploader, .column-duration, .column-pages, .track-play, .track-up, .track-duration, .page-count-badge) { visibility: visible; }
+@container (max-width: 780px) {
+  :root #app .home-feed-tracks > :is(.track-columns, .tracklist) {
+    --fit-plays-min: 64px; --fit-plays-pref: var(--track-plays-width, 80px); --fit-plays-capacity: var(--track-plays-capacity, 16);
+  }
+  :root #app .home-feed-tracks:not(.home-feed-no-pages) > :is(.track-columns, .tracklist) {
+    --fit-pages-min: 56px; --fit-pages-pref: var(--track-pages-width, 72px); --fit-pages-capacity: var(--track-pages-capacity, 16);
+  }
+}
+:root #app #view-home .home-feed-tracks :is(#home-ranking-list, #home-new-songs) { overflow: visible; }
+#view-home .home-feed-tracks .ranking-list:empty::before { content: none; }
+@media (prefers-reduced-motion: reduce) {
+  .home-feed-card, .home-feed-play { transition: none; }
+  .home-feed-card:has(.home-feed-open):is(:hover, :focus-within) { transform: none; }
+}

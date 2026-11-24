@@ -840,6 +840,6 @@ void restoreBackground().finally(() => {
 restoreStreamSource();
 }
 
-export { getPlaybackCommands, isLoudnessNormalizationEnabled, setNormalizationGain, startAppearance };
+export { getPlaybackCommands, isLoudnessNormalizationEnabled, setActiveView, setNormalizationGain, startAppearance };
 
 export type { SettingsDom };

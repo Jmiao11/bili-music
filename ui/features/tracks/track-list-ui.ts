@@ -1,14 +1,13 @@
 import { formatPlayedAt } from "../recent/recent-state.ts";
-import { normalizeTrack } from "../../shared/track-utils.ts";
+import { formatHomeTrackDuration, formatPlayCount, formatPubdate, homeTrackThumbnail, normalizeTrack } from "../../shared/track-utils.ts";
 import {pagesUiVersion,pagesTriggerVersion,observedPagesBvid} from "../pages/pages-ui-state.ts";
 import { installRootListProjection, setRootTrackList } from "./root-lists.ts";
 import type { TrackListTarget } from "./root-lists.ts";
 import type { createApplicationStore } from "../../store/app-state.ts";
-import { formatPlayCount, formatPubdate } from "../../shared/track-utils.ts";
 import type { SearchSnapshot } from "../search/search-state.ts";
-import { homeRankingList } from "../../platform/main-window-refs.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, TrackRowModel } from "./track-list-model.ts";
 import { getHomeSnapshot } from "../home/home.ts";
+import type { HomeFeed } from "../home/home-view.ts";
 import { choosePlaylistAndAdd, projectLibraryLists, removeTrackFromPlaylist, toggleFavorite, toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist } from "../library/library-ui.ts";
 import { createTrackActivationSession, observeTrackRow, unobserveTrackRow } from "../pages/video-pages.ts";
 import { playListItem, playSearchResult, queueVideoNext } from "../playback/playback-core.ts";
@@ -46,7 +45,8 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
   const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
   const activeEntry = queue.queue[queueIndex];
   const activeIndex = projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : projection.library ? projection.library.entries.findIndex(entry => activeEntry?.entryId ? entry.entryId === activeEntry.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
-  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, state.library.favorites, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual, projection.recent];
+  const homeFeed = state.home.aiHasKey === false && (projection.source === "ranking" || projection.source === "newSongs");
+  const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, state.library.favorites, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual, projection.recent, homeFeed];
   if (inputs.length === projection.inputs.length && inputs.every((value, index) => Object.is(value, projection.inputs[index]))) return;
   projection.inputs = inputs;
   const duplicates = new Map<string, number>();
@@ -67,6 +67,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
           }
           if (current.item === item) return;
           current.item = item; current.button = button;
+          projection.sessions.set(key, current);
           current.activation = createTrackActivationSession(item, button, current.video, current.play, current.entry?.kind === "collection" ? () => { if (current.entry?.kind === "collection") openLibraryCollection(current.entry, current.playlistId || null); } : undefined);
           if (current.entry?.kind !== "collection") observeTrackRow(item, current.video.bvid);
         },
@@ -97,11 +98,14 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     const cached = projection.recent?.cached.has(video.bvid.toLowerCase());
     const needsNetwork = projection.recent ? !projection.recent.online && !cached : undefined;
     const playCountText = projection.recent ? formatPlayedAt(projection.recent.items[index].lastPlayedAt, new Date(projection.recent.now)) : formatPlayCount((video as TrackRowModel["video"]).playCount);
+    const durationText = homeFeed ? formatHomeTrackDuration(video.durationSeconds) : undefined;
+    const thumbnailSrc = homeFeed ? homeTrackThumbnail(video.thumbnailUrl) : undefined;
     const previous = session.model;
     const rowVideo = video as TrackRowModel["video"];
     const sameVideo = previous && (previous.video === video || previous.video.bvid === video.bvid && previous.video.title === video.title && previous.video.uploader === video.uploader && previous.video.thumbnailUrl === video.thumbnailUrl && previous.video.durationSeconds === video.durationSeconds && previous.video.playCount === rowVideo.playCount && previous.video.pubdate === rowVideo.pubdate);
-    if (previous && previous.cached === cached && previous.needsNetwork === needsNetwork && previous.playCountText === playCountText && previous.collection === collection && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
+    if (previous && previous.cached === cached && previous.needsNetwork === needsNetwork && previous.playCountText === playCountText && previous.durationText === durationText && previous.thumbnailSrc === thumbnailSrc && previous.collection === collection && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
     return session.model = { key, index, search, video, cached, needsNetwork, collection, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active,
+      durationText, thumbnailSrc,
       playCountText,
       pubdateText: formatPubdate((video as Readonly<CommandContract.TrackSnapshotInput & { pubdate?: number | null }>).pubdate),
       pageCount,playPagesVersion,badgePagesVersion,pageCountBvid,
@@ -111,14 +115,13 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
   setRootTrackList(target, rows, projection.skeleton);
 }
 function renderHomeRows(state: Snapshot, videos: Videos, source: string, skeleton: boolean, play: Play): void {
-  if (!homeRankingList) return;
   homeProjection ??= createProjection(state, source, play);
   if (videos !== homeProjection.videos || source !== homeProjection.source) homeProjection.generation++;
   homeProjection.videos = videos; homeProjection.source = source; homeProjection.skeleton = skeleton;
   homeProjection.unavailable = state.library.unavailableBvids; homeProjection.play = play;
   projectRows("home", homeProjection, state, false);
 }
-function refreshHomeRows(state: Snapshot): void { if (homeRankingList && homeProjection) projectRows("home", homeProjection, state, false); }
+function refreshHomeRows(state: Snapshot): void { if (homeProjection) projectRows("home", homeProjection, state, false); }
 function renderSearchRows(state: Snapshot, search: SearchSnapshot, play: Play): void {
   searchProjection ??= createProjection(state, "search", play);
   if (!search.searchBusy && search.page === 1 && search.results !== searchProjection.videos && search.requestVersion !== committedSearchVersion) {
@@ -134,24 +137,26 @@ function renderLibraryTrackRows(_host: HTMLElement, state: Snapshot, videos: Sna
   projection.unavailable = unavailable; projection.play = play; projection.library = { entries: videos, playlistId, visual, handlers };
   projectRows(source === "favorites" ? "favorites" : "playlist", projection, state, false);
 }
+function playHomeTrack(source: HomeFeed, index: number, selection?: PageSelection): void {
+  playListItem(source, getHomeSnapshot()[source], index, selection);
+}
 function projectApplicationLists(state: Snapshot): void {
   const home = state.home;
-  if (home.view.content !== projectedHomeContent) {
+  if (home.view.content !== projectedHomeContent || home.aiHasKey === false && homeProjection?.source !== "ranking") {
     projectedHomeContent = home.view.content;
     const kind = home.view.content.kind;
-    if (kind === "ranking" || kind === "recommendations") {
-      const source = kind === "ranking" ? "ranking" : "recommendation";
-      const skeleton = kind === "ranking" ? home.loading && !home.ranking.length : home.recommendationLoading;
-      const error = kind === "ranking" ? home.error : "";
-      const videos = skeleton || error ? [] : kind === "ranking" ? home.ranking : home.recommendations;
-      renderHomeRows(state, videos, source, skeleton, (index, selection) => {
-        const current = getHomeSnapshot();
-        playListItem(source, source === "ranking" ? current.ranking : current.recommendations, index, selection);
-      });
+    if (home.aiHasKey === false || kind === "ranking" || kind === "recommendations") {
+      const source = home.aiHasKey === false || kind === "ranking" ? "ranking" : "recommendation";
+      const skeleton = source === "ranking" ? home.loading && !home.ranking.length : home.recommendationLoading;
+      const error = source === "ranking" ? home.error : "";
+      const videos = skeleton || error ? [] : source === "ranking" ? home.ranking : home.recommendations;
+      renderHomeRows(state, videos, source, skeleton, source === "ranking"
+        ? playRankingTrack
+        : (index, selection) => playListItem(source, getHomeSnapshot().recommendations, index, selection));
     }
   }
   if(home.aiHasKey===false) {
-    newSongsProjection ??= createProjection(state, "newSongs", (index, selection) => playListItem("newSongs",getHomeSnapshot().newSongs,index,selection));
+    newSongsProjection ??= createProjection(state, "newSongs", (index, selection) => playHomeTrack("newSongs", index, selection));
     if(newSongsProjection.videos!==home.newSongs) newSongsProjection.generation++;
     newSongsProjection.videos=home.newSongs;
     newSongsProjection.skeleton=home.feed.newSongs.busy && !home.newSongs.length;
@@ -179,6 +184,7 @@ function projectApplicationLists(state: Snapshot): void {
   }
   projectLibraryLists(state);
 }
+function playRankingTrack(index: number, selection?: PageSelection): void { playHomeTrack("ranking", index, selection); }
 function initializeRootLists(): void { installRootListProjection(projectApplicationLists); }
 
-export { initializeRootLists, renderLibraryTrackRows };
+export { initializeRootLists, playHomeTrack, renderLibraryTrackRows };

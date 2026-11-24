@@ -50,8 +50,8 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 | `queueDrawerClose` | 关闭按钮 ref，打开抽屉或清空后 focus |
 | `queueDrawerClear`、`queueDrawerConfirm` | 清空入口及确认浮层 ref，仅用于焦点返回和确认内键盘焦点约束 |
 | `searchResults` | 分页滚动几何与原生scroll监听 |
-| `homeRankingError` | 重试事件接线 |
-| `homeRankingList` | 列表存在性、observer和行会话目标 |
+| `homeRankingError` | 推荐首页原生重试事件接线，切换首页模式后重新挂载时恢复接线 |
+| `homeFeedBack`、`homeFeedCardOpen` | 打开栏目后聚焦返回按钮，返回首页后聚焦原栏目卡片 |
 | `refreshRankingButton` | 显式刷新监听 |
 | `homeHintInput` | 非受控草稿存在性降级；值经组件读写端口 |
 | `homeHintApply` | Enter转发原生click，保留事件顺序 |

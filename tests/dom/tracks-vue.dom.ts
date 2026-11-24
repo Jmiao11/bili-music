@@ -14,7 +14,8 @@ for (const entry of baseline.matrix) test(`Vue track HTML matches old ${entry.so
   if (entry.state === "skeleton") {
     h.reply(async command => command === "get_ai_config" ? { hasKey: false } : new Promise(() => {}));
     void h.home.refreshAiKeyState(); await h.microtasks();
-    list = h.nodes.homeRankingList!;
+    h.store.actions.openHomeSection("ranking");
+    list = h.doc.querySelector("#home-ranking-list")!;
   }
   else list = await seed(h, entry.source, items);
   if (entry.state === "favorite") { h.reply(responses(items)); await h.store.actions.library.toggleFavorite(items[0]); h.core.updateQueueUi(); }

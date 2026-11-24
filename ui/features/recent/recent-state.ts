@@ -43,14 +43,14 @@ function createRecentActions(read: () => RecentSnapshot, commit: (next: RecentSn
       update({ cached: new Set(tracks.filter((_, i) => hits[i] === true).map(track => track.bvid.toLowerCase())) });
     } catch { /* 查询失败时不声称可离线播放。 */ }
   }
-  async function load(quality: () => CommandContract.AudioQuality, now: number): Promise<void> {
+  async function load(quality: () => CommandContract.AudioQuality, now: number, includeCache = true): Promise<void> {
     const version = ++loadVersion; ++cacheVersion;
     update({ now, loading: true, error: "", cached: new Set() });
     try {
       const items = recentItems(await adapter.invoke("get_play_history"));
       if (version !== loadVersion) return;
       update({ items, loading: false });
-      await refreshCache(quality());
+      if (includeCache) await refreshCache(quality());
     } catch {
       if (version === loadVersion) update({ loading: false, error: "播放记录读取失败，请重新进入页面重试。" });
     }

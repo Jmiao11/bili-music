@@ -1,7 +1,10 @@
+import type { HomeFeed } from "../features/home/home-view.ts";
+
 const audio=document.querySelector<HTMLAudioElement>("#audio")!;
 let searchResults: HTMLUListElement;
-let homeRankingError: HTMLParagraphElement;
-let homeRankingList: HTMLUListElement;
+let homeRankingError: HTMLParagraphElement | null = null;
+let homeRankingRetry: (() => void) | null = null;
+const homeFeedRefs = { back: null as HTMLButtonElement | null, open: { ranking: null, newSongs: null } as Record<HomeFeed, HTMLButtonElement | null> };
 let refreshRankingButton: HTMLButtonElement;
 let homeHintInput: HTMLInputElement;
 let homeHintApply: HTMLButtonElement;
@@ -28,8 +31,14 @@ const mainWindowRefs={
  queueDrawerClear:(node:HTMLButtonElement|null):void=>{queueDrawerRefs.clear=node;},
  queueDrawerConfirm:(node:HTMLElement|null):void=>{queueDrawerRefs.confirm=node;},
  searchResults:(node:HTMLUListElement|null):void=>{if(node)searchResults=node;},
- homeRankingError:(node:HTMLParagraphElement|null):void=>{if(node)homeRankingError=node;},
- homeRankingList:(node:HTMLUListElement|null):void=>{if(node)homeRankingList=node;},
+ homeRankingError:(node:HTMLParagraphElement|null):void=>{
+   if (homeRankingError === node) return;
+   if (homeRankingRetry) homeRankingError?.removeEventListener("click", homeRankingRetry);
+   homeRankingError = node;
+   if (homeRankingRetry) node?.addEventListener("click", homeRankingRetry);
+ },
+ homeFeedBack:(node:HTMLButtonElement|null):void=>{homeFeedRefs.back=node;},
+ homeFeedCardOpen:(source:HomeFeed,node:HTMLButtonElement|null):void=>{homeFeedRefs.open[source]=node;},
  refreshRankingButton:(node:HTMLButtonElement|null):void=>{if(node)refreshRankingButton=node;},
  homeHintInput:(node:HTMLInputElement|null):void=>{if(node)homeHintInput=node;},
  homeHintApply:(node:HTMLButtonElement|null):void=>{if(node)homeHintApply=node;},
@@ -49,7 +58,11 @@ const mainWindowRefs={
  pagesModalList:(node:HTMLUListElement|null):void=>{if(node)pagesModalList=node;},
  pagesModalClose:(node:HTMLButtonElement|null):void=>{if(node)pagesModalClose=node;},
 };
-export { audio, searchResults, homeRankingError, homeRankingList, refreshRankingButton, homeHintInput, homeHintApply, playbackBarNode, playerPagesButton, resumePlayPauseButton, favoritesList, playlistsList, playlistTracks, libraryModal, closeLibraryModalButton, libraryModalBody, pagesModal, pagesModalRestoreAll, pagesModalList, pagesModalClose };
+function installHomeRankingRetry(onRetry: () => void): void {
+  homeRankingRetry = onRetry;
+  homeRankingError?.addEventListener("click", onRetry);
+}
+export { audio, searchResults, installHomeRankingRetry, homeFeedRefs, refreshRankingButton, homeHintInput, homeHintApply, playbackBarNode, playerPagesButton, resumePlayPauseButton, favoritesList, playlistsList, playlistTracks, libraryModal, closeLibraryModalButton, libraryModalBody, pagesModal, pagesModalRestoreAll, pagesModalList, pagesModalClose };
 export {mainWindowRefs};
 export {playerQualityRefs};
 

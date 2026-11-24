@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fixture as realFixture, deferred } from "./tracks-fixture.ts";
+import { fixture as realFixture, deferred, responses, videoMeta } from "./tracks-fixture.ts";
 const track = { bvid: "BV1234567890", title: "曲目甲", uploader: "作者", thumbnailUrl: "", durationSeconds: 60, playCount: 0, pubdate: 0, addedAt: "" };
 
 type HomeRow = HTMLElement & { activate?: (index: number, selection?: unknown) => void };
@@ -16,7 +16,10 @@ test("home ranking caches nonempty results and force refresh preserves its reque
   try {
     h.setResponse(async command => command === "get_ai_config" ? { hasKey: false } : [track]);
     await h.module.refreshAiKeyState();
-    assert.equal(h.nodes.homeRankingList.children.length, 1);
+    h.store.actions.openHomeSection("ranking");
+    const list = h.doc.querySelector("#home-ranking-list")!;
+    const status = h.doc.querySelector("#home-ranking-status")!;
+    assert.equal(list.children.length, 1);
     const requests = h.calls.length;
     await h.module.loadHomeRanking();
     assert.equal(h.calls.length, requests);
@@ -25,14 +28,14 @@ test("home ranking caches nonempty results and force refresh preserves its reque
     const pending = h.module.loadHomeRanking({ forceRefresh: true });
     assert.deepEqual(h.calls.slice(-2).map(call=>[call.command,call.args.source,call.args.mode]), [["get_music_ranking","ranking","refresh"],["get_music_ranking","newSongs","refresh"]]);
     assert.equal(h.nodes.refreshRankingButton.disabled, true);
-    assert.equal(h.nodes.homeRankingStatus.textContent, "正在刷新音乐热门…");
-    assert.equal(h.nodes.homeRankingList.children.length, 1);
-    assert.ok(h.nodes.homeRankingList.querySelector("button.track"));
+    assert.equal(status.textContent, "正在刷新音乐热门…");
+    assert.equal(list.children.length, 1);
+    assert.ok(list.querySelector("button.track"));
     next.resolve([]); await pending;
     assert.equal(h.nodes.refreshRankingButton.disabled, true);
     assert.equal(h.nodes.refreshRankingButton.title,"刚刚更新，请稍后再试");
-    assert.equal(h.nodes.homeRankingList.children.length, 0);
-    assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 0 首音乐区热门视频。");
+    assert.equal(list.children.length, 0);
+    assert.equal(status.textContent, "已加载 0 首音乐区热门视频。");
     await h.advance(59000); assert.equal(h.nodes.refreshRankingButton.disabled,true);
     await h.advance(1000); assert.equal(h.nodes.refreshRankingButton.disabled,false);
     h.setResponse(async () => [track]); await h.module.loadHomeRanking();
@@ -64,18 +67,19 @@ test("home without API key keeps rows and timestamps after a failed manual updat
     assert.equal(h.nodes.homeTitle.textContent, "发现音乐");
     assert.equal(h.nodes.homePanel?.getAttribute("data-home-mode"), "popular");
     assert.equal(h.nodes.homeHintRow.hidden, true);
-    assert.equal(h.nodes.homeSetupTitle.textContent, "配置 API Key 后可生成专属推荐");
-    assert.equal(h.nodes.homeSetupHint.classList.contains("is-inline"), true);
+    assert.equal(h.doc.querySelector(".home-discovery-setup")?.textContent, "配置 API Key 后，这里还会出现 AI 生成的专属推荐 · 去设置");
+    assert.equal(h.doc.querySelector(".home-discovery")?.lastElementChild?.classList.contains("home-discovery-setup"), true);
     const stamp=h.store.getState().home.feed.ranking.timestamp;
     await h.advance(60000);
     h.setResponse(async () => { throw new Error("ranking failed"); });
     await h.module.loadHomeRanking({ forceRefresh: true });
-    const retry=h.doc.querySelector<HTMLButtonElement>(".home-ranking-bar button")!;
+    h.store.actions.openHomeSection("ranking");
+    const retry=h.doc.querySelector<HTMLButtonElement>(".home-feed-feedback button")!;
     assert.equal(retry.textContent,"更新失败，点击重试");
     assert.equal(retry.disabled,false);
     assert.equal(h.store.getState().home.feed.ranking.timestamp,stamp);
-    assert.equal(h.nodes.homeRankingList.children[0].querySelector(".track-title")?.textContent,track.title);
-    assert.equal(h.nodes.homeRankingStatus.textContent, "");
+    assert.equal(h.doc.querySelector("#home-ranking-list .track-title")?.textContent,track.title);
+    assert.equal(h.doc.querySelector("#home-ranking-status")?.textContent, "");
   } finally { h.dispose(); }
 });
 
@@ -91,6 +95,9 @@ test("home reads saved recommendations once and does not generate them automatic
     saved.resolve([track]); await pending;
     assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 1 首上次推荐。");
     assert.equal(h.nodes.homeHintApply.disabled, false);
+    assert.equal(h.nodes.homeTitle.textContent, "为你推荐");
+    assert.equal(h.doc.querySelector(".home-discovery"), null);
+    assert.equal(h.doc.querySelector(".home-feed-detail"), null);
     await h.module.loadRecommendationHome();
     assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_saved_recommendations"]);
   } finally { h.dispose(); }
@@ -147,11 +154,12 @@ test("home Key changes keep late ranking results from replacing recommendation r
     hasKey = true;
     await h.module.refreshAiKeyState();
     assert.equal(h.nodes.homeTitle.textContent, "为你推荐");
-    assert.equal(h.nodes.homeRankingList.children.length, 1);
-    const row = h.nodes.homeRankingList.children[0];
+    const list = h.doc.querySelector("#home-ranking-list")!;
+    assert.equal(list.children.length, 1);
+    const row = list.children[0];
     ranking.resolve([]); await pendingRanking;
-    assert.equal(h.nodes.homeRankingList.children[0], row);
-    assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 0 首音乐区热门视频。", "shared status retains the existing completion order");
+    assert.equal(list.children[0], row);
+    assert.equal(h.doc.querySelector("#home-ranking-status")?.textContent, "已加载 0 首音乐区热门视频。", "shared status retains the existing completion order");
   } finally { h.dispose(); }
 });
 
@@ -185,7 +193,8 @@ test("home and search states stay isolated while ranking and recommendation clic
     let hasKey = false;
     h.setResponse(async command => command === "get_ai_config" ? { hasKey } : [track]);
     await h.module.refreshAiKeyState();
-    const row = h.nodes.homeRankingList.children[0];
+    h.store.actions.openHomeSection("ranking");
+    const row = h.doc.querySelector<HomeRow>("#home-ranking-list .track-row")!;
     row.activate?.(0, { startPage: { cid: 1 } });
     assert.equal(h.played[0][0], "ranking");
     assert.equal(h.played[0][2], 0);
@@ -194,13 +203,14 @@ test("home and search states stay isolated while ranking and recommendation clic
     assert.equal(h.states.playerState.queue.length, 0, "rendering does not start playback");
     hasKey = true;
     await h.module.refreshAiKeyState();
-    h.nodes.homeRankingList.children[0].activate?.(0);
+    const recommendation = h.doc.querySelector("#home-ranking-list") as typeof h.nodes.homeRankingList;
+    recommendation.children[0].activate?.(0);
     assert.equal(h.played[1][0], "recommendation");
     h.states.searchState.requestVersion++;
     const calls = h.calls.length;
     await h.module.loadRecommendationHome();
     assert.equal(h.calls.length, calls);
-    assert.equal(h.nodes.homeRankingList.children.length, 1);
+    assert.equal(recommendation.children.length, 1);
     assert.ok(h.queueUpdates() > 0);
   } finally { h.dispose(); }
 });
@@ -243,32 +253,64 @@ test("homepage no-update response has no button and leaves polite status empty",
 });
 
 test("discovery sections render timestamps and start isolated real queues", async t => {
-  const h = await realFixture(); t.after(h.dispose);
-  const ranking=Array.from({length:12},(_,i)=>({...track,bvid:"BV"+String(i).padStart(10,"0")}));
-  const newSongs=Array.from({length:8},(_,i)=>({...track,bvid:"BV"+String(i+20).padStart(10,"0"),durationSeconds:0}));
+  const h = await realFixture({ playback: true }); t.after(h.dispose);
+  const thumbnail = "https://i0.hdslb.com/bfs/archive/synthetic.jpg";
+  const ranking=Array.from({length:12},(_,i)=>({...track,bvid:"BV"+String(i).padStart(10,"0"),thumbnailUrl:i===0 ? thumbnail : ""}));
+  const newSongs=Array.from({length:8},(_,i)=>({...track,bvid:"BV"+String(i+20).padStart(10,"0"),durationSeconds:0,playCount:null}));
   const now=h.clock();
+  const old=new Date(now); old.setDate(old.getDate()-3);
+  const oldDay=`${old.getFullYear()}-${String(old.getMonth()+1).padStart(2,"0")}-${String(old.getDate()).padStart(2,"0")}`;
   h.reply(async (cmd,args)=>{
     if(cmd==="get_ai_config") return {hasKey:false};
-    if(cmd==="get_music_ranking") return {section:{items:args.source==="ranking"?ranking:newSongs,date:args.today,fetchedAt:now},newSongs,sequence:1,requestAt:now,error:null,restricted:false};
+    if(cmd==="get_music_ranking") return {section:args.source==="ranking" ? {items:ranking,date:args.today,fetchedAt:now} : {items:newSongs,date:oldDay,fetchedAt:old.getTime()},newSongs,sequence:1,requestAt:now,error:null,restricted:false};
     if(cmd==="prepare_audio") return {audioUrl:"http://127.0.0.1/audio/fixture",title:"合成歌曲",durationSeconds:60};
     return null;
   });
   await h.home.refreshAiKeyState();
-  const [popular,fresh]=["#home-ranking-list","#home-new-songs"].map(id=>h.doc.querySelector<HTMLUListElement>(id)!);
-  assert.equal(popular.children.length,12); assert.equal(fresh.children.length,8);
-  assert.equal(h.doc.querySelectorAll(".home-ranking-bar").length,2);
-  for(const bar of h.doc.querySelectorAll(".home-ranking-bar")) assert.match(bar.textContent,/更新于 \d\d:\d\d/);
-  for(const [list,source,items,other] of [[popular,"ranking",ranking,fresh],[fresh,"newSongs",newSongs,popular]] as const) {
+  const currentLabel = () => h.doc.querySelector(".home-feed-detail .home-feed-copy p:nth-of-type(2)")?.textContent;
+  const date = new Date(now);
+  assert.equal(h.doc.querySelector(".home-subtitle")?.textContent,`${date.getMonth()+1} 月 ${date.getDate()} 日 · 每天自动更新`);
+  assert.equal(h.doc.querySelectorAll(".home-feed-card").length,2);
+  assert.equal(h.doc.querySelector("#home-ranking-list, #home-new-songs"),null);
+  assert.match(h.doc.querySelector('[data-feed="ranking"] .home-feed-label')?.textContent ?? "",/12 首 · 更新于 \d\d:\d\d/);
+  const cardThumbnail = h.doc.querySelector('[data-feed="ranking"] img')?.getAttribute("src");
+  assert.equal(cardThumbnail,thumbnail+"@64w_64h_1c.webp");
+  const oldLabel = `8 首 · 更新于 ${old.getMonth()+1} 月 ${old.getDate()} 日 ${old.toTimeString().slice(0,5)}`;
+  assert.equal(h.doc.querySelector('[data-feed="newSongs"] .home-feed-label span')?.textContent,oldLabel);
+  for(const [id,source,items,otherId,otherSource] of [["#home-ranking-list","ranking",ranking,"#home-new-songs","newSongs"],["#home-new-songs","newSongs",newSongs,"#home-ranking-list","ranking"]] as const) {
+    const before = h.store.getState().playbackQueue;
+    await h.fire(h.doc.querySelector(`[data-feed="${source}"] .home-feed-open`)!, "click", { detail: 0 });
+    assert.equal(h.store.getState().playbackQueue,before);
+    assert.equal(h.doc.activeElement?.textContent,"‹ 发现音乐");
+    const list=h.doc.querySelector<HTMLUListElement>(id)!;
+    assert.equal(list.children.length, items.length);
+    if (source === "ranking") assert.equal(list.querySelector("img")?.getAttribute("src"),cardThumbnail);
+    if (source === "newSongs") {
+      assert.equal(currentLabel(), oldLabel);
+      assert.equal(list.querySelector(".track-duration")?.textContent,"—");
+      assert.equal(list.querySelector(".track-play")?.textContent,"—");
+      assert.equal(list.parentElement?.classList.contains("home-feed-no-pages"),true);
+      h.store.actions.pages.remember(items[0].bvid,videoMeta);
+      assert.equal(list.parentElement?.classList.contains("home-feed-no-pages"),false);
+      assert.equal(list.querySelector(".page-count-badge")?.textContent,"2P");
+    }
     await h.fire(list.children[2].querySelector("button.track")!,"click",{detail:0});
     assert.equal(h.store.getState().playbackQueue.queueSource,source);
     assert.deepEqual(h.store.getState().playbackQueue.queue.map(row=>row.bvid),items.map(row=>row.bvid));
     assert.equal(list.children[2].querySelector("button.track")?.getAttribute("aria-current"),"true");
+    await h.fire(h.doc.querySelector(source === "ranking" ? ".home-feed-back" : '#sidebar [data-view="home"]')!, "click", { detail: 0 });
+    assert.equal(h.doc.querySelector(".home-feed-detail"),null);
+    assert.equal(h.doc.querySelectorAll(".home-feed-card").length,2);
+    await h.fire(h.doc.querySelector(`[data-feed="${otherSource}"] .home-feed-open`)!, "click", { detail: 0 });
+    const other=h.doc.querySelector<HTMLUListElement>(otherId)!;
     assert.equal(other.querySelectorAll('[aria-current="true"]').length,0);
+    await h.fire(h.doc.querySelector(".home-feed-back")!, "click", { detail: 0 });
   }
 });
 test("empty, stale automatic and manual failures use independent retry controls", async t => {
   const h=await realFixture(); t.after(h.dispose);
-  const old=h.clock()-86400000, stamp=new Date(old);
+  const stamp=new Date(h.clock()); stamp.setDate(stamp.getDate()-1);
+  const old=stamp.getTime(), label="昨天 "+stamp.toTimeString().slice(0,5);
   const date=[stamp.getFullYear(),String(stamp.getMonth()+1).padStart(2,"0"),String(stamp.getDate()).padStart(2,"0")].join("-");
   let sequence=0, risk=false;
   const wait=deferred();let hold=false;
@@ -279,21 +321,86 @@ test("empty, stale automatic and manual failures use independent retry controls"
     return {section:{date,fetchedAt:args.source==="ranking"?old:0,items:args.source==="ranking"?[track]:[]},newSongs:[],sequence:++sequence,requestAt:h.clock(),error:"更新失败",restricted:risk && args.source==="newSongs"};
   });
   await h.home.refreshAiKeyState();
-  const panels=h.doc.querySelectorAll<HTMLElement>(".home-ranking-panel");
-  assert.match(panels[0].textContent,new RegExp("更新于 "+date));
-  assert.equal(panels[0].querySelector(".home-ranking-bar button"),null);
-  assert.doesNotMatch(panels[0].textContent,/更新失败|拉取失败/);
-  const retry=()=>panels[1].querySelector<HTMLButtonElement>("button.home-error")!;
+  const card = (source: string) => h.doc.querySelector<HTMLElement>(`.home-feed-card[data-feed="${source}"]`)!;
+  assert.match(card("ranking").textContent,new RegExp("更新于 "+label));
+  assert.doesNotMatch(card("ranking").textContent,/更新失败|拉取失败/);
+  assert.equal(card("newSongs").querySelector(".home-feed-label span")?.textContent,"暂无内容 · 点击查看");
+  await h.fire(card("ranking").querySelector("button")!, "click");
+  assert.equal(h.doc.querySelector(".home-feed-feedback button"),null);
+  await h.fire(h.doc.querySelector(".home-feed-back")!, "click");
+  await h.fire(card("newSongs").querySelector("button")!, "click");
+  const retry=()=>h.doc.querySelector<HTMLButtonElement>(".home-feed-feedback button")!;
   assert.equal(retry().textContent,"拉取失败，点击重试");assert.equal(retry().disabled,false);
   hold=true;const pending=h.store.actions.retryHomeSection("newSongs");
   const n=h.calls.length;await h.store.actions.retryHomeSection("newSongs");assert.equal(h.calls.length,n);
   wait.resolve(null);await pending;
   await h.advance(60000);risk=true;
   await h.home.loadHomeRanking({forceRefresh:true});
-  assert.equal(panels[0].querySelector<HTMLButtonElement>(".home-ranking-bar button")?.disabled,false);
-  assert.equal(panels[0].querySelector(".home-ranking-bar button")?.textContent,"更新失败，点击重试");
-  assert.match(panels[0].textContent,new RegExp("更新于 "+date));
-  assert.equal(panels[0].querySelectorAll("button.track").length,1);
   assert.equal(retry().disabled,true);await h.advance(59000);assert.equal(retry().disabled,true);
   await h.advance(1000);assert.equal(retry().disabled,false);
+  await h.fire(h.doc.querySelector(".home-feed-back")!, "click");
+  assert.equal(card("ranking").querySelector(".home-feed-label span")?.textContent,"更新失败 · 更新于 "+label);
+  await h.fire(card("ranking").querySelector("button")!, "click");
+  assert.equal(retry().disabled,false);
+  assert.equal(retry().textContent,"更新失败，点击重试");
+  assert.match(h.doc.querySelector(".home-feed-head")!.textContent,new RegExp("更新于 "+label));
+  assert.equal(h.doc.querySelectorAll(".home-feed-detail button.track").length,1);
+  const refresh=h.doc.querySelector<HTMLButtonElement>(".home-feed-actions .secondary-button")!;
+  const requestStart=h.calls.length;
+  await h.fire(refresh, "click");
+  assert.deepEqual(h.calls.slice(requestStart).filter(call=>call.command==="get_music_ranking").map(call=>[call.args.source,call.args.mode]),[["ranking","retry"]]);
+  assert.equal(refresh.disabled,true);
+  await h.advance(59000);assert.equal(refresh.disabled,true);
+  await h.advance(1000);assert.equal(refresh.disabled,false);
+});
+
+test("discovery card play starts the first track without opening the list", async t => {
+  const h = await realFixture(); t.after(h.dispose);
+  const base = responses([track, { ...track, bvid: "BV1234567891" }]);
+  h.reply(async cmd => cmd === "get_ai_config" ? { hasKey: false } : cmd === "get_play_history" ? [] : base(cmd));
+  await h.home.refreshAiKeyState();
+  const open = h.doc.querySelector<HTMLButtonElement>('[aria-label="打开音乐热门"]')!;
+  const play = h.doc.querySelector<HTMLButtonElement>('[aria-label="播放音乐热门"]')!;
+  assert.equal(open.parentElement,play.parentElement);
+  open.focus(); assert.equal(h.doc.activeElement,open);
+  play.focus(); assert.equal(h.doc.activeElement,play);
+  await h.fire(play.querySelector("svg")!, "click", { detail: 1 });
+  assert.equal(h.doc.querySelector(".home-feed-detail"),null,"点击播放键不进入列表页");
+  assert.equal(h.store.getState().playbackQueue.queueSource,"ranking");
+  assert.equal(h.store.getState().playbackQueue.currentIndex,0);
+  assert.deepEqual(h.store.getState().playbackQueue.queue.map(row=>row.bvid),["BV1234567890","BV1234567891"]);
+  await h.fire(open,"click",{detail:0});
+  const rows = h.doc.querySelectorAll("#home-ranking-list .track");
+  await h.fire(rows[1],"click",{detail:0});
+  assert.equal(h.store.getState().playbackQueue.currentIndex,1);
+  await h.fire(h.doc.querySelector(".home-feed-actions .primary-cta")!,"click");
+  assert.equal(h.store.getState().playbackQueue.currentIndex,0);
+  assert.equal(rows[0].getAttribute("aria-current"),"true");
+});
+
+test("discovery recent preview hides when empty and plays through the full history queue", async t => {
+  const h = await realFixture({ playback:true }); t.after(h.dispose);
+  const history=Array.from({length:12},(_,i)=>({...track,bvid:"BV"+String(i+40).padStart(10,"0"),title:`历史 ${i}`,lastPlayedAt:String(h.clock()-i*10000),count:1,lastCid:22,lastPage:2,lastPartName:"二"}));
+  let items: typeof history = [];
+  const base = responses();
+  h.reply(async cmd => cmd === "get_ai_config" ? { hasKey:false } : cmd === "get_play_history" ? items : cmd === "check_audio_cache" ? [] : base(cmd));
+  await h.home.refreshAiKeyState();
+  assert.equal(h.doc.querySelector(".home-recent"),null);
+  items=history;
+  await h.fire(h.doc.querySelector(".home-feed-open")!,"click");
+  await h.fire(h.doc.querySelector(".home-feed-back")!,"click");
+  const recent = h.doc.querySelector(".home-recent")!;
+  assert.equal(recent.querySelector("h2")?.textContent,"最近播放");
+  assert.equal(recent.querySelectorAll(".home-recent-item").length,10);
+  const preview=recent.querySelectorAll(".home-recent-item")[1];
+  assert.equal(preview.querySelector(".home-recent-track")?.textContent,"历史 1");
+  assert.equal(preview.querySelector(".home-recent-uploader")?.textContent,"作者");
+  await h.fire(preview,"click");
+  assert.equal(h.store.getState().playbackQueue.queueSource,"recent");
+  assert.equal(h.store.getState().playbackQueue.currentIndex,1);
+  assert.deepEqual(h.store.getState().playbackQueue.queue.map(row=>row.bvid),history.map(row=>row.bvid));
+  assert.equal(h.calls.filter(call=>call.command==="prepare_audio").at(-1)?.args.cacheCid,22);
+  await h.fire(recent.querySelector(".home-text-button")!,"click");
+  assert.equal(h.doc.querySelector<HTMLElement>("#view-recent")?.hidden,false);
+  assert.equal(h.doc.querySelectorAll("#recent-list .track").length,12);
 });

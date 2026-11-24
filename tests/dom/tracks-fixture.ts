@@ -214,7 +214,8 @@ async function seed(h: Harness, source: Source, items = [track(1)]) {
   h.reply(command => command === "get_ai_config" ? Promise.resolve({ hasKey: source === "recommendation" }) : responses(items)(command));
   if (source === "search") { h.nodes.searchKeyword.value = "测试"; await h.search.runSearch(); }
   else await h.home.refreshAiKeyState();
-  return source === "search" ? h.nodes.searchResults : h.nodes.homeRankingList!;
+  if (source === "ranking") h.store.actions.openHomeSection("ranking");
+  return source === "search" ? h.nodes.searchResults : h.doc.querySelector<HTMLUListElement>("#home-ranking-list")!;
 }
 
 export { fixture, deferred, track, responses, seed, videoMeta };

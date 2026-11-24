@@ -20,13 +20,13 @@ export default defineComponent({
       const content = [
         h("span", { class: "eq", "aria-hidden": "true" }, [h("span"), h("span"), h("span")]),
         h("span", { class: "track-cover" }, [video.thumbnailUrl
-          ? h("img", { src: displayThumbnailUrl(video.thumbnailUrl), alt: "", ".loading": "lazy", ".referrerPolicy": "no-referrer", draggable: row.draggable ? false : undefined })
+          ? h("img", { src: row.thumbnailSrc ?? displayThumbnailUrl(video.thumbnailUrl), alt: "", ".loading": "lazy", ".referrerPolicy": "no-referrer", draggable: row.draggable ? false : undefined })
           : h("span", { class: "cover-placeholder" })]),
         h("span", { class: "track-meta" }, [h("span", { class: "track-title" }, row.cached ? [h("span", { class: "track-title-text" }, video.title || video.bvid), h("span", { class: "track-cached", title: "已缓存,可离线播放" }, [h(Icon, { name: "bolt", size: 12 })])] : video.title || video.bvid), row.search
           ? h("span", { class: "track-creator" }, [h("span", { class: "track-up" }, row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid), h("span", { class: "track-pubdate" }, row.pubdateText)])
           : h("span", { class: "track-up" }, row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid)]),
         ...(row.showPlayCount === false ? [] : [h("span", { class: "track-play" }, row.playCountText)]),
-        h("span", { class: "track-duration" }, row.collection ? `${row.collection.videoCount} 个视频` : video.durationSeconds ? formatDuration(video.durationSeconds) : "0:00"),
+        h("span", { class: "track-duration" }, row.collection ? `${row.collection.videoCount} 个视频` : row.durationText ?? (video.durationSeconds ? formatDuration(video.durationSeconds) : "0:00")),
         h("span", { class: "track-number", "aria-hidden": "true" }, String(row.index + 1)),
         h(Icon, { name: "play", class: "track-hover-play" }),
         ...(row.draggable ? [h(Icon, { name: "grip", class: "track-drag-handle" })] : []),
