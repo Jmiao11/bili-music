@@ -1,7 +1,5 @@
 use crate::resolve::ResolveCoordinator;
-use crate::{
-    fav_import, GuestPlayurlClient, ProxyState, RankingClient, RankingTrack, SearchClient,
-};
+use crate::{fav_import, GuestPlayurlClient, ProxyState, RankingClient, SearchClient};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -14,7 +12,7 @@ pub(super) struct AppState {
     pub(crate) search: SearchClient,
     pub(crate) ranking: RankingClient,
     pub(crate) favorite_import: fav_import::FavoriteImportClient,
-    pub(crate) ranking_cache: Arc<RwLock<Option<Vec<RankingTrack>>>>,
+    pub(crate) home_feed: crate::home_feed::HomeFeed,
     pub(crate) guest: Arc<GuestPlayurlClient>,
     pub(crate) collection_cache:
         Arc<RwLock<Option<(i64, String, Vec<crate::search::SearchVideo>)>>>,

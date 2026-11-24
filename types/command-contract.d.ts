@@ -75,7 +75,7 @@ interface CommandMap {
   cancel_prepare_audio: { args: undefined; result: null };
   debug_register_local_stream: { args: { path: string }; result: string };
   search_videos: { args: { keyword: string; page?: number | null; tids?: number | null; order?: string | null; sortMode?: string | null; rerank: boolean }; result: CommandContract.SearchVideo[] };
-  get_music_ranking: { args: { forceRefresh?: boolean | null }; result: CommandContract.RankingTrack[] };
+  get_music_ranking: { args: { source: "ranking" | "newSongs"; mode: "cache" | "auto" | "retry" | "refresh"; today: string }; result: { section: { date: string; fetchedAt: number; items: CommandContract.RankingTrack[] }; newSongs: CommandContract.RankingTrack[]; sequence: number; restricted: boolean; error: string | null; requestAt: number | null } };
   get_stream_source: { args: undefined; result: string };
   get_yt_dlp_availability: { args: undefined; result: CommandContract.YtDlpAvailability };
   set_stream_source: { args: { source: string }; result: string };

@@ -19,6 +19,7 @@ type Videos = readonly Readonly<CommandContract.TrackSnapshotInput>[];
 type Play = (index: number, selection?: PageSelection) => void;
 type RowSession = { entry: Snapshot["library"]["favorites"][number] | undefined; model: TrackRowModel | null; index: number; playlistId: string; drag: LibraryDragHandlers | null; item: HTMLElement | null; button: HTMLButtonElement | null; badge: HTMLButtonElement|null;activation: ReturnType<typeof createTrackActivationSession> | null; video: Readonly<CommandContract.TrackSnapshotInput>; play: (selection?: PageSelection) => void; callbacks: Pick<TrackRowModel, "onBadgeNode" | "onNodes" | "onClick" | "onDoubleClick" | "onBadge" | "onQueueNext" | "onFavorite" | "onAdd" | "onRemove" | "onCapture" | "onDragStart" | "onDragOver" | "onDragLeave" | "onDrop" | "onDragEnd"> };
 type Projection = { recent?: Snapshot["recent"]; library?: { entries: Snapshot["library"]["favorites"]; playlistId: string; visual: LibraryDragVisual | null; handlers: LibraryDragHandlers }; inputs: readonly unknown[]; generation: number; videos: Videos; source: string; skeleton: boolean; unavailable: Snapshot["library"]["unavailableBvids"]; play: Play; sessions: Map<string, RowSession> };
+let newSongsProjection: Projection | null = null;
 let homeProjection: Projection | null = null;
 let searchProjection: Projection | null = null;
 let recentProjection: Projection | null = null;
@@ -41,7 +42,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : projection.source === "recent" ? queue.queueSource === "recent" ? queue.currentIndex : -1
     : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
     : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
-    : queue.queueSource === "recommendation" ? queue.currentIndex : -1;
+    : queue.queueSource === projection.source ? queue.currentIndex : -1;
   const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
   const activeEntry = queue.queue[queueIndex];
   const activeIndex = projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : projection.library ? projection.library.entries.findIndex(entry => activeEntry?.entryId ? entry.entryId === activeEntry.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
@@ -140,7 +141,7 @@ function projectApplicationLists(state: Snapshot): void {
     const kind = home.view.content.kind;
     if (kind === "ranking" || kind === "recommendations") {
       const source = kind === "ranking" ? "ranking" : "recommendation";
-      const skeleton = kind === "ranking" ? home.loading : home.recommendationLoading;
+      const skeleton = kind === "ranking" ? home.loading && !home.ranking.length : home.recommendationLoading;
       const error = kind === "ranking" ? home.error : "";
       const videos = skeleton || error ? [] : kind === "ranking" ? home.ranking : home.recommendations;
       renderHomeRows(state, videos, source, skeleton, (index, selection) => {
@@ -148,6 +149,14 @@ function projectApplicationLists(state: Snapshot): void {
         playListItem(source, source === "ranking" ? current.ranking : current.recommendations, index, selection);
       });
     }
+  }
+  if(home.aiHasKey===false) {
+    newSongsProjection ??= createProjection(state, "newSongs", (index, selection) => playListItem("newSongs",getHomeSnapshot().newSongs,index,selection));
+    if(newSongsProjection.videos!==home.newSongs) newSongsProjection.generation++;
+    newSongsProjection.videos=home.newSongs;
+    newSongsProjection.skeleton=home.feed.newSongs.busy && !home.newSongs.length;
+    newSongsProjection.unavailable=state.library.unavailableBvids;
+    projectRows("newSongs",newSongsProjection,state,false);
   }
   refreshHomeRows(state);
   if (state.search.view.rowsVersion !== null && state.search.view.rowsVersion !== projectedSearchRows) {

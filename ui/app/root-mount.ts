@@ -56,7 +56,7 @@ function renderSnapshot(snapshot: ApplicationSnapshot): void {
 function mountApplication(): void {
   initializeStartupPlatform();
   initializeApplicationStore({
-    settings: createSettingsPlatform(), invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+    settings: createSettingsPlatform(), now: () => window.Date.now(), invoke, setTimeout: (callback, delay) => window.setTimeout(callback, delay),
     clearTimeout: id => window.clearTimeout(id), report: (level, message, error) => console[level](message, error),
   }, renderRoot);
   installRootRefresh(() => renderRoot(readApplicationStore().getState()));

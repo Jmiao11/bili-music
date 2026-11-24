@@ -1,4 +1,4 @@
-use crate::ranking::RankingTrack;
+use crate::home_feed::{FeedResult, Mode, Source};
 use crate::search::SearchVideo;
 use crate::{ai, AppState};
 
@@ -28,17 +28,14 @@ pub(crate) async fn search_videos(
 #[tauri::command]
 pub(crate) async fn get_music_ranking(
     state: tauri::State<'_, AppState>,
-    force_refresh: Option<bool>,
-) -> Result<Vec<RankingTrack>, String> {
-    if !force_refresh.unwrap_or(false) {
-        if let Some(cached) = state.ranking_cache.read().await.as_ref().cloned() {
-            return Ok(cached);
-        }
-    }
-
-    let tracks = state.ranking.music_ranking().await?;
-    *state.ranking_cache.write().await = Some(tracks.clone());
-    Ok(tracks)
+    source: Source,
+    mode: Mode,
+    today: String,
+) -> Result<FeedResult, String> {
+    state
+        .home_feed
+        .load(&state.ranking, source, mode, today)
+        .await
 }
 
 #[tauri::command]

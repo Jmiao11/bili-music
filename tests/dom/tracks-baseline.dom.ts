@@ -19,8 +19,7 @@ for (const source of ["ranking", "recommendation", "search"] as const) {
   }));
   test(`track DOM ${source} highlight uses existing source and search version conditions`, () => run(async h => {
     const list = await seed(h, source, [track(1), track(2)]);
-    // On the popular fallback, the shared home highlight still follows the recommendation queue.
-    h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source === "ranking" ? "recommendation" : source, source === "search" ? h.search.getSearchSnapshot().requestVersion : null);
+    h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source, source === "search" ? h.search.getSearchSnapshot().requestVersion : null);
     h.store.actions.playbackQueue.selectIndex(1, false, null); h.core.updateQueueUi();
     assert.equal(list.querySelectorAll('[aria-current="true"]').length, 1); assert.equal(list.children[1].querySelector("button.track")?.getAttribute("aria-current"), "true");
     h.store.actions.playbackQueue.replaceQueue([track(1), track(2)], source === "search" ? "search" : "favorites", -1); h.core.updateQueueUi();
@@ -36,6 +35,7 @@ test("track DOM unavailable markers retain old home commit timing and search abs
   const home = await seed(h, "ranking"), row = home.children[0];
   h.store.actions.library.markUnavailable(track(1).bvid, "该视频已被删除或设为私密");
   assert.equal(home.children[0], row); assert.equal(row.querySelector(".track-unavailable"), null);
+  await h.advance(60000);
   await h.home.loadHomeRanking({ forceRefresh: true });
   assert.equal(home.children[0].classList.contains("is-unavailable"), true); assert.equal(home.querySelector(".track-unavailable")?.getAttribute("aria-label"), "该视频已被删除或设为私密");
   const search = await seed(h, "search"); assert.equal(search.querySelector(".track-unavailable"), null);
@@ -61,7 +61,7 @@ test("track DOM ranking error retry remains outside the list", () => run(async h
   const retry = deferred();
   h.reply(async command => command === "get_ai_config" ? { hasKey: false } : retry.promise);
   await h.fire(h.nodes.homeRankingError, "click");
-  assert.deepEqual(h.calls.at(-1), { command: "get_music_ranking", args: { forceRefresh: true } });
+  assert.deepEqual([h.calls.at(-1)?.command,h.calls.at(-1)?.args.source,h.calls.at(-1)?.args.mode],["get_music_ranking","ranking","retry"]);
   const load = h.home.refreshAiKeyState();
   retry.resolve([track(1)]); await load;
   assert.equal(h.nodes.homeRankingList?.children.length, 1);

@@ -18,7 +18,7 @@ for (const entry of baseline.matrix) test(`Vue track HTML matches old ${entry.so
   }
   else list = await seed(h, entry.source, items);
   if (entry.state === "favorite") { h.reply(responses(items)); await h.store.actions.library.toggleFavorite(items[0]); h.core.updateQueueUi(); }
-  if (entry.state === "playing") { h.store.actions.playbackQueue.replaceQueue(items, entry.source === "ranking" ? "recommendation" : entry.source, entry.source === "search" ? h.search.getSearchSnapshot().requestVersion : null); h.store.actions.playbackQueue.selectIndex(0, false, null); h.core.updateQueueUi(); }
+  if (entry.state === "playing") { h.store.actions.playbackQueue.replaceQueue(items, entry.source, entry.source === "search" ? h.search.getSearchSnapshot().requestVersion : null); h.store.actions.playbackQueue.selectIndex(0, false, null); h.core.updateQueueUi(); }
   assert.equal(list.innerHTML, entry.html);
   const anchors = [...list.childNodes].filter(node => node.nodeType === 3);
   assert.equal(anchors.length, entry.state === "empty" ? 0 : 2);

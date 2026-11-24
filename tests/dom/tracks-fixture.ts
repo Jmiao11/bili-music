@@ -1,3 +1,4 @@
+import {feedReply} from "../helpers/home-feed.ts";
 import { instrumentComponentRender } from "./render-counter.ts";
 import { nextDomEventTurn } from "./event-turn.ts";
 import fs from "node:fs";
@@ -81,6 +82,8 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
   const mutations: MutationObserver[] = [];
   class NativeMutationObserver extends window.MutationObserver { constructor(callback: MutationCallback) { super(callback); mutations.push(this); } }
   let serial = 0, now = 0;
+  const epoch = Date.now();
+  Object.defineProperty(window,"Date",{value:class extends Date { static override now() { return epoch+now; } }});
   const played: unknown[][] = [];
   let queueUpdates = 0;
   const install = (name: string, value: unknown) => { descriptors.set(name, Object.getOwnPropertyDescriptor(globalThis, name)); Object.defineProperty(globalThis, name, { value, configurable: true, writable: true }); };
@@ -124,7 +127,7 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
     disconnect() { observed.clear(); platform.push({ operation: "disconnect" }); }
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
-  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); return reply(command, args); } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
+  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const value=reply(command,args); return command==="get_music_ranking"?value.then(result=>feedReply(command,args,result,epoch+now)):value; } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
   for (const [name, value] of Object.entries({ __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   if (options.playback) install("HTMLMediaElement", window.HTMLMediaElement);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
@@ -177,7 +180,7 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
     } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, renderCounts, rowRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
+    return { ...modules, clock:()=>epoch+now, renderCounts, rowRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
       visible(target: Element) { intersection([{ target, isIntersecting: true }]); },
       async advance(milliseconds: number) {
         const end = now + milliseconds;

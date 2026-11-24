@@ -129,7 +129,7 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   cancel_prepare_audio: null,
   debug_register_local_stream: "sample",
   search_videos: [fixtureSearchVideoSome],
-  get_music_ranking: [fixtureRankingTrackSome],
+  get_music_ranking: { section: { date: "2026-11-23", fetchedAt: 1795392000000, items: [fixtureRankingTrackSome] }, newSongs: [], sequence: 1, restricted: false, error: null, requestAt: null },
   get_stream_source: "sample",
   get_yt_dlp_availability: fixtureYtDlpAvailability,
   set_stream_source: "sample",

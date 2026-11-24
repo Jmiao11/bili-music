@@ -137,7 +137,7 @@ DOM CustomEvent 的 detail 继续在 WindowEventMap/DocumentEventMap 中维护�
 | `cancel_prepare_audio` | `null` | null；不需要额外 fixture |
 | `debug_register_local_stream` | `string` | 基本类型；不需要额外 fixture |
 | `search_videos` | `SearchVideo[]` | 数组元素；`search-video-none.json`, `search-video-some.json`；不需要额外 fixture |
-| `get_music_ranking` | `RankingTrack[]` | 数组元素；`ranking-track-none.json`, `ranking-track-some.json`；不需要额外 fixture |
+| `get_music_ranking` | 每来源缓存、获取时间、更新状态及去重后的新歌 | 曲目元素；`ranking-track-none.json`, `ranking-track-some.json`；不需要额外 fixture |
 | `get_stream_source` | `string` | 基本类型；不需要额外 fixture |
 | `get_yt_dlp_availability` | `YtDlpAvailability` | DTO；`yt-dlp-availability.json`；不需要额外 fixture |
 | `set_stream_source` | `string` | 基本类型；不需要额外 fixture |

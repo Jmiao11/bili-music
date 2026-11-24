@@ -9,6 +9,7 @@ import { openAiSettingsDetails, readHomeHintDraft, readSearchDraft, writeSearchD
 import { installPlaybackCallbacks } from "../features/playback/root-playback.ts";
 import { DEFAULT_MUSIC_TIDS } from "../features/search/search-state.ts";
 import { invoke } from "../platform/runtime-api.ts";
+import { windowReady } from "./main-window-ready.ts";
 import { audio, closeLibraryModalButton, homeHintApply, homeRankingError, libraryModal, pagesModal, pagesModalClose, pagesModalRestoreAll, refreshRankingButton, searchResults } from "../platform/main-window-refs.ts";
 import { LOAD_MORE_THRESHOLD_PX } from "../shared/controller-runtime.ts";
 import { clearPlaybackNotice, initPlaybackNotice } from "../features/playback/playback-notice.ts";
@@ -106,6 +107,7 @@ refreshRankingButton?.addEventListener("click", () => {
   }
 });
 installPageCallbacks({
+  retryFeed: source => { void getApplicationStore().actions.retryHomeSection(source); },
   update: () => { void openUpdateDownload(); },
   createPlaylist, renamePlaylist: renameSelectedPlaylist, deletePlaylist: deleteSelectedPlaylist, importPlaylist: importFavoritePlaylist,
   hint: () => {
@@ -139,7 +141,7 @@ installPageCallbacks({
 });
 homeRankingError?.addEventListener("click", () => {
   if (getHomeSnapshot().error) {
-    loadHomeRanking({ forceRefresh: true });
+    void getApplicationStore().actions.retryHomeSection("ranking");
   }
 });
 closeLibraryModalButton?.addEventListener("click", closeLibraryModal);
@@ -199,7 +201,10 @@ window.addEventListener("ai-config-updated", refreshAiKeyState);
 
 getApplicationStore();
 void checkForUpdate();
-refreshAiKeyState();
+const initialHome = getApplicationStore().actions.refreshAiKeyState(true);
+void Promise.all([initialHome,windowReady]).then(() => {
+  if (getHomeSnapshot().aiHasKey === false && getApplicationStore().getState().settings.session.currentView === "home") void loadHomeRanking();
+});
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
 const restoreKeyword = readLastSearchKeyword();
 if (restoreKeyword && !readSearchDraft().trim()) {

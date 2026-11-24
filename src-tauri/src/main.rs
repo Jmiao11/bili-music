@@ -6,6 +6,7 @@ mod audio_cache;
 mod commands;
 mod fav_import;
 mod guest_playurl;
+mod home_feed;
 mod library;
 mod loudness;
 mod lyrics;
@@ -35,7 +36,7 @@ use appearance::{choose_background_image, load_background_image};
 use guest_playurl::GuestPlayurlClient;
 use loudness::analyze_track_loudness;
 use proxy::{bind_browser_safe_loopback, build_proxy_client, proxy_audio, ProxyState};
-use ranking::{RankingClient, RankingTrack};
+use ranking::RankingClient;
 use resolve::ResolveCoordinator;
 use search::SearchClient;
 use state::{AppState, StreamSource};
@@ -93,7 +94,7 @@ fn main() {
             search,
             ranking,
             favorite_import,
-            ranking_cache: Arc::new(RwLock::new(None)),
+            home_feed: Default::default(),
             guest,
             collection_cache: Arc::new(RwLock::new(None)),
             resolver: Arc::new(ResolveCoordinator::default()),

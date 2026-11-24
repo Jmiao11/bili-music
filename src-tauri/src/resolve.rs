@@ -696,7 +696,7 @@ mod prepare_tests {
             .unwrap(),
             ranking: RankingClient::new(guest.clone()).unwrap(),
             favorite_import: FavoriteImportClient::new(guest.clone()).unwrap(),
-            ranking_cache: Arc::new(RwLock::new(None)),
+            home_feed: Default::default(),
             guest,
             collection_cache: Arc::new(RwLock::new(None)),
             resolver: Arc::new(ResolveCoordinator::default()),

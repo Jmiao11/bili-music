@@ -1,3 +1,4 @@
+import { feedReply } from "./helpers/home-feed.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createApplicationStore, isHomePopular } from "../ui/store/app-state.ts";
@@ -10,16 +11,17 @@ function fixture() {
   const calls: { command: string; args: unknown }[] = [];
   const reports: unknown[][] = [];
   const timers = new Map<number, { callback: () => void; delay: number }>();
-  let nextId = 0;
+  let nextId = 0, now=1700000000000;
   let reply: (command: string) => Promise<unknown> = async command => command === "get_ai_config" ? { hasKey: true } : [track];
   const adapter: HomeAdapter = {
-    invoke: ((command: string, args: unknown) => { calls.push({ command, args }); return reply(command); }) as HomeAdapter["invoke"],
+    now:()=>now,
+    invoke: (async (command: string, args: Record<string,unknown>) => { calls.push({ command, args }); return feedReply(command,args,await reply(command),now); }) as HomeAdapter["invoke"],
     setTimeout(callback, delay) { const id = ++nextId; timers.set(id, { callback, delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
     report(...args) { reports.push(args); },
   };
   const store = createApplicationStore(adapter, { freeze: true });
-  return { store, calls, reports, timers, reply(next: typeof reply) { reply = next; } };
+  return { store, calls, reports, timers, advance(ms:number){now+=ms;for(const timer of timers.values()) if(timer.delay<=ms)timer.callback();}, reply(next: typeof reply) { reply = next; } };
 }
 
 test("home actions run without DOM and commit complete loading and success snapshots", async () => {
@@ -30,20 +32,22 @@ test("home actions run without DOM and commit complete loading and success snaps
   const phases: HomeSnapshot[] = [];
   h.store.subscribe(state => phases.push(state.home));
   await h.store.actions.loadHomeRanking();
-  assert.equal(phases.length, 2);
+  assert.equal(phases.length, 5);
+  const settled=phases.at(-1)!;
   assert.equal(phases[0].loading, true);
   assert.equal(phases[0].view.refreshDisabled, true);
-  assert.equal(phases[1].loading, false);
-  assert.equal(phases[1].loaded, true);
-  assert.equal(phases[1].view.refreshDisabled, false);
+  assert.equal(settled.loading, false);
+  assert.equal(settled.loaded, true);
+  assert.equal(settled.view.refreshDisabled, true);
   assert.equal(original.home.ranking.length, 0);
   assert.equal(phases[0].ranking.length, 0);
-  assert.equal(phases[1].ranking.length, 1);
+  assert.equal(settled.ranking.length, 1);
   assert.throws(() => { (phases[1] as unknown as { mode: string }).mode = "ranking"; }, TypeError);
   await h.store.actions.loadHomeRanking();
-  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls.length, 2);
+  h.advance(60000);
   await h.store.actions.loadHomeRanking({ forceRefresh: true });
-  assert.deepEqual(h.calls[1], { command: "get_music_ranking", args: { forceRefresh: true } });
+  assert.deepEqual(h.calls[2], { command: "get_music_ranking", args: { source:"ranking",mode:"refresh",today:phases.at(-1)!.feed.ranking.date } });
 });
 
 test("home actions copy only changed paths and key absence selects the popular ranking", async () => {
@@ -57,7 +61,7 @@ test("home actions copy only changed paths and key absence selects the popular r
   h.reply(async command => command === "get_ai_config" ? { hasKey: false } : [track]);
   await h.store.actions.refreshAiKeyState();
   assert.equal(isHomePopular(h.store.getState().home), true);
-  assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking"]);
+  assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking"]);
 });
 
 test("home actions preserve saved read caching including an empty failed read", async () => {
@@ -101,23 +105,25 @@ test("home actions keep ranking failure semantics and isolate listener failures 
   h.reply(async () => { throw new Error("ranking failure"); });
   h.store.subscribe(state => seen.push(state.home.loading));
   await h.store.actions.loadHomeRanking();
-  assert.deepEqual(seen, [true, false]);
+  assert.deepEqual(seen.filter((v,i)=>i===0 || seen[i-1]!==v), [true,false]);
   assert.equal(h.store.getState().home.view.rankingError?.text, "拉取失败，点击重试");
-  assert.equal(h.reports.length, 1);
+  assert.equal(h.reports.length, 2);
   const firstError = h.store.getState().home.view.rankingError;
   await h.store.actions.loadHomeRanking();
   assert.notEqual(h.store.getState().home.view.rankingError, firstError, "repeated hidden failures must repaint even after a recommendation render clears the DOM text");
   const errors: unknown[] = [];
   const store = createApplicationStore({
-    invoke: async () => [track] as never,
+    now:()=>1700000000000,
+    invoke: async (cmd,...args) => feedReply(cmd,args[0] ?? {},[track]) as never,
     setTimeout: () => 1, clearTimeout() {}, report() {},
   }, { freeze: true, onSubscriberError: error => errors.push(error) });
+  const priorCount=seen.length;
   store.subscribe(() => { throw new Error("subscriber"); });
   store.subscribe(state => seen.push(state.home.loading));
   await store.actions.loadHomeRanking();
-  assert.equal(errors.length, 2);
+  assert.equal(errors.length, seen.length - priorCount);
   assert.equal(store.getState().home.loaded, true);
-  assert.deepEqual(seen.slice(-2), [true, false]);
+  assert.deepEqual(seen.slice(priorCount).filter((v,i,a)=>i===0 || a[i-1]!==v), [true,false]);
 });
 
 test("recommendation generation ignores duplicate force refresh while busy", async () => {

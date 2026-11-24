@@ -10,6 +10,19 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
+pub(crate) const NEGATIVE_TITLE_WORDS: &[&str] = &[
+    "教学",
+    "教程",
+    "乐评",
+    "解说",
+    "解析",
+    "讲解",
+    "教会",
+    "一节课",
+    "保姆级",
+    "零基础入门",
+];
+
 const SPI_URL: &str = "https://api.bilibili.com/x/frontend/finger/spi";
 const SEARCH_URL: &str = "https://api.bilibili.com/x/web-interface/wbi/search/type";
 
@@ -619,20 +632,9 @@ fn score_search_results(
             let phrase_match = exact_phrase_match_score(keyword, &normalized_title);
             let original_position = 1.0 - index as f64 / total_items as f64;
             let penalty = if penalize_titles
-                && [
-                    "教学",
-                    "教程",
-                    "乐评",
-                    "解说",
-                    "解析",
-                    "讲解",
-                    "教会",
-                    "一节课",
-                    "保姆级",
-                    "零基础入门",
-                ]
-                .iter()
-                .any(|word| item.title.contains(word))
+                && NEGATIVE_TITLE_WORDS
+                    .iter()
+                    .any(|word| item.title.contains(word))
             {
                 0.12
             } else {

@@ -19,16 +19,20 @@ function createShellProjection() {
         const popular=isHomePopular(home);
         view.homeMode=popular ? "popular" : "recommendation";
         view.homeSource=popular ? "B站音乐区" : "AI 推荐";
-        view.homeTitle=popular ? "热门音乐" : "为你推荐";
-        view.homeSubtitle=popular ? "未配置 AI 推荐 · 展示 B站 音乐热门榜" : "根据收藏、搜索、歌单和听歌记录生成";
-        view.homeCache="";view.homeRefreshTitle=popular ? "游客榜单，本次运行缓存" : "本次会话缓存，手动刷新会重新生成推荐";
-        view.homeList=popular ? "热门音乐榜" : "推荐列表";
+        view.homeTitle=popular ? "发现音乐" : "为你推荐";
+        view.homeSubtitle=popular ? "音乐热门与新歌速递" : "根据收藏、搜索、歌单和听歌记录生成";
+        view.homeCache="";view.homeRefreshTitle=popular ? "每日更新" : "本次会话缓存，手动刷新会重新生成推荐";
+        view.homeList=popular ? "音乐热门" : "推荐列表";
         if(content.kind !== "mode") {
           view.homeNeedsSetup=false;
           if(content.kind === "ranking" && !home.loading) view.homeError=home.error ? "拉取失败，点击重试" : "";
           if(content.kind === "recommendations" && !home.recommendationLoading) { view.homeError=""; view.homeNeedsSetup=Boolean(home.recommendationError); }
         }
       }
+    }
+    if(home.aiHasKey===false || (home.aiHasKey===null && home.view.content.kind==="ranking")) {
+      view.homeRefreshDisabled=home.cooling || home.feed.ranking.busy || home.feed.newSongs.busy;
+      view.homeRefreshTitle=home.cooling?"刚刚更新，请稍后再试":"刷新音乐热门与新歌速递";
     }
     if(search.view.status !== null && search.view.status !== previous?.search.view.status) view.searchStatus=search.view.status;
     if(search.view.resultVisible !== null && search.view.resultVisible !== previous?.search.view.resultVisible) view.resultHidden=!search.view.resultVisible;

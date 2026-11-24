@@ -80,14 +80,30 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             <section class="home-ranking-panel" aria-label="推荐列表">
               <div class="home-ranking-bar">
                 <span id="home-list-label">{{ shell.homeList }}</span>
+                <template v-if="snapshot.home.aiHasKey === false">
+                  <span v-if="snapshot.home.feed.ranking.timestamp">更新于 {{ snapshot.home.feed.ranking.timestamp }}</span>
+                  <button v-if="snapshot.home.ranking.length && snapshot.home.feed.ranking.notice" class="secondary-button" :disabled="snapshot.home.feed.ranking.busy || (snapshot.home.feed.ranking.restricted && snapshot.home.cooling)" @click="pageCallbacks.retryFeed('ranking')">{{ snapshot.home.feed.ranking.notice }}</button>
+                </template>
                 <span class="home-ranking-hint">点击条目开始播放</span>
               </div>
               <p id="home-ranking-status" class="home-status-live" role="status" aria-live="polite">{{ shell.homeStatus }}</p>
-              <p id="home-ranking-error" :ref="element => mainWindowRefs.homeRankingError(element as HTMLParagraphElement|null)" class="home-error" role="status" aria-live="polite">{{ shell.homeError }}</p>
+              <p id="home-ranking-error" :ref="element => mainWindowRefs.homeRankingError(element as HTMLParagraphElement|null)" class="home-error" role="status" aria-live="polite">{{ snapshot.home.aiHasKey === false ? "" : shell.homeError }}</p>
+              <button v-if="snapshot.home.view.content.kind === 'ranking' && !snapshot.home.ranking.length && snapshot.home.feed.ranking.notice" class="home-error" :disabled="snapshot.home.feed.ranking.busy || (snapshot.home.feed.ranking.restricted && snapshot.home.cooling)" @click="pageCallbacks.retryFeed('ranking')">{{ snapshot.home.feed.ranking.notice }}</button>
               <HomeSetupHint :model="homeControls" :callbacks="pageCallbacks" />
               <div class="track-surface">
               <TrackColumns list="home-ranking-list" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="home-ranking-list" :on-host="mainWindowRefs.homeRankingList" class="tracklist ranking-list" aria-label="推荐列表" :model="lists.home" />
+              </div>
+            </section>
+            <section v-if="snapshot.home.aiHasKey === false" class="home-ranking-panel" aria-label="新歌速递">
+              <div class="home-ranking-bar"><span>新歌速递</span>
+                <span v-if="snapshot.home.feed.newSongs.timestamp">更新于 {{ snapshot.home.feed.newSongs.timestamp }}</span>
+                <button v-if="snapshot.home.newSongs.length && snapshot.home.feed.newSongs.notice" class="secondary-button" :disabled="snapshot.home.feed.newSongs.busy || (snapshot.home.feed.newSongs.restricted && snapshot.home.cooling)" @click="pageCallbacks.retryFeed('newSongs')">{{ snapshot.home.feed.newSongs.notice }}</button>
+              </div>
+              <button v-if="!snapshot.home.newSongs.length && snapshot.home.feed.newSongs.notice" class="home-error" :disabled="snapshot.home.feed.newSongs.busy || (snapshot.home.feed.newSongs.restricted && snapshot.home.cooling)" @click="pageCallbacks.retryFeed('newSongs')">{{ snapshot.home.feed.newSongs.notice }}</button>
+              <div class="track-surface">
+                <TrackColumns list="home-new-songs" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
+                <ListHost id="home-new-songs" class="tracklist ranking-list" aria-label="新歌速递" :model="lists.newSongs" />
               </div>
             </section>
           </div>

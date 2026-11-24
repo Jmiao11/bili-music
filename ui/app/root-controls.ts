@@ -1,6 +1,7 @@
 import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
 type PageCallbacks = {
+  retryFeed(source:"ranking"|"newSongs"):void;
   update(): void;
   submit(event: SubmitEvent): void; hint(): void; hintKey(event: KeyboardEvent): void; setup(): void;
   division(tids: string): void; sort(mode: string): void;
@@ -8,6 +9,7 @@ type PageCallbacks = {
 };
 const pageHandlers: Partial<PageCallbacks> = {};
 const pageCallbacks = Object.freeze<PageCallbacks>({
+  retryFeed: source => pageHandlers.retryFeed?.(source),
   update: () => pageHandlers.update?.(),
   submit: event => pageHandlers.submit?.(event), hint: () => pageHandlers.hint?.(), hintKey: event => pageHandlers.hintKey?.(event), setup: () => pageHandlers.setup?.(),
   division: tids => pageHandlers.division?.(tids), sort: mode => pageHandlers.sort?.(mode),

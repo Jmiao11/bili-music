@@ -1,3 +1,4 @@
+import {feedReply} from "../helpers/home-feed.ts";
 import fs from "node:fs";
 import { nextDomEventTurn } from "./event-turn.ts";
 import os from "node:os";
@@ -94,7 +95,7 @@ async function fixture(options: { playback?: boolean } = {}) {
     disconnect() { observed.clear(); platform.push({ operation: "disconnect" }); }
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
-  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const pending = reply(command, args); requests.push(pending); return pending; } }, event: { async listen(name: string) { platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); } } } });
+  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const response=reply(command,args); const pending=command==="get_music_ranking"?response.then(result=>feedReply(command,args,result)):response; requests.push(pending); return pending; } }, event: { async listen(name: string) { platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); } } } });
   for (const [name, value] of Object.entries({ __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   if (options.playback) install("HTMLMediaElement", window.HTMLMediaElement);
   const microtasks = async () => { for (let i = 0; i < 80; i++) await Promise.resolve(); };
