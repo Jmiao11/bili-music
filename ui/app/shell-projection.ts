@@ -32,8 +32,8 @@ function createShellProjection() {
     }
     if (isHomePopular(home)) view.homeDay = new Date(now).setHours(0, 0, 0, 0);
     if(home.aiHasKey===false || (home.aiHasKey===null && home.view.content.kind==="ranking")) {
-      view.homeRefreshDisabled=home.cooling || home.feed.ranking.busy || home.feed.newSongs.busy;
-      view.homeRefreshTitle=home.cooling?"刚刚更新，请稍后再试":"刷新音乐热门与新歌速递";
+      view.homeRefreshDisabled=home.cooling || Object.values(home.feed).some(section => section.busy);
+      view.homeRefreshTitle=home.cooling?"刚刚更新，请稍后再试":home.forYouAvailable?"刷新为你推荐、音乐热门与新歌速递":"刷新音乐热门与新歌速递";
     }
     if(search.view.status !== null && search.view.status !== previous?.search.view.status) view.searchStatus=search.view.status;
     if(search.view.resultVisible !== null && search.view.resultVisible !== previous?.search.view.resultVisible) view.resultHidden=!search.view.resultVisible;

@@ -10,7 +10,7 @@ test("long lists skip offscreen row painting without containing focus rings or i
   const css=readFileSync(fileURLToPath(new URL("../ui/styles.css",import.meta.url)),"utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const rules=[...css.matchAll(/([^{}]+)\{([^{}]*\bcontent-visibility\s*:[^{}]*)\}/g)];
   assert.deepEqual(rules.map(([,selector])=>selector.trim()), [
-    "#app :is(#home-ranking-list, #home-new-songs, #search-results, #favorites-list, #playlist-tracks, #recent-list, #collection-results) > .track-row:not(:focus-within, .is-drop-before, .is-drop-after)",
+    "#app :is(#home-ranking-list, #home-new-songs, #home-for-you, #search-results, #favorites-list, #playlist-tracks, #recent-list, #collection-results) > .track-row:not(:focus-within, .is-drop-before, .is-drop-after)",
     ".queue-drawer-list > li:not(.queue-group)",
   ]);
   assert.match(css, /@supports \(overflow-clip-margin: 4px\)\s*\{\s*#app :is\(#home-ranking-list,/);

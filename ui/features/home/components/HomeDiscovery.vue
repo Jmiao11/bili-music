@@ -11,6 +11,7 @@ import type { HomeFeed } from "../home-view.ts";
 import HomeFeedCover from "./HomeFeedCover.vue";
 
 const props = defineProps<{ home: HomeSnapshot; items: RecentSnapshot["items"]; day: number; list: TrackListModel | null; callbacks: PageCallbacks; focusRefs: Pick<typeof mainWindowRefs, "homeFeedBack" | "homeFeedCardOpen"> }>();
+const sources = Object.keys(homeFeeds) as HomeFeed[];
 
 function updateLabel(source: HomeFeed): string {
   const timestamp = formatHomeUpdatedAt(props.home.feed[source].fetchedAt, props.day);
@@ -23,11 +24,15 @@ function detailsLabel(source: HomeFeed, failed = false): string {
   return time ? `${count} · ${time}` : count;
 }
 
+function seedLabel(): string {
+  return "根据" + props.home.forYouSeeds.map(seed => `《${seed.title}》`).join("") + "推荐";
+}
+
 function activateCard(event: MouseEvent): void {
   if (!(event.target instanceof Element)) return;
   const tile = event.target.closest<HTMLElement>("[data-feed]");
   const source = tile?.dataset.feed;
-  if (source !== "ranking" && source !== "newSongs") return;
+  if (source !== "ranking" && source !== "newSongs" && source !== "forYou") return;
   if (event.target.closest(".home-feed-play")) {
     props.callbacks.playFeed(source);
     return;
@@ -39,19 +44,19 @@ function activateCard(event: MouseEvent): void {
 <template>
   <div v-if="home.view.section === null" class="home-discovery">
     <div class="home-feed-grid" @click="activateCard">
-      <article v-for="(feed, source) in homeFeeds" :key="source" class="home-feed-card" :data-feed="source" :aria-busy="home.feed[source].busy">
+      <article v-for="source in sources.filter(source => source !== 'forYou' || home.forYouAvailable)" :key="source" class="home-feed-card" :data-feed="source" :aria-busy="home.feed[source].busy">
         <div v-if="home.feed[source].busy && !home[source].length" class="home-feed-skeleton" role="status">
-          <span class="sr-only">正在加载{{ feed.title }}…</span>
+          <span class="sr-only">正在加载{{ homeFeeds[source].title }}…</span>
         </div>
         <template v-else>
-          <button :ref="node => focusRefs.homeFeedCardOpen(source, node as HTMLButtonElement | null)" class="home-feed-open" type="button" :aria-label="`打开${feed.title}`">
-            <HomeFeedCover :title="feed.title" :thumbnail="home[source][0]?.thumbnailUrl ?? ''" />
+          <button :ref="node => focusRefs.homeFeedCardOpen(source, node as HTMLButtonElement | null)" class="home-feed-open" type="button" :aria-label="`打开${homeFeeds[source].title}`">
+            <HomeFeedCover :title="homeFeeds[source].title" :thumbnail="home[source][0]?.thumbnailUrl ?? ''" :badge="source === 'forYou' ? '根据你的收听' : undefined" />
             <span class="home-feed-label">
-              <strong>{{ feed.title }}</strong>
+              <strong>{{ homeFeeds[source].title }}</strong>
               <span>{{ home[source].length ? detailsLabel(source, Boolean(home.feed[source].notice)) : '暂无内容 · 点击查看' }}</span>
             </span>
           </button>
-          <button v-if="home[source].length" class="home-feed-play" type="button" :aria-label="`播放${feed.title}`">
+          <button v-if="home[source].length" class="home-feed-play" type="button" :aria-label="`播放${homeFeeds[source].title}`">
             <Icon name="play" :size="18" />
           </button>
         </template>
@@ -80,11 +85,12 @@ function activateCard(event: MouseEvent): void {
   <section v-else class="home-feed-detail" :data-feed="home.view.section" aria-labelledby="home-feed-title">
     <button :ref="node => focusRefs.homeFeedBack(node as HTMLButtonElement | null)" class="home-feed-back secondary-button" type="button" @click="callbacks.openFeed(null)">‹ 发现音乐</button>
     <header class="home-feed-head">
-      <HomeFeedCover :title="homeFeeds[home.view.section].title" :thumbnail="home[home.view.section][0]?.thumbnailUrl ?? ''" />
+      <HomeFeedCover :title="homeFeeds[home.view.section].title" :thumbnail="home[home.view.section][0]?.thumbnailUrl ?? ''" :badge="home.view.section === 'forYou' ? '根据你的收听' : undefined" />
       <div class="home-feed-copy">
         <p>栏目 · {{ homeFeeds[home.view.section].source }}</p>
         <h1 id="home-feed-title">{{ homeFeeds[home.view.section].title }}</h1>
         <p>{{ detailsLabel(home.view.section) }}</p>
+        <p v-if="home.view.section === 'forYou' && home.forYouSeeds.length" class="home-feed-seeds" :title="seedLabel()">{{ seedLabel() }}</p>
         <div class="home-feed-actions">
           <button class="primary-cta" type="button" :disabled="!home[home.view.section].length" @click="callbacks.playFeed(home.view.section)"><Icon name="play" :size="14" />播放全部</button>
           <button class="secondary-button" type="button" :disabled="home.cooling || home.feed[home.view.section].busy" :title="home.cooling ? '刚刚更新，请稍后再试' : undefined" @click="callbacks.retryFeed(home.view.section)">刷新</button>

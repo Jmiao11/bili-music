@@ -37,7 +37,8 @@ declare namespace CommandContract {
   interface AiConnectionTestResult { ok: boolean; message: string; }
   interface Lyrics { lrc: string; trans: string; hasLyric: boolean; }
   interface PageMeta { cid: number; page: number; part: string; duration: number; }
-  interface CachedVideoPages { videos: number; pages: PageMeta[]; cached_at: number; }
+  interface CachedVideoPages { videos: number; pages: PageMeta[]; cached_at: number; owner?: { mid: number }; }
+  interface HomeFeedSeed { bvid: string; title: string; }
   interface CollectionSummary { id: number; title: string; total: number; }
   interface CollectionPage { items: SearchVideo[]; total: number; hasMore: boolean; snapshot: LibraryCollection | null; }
   interface VideoMeta { title: string; desc: string; duration: number; videos: number; bgm_name: string | null; pages: PageMeta[]; collection: CollectionSummary | null; }
@@ -75,7 +76,7 @@ interface CommandMap {
   cancel_prepare_audio: { args: undefined; result: null };
   debug_register_local_stream: { args: { path: string }; result: string };
   search_videos: { args: { keyword: string; page?: number | null; tids?: number | null; order?: string | null; sortMode?: string | null; rerank: boolean }; result: CommandContract.SearchVideo[] };
-  get_music_ranking: { args: { source: "ranking" | "newSongs"; mode: "cache" | "auto" | "retry" | "refresh"; today: string }; result: { section: { date: string; fetchedAt: number; items: CommandContract.RankingTrack[] }; newSongs: CommandContract.RankingTrack[]; sequence: number; restricted: boolean; error: string | null; requestAt: number | null } };
+  get_music_ranking: { args: { source: "ranking" | "newSongs" | "forYou"; mode: "cache" | "auto" | "retry" | "refresh"; today: string }; result: { section: { date: string; fetchedAt: number; items: CommandContract.RankingTrack[]; seeds?: CommandContract.HomeFeedSeed[]; noSeedsDate?: string }; newSongs: CommandContract.RankingTrack[]; sequence: number; restricted: boolean; error: string | null; requestAt: number | null; available?: boolean } };
   get_stream_source: { args: undefined; result: string };
   get_yt_dlp_availability: { args: undefined; result: CommandContract.YtDlpAvailability };
   set_stream_source: { args: { source: string }; result: string };

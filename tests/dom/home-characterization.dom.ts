@@ -26,7 +26,7 @@ test("home ranking caches nonempty results and force refresh preserves its reque
     const next = deferred(); h.setResponse(() => next.promise);
     await h.advance(60000);
     const pending = h.module.loadHomeRanking({ forceRefresh: true });
-    assert.deepEqual(h.calls.slice(-2).map(call=>[call.command,call.args.source,call.args.mode]), [["get_music_ranking","ranking","refresh"],["get_music_ranking","newSongs","refresh"]]);
+    assert.deepEqual(h.calls.slice(-3).map(call=>[call.command,call.args.source,call.args.mode]), [["get_music_ranking","ranking","refresh"],["get_music_ranking","newSongs","refresh"],["get_music_ranking","forYou","refresh"]]);
     assert.equal(h.nodes.refreshRankingButton.disabled, true);
     assert.equal(status.textContent, "正在刷新音乐热门…");
     assert.equal(list.children.length, 1);
@@ -39,7 +39,7 @@ test("home ranking caches nonempty results and force refresh preserves its reque
     await h.advance(59000); assert.equal(h.nodes.refreshRankingButton.disabled,true);
     await h.advance(1000); assert.equal(h.nodes.refreshRankingButton.disabled,false);
     h.setResponse(async () => [track]); await h.module.loadHomeRanking();
-    assert.equal(h.calls.length, requests + 4, "empty ranking is not a cache hit");
+    assert.equal(h.calls.length, requests + 5, "empty ranking is not a cache hit");
   } finally { h.dispose(); }
 });
 
@@ -63,7 +63,7 @@ test("home without API key keeps rows and timestamps after a failed manual updat
   try {
     h.setResponse(async command => command === "get_ai_config" ? { hasKey: false } : [track]);
     await h.module.refreshAiKeyState();
-    assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking"]);
+    assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking", "get_music_ranking"]);
     assert.equal(h.nodes.homeTitle.textContent, "发现音乐");
     assert.equal(h.nodes.homePanel?.getAttribute("data-home-mode"), "popular");
     assert.equal(h.nodes.homeHintRow.hidden, true);
@@ -376,6 +376,119 @@ test("discovery card play starts the first track without opening the list", asyn
   await h.fire(h.doc.querySelector(".home-feed-actions .primary-cta")!,"click");
   assert.equal(h.store.getState().playbackQueue.currentIndex,0);
   assert.equal(rows[0].getAttribute("aria-current"),"true");
+});
+
+test("legacy listening records show For You first and use an independent twenty-track queue", async t => {
+  const h = await realFixture(); t.after(h.dispose);
+  const items = Array.from({length:20}, (_, i) => ({ ...track, bvid: "BV" + String(i + 100).padStart(10,"0"), title: `合成推荐 ${i}` }));
+  const history = [101, 102].map(i => ({ ...track, bvid: "BV" + String(i + 200).padStart(10,"0"), title: `合成种子 ${i}`, lastPlayedAt: String(h.clock() - i), count: 1, lastPage: 1 }));
+  const seeds = history.map(({bvid,title}) => ({bvid,title}));
+  const newSongs = [items[1]];
+  let key = false, sequence = 0;
+  h.reply(async (command,args) => {
+    if (command === "get_ai_config") return {hasKey:key};
+    if (command === "get_play_history") return history;
+    if (command === "get_music_ranking") {
+      const forYou = args.source === "forYou";
+      return { section: {date:args.today,fetchedAt:h.clock(),items:forYou ? items : newSongs, ...(forYou ? {seeds} : {})}, newSongs, sequence:++sequence, requestAt:h.clock(), error:null, restricted:false, available:forYou };
+    }
+    if (command === "get_cached_video_pages") return {};
+    return responses(newSongs)(command);
+  });
+  await h.home.refreshAiKeyState();
+  assert.deepEqual([...h.doc.querySelectorAll(".home-feed-card")].map(card=>card.getAttribute("data-feed")), ["forYou","ranking","newSongs"]);
+  assert.equal(h.doc.querySelector('[data-feed="forYou"] .home-feed-badge')?.textContent,"根据你的收听");
+  assert.match(h.doc.querySelector('[data-feed="forYou"] .home-feed-label > span')?.textContent ?? "", /^20 首 · 更新于 \d\d:\d\d$/);
+  const open = async (name: string) => { await h.fire(h.doc.querySelector(`[data-feed="${name}"] .home-feed-open`)!, "click", {detail:0}); };
+  const back = async () => { await h.fire(h.doc.querySelector(".home-feed-back")!, "click"); };
+  await open("forYou");
+  const title = h.doc.querySelector(".home-feed-seeds")!;
+  assert.equal(title.textContent, "根据《合成种子 101》《合成种子 102》推荐");
+  assert.equal(title.getAttribute("title"), title.textContent);
+  assert.equal(h.doc.querySelector(".home-feed-copy > p")?.textContent,"栏目 · 根据你最近的收听");
+  const rows = h.doc.querySelectorAll("#home-for-you button.track");
+  assert.equal(rows.length,20);
+  await h.fire(rows[1],"click",{detail:0});
+  assert.equal(h.store.getState().playbackQueue.queueSource,"forYou");
+  assert.deepEqual(h.store.getState().playbackQueue.queue.map(row=>row.bvid),items.map(row=>row.bvid));
+  assert.equal(rows[1].getAttribute("aria-current"),"true");
+  for (const source of ["ranking","newSongs"]) {
+    await back(); await open(source);
+    assert.equal(h.doc.querySelector(".home-feed-detail button.track[aria-current=true]"),null);
+  }
+  await back(); await open("forYou");
+  assert.equal(h.doc.querySelectorAll("#home-for-you button.track")[1].getAttribute("aria-current"),"true");
+  const at = h.calls.length;
+  await h.home.loadHomeRanking();
+  assert.equal(h.calls.length, at, "当天收听记录变化无需自动拉取");
+  key = true;
+  await h.home.refreshAiKeyState();
+  assert.equal(h.doc.querySelector(".home-discovery, #home-for-you"),null);
+  assert.equal(h.nodes.homeTitle.textContent,"为你推荐");
+  assert.deepEqual(h.calls.slice(at).map(call=>call.command),["get_ai_config","get_saved_recommendations"]);
+});
+
+test("For You failure hints preserve stale tracks and share the request-based cooldown", async t => {
+  const h = await realFixture(); t.after(h.dispose);
+  const yesterday = new Date(h.clock()); yesterday.setDate(yesterday.getDate() - 1);
+  const old = yesterday.getTime();
+  const oldDate = [yesterday.getFullYear(),String(yesterday.getMonth()+1).padStart(2,"0"),String(yesterday.getDate()).padStart(2,"0")].join("-");
+  const seeds = [{ bvid:"BV0000000001", title:"合成种子" }];
+  let sequence = 0, available = false, stale = false, error = "更新失败", risk = false;
+  let delay: ReturnType<typeof deferred> | null = null;
+  h.reply(async (command,args) => {
+    if(command === "get_ai_config") return {hasKey:false};
+    if(command !== "get_music_ranking") return null;
+    const issued = h.clock();
+    if(args.source !== "forYou") return {section:{date:args.today,fetchedAt:issued,items:[track]},newSongs:[track],sequence:++sequence,requestAt:issued,error:null,restricted:false};
+    if(delay) await delay.promise;
+    return {
+      section:{date:stale ? oldDate : "",fetchedAt:stale ? old : 0,items:stale ? [track] : [],seeds:stale ? seeds : []},
+      newSongs:[track],sequence:++sequence,requestAt:available ? issued : null,error:available ? error || null : null,restricted:risk,available,
+    };
+  });
+  await h.home.refreshAiKeyState();
+  assert.deepEqual([...h.doc.querySelectorAll(".home-feed-card")].map(card=>card.getAttribute("data-feed")), ["ranking","newSongs"]);
+  available = true;
+  await h.home.loadHomeRanking();
+  await h.fire(h.doc.querySelector('[data-feed="forYou"] .home-feed-open')!,"click");
+  const retry = () => h.doc.querySelector<HTMLButtonElement>(".home-feed-feedback button");
+  const refresh = () => h.doc.querySelector<HTMLButtonElement>(".home-feed-actions .secondary-button")!;
+  assert.equal(retry()?.textContent,"拉取失败，点击重试");
+  assert.equal(retry()?.disabled,false);
+  stale = true;
+  error = "";
+  await h.fire(retry()!,"click");
+  const label = () => h.doc.querySelector(".home-feed-copy > p:nth-of-type(2)")?.textContent;
+  const timestamp = label();
+  assert.match(timestamp ?? "", /更新于 昨天 \d\d:\d\d/);
+  error = "更新失败";
+  await h.home.loadHomeRanking();
+  assert.equal(retry(),null);
+  assert.equal(label(),timestamp);
+  assert.equal(h.doc.querySelector("#home-for-you .track-title")?.textContent,track.title);
+  await h.advance(60000);
+  const at = h.calls.length;
+  delay = deferred();
+  await h.fire(refresh(),"click");
+  assert.equal(refresh().disabled,true);
+  assert.deepEqual(h.calls.slice(at).filter(call=>call.command==="get_music_ranking").map(call=>[call.args.source,call.args.mode]),[["forYou","retry"]]);
+  await h.advance(20000);
+  const request = delay; delay = null; request.resolve(null);
+  await h.microtasks();
+  assert.equal(retry()?.textContent,"更新失败，点击重试");
+  assert.equal(retry()?.disabled,false);
+  assert.equal(label(),timestamp);
+  assert.equal(h.doc.querySelector("#home-for-you .track-title")?.textContent,track.title);
+  await h.advance(39000);
+  assert.equal(refresh().disabled,true);
+  await h.advance(1000);
+  assert.equal(refresh().disabled,false);
+  risk = true;
+  await h.fire(refresh(),"click");
+  assert.equal(retry()?.disabled,true);
+  await h.advance(59000); assert.equal(retry()?.disabled,true);
+  await h.advance(1000); assert.equal(retry()?.disabled,false);
 });
 
 test("discovery recent preview hides when empty and plays through the full history queue", async t => {

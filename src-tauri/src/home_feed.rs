@@ -4,11 +4,15 @@ use std::path::Path;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
+mod for_you;
+use for_you::{Seed, Selection};
+
 #[derive(Clone, Copy, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Source {
     Ranking,
     NewSongs,
+    ForYou,
 }
 #[derive(Clone, Copy, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +29,10 @@ pub(crate) struct Section {
     date: String,
     fetched_at: u64,
     items: Vec<RankingTrack>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    seeds: Vec<Seed>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    no_seeds_date: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     risk_date: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,6 +44,8 @@ struct Cache {
     version: u8,
     ranking: Section,
     new_songs: Section,
+    #[serde(default)]
+    for_you: Section,
 }
 impl Default for Cache {
     fn default() -> Self {
@@ -43,6 +53,7 @@ impl Default for Cache {
             version: 1,
             ranking: Section::default(),
             new_songs: Section::default(),
+            for_you: Section::default(),
         }
     }
 }
@@ -66,6 +77,7 @@ impl Cache {
         match source {
             Source::Ranking => &mut self.ranking,
             Source::NewSongs => &mut self.new_songs,
+            Source::ForYou => &mut self.for_you,
         }
     }
 }
@@ -93,7 +105,7 @@ impl Attempts {
         match mode {
             Mode::Cache => false,
             Mode::Auto => {
-                !(section.date == today && !section.items.is_empty())
+                !(section.date == today && (!section.items.is_empty() || !section.seeds.is_empty()))
                     && (self.date != today || (!self.auto_blocked && self.failures < 2))
             }
             Mode::Refresh | Mode::Retry => {
@@ -110,6 +122,7 @@ pub(crate) struct HomeFeed {
     sequence: std::sync::atomic::AtomicU64,
     ranking: Mutex<Attempts>,
     new_songs: Mutex<Attempts>,
+    for_you: Mutex<Attempts>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +133,17 @@ pub(crate) struct FeedResult {
     request_at: Option<u64>,
     new_songs: Vec<RankingTrack>,
     sequence: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    available: Option<bool>,
 }
+
+fn timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 impl HomeFeed {
     pub(crate) async fn load(
         &self,
@@ -141,12 +164,29 @@ impl HomeFeed {
             return Err("首页日期格式错误".into());
         }
         let path = crate::library::library_root()?.join("home_feed.json");
-        self.load_from(&path, source, mode, today, || async {
-            match source {
-                Source::Ranking => client.music_ranking().await,
-                Source::NewSongs => client.new_songs().await,
-            }
-        })
+        self.load_from(
+            &path,
+            source,
+            mode,
+            today,
+            |previous| for_you::plan(timestamp(), previous),
+            |selection| async move {
+                match source {
+                    Source::Ranking => client.music_ranking().await,
+                    Source::NewSongs => client.new_songs().await,
+                    Source::ForYou => {
+                        let selection = selection.expect("a related request requires seeds");
+                        let seeds = selection
+                            .seeds
+                            .iter()
+                            .map(|seed| seed.bvid.clone())
+                            .collect::<Vec<_>>();
+                        let batches = client.related(seeds).await?;
+                        Ok(selection.tracks(batches))
+                    }
+                }
+            },
+        )
         .await
     }
     async fn load_from<F, Fut>(
@@ -155,15 +195,17 @@ impl HomeFeed {
         source: Source,
         mode: Mode,
         today: String,
+        plan: impl FnOnce(&[Seed]) -> Result<Option<Selection>, String>,
         fetch: F,
     ) -> Result<FeedResult, String>
     where
-        F: FnOnce() -> Fut,
+        F: FnOnce(Option<Selection>) -> Fut,
         Fut: std::future::Future<Output = Result<Vec<RankingTrack>, String>>,
     {
         let lock = match source {
             Source::Ranking => &self.ranking,
             Source::NewSongs => &self.new_songs,
+            Source::ForYou => &self.for_you,
         };
         let mut attempts = lock.lock().await;
         let mut section = {
@@ -171,12 +213,6 @@ impl HomeFeed {
             read(&guard, path)?.section(source).clone()
         };
         let now = Instant::now();
-        let timestamp = || {
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64
-        };
         let mut request_at = None;
         if attempts.date != today {
             attempts.date = today.clone();
@@ -196,10 +232,31 @@ impl HomeFeed {
                 }
             }
         }
-        if attempts.should_fetch(mode, &section, &today, now) {
-            attempts.last = Some(now);
+        let cold_today = section.no_seeds_date.as_deref() == Some(&today);
+        let should_fetch = attempts.should_fetch(mode, &section, &today, now)
+            && !(source == Source::ForYou && mode == Mode::Auto && cold_today);
+        let mut available = !section.seeds.is_empty() && !cold_today;
+        let selection = if source == Source::ForYou
+            && mode != Mode::Cache
+            && (should_fetch || !available && !cold_today)
+        {
+            let selection = plan(&section.seeds)?;
+            available = selection.is_some();
+            if should_fetch && !available {
+                section.no_seeds_date = Some(today.clone());
+                save_section(path, source, &section)?;
+            }
+            selection
+        } else {
+            None
+        };
+        if should_fetch && (source != Source::ForYou || selection.is_some()) {
+            attempts.last = Some(Instant::now());
             request_at = Some(timestamp());
-            let result = fetch().await;
+            let seeds = selection
+                .as_ref()
+                .map_or_else(Vec::new, |selection| selection.seeds.clone());
+            let result = fetch(selection).await;
             match result {
                 Ok(items) => {
                     section = Section {
@@ -208,11 +265,10 @@ impl HomeFeed {
                         date: today,
                         fetched_at: timestamp(),
                         items,
+                        seeds,
+                        no_seeds_date: None,
                     };
-                    let guard = crate::storage::lock_storage()?;
-                    let mut cache = read(&guard, path)?;
-                    *cache.section(source) = section.clone();
-                    crate::storage::write_json_atomic(&guard, path, &cache)?;
+                    save_section(path, source, &section)?;
                     attempts.failures = 0;
                     attempts.restricted = false;
                     attempts.error = None;
@@ -223,13 +279,13 @@ impl HomeFeed {
                         || e.contains("-352")
                         || e.contains("验证码");
                     attempts.auto_blocked |= attempts.restricted;
+                    let was_cold = section.no_seeds_date.take().is_some();
                     if attempts.restricted {
                         section.risk_date = Some(today.clone());
                         section.risk_at = request_at;
-                        let guard = crate::storage::lock_storage()?;
-                        let mut cache = read(&guard, path)?;
-                        *cache.section(source) = section.clone();
-                        crate::storage::write_json_atomic(&guard, path, &cache)?;
+                    }
+                    if attempts.restricted || was_cold {
+                        save_section(path, source, &section)?;
                     }
                     if mode == Mode::Auto {
                         attempts.failures += 1;
@@ -261,8 +317,16 @@ impl HomeFeed {
             error: attempts.error.clone(),
             restricted: attempts.restricted,
             request_at,
+            available: (source == Source::ForYou).then_some(available),
         })
     }
+}
+
+fn save_section(path: &Path, source: Source, section: &Section) -> Result<(), String> {
+    let guard = crate::storage::lock_storage()?;
+    let mut cache = read(&guard, path)?;
+    *cache.section(source) = section.clone();
+    crate::storage::write_json_atomic(&guard, path, &cache)
 }
 
 #[cfg(test)]
@@ -286,21 +350,40 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("bili-r2-cache-{}", uuid::Uuid::new_v4()));
         let path = dir.join("home_feed.json");
         let feed = HomeFeed::default();
-        let request = |count| move || async move { Ok(rows(count)) };
-        feed.load_from(&path, Source::Ranking, Mode::Auto, DAY.into(), request(2))
-            .await
-            .unwrap();
+        let request = |count| move |_| async move { Ok(rows(count)) };
+        feed.load_from(
+            &path,
+            Source::Ranking,
+            Mode::Auto,
+            DAY.into(),
+            |_| Ok(None),
+            request(2),
+        )
+        .await
+        .unwrap();
         let result = feed
-            .load_from(&path, Source::NewSongs, Mode::Auto, DAY.into(), request(16))
+            .load_from(
+                &path,
+                Source::NewSongs,
+                Mode::Auto,
+                DAY.into(),
+                |_| Ok(None),
+                request(16),
+            )
             .await
             .unwrap();
         assert_eq!(result.new_songs.len(), 8);
         assert_eq!(result.new_songs[0].bvid, "BV0000000002");
         let fresh = HomeFeed::default();
         let cached = fresh
-            .load_from(&path, Source::Ranking, Mode::Auto, DAY.into(), || async {
-                panic!("同日不发请求")
-            })
+            .load_from(
+                &path,
+                Source::Ranking,
+                Mode::Auto,
+                DAY.into(),
+                |_| Ok(None),
+                |_| async { panic!("同日不发请求") },
+            )
             .await
             .unwrap();
         assert!(cached.request_at.is_none());
@@ -312,7 +395,8 @@ mod tests {
                     Source::Ranking,
                     Mode::Auto,
                     later.clone(),
-                    || async { Err("网络失败".into()) },
+                    |_| Ok(None),
+                    |_| async { Err("网络失败".into()) },
                 )
                 .await
                 .unwrap();
@@ -326,12 +410,20 @@ mod tests {
                 Source::Ranking,
                 Mode::Auto,
                 later.clone(),
-                || async { panic!("超出重试次数") },
+                |_| Ok(None),
+                |_| async { panic!("超出重试次数") },
             )
             .await
             .unwrap();
         let other = fresh
-            .load_from(&path, Source::NewSongs, Mode::Auto, later, request(3))
+            .load_from(
+                &path,
+                Source::NewSongs,
+                Mode::Auto,
+                later,
+                |_| Ok(None),
+                request(3),
+            )
             .await
             .unwrap();
         assert_eq!(other.section.items.len(), 1);
@@ -343,16 +435,22 @@ mod tests {
                 Source::Ranking,
                 Mode::Auto,
                 tomorrow.clone(),
-                || async { Err("首页请求受限".into()) },
+                |_| Ok(None),
+                |_| async { Err("首页请求受限".into()) },
             )
             .await
             .unwrap();
         assert!(limited.restricted);
         let restarted = HomeFeed::default();
         let stopped = restarted
-            .load_from(&path, Source::Ranking, Mode::Auto, tomorrow, || async {
-                panic!("风控当天重开不能请求")
-            })
+            .load_from(
+                &path,
+                Source::Ranking,
+                Mode::Auto,
+                tomorrow,
+                |_| Ok(None),
+                |_| async { panic!("风控当天重开不能请求") },
+            )
             .await
             .unwrap();
         assert!(stopped.restricted);

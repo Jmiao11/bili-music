@@ -1,9 +1,10 @@
 import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
+import type { HomeFeed } from "../features/home/home-view.ts";
 type PageCallbacks = {
-  retryFeed(source:"ranking"|"newSongs"):void;
-  openFeed(source:"ranking"|"newSongs"|null):void;
-  playFeed(source:"ranking"|"newSongs"):void;
+  retryFeed(source:HomeFeed):void;
+  openFeed(source:HomeFeed|null):void;
+  playFeed(source:HomeFeed):void;
   openRecent():void;
   playRecent(index:number):void;
   update(): void;

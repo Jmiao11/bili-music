@@ -79,6 +79,13 @@ pub struct CachedVideoPages {
     pub videos: i64,
     pub pages: Vec<PageMeta>,
     pub cached_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) owner: Option<VideoOwner>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct VideoOwner {
+    pub(crate) mid: u64,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -111,6 +118,8 @@ pub struct VideoMeta {
     pub bgm_name: Option<String>,
     pub pages: Vec<PageMeta>,
     pub collection: Option<CollectionSummary>,
+    #[serde(skip_serializing)]
+    pub(crate) owner: Option<VideoOwner>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -652,14 +661,30 @@ pub fn get_cached_video_pages(
     Ok(fresh_video_pages_entries(file, bvids, unix_now()))
 }
 
-pub fn cache_video_pages(bvid: String, videos: i64, pages: Vec<PageMeta>) -> Result<(), String> {
+pub fn cache_video_pages(
+    bvid: String,
+    videos: i64,
+    pages: Vec<PageMeta>,
+    owner: Option<VideoOwner>,
+) -> Result<(), String> {
     let storage_guard = crate::storage::lock_storage()?;
     let guard = &storage_guard;
     if bvid.trim().is_empty() || videos < 1 {
         return Ok(());
     }
     let path = video_pages_cache_path()?;
-    let mut file = crate::library::read_json_or_default::<VideoPagesCacheFile>(guard, &path)
+    write_video_pages(guard, &path, bvid, videos, pages, owner)
+}
+
+fn write_video_pages(
+    guard: &crate::storage::StorageGuard,
+    path: &std::path::Path,
+    bvid: String,
+    videos: i64,
+    pages: Vec<PageMeta>,
+    owner: Option<VideoOwner>,
+) -> Result<(), String> {
+    let mut file = crate::library::read_json_or_default::<VideoPagesCacheFile>(guard, path)
         .unwrap_or_default();
     file.entries.insert(
         bvid.trim().to_owned(),
@@ -667,9 +692,10 @@ pub fn cache_video_pages(bvid: String, videos: i64, pages: Vec<PageMeta>) -> Res
             videos,
             pages,
             cached_at: unix_now(),
+            owner,
         },
     );
-    crate::library::write_json_atomic(guard, &path, &file)
+    crate::library::write_json_atomic(guard, path, &file)
 }
 
 #[tauri::command]
@@ -763,6 +789,11 @@ fn video_meta_from_response(response: ViewDetailResponse) -> Result<VideoMeta, S
         bgm_name,
         pages,
         collection,
+        owner: view
+            .owner
+            .and_then(|owner| owner.get("mid")?.as_u64())
+            .filter(|mid| *mid > 0)
+            .map(|mid| VideoOwner { mid }),
     })
 }
 
@@ -1230,6 +1261,53 @@ mod tests {
     use super::*;
 
     #[test]
+    fn video_pages_cache_reads_legacy_rows_and_writes_mid_from_view() {
+        let dir = std::env::temp_dir().join(format!("bili-r3-pages-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("video_pages.json");
+        let bvid = "BV0000000001";
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "version": VIDEO_PAGES_CACHE_VERSION,
+                "entries": {(bvid): {"videos":1,"pages":[],"cached_at":1}},
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let guard = crate::storage::lock_storage().unwrap();
+        let legacy: VideoPagesCacheFile =
+            crate::library::read_json_or_default(&guard, &path).unwrap();
+        assert_eq!(legacy.entries[bvid].videos, 1);
+        assert!(legacy.entries[bvid].owner.is_none());
+        let detail = video_meta_from_response(
+            serde_json::from_value(serde_json::json!({
+                "code":0,"data":{"View":{"videos":1,"owner":{"mid":700,"name":"合成作者"}}},
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        write_video_pages(
+            &guard,
+            &path,
+            bvid.into(),
+            detail.videos,
+            detail.pages,
+            detail.owner,
+        )
+        .unwrap();
+        let updated: VideoPagesCacheFile =
+            crate::library::read_json_or_default(&guard, &path).unwrap();
+        assert_eq!(updated.entries[bvid].owner.as_ref().unwrap().mid, 700);
+        let json: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(json["entries"][bvid]["owner"]["mid"], 700);
+        drop(guard);
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
+
+    #[test]
     fn song_id_cache_keys_reject_unsafe_paths() {
         assert!(is_safe_song_id("107192078"));
         for song_id in ["../etc", "a/b", "", "a b"] {
@@ -1272,6 +1350,7 @@ mod tests {
                         videos: 1,
                         pages: vec![page.clone()],
                         cached_at: 100,
+                        owner: None,
                     },
                 ),
                 (
@@ -1280,6 +1359,7 @@ mod tests {
                         videos: 1,
                         pages: vec![page],
                         cached_at: 100 - VIDEO_PAGES_TTL_SECS,
+                        owner: None,
                     },
                 ),
             ]),

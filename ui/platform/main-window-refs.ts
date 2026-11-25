@@ -4,7 +4,7 @@ const audio=document.querySelector<HTMLAudioElement>("#audio")!;
 let searchResults: HTMLUListElement;
 let homeRankingError: HTMLParagraphElement | null = null;
 let homeRankingRetry: (() => void) | null = null;
-const homeFeedRefs = { back: null as HTMLButtonElement | null, open: { ranking: null, newSongs: null } as Record<HomeFeed, HTMLButtonElement | null> };
+const homeFeedRefs = { back: null as HTMLButtonElement | null, open: { ranking: null, newSongs: null, forYou: null } as Record<HomeFeed, HTMLButtonElement | null> };
 let refreshRankingButton: HTMLButtonElement;
 let homeHintInput: HTMLInputElement;
 let homeHintApply: HTMLButtonElement;

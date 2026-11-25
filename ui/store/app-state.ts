@@ -26,6 +26,10 @@ const emptyFeed = (): FeedView => ({ fetchedAt: 0, date: "", timestamp: "", busy
 type HomeState = {
   feed: Record<FeedSource, FeedView>;
   newSongs: ReturnType<typeof normalizeTrack>[];
+  forYou: ReturnType<typeof normalizeTrack>[];
+  forYouAvailable: boolean;
+  forYouSeeds: CommandContract.HomeFeedSeed[];
+  forYouNoSeedsDate: string;
   cooling: boolean;
   update: { version: string | null; opening: boolean; error: boolean };
   ranking: ReturnType<typeof normalizeTrack>[];
@@ -67,7 +71,7 @@ function isHomePopular(home: HomeSnapshot): boolean {
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
   const initial: { recent: ReturnType<typeof initialRecentState>; lyricsDisplay: ReturnType<typeof initialLyricsDisplayState>; playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState>; collection: ReturnType<typeof initialCollectionState> } = { recent: initialRecentState(), lyricsDisplay: initialLyricsDisplayState(), playbackMessages: initialPlaybackMessagesState(), collection: initialCollectionState(), home: {
     update: { version: null, opening: false, error: false },
-    feed: {ranking: emptyFeed(),newSongs: emptyFeed()}, cooling:false,newSongs:[], ranking: [], recommendations: [], loaded: false, loading: false,
+    feed: {ranking: emptyFeed(),newSongs: emptyFeed(),forYou: emptyFeed()}, cooling:false,newSongs:[], forYou:[], forYouAvailable: false, forYouSeeds: [], forYouNoSeedsDate: "", ranking: [], recommendations: [], loaded: false, loading: false,
     error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { section: null, content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
@@ -108,7 +112,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       cooldownTimer = adapter.setTimeout(() => {
         cooldownUntil = 0;
         const { aiHasKey, feed } = home();
-        update({ cooling: false }, aiHasKey === true ? {} : { refreshDisabled: feed.ranking.busy || feed.newSongs.busy });
+        update({ cooling: false }, aiHasKey === true ? {} : { refreshDisabled: Object.values(feed).some(section => section.busy) });
       }, deadline - clock());
     }
 
@@ -121,8 +125,10 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       const today = localDate(start);
       const previous = home().feed[source];
       const oldItems = home()[source];
+      const isForYou = source === "forYou";
       if (previous.busy || (mode === "retry" && previous.restricted && cooldownUntil > start)) return;
-      if (mode === "auto" && previous.date === today && oldItems.length) return;
+      if (mode === "auto" && isForYou && home().forYouNoSeedsDate === today) return;
+      if (mode === "auto" && previous.date === today && (oldItems.length || isForYou && home().forYouSeeds.length)) return;
 
       const isRanking = source === "ranking";
       const patchSection = (fields: Partial<FeedView>) => ({
@@ -130,7 +136,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       });
       const contentView = () => home().aiHasKey === true ? {} : { content: content("ranking") };
       const refreshDisabled = (feed: HomeSnapshot["feed"]) => home().aiHasKey === true
-        ? home().view.refreshDisabled : home().cooling || feed.ranking.busy || feed.newSongs.busy;
+        ? home().view.refreshDisabled : home().cooling || Object.values(feed).some(section => section.busy);
       update({
         feed: patchSection({ busy: true, notice: "" }),
         ...(isRanking ? { loading: true, error: "" } : {}),
@@ -138,10 +144,10 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         ...contentView(), refreshDisabled: true,
         ...(isRanking ? { status: mode === "refresh" ? "正在刷新音乐热门…" : "正在加载音乐热门…" } : {}),
       });
-      if (mode === "refresh" || mode === "retry") markRequest(start);
+      if (!isForYou && (mode === "refresh" || mode === "retry")) markRequest(start);
       try {
         const reply = await adapter.invoke("get_music_ranking", { source, mode, today });
-        if (reply.requestAt !== null) markRequest(Math.min(start,reply.requestAt));
+        if (reply.requestAt !== null) markRequest(isForYou ? reply.requestAt : Math.min(start,reply.requestAt));
         const { section } = reply;
         const time = new Date(section.fetchedAt).toTimeString().slice(0, 5);
         const timestamp = section.fetchedAt ? (section.date === today ? "" : section.date + " ") + time : "";
@@ -159,13 +165,18 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         feedSequence = Math.max(feedSequence, reply.sequence);
         update({
           feed, newSongs,
+          ...(isForYou ? {
+            forYouAvailable: reply.available === true,
+            forYouNoSeedsDate: section.noSeedsDate ?? "",
+            ...(section.fetchedAt !== previous.fetchedAt ? { forYou: section.items.map(normalizeTrack), forYouSeeds: section.seeds ?? [] } : {}),
+          } : {}),
           ...(isRanking ? { ranking, loaded: true, loading: false, error: ranking.length ? "" : notice } : {}),
         }, {
           ...contentView(), refreshDisabled: refreshDisabled(feed),
           ...(isRanking ? { status: reply.error ? "" : "已加载 " + ranking.length + " 首音乐区热门视频。", rankingError: { text: notice } } : {}),
         });
       } catch (error) {
-        if (mode !== "cache") markRequest(start);
+        if (!isForYou && mode !== "cache") markRequest(start);
         const notice = sourceNotice(mode, oldItems.length > 0);
         const feed = patchSection({ busy: false, notice, restricted: false });
         update({
@@ -180,10 +191,10 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
 
     async function loadRanking({ forceRefresh = false, cacheOnly = false }: { forceRefresh?: boolean; cacheOnly?: boolean } = {}) {
       const start = clock();
-      const { ranking, newSongs } = home().feed;
-      if (forceRefresh && (cooldownUntil > start || ranking.busy || newSongs.busy)) return;
+      if (forceRefresh && (cooldownUntil > start || Object.values(home().feed).some(section => section.busy))) return;
       const mode = cacheOnly ? "cache" : forceRefresh ? "refresh" : "auto";
-      await Promise.all([loadSection("ranking", mode, start), loadSection("newSongs", mode, start)]);
+      const sources: FeedSource[] = isHomePopular(home()) ? ["ranking", "newSongs", "forYou"] : ["ranking", "newSongs"];
+      await Promise.all(sources.map(source => loadSection(source, mode, start)));
     }
 
     async function loadSavedRecommendations(): Promise<void> {

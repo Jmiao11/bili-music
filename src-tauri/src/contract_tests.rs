@@ -214,6 +214,7 @@ mod tests {
                         title: "合集".into(),
                         total: 2,
                     }),
+                    owner: some.then_some(crate::lyrics::VideoOwner { mid: 42 }),
                 },
             );
             assert_fixture(
@@ -245,6 +246,7 @@ mod tests {
                 videos: 1,
                 pages: vec![page_meta()],
                 cached_at: 1700000000000,
+                owner: None,
             },
         );
         assert_fixture(

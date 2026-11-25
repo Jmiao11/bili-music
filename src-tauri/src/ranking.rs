@@ -8,9 +8,10 @@ use std::time::Duration;
 const RANKING_V2_MUSIC_URL: &str =
     "https://api.bilibili.com/x/web-interface/ranking/v2?rid=1003&type=all";
 const NEW_MUSIC_URL: &str = "https://api.bilibili.com/x/centralization/interface/new/music";
+const RELATED_URL: &str = "https://api.bilibili.com/x/web-interface/archive/related";
 
-const MIN_SECONDS: u64 = 60;
-const MAX_SECONDS: u64 = 600;
+pub(crate) const MIN_SECONDS: u64 = 60;
+pub(crate) const MAX_SECONDS: u64 = 600;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +65,21 @@ impl RankingClient {
         Ok(raw.list.into_iter().filter_map(new_track).collect())
     }
 
+    pub(crate) async fn related(
+        &self,
+        seeds: impl IntoIterator<Item = String>,
+    ) -> Result<Vec<Vec<RelatedVideo>>, String> {
+        let cookie = self.cookie().await?;
+        let cookie = &cookie;
+        related_batch(seeds, |bvid| async move {
+            let data = self
+                .fetch(&format!("{RELATED_URL}?bvid={bvid}"), cookie)
+                .await?;
+            serde_json::from_value(data).map_err(|_| "相关视频响应格式错误".into())
+        })
+        .await
+    }
+
     async fn fetch(&self, url: &str, cookie: &str) -> Result<serde_json::Value, String> {
         let response = self
             .client
@@ -81,6 +97,21 @@ impl RankingClient {
         let body = response.text().await.map_err(|_| "首页响应读取失败")?;
         parse_feed_body(success, &body)
     }
+}
+
+async fn related_batch<F, Fut>(
+    seeds: impl IntoIterator<Item = String>,
+    fetch: F,
+) -> Result<Vec<Vec<RelatedVideo>>, String>
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<RelatedVideo>, String>>,
+{
+    let mut rows = Vec::new();
+    for seed in seeds.into_iter().take(2) {
+        rows.push(fetch(seed).await?);
+    }
+    Ok(rows)
 }
 
 fn parse_feed_body(success: bool, body: &str) -> Result<serde_json::Value, String> {
@@ -111,18 +142,38 @@ fn popular_tracks(rows: Vec<RankingV2Item>) -> Vec<RankingTrack> {
         .filter(|r| {
             r.pid_v2 == Some(1003)
                 && (MIN_SECONDS..=MAX_SECONDS).contains(&r.duration.unwrap_or(0))
-                && ![r.tname.as_deref(), r.tnamev2.as_deref()]
-                    .into_iter()
-                    .flatten()
-                    .any(|name| matches!(name, "乐评盘点" | "音乐教学"))
-                && !crate::search::NEGATIVE_TITLE_WORDS
-                    .iter()
-                    .any(|word| r.title.as_deref().unwrap_or_default().contains(word))
+                && r.is_song()
         })
         .filter_map(RankingTrack::from_v2)
         .filter(|r| seen.insert(r.bvid.clone()))
         .take(12)
         .collect()
+}
+
+#[derive(Deserialize)]
+pub(crate) struct RelatedVideo {
+    tid: Option<u32>,
+    #[serde(flatten)]
+    video: RankingV2Item,
+}
+
+impl RelatedVideo {
+    pub(crate) fn into_track(self) -> Option<(RankingTrack, u64)> {
+        let row = self.video;
+        let old_music = matches!(
+            self.tid,
+            Some(28 | 29 | 30 | 31 | 59 | 130 | 193 | 243 | 244 | 265 | 266 | 267)
+        );
+        if !(row.pid_v2 == Some(1003) || old_music)
+            || !(MIN_SECONDS..=MAX_SECONDS).contains(&row.duration.unwrap_or_default())
+            || !row.is_song()
+        {
+            return None;
+        }
+        let mid = row.owner.as_ref()?.mid.filter(|mid| *mid > 0)?;
+        crate::library::normalize_bvid(row.bvid.as_deref()?).ok()?;
+        Some((RankingTrack::from_v2(row)?, mid))
+    }
 }
 
 #[derive(Deserialize)]
@@ -206,9 +257,22 @@ struct RankingV2Item {
     stat: Option<RankingStat>,
 }
 
+impl RankingV2Item {
+    fn is_song(&self) -> bool {
+        ![self.tname.as_deref(), self.tnamev2.as_deref()]
+            .into_iter()
+            .flatten()
+            .any(|name| matches!(name, "乐评盘点" | "音乐教学"))
+            && !crate::search::NEGATIVE_TITLE_WORDS
+                .iter()
+                .any(|word| self.title.as_deref().unwrap_or_default().contains(word))
+    }
+}
+
 #[derive(Deserialize)]
 struct RankingOwner {
     name: Option<String>,
+    mid: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -223,6 +287,41 @@ fn non_negative_i64_to_u64(value: Option<i64>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn related_batch_is_ordered_capped_and_stops_on_restriction() {
+        let seeds = ["BV0000000001", "BV0000000002", "BV0000000003"];
+        let issued = std::cell::RefCell::new(Vec::new());
+        let in_flight = std::cell::Cell::new(false);
+        let ok = related_batch(seeds.map(String::from), |bvid| {
+            let issued = &issued;
+            let in_flight = &in_flight;
+            async move {
+                assert!(
+                    !in_flight.replace(true),
+                    "seeds must be requested in sequence"
+                );
+                tokio::task::yield_now().await;
+                issued.borrow_mut().push(bvid);
+                in_flight.set(false);
+                Ok(vec![])
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(ok.len(), 2);
+        assert_eq!(*issued.borrow(), seeds[..2]);
+        issued.borrow_mut().clear();
+        let error = related_batch(seeds.map(String::from), |bvid| {
+            issued.borrow_mut().push(bvid);
+            async { parse_feed_body(true, r#"{"code":-352}"#).map(|_| vec![]) }
+        })
+        .await
+        .err()
+        .unwrap();
+        assert_eq!(error, "首页请求受限");
+        assert_eq!(*issued.borrow(), seeds[..1]);
+    }
 
     #[test]
     fn detects_restrictions_before_decoding_items() {

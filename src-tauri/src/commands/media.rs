@@ -15,8 +15,9 @@ pub(crate) async fn get_video_meta(bvid: String) -> Result<lyrics::VideoMeta, St
     if meta.videos >= 1 {
         let videos = meta.videos;
         let pages = meta.pages.clone();
+        let owner = meta.owner.clone();
         tauri::async_runtime::spawn_blocking(move || {
-            if let Err(error) = lyrics::cache_video_pages(bvid, videos, pages) {
+            if let Err(error) = lyrics::cache_video_pages(bvid, videos, pages, owner) {
                 eprintln!("[video-pages-cache] write failed: {error}");
             }
         });

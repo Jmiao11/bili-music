@@ -161,7 +161,7 @@ pub(crate) fn snapshot_from_input(input: TrackSnapshotInput) -> Result<TrackSnap
     })
 }
 
-fn normalize_bvid(value: &str) -> Result<String, String> {
+pub(crate) fn normalize_bvid(value: &str) -> Result<String, String> {
     let value = value.trim();
     if value.len() == 12
         && value.starts_with("BV")

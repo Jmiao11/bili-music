@@ -61,7 +61,7 @@ test("home actions copy only changed paths and key absence selects the popular r
   h.reply(async command => command === "get_ai_config" ? { hasKey: false } : [track]);
   await h.store.actions.refreshAiKeyState();
   assert.equal(isHomePopular(h.store.getState().home), true);
-  assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking"]);
+  assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking", "get_music_ranking"]);
 });
 
 test("home actions preserve saved read caching including an empty failed read", async () => {

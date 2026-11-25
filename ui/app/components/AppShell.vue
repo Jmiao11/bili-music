@@ -95,7 +95,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             </section>
             <template v-else>
               <p id="home-ranking-status" class="sr-only" role="status" aria-live="polite">{{ shell.homeStatus }}</p>
-              <HomeDiscovery :home="snapshot.home" :items="snapshot.recent.items" :day="shell.homeDay" :list="snapshot.home.view.section === 'ranking' ? lists.home : snapshot.home.view.section === 'newSongs' ? lists.newSongs : null" :callbacks="pageCallbacks" :focus-refs="mainWindowRefs">
+              <HomeDiscovery :home="snapshot.home" :items="snapshot.recent.items" :day="shell.homeDay" :list="snapshot.home.view.section === null ? null : lists[snapshot.home.view.section === 'ranking' ? 'home' : snapshot.home.view.section]" :callbacks="pageCallbacks" :focus-refs="mainWindowRefs">
                 <template #default="{list, source}">
                   <div v-if="list" class="track-surface home-feed-tracks" :class="{ 'home-feed-no-pages': !list.rows.some(row => row.pageCount > 1) }">
                     <TrackColumns :list="homeFeeds[source].listId" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
