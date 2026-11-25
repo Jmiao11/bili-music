@@ -109,7 +109,7 @@ test("search playback metadata fills the display and queue consistently without 
     assert.equal(h.nodes.searchButton.disabled, true);
     prepare.resolve({ audioUrl: "http://127.0.0.1/audio/fixture", title: "回填", uploader: "新作者", thumbnailUrl: "", durationSeconds: 90 }); await h.flush();
     assert.equal(h.state().results[0].title, "回填"); assert.equal(h.player.queue[0].title, "回填"); assert.equal(h.state().results[0].durationSeconds, 90);
-    assert.equal(h.nodes.searchResults.children[0].children[0].children[2].children[0].textContent, "回填");
+    assert.equal(h.nodes.searchResults.children[0].querySelector(".track-title")?.textContent, "回填");
     assert.equal(h.nodes.searchKeyword.value, "搜索原值"); assert.equal(h.nodes.searchButton.disabled, false);
   } finally { h.dispose(); }
 });

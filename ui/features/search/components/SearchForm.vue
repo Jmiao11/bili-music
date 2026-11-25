@@ -15,8 +15,8 @@ function draftRef(value:Element|ComponentPublicInstance|null):void {
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z" /></svg>
                   <input id="search-keyword" :ref="draftRef" required placeholder="搜索歌曲、歌手，BV 号自动识别" autocomplete="off" />
                   <span class="search-hint sr-only">BV 号自动识别</span>
+                  <button id="search-button" class="search-submit" type="submit" :disabled="disabled ?? undefined">搜索</button>
                 </div>
-                <button id="search-button" class="search-submit" type="submit" :disabled="disabled ?? undefined">搜索</button>
               </form>
 
 </template>

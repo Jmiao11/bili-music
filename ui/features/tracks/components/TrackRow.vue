@@ -18,7 +18,6 @@ export default defineComponent({
     return () => {
       const row = props.row, video = row.video;
       const content = [
-        h("span", { class: "eq", "aria-hidden": "true" }, [h("span"), h("span"), h("span")]),
         h("span", { class: "track-cover" }, [video.thumbnailUrl
           ? h("img", { src: row.thumbnailSrc ?? displayThumbnailUrl(video.thumbnailUrl), alt: "", ".loading": "lazy", ".referrerPolicy": "no-referrer", draggable: row.draggable ? false : undefined })
           : h("span", { class: "cover-placeholder" })]),
@@ -27,7 +26,9 @@ export default defineComponent({
           : h("span", { class: "track-up" }, row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid)]),
         ...(row.showPlayCount === false ? [] : [h("span", { class: "track-play" }, row.playCountText)]),
         h("span", { class: "track-duration" }, row.collection ? `${row.collection.videoCount} 个视频` : row.durationText ?? (video.durationSeconds ? formatDuration(video.durationSeconds) : "0:00")),
-        h("span", { class: "track-number", "aria-hidden": "true" }, String(row.index + 1)),
+        row.active
+          ? h("span", { class: "eq", role: "img", "aria-label": "正在播放" }, [h("span"), h("span"), h("span")])
+          : h("span", { class: "track-number", "aria-hidden": "true" }, String(row.index + 1)),
         h(Icon, { name: "play", class: "track-hover-play" }),
         ...(row.draggable ? [h(Icon, { name: "grip", class: "track-drag-handle" })] : []),
       ];

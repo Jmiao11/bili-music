@@ -11,7 +11,7 @@ for (const source of ["ranking", "recommendation", "search"] as const) {
     assert.equal(button.getAttribute("type"), "button"); assert.equal(button.getAttribute(source === "search" ? "data-result-index" : "data-library-index"), "0");
     assert.equal(button.getAttribute("data-bvid"), track(1).bvid);
     assert.equal(row.querySelector(".track-title")?.textContent, "曲目<&>");
-    assert.equal(row.querySelector(".eq")?.getAttribute("aria-hidden"), "true"); assert.equal(row.querySelector(".eq")?.children.length, 3);
+    assert.equal(row.querySelector(".eq"), null); assert.equal(row.querySelector(".track-number")?.textContent, "1");
     assert.equal(row.querySelector("img")?.referrerPolicy, "no-referrer");
     assert.equal(row.querySelector(".track-up")?.textContent, "作者"); assert.equal(row.querySelector(".track-play")?.textContent, "1");
     assert.equal(row.querySelector(".track-duration")?.textContent, "1:00"); assert.equal(row.querySelectorAll(".track-actions button").length, 3);
@@ -26,6 +26,20 @@ for (const source of ["ranking", "recommendation", "search"] as const) {
     assert.equal(list.querySelectorAll('[aria-current="true"]').length, 0);
   }));
 }
+test("track DOM playback marker moves to the new row", () => run(async h => {
+  const items = [track(1), track(2), track(3)];
+  const list = await seed(h, "ranking", items);
+  h.store.actions.playbackQueue.replaceQueue(items, "ranking");
+  h.store.actions.playbackQueue.selectIndex(0, false, null);
+  assert.equal(list.querySelector(".eq")?.closest("li"), list.children[0]);
+  h.store.actions.playbackQueue.selectIndex(1, false, null);
+  const icons = [...list.querySelectorAll(".eq")];
+  assert.deepEqual(icons.map(icon => icon.closest("li")), [list.children[1]], "切歌后图标只在新行出现");
+  assert.equal(icons[0].getAttribute("aria-label"), "正在播放");
+  assert.equal(icons[0].children.length, 3);
+  assert.equal(list.children[1].querySelector(".track-number"), null);
+  assert.equal(list.children[0].querySelector(".track-number")?.textContent, "1");
+}));
 test("track DOM favorite state patches existing home and search buttons", () => run(async h => {
   const home = await seed(h, "ranking"), search = await seed(h, "search");
   await h.fire(home.querySelector(".favorite-button")!, "click", { detail: 1 });

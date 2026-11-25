@@ -59,18 +59,18 @@
             "children": [
               "BV 号自动识别"
             ]
+          },
+          {
+            "tag": "button",
+            "attributes": {
+              "class": "search-submit",
+              "id": "search-button",
+              "type": "submit"
+            },
+            "children": [
+              "搜索"
+            ]
           }
-        ]
-      },
-      {
-        "tag": "button",
-        "attributes": {
-          "class": "search-submit",
-          "id": "search-button",
-          "type": "submit"
-        },
-        "children": [
-          "搜索"
         ]
       }
     ]

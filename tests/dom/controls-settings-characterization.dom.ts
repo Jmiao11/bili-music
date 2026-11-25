@@ -42,6 +42,24 @@ test("controls real DOM settings keeps RAF transition hidden and focus stages", 
   await h.fire(panel, "transitionend"); assert.equal(panel.hidden, true);
 });
 
+test("controls real DOM submits from the inline search button and keeps accessible filter selection", async t => {
+  const h = await controlsSettingsFixture(); t.after(h.dispose);
+  const button = h.node<HTMLButtonElement>("search-button");
+  assert.equal(button.parentElement?.className, "search-field");
+  assert.equal(button.form, h.node("search-form"));
+  h.node<HTMLInputElement>("search-keyword").value = "合成音乐";
+  await h.fire(button, "click");
+  assert.equal(h.calls.filter(call => call.command === "search_videos").at(-1)?.args.keyword, "合成音乐");
+  const tabs = h.node("music-tabs"), original = tabs.querySelector<HTMLButtonElement>('[data-tids="28"]')!;
+  assert.equal(tabs.getAttribute("role"), "tablist");
+  assert.equal(original.getAttribute("role"), "tab");
+  original.focus();
+  assert.equal(h.doc.activeElement, original);
+  await h.fire(original, "click", { detail: 0 });
+  assert.equal(tabs.querySelector('[data-tids="3"]')?.getAttribute("aria-selected"), "false");
+  assert.equal(original.getAttribute("aria-selected"), "true");
+});
+
 test("controls real DOM home hint applies raw draft with trimmed request and opens AI setup", async t => {
   const h = await controlsSettingsFixture(); t.after(h.dispose);
   const hint = h.node<HTMLInputElement>("home-hint-input"); hint.value = "  想听纯音乐  ";

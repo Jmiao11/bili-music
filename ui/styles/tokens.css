@@ -33,8 +33,25 @@
   --space-6: 24px;
   --r-xs: 4px;
   --r-sm: 6px;
-  --r-md: 8px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+  --r-thumbnail: 8px;
   --r-full: 50%;
+  --page-title-size: 28px;
+  --hero-title-size: 42px;
+  --page-title-weight: 800;
+  --hero-cover-size: 200px;
+  --track-row-hover: #282a30;
+  --track-row-active: color-mix(in srgb, var(--accent) 11%, var(--root));
+  --track-row-active-text: var(--accent-text);
+  --segments-bg: #24262a;
+  --segment-selected-bg: #f4f4f6;
+  --segment-selected-text: #17181b;
+  --track-badge-bg: #2e3037;
+  --track-badge-hover: #3b3d46;
+  --hero-cover-from: color-mix(in srgb, var(--accent) 45%, #302b4c);
+  --hero-cover-to: #303a59;
   --surface: var(--floating-surface);
   --overlay: rgba(0, 0, 0, .45);
   --dialog-shadow: 0 12px 32px rgba(0, 0, 0, .35);
@@ -69,6 +86,15 @@
   --play-bg: #17181b;
   --play-fg: #fff;
   --accent-text: color-mix(in srgb, var(--accent) 72%, #000);
+  --track-row-hover: #e8e8ee;
+  --track-row-active: color-mix(in srgb, var(--accent) 10%, var(--root));
+  --segments-bg: #ededf1;
+  --segment-selected-bg: #17181b;
+  --segment-selected-text: #fff;
+  --track-badge-bg: #e3e4ea;
+  --track-badge-hover: #d9dbe3;
+  --hero-cover-from: color-mix(in srgb, var(--accent) 42%, #dfdbf1);
+  --hero-cover-to: #c3cde9;
 }
 
 :root[data-theme="image"] {
@@ -85,6 +111,39 @@
   --text3: #d8dfe8;
   --play-bg: #edeff2;
   --play-fg: #111214;
+  --track-row-hover: rgba(13, 15, 21, .73);
+  --track-row-active: color-mix(in srgb, var(--accent) 10%, rgba(13, 15, 21, .87));
+  --track-row-active-text: color-mix(in srgb, var(--accent) 38%, #fff);
+  --segments-bg: rgba(20, 22, 29, .78);
+  --segment-selected-bg: #f4f4f6;
+  --segment-selected-text: #17181b;
+  --track-badge-bg: #292e39;
+  --track-badge-hover: #373d49;
+  --hero-cover-from: color-mix(in srgb, var(--accent) 42%, #343351);
+  --hero-cover-to: #35476a;
+}
+
+:root[data-theme="image"][data-image-scheme="light"],
+:root[data-theme="image"] [data-image-region-scheme="light"] {
+  --track-row-hover: rgba(248, 248, 252, .78);
+  --track-row-active: color-mix(in srgb, var(--accent) 10%, rgba(250, 250, 253, .91));
+  --track-row-active-text: color-mix(in srgb, var(--accent) 45%, #111);
+  --segments-bg: rgba(244, 244, 248, .83);
+  --segment-selected-bg: #17181b;
+  --segment-selected-text: #fff;
+  --track-badge-bg: #e7e8ef;
+  --track-badge-hover: #d9dbe5;
+}
+
+:root[data-theme="image"] [data-image-region-scheme="dark"] {
+  --track-row-hover: rgba(13, 15, 21, .73);
+  --track-row-active: color-mix(in srgb, var(--accent) 10%, rgba(13, 15, 21, .87));
+  --track-row-active-text: color-mix(in srgb, var(--accent) 38%, #fff);
+  --segments-bg: rgba(20, 22, 29, .78);
+  --segment-selected-bg: #f4f4f6;
+  --segment-selected-text: #17181b;
+  --track-badge-bg: #292e39;
+  --track-badge-hover: #373d49;
 }
 
 :root[data-theme="dynamic"] {
@@ -103,6 +162,15 @@
   --play-bg: #e8edf1;
   --play-fg: #0f1418;
   --accent-text: color-mix(in srgb, var(--accent) 40%, #fff);
+  --track-row-hover: rgba(230, 236, 252, .09);
+  --track-row-active: color-mix(in srgb, var(--accent) 16%, rgba(24, 29, 47, .5));
+  --segments-bg: rgba(23, 28, 45, .53);
+  --segment-selected-bg: #f4f4f6;
+  --segment-selected-text: #17181b;
+  --track-badge-bg: #364052;
+  --track-badge-hover: #475268;
+  --hero-cover-from: color-mix(in srgb, var(--accent) 40%, #3b3d55);
+  --hero-cover-to: #394d66;
 }
 
 :root[data-theme="dynamic"] .player-bar {

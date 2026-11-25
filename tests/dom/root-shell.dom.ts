@@ -55,6 +55,30 @@ test("root mounts before all player DOM queries and preserves controller writes 
 import { fixture as rootFixture, track as rootTrack } from "./tracks-fixture.ts";
 import type { RootRenderProbe } from "./tracks-fixture.ts";
 
+test("library page covers use the first four tracks and fill empty tiles without extra images", async t => {
+  const h = await rootFixture(); t.after(h.dispose);
+  for (const size of [5, 2, 0]) {
+    const items = Array.from({ length: size }, (_, index) => ({ ...rootTrack(index + 1), thumbnailUrl: `http://127.0.0.1/cover-${index}.png` }));
+    h.reply(async command => {
+      if (command === "list_favorites") return items;
+      if (command === "list_playlists") return [{ id: "synthetic", name: "测试歌单", items }];
+      if (command === "get_play_history") return items.map((item, index) => ({ ...item, lastPlayedAt: String(1795521600000 - index), count: 1, lastCid: null }));
+      return [];
+    });
+    h.store.actions.settings.navigate("favorites");
+    await h.store.actions.library.loadLibrary();
+    h.store.actions.library.choosePlaylist("synthetic");
+    h.store.actions.settings.navigate("recent");
+    await h.microtasks();
+    for (const selector of ["#view-favorites", "#view-recent", "#view-playlists"]) {
+      const cover = h.doc.querySelector(`${selector} .playlist-art-grid`)!;
+      assert.equal(cover.getAttribute("aria-hidden"), "true");
+      assert.equal(cover.children.length, size > 0 ? 4 : 0);
+      assert.deepEqual([...cover.querySelectorAll("img")].map(img => img.getAttribute("src")), items.slice(0, 4).map(item => item.thumbnailUrl));
+    }
+  }
+});
+
 test("root render coalesces nested requests while every store commit remains synchronous", async t => {
   const probe: RootRenderProbe = { depth: 0, maxDepth: 0, calls: 0 };
   const h = await rootFixture({ rootRenderProbe: probe }); t.after(h.dispose);

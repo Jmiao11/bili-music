@@ -78,7 +78,7 @@ function activateCard(event: MouseEvent): void {
   </div>
 
   <section v-else class="home-feed-detail" :data-feed="home.view.section" aria-labelledby="home-feed-title">
-    <button :ref="node => focusRefs.homeFeedBack(node as HTMLButtonElement | null)" class="home-feed-back home-text-button" type="button" @click="callbacks.openFeed(null)">‹ 发现音乐</button>
+    <button :ref="node => focusRefs.homeFeedBack(node as HTMLButtonElement | null)" class="home-feed-back secondary-button" type="button" @click="callbacks.openFeed(null)">‹ 发现音乐</button>
     <header class="home-feed-head">
       <HomeFeedCover :title="homeFeeds[home.view.section].title" :thumbnail="home[home.view.section][0]?.thumbnailUrl ?? ''" />
       <div class="home-feed-copy">

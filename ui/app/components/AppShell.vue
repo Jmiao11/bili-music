@@ -20,6 +20,7 @@ import type {SettingsControls} from "../../features/settings/settings-controls.t
 import type {SettingsCallbacks} from "../../features/settings/root-settings.ts";
 import PlaylistActions from "../../features/library/components/PlaylistActions.vue";
 import PlaylistCreateActions from "../../features/library/components/PlaylistCreateActions.vue";
+import LibraryCover from "../../features/library/components/LibraryCover.vue";
 import SearchTabs from "../../features/search/components/SearchTabs.vue";
 import SearchForm from "../../features/search/components/SearchForm.vue";
 import HomeSetupHint from "../../features/home/components/HomeSetupHint.vue";
@@ -44,7 +45,6 @@ import DynamicBackground from "../../features/settings/components/DynamicBackgro
 import WindowTitlebar from "./WindowTitlebar.vue";
 import ResizeHotspots from "./ResizeHotspots.vue";
 import Sidebar from "./Sidebar.vue";
-import { displayThumbnailUrl } from "../../shared/track-utils.ts";
 const tokensHref = new URL("../../styles/tokens.css", import.meta.url).href;
 installTrackColumnInitialization(initializeTrackColumns);
 
@@ -139,12 +139,14 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
         </section>
 
         <section id="view-favorites" class="view library-view" :class="{'is-active':shell.currentView === 'favorites'}" :hidden="shell.currentView !== 'favorites'">
-          <header class="list-head">
-            <div>
+          <header class="list-head library-hero">
+            <LibraryCover :rows="lists.favorites.rows" />
+            <div class="library-hero-copy">
+              <p class="library-hero-source">资料库</p>
               <h1>我的收藏</h1>
+              <span id="favorites-count" class="queue-count">{{ shell.favoritesCount }}</span>
               <p id="favorites-status" class="search-status" role="status" :hidden="!snapshot.library.loadError">{{ shell.favoritesStatus }}</p>
             </div>
-            <span id="favorites-count" class="queue-count">{{ shell.favoritesCount }}</span>
           </header>
           <div class="track-surface">
           <TrackColumns list="favorites-list" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
@@ -153,7 +155,14 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
         </section>
 
         <section id="view-recent" class="view library-view" :class="{'is-active':shell.currentView === 'recent'}" :hidden="shell.currentView !== 'recent'">
-          <header class="list-head recent-head"><h1>最近播放</h1><span class="queue-count">{{ snapshot.recent.items.length }} 首</span></header>
+          <header class="list-head recent-head library-hero">
+            <LibraryCover :rows="lists.recent.rows" />
+            <div class="library-hero-copy">
+              <p class="library-hero-source">资料库</p>
+              <h1>最近播放</h1>
+              <span class="queue-count">{{ snapshot.recent.items.length }} 首</span>
+            </div>
+          </header>
           <p v-if="snapshot.recent.error" class="search-status" role="status">{{ snapshot.recent.error }}</p>
           <p v-else-if="snapshot.recent.loading" class="search-status" role="status">正在读取播放记录…</p>
           <p v-else-if="!snapshot.recent.items.length" class="recent-empty">还没有播放记录</p>
@@ -176,13 +185,14 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             <ListHost id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             </div>
             <section class="playlist-detail" aria-label="歌单内容" :hidden="!snapshot.library.view.playlistDetail">
-              <header class="playlist-detail-head">
-                <div class="playlist-art-grid" aria-hidden="true"><span v-for="index in 4" :key="index"><img v-if="lists.playlist.rows[index - 1]?.video.thumbnailUrl" :src="displayThumbnailUrl(lists.playlist.rows[index - 1]!.video.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" /></span></div>
-                <div>
+              <header class="playlist-detail-head library-hero">
+                <LibraryCover :rows="lists.playlist.rows" />
+                <div class="library-hero-copy">
+                  <p class="library-hero-source">歌单</p>
                   <h2 id="playlist-title">{{ shell.playlistTitle }}</h2>
                   <p id="playlist-meta">{{ shell.playlistMeta }}</p>
+                  <PlaylistActions :visible="snapshot.library.playlists.length > 0" :callbacks="pageCallbacks" />
                 </div>
-                <PlaylistActions :visible="snapshot.library.playlists.length > 0" :callbacks="pageCallbacks" />
               </header>
               <div class="track-surface">
               <TrackColumns list="playlist-tracks" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
