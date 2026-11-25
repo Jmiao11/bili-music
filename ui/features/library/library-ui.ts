@@ -5,7 +5,7 @@ import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
 import { favoritesList, playlistTracks, playlistsList } from "../../platform/main-window-refs.ts";
 import type { LibraryDragHandlers, LibraryDragVisual, PlaylistRowModel } from "../tracks/track-list-model.ts";
-import { renderLibraryTrackRows } from "../tracks/track-list-ui.ts";
+import { activeLibraryIndex, renderLibraryTrackRows } from "../tracks/track-list-ui.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { renderLibrarySnapshot } from "./library-view.ts";
 import type { LibraryBindings } from "./library-view.ts";
@@ -20,6 +20,8 @@ let libraryDragVisuals: Map<DragKind, LibraryDragVisual> | null = null;
 let libraryRowsVersion: number | null = null;
 let favoritesUnavailable: LibrarySnapshot["unavailableBvids"] | null = null;
 let playlistsUnavailable: LibrarySnapshot["unavailableBvids"] | null = null;
+let playlistCards: PlaylistRowModel[] = [];
+let playlistPlaybackInputs: readonly unknown[] | null = null;
 let playlistCardInputs: readonly unknown[] | null = null;
 let emptyLibraryTracks: LibrarySnapshot["favorites"] | null = null;
 
@@ -36,6 +38,7 @@ function finishLibraryDrag(kind: DragKind, save = false): void {
 }
 function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandlers {
   return rowDragHandlers({
+    horizontal: kind === "playlists",
     suppressed: () => isLibraryDragClickSuppressed(getLibrarySnapshot(), kind, performance.now()),
     blocked: () => getLibrarySnapshot().drags[kind].saving,
     start(index, key) {
@@ -80,12 +83,25 @@ function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationS
   });
   if (!playlistsList) return;
   const visual = libraryDragVisuals?.get("playlists"), inputs = [library.playlists, library.selectedPlaylistId, visual];
-  if (playlistCardInputs && inputs.every((value, index) => Object.is(value, playlistCardInputs?.[index]))) return;
+  const queue = state.playbackQueue;
+  const playing = queue.queueSource === "playlist" ? queue.queue[queue.currentIndex] : null;
+  const playbackInputs = [playing && queue.playlistId, playing?.entryId, playing?.bvid];
+  const sameCards = playlistCardInputs && inputs.every((value, index) => Object.is(value, playlistCardInputs?.[index]));
+  if (sameCards && playbackInputs.every((value, index) => value === playlistPlaybackInputs?.[index])) return;
   playlistCardInputs = inputs;
+  playlistPlaybackInputs = playbackInputs;
   const handlers = libraryDragHandlers("playlists");
-  const rows: PlaylistRowModel[] = library.playlists.map((playlist, index) => ({ key: playlist.id, name: playlist.name, count: playlist.items.length, selected: playlist.id === library.selectedPlaylistId, index, handlers, onChoose: () => getLibraryActions().choosePlaylist(playlist.id),
-    dragClass: visual?.sourceKey === playlist.id ? "is-dragging" : visual?.targetKey === playlist.id ? "is-drop-" + visual.direction : visual?.touched.has(playlist.id) ? "" : undefined }));
-  setRootPlaylistList(rows);
+  playlistCards = library.playlists.map((playlist, index) => {
+    const start = Math.max(0, activeLibraryIndex(queue, "playlist", playlist.id, playlist.items));
+    const before = playlistCards[index];
+    if (sameCards) return before.start === start ? before : { ...before, start };
+    return { key: playlist.id, name: playlist.name, count: playlist.items.length, selected: playlist.id === library.selectedPlaylistId, index, handlers,
+      items: playlist.items, start,
+      onPlay: () => playListItem("playlist", libraryQueueEntries(playlist.items), 0, { playlistId: playlist.id }),
+      onChoose: () => getLibraryActions().choosePlaylist(playlist.id),
+      dragClass: visual?.sourceKey === playlist.id ? "is-dragging" : visual?.targetKey === playlist.id ? "is-drop-" + visual.direction : visual?.touched.has(playlist.id) ? "" : undefined };
+  });
+  setRootPlaylistList(playlistCards);
 }
 
 function libraryBindings(): LibraryBindings {

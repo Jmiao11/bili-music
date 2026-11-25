@@ -52,12 +52,13 @@ test("root mounts before all player DOM queries and preserves controller writes 
   }
 });
 
-import { fixture as rootFixture, track as rootTrack } from "./tracks-fixture.ts";
+import { nextDomEventTurn } from "./event-turn.ts";
+import { fixture as rootFixture, track as rootTrack, responses } from "./tracks-fixture.ts";
 import type { RootRenderProbe } from "./tracks-fixture.ts";
 
-test("library page covers use the first four tracks and fill empty tiles without extra images", async t => {
+test("library headers stack up to three loaded covers and replace failed thumbnails", async t => {
   const h = await rootFixture(); t.after(h.dispose);
-  for (const size of [5, 2, 0]) {
+  for (const size of [0, 1, 2, 5]) {
     const items = Array.from({ length: size }, (_, index) => ({ ...rootTrack(index + 1), thumbnailUrl: `http://127.0.0.1/cover-${index}.png` }));
     h.reply(async command => {
       if (command === "list_favorites") return items;
@@ -71,10 +72,22 @@ test("library page covers use the first four tracks and fill empty tiles without
     h.store.actions.settings.navigate("recent");
     await h.microtasks();
     for (const selector of ["#view-favorites", "#view-recent", "#view-playlists"]) {
-      const cover = h.doc.querySelector(`${selector} .playlist-art-grid`)!;
+      const cover = h.doc.querySelector(`${selector} .library-hero .stacked-cover`)!;
       assert.equal(cover.getAttribute("aria-hidden"), "true");
-      assert.equal(cover.children.length, size > 0 ? 4 : 0);
-      assert.deepEqual([...cover.querySelectorAll("img")].map(img => img.getAttribute("src")), items.slice(0, 4).map(item => item.thumbnailUrl));
+      const tiles = () => [...cover.querySelectorAll<HTMLImageElement>(".stacked-tile")];
+      await nextDomEventTurn();
+      for (const image of tiles()) await h.fire(image, "load");
+      assert.equal(cover.getAttribute("data-count"), String(Math.min(size, 3)));
+      assert.deepEqual(tiles().map(img => img.src), items.slice(0, 3).map(item => item.thumbnailUrl));
+      if (size === 5) {
+        await h.fire(tiles()[0], "error");
+        await h.fire(tiles()[2], "load");
+        assert.deepEqual(tiles().map(img => img.src), items.slice(1, 4).map(item => item.thumbnailUrl));
+        assert.equal(cover.querySelector("img.stacked-background"), null);
+        while (tiles().length) await h.fire(tiles()[0], "error");
+        assert.equal(cover.getAttribute("data-count"), "0");
+        assert.ok(cover.querySelector(".stacked-note"));
+      }
     }
   }
 });
@@ -173,4 +186,83 @@ test("page focus restoration stays guarded until its synchronous focus handlers 
   assert.equal(h.doc.activeElement?.id, "pages-modal-close");
   assert.equal(h.doc.querySelector("#status")!.textContent, "focused commit");
   assert.equal(probe.maxDepth, 1);
+});
+
+test("playing the second song moves its existing cover node to the front without repainting unrelated cards", async t => {
+  const h = await rootFixture({ playback: true, coverCounters: true }); t.after(h.dispose);
+  const items = [1, 2, 3].map(n => ({ ...rootTrack(n), thumbnailUrl: `https://i0.hdslb.com/test/${n}.jpg` }));
+  const lists = Array.from({ length: 100 }, (_, i) => ({ id: String(i), name: "歌单" + i, items, createdAt: "0" }));
+  const page = { page: 1, cid: 1, part: "单曲", durationSeconds: 60 };
+  h.reply(async cmd => {
+    if (cmd === "list_playlists") return lists;
+    if (cmd === "list_favorites" || cmd === "list_unavailable_tracks") return [];
+    if (cmd === "get_video_pages") return [page];
+    if (cmd === "get_video_meta") return { videos: 1, pages: [page] };
+    return responses(items)(cmd);
+  });
+  await h.store.actions.library.loadLibrary();
+  await h.fire(h.doc.querySelector('[data-playlist-id="0"]')!, "click");
+  const hero = h.doc.querySelector(".playlist-detail .stacked-cover")!;
+  const card = h.doc.querySelector('[data-playlist-id="0"] .stacked-cover')!;
+  const other = h.doc.querySelector('[data-playlist-id="1"] .stacked-cover')!;
+  const tiles = (e: Element) => [...e.querySelectorAll<HTMLImageElement>(".stacked-tile")];
+  await nextDomEventTurn();
+  for (const cover of [hero, card, other]) for (const image of tiles(cover)) await h.fire(image, "load");
+  const original = tiles(card);
+  const sources = (cover: Element) => tiles(cover).map(img => img.src);
+  const expected = items.map(item => item.thumbnailUrl + "@320w_320h_1c.webp");
+  assert.deepEqual(sources(card), expected);
+  assert.equal(h.doc.querySelector<HTMLImageElement>("#playlist-tracks .track-cover img")?.src, items[0].thumbnailUrl);
+  const reset = () => { h.cardRenders.length = 0; h.renderCounts.PlaylistCard = 0; h.renderCounts.StackedCover = 0; };
+  reset();
+  await h.fire(h.doc.querySelectorAll("#playlist-tracks .track")[1], "click", { detail: 0 });
+  const order = [expected[1], expected[2], expected[0]];
+  assert.deepEqual(sources(card), order, "播放第 2 首时第 2 首在最前");
+  assert.deepEqual(sources(hero), order);
+  assert.deepEqual(sources(other), expected);
+  assert.equal(card.querySelector('[data-layer="0"]'), original[1]);
+  assert.deepEqual(h.cardRenders, ["0"]);
+  assert.equal(h.renderCounts.PlaylistCard, 1);
+  assert.equal(h.renderCounts.StackedCover, 2);
+  reset();
+  await h.fire(h.doc.querySelector("#next-button")!, "click");
+  assert.deepEqual(sources(hero), [expected[2], expected[0], expected[1]]);
+  assert.equal(card.querySelector('[data-layer="0"]'), original[2]);
+  assert.deepEqual(h.cardRenders, ["0"]);
+  assert.equal(h.renderCounts.PlaylistCard, 1);
+  assert.equal(h.renderCounts.StackedCover, 2);
+  reset();
+  for (let i = 0; i < 100; i++) h.store.actions.playbackDisplay.observeProgress({ paused: false, ended: false, currentTime: i, duration: 200, playbackRate: 1 });
+  assert.equal(h.renderCounts.PlaylistCard, 0);
+  assert.equal(h.renderCounts.StackedCover, 0);
+  h.store.actions.playbackQueue.replaceQueue(items, "playlist", null, "1");
+  h.store.actions.playbackQueue.selectIndex(1, false, null);
+  assert.deepEqual(sources(card), expected);
+  assert.deepEqual(sources(other), order);
+  assert.deepEqual([...new Set(h.cardRenders)].sort(), ["0", "1"]);
+  lists[1] = { ...lists[1], name: "重命名", items: [items[2]] };
+  await h.store.actions.library.loadLibrary(); await h.microtasks();
+  assert.deepEqual(sources(other), [expected[2]]);
+  assert.equal(other.closest("button")?.getAttribute("aria-label"), "打开歌单 重命名");
+});
+
+test("favorites and recent headers follow their own highlighted identity after reordering", async t => {
+  const h = await rootFixture(); t.after(h.dispose);
+  const items = [1, 2, 3].map(n => ({ ...rootTrack(n), thumbnailUrl: `http://127.0.0.1/cover-${n}.png` }));
+  const reverse = [...items].reverse();
+  h.reply(async cmd => {
+    if (cmd === "list_favorites") return reverse;
+    if (cmd === "get_play_history") return reverse.map((item, i) => ({ ...item, lastPlayedAt: String(1795521600000 - i), count: 1, lastCid: null }));
+    return cmd === "list_disabled_pages" ? {} : [];
+  });
+  await h.store.actions.library.loadLibrary();
+  h.store.actions.settings.navigate("recent"); await h.microtasks();
+  for (const view of ["favorites", "recent"] as const) {
+    h.store.actions.playbackQueue.replaceQueue(items, view);
+    h.store.actions.playbackQueue.selectIndex(0, false, null);
+    const section = h.doc.querySelector("#view-" + view)!;
+    assert.equal(section.querySelector('.track[aria-current="true"]')?.getAttribute("data-bvid"), items[0].bvid);
+    assert.deepEqual([...section.querySelectorAll<HTMLImageElement>(".stacked-tile")].map(img => img.src),
+      [items[0], items[2], items[1]].map(item => item.thumbnailUrl));
+  }
 });

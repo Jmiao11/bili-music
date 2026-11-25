@@ -31,6 +31,10 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --lift: -2px;
   --r-xs: 4px;
   --r-sm: 6px;
   --r-md: 10px;
@@ -50,8 +54,12 @@
   --segment-selected-text: #17181b;
   --track-badge-bg: #2e3037;
   --track-badge-hover: #3b3d46;
-  --hero-cover-from: color-mix(in srgb, var(--accent) 45%, #302b4c);
-  --hero-cover-to: #303a59;
+  --cover-pink: linear-gradient(140deg, #e75a93, #86315d);
+  --cover-blue: linear-gradient(140deg, #268fa8, #24428a);
+  --cover-coral: linear-gradient(140deg, #ff795d, #93374f);
+  --cover-teal: linear-gradient(140deg, #18aaa6, #27509a);
+  --cover-purple: linear-gradient(140deg, #995bc8, #52338b);
+  --cover-green: linear-gradient(140deg, #65a856, #2a684d);
   --surface: var(--floating-surface);
   --overlay: rgba(0, 0, 0, .45);
   --dialog-shadow: 0 12px 32px rgba(0, 0, 0, .35);
@@ -93,8 +101,12 @@
   --segment-selected-text: #fff;
   --track-badge-bg: #e3e4ea;
   --track-badge-hover: #d9dbe3;
-  --hero-cover-from: color-mix(in srgb, var(--accent) 42%, #dfdbf1);
-  --hero-cover-to: #c3cde9;
+  --cover-pink: linear-gradient(140deg, #f492b6, #b74f7c);
+  --cover-blue: linear-gradient(140deg, #6eb9cd, #476da8);
+  --cover-coral: linear-gradient(140deg, #ff9b85, #bf5968);
+  --cover-teal: linear-gradient(140deg, #5fcac2, #4679b4);
+  --cover-purple: linear-gradient(140deg, #be8bdb, #8256aa);
+  --cover-green: linear-gradient(140deg, #9dc880, #4b9673);
 }
 
 :root[data-theme="image"] {
@@ -119,8 +131,12 @@
   --segment-selected-text: #17181b;
   --track-badge-bg: #292e39;
   --track-badge-hover: #373d49;
-  --hero-cover-from: color-mix(in srgb, var(--accent) 42%, #343351);
-  --hero-cover-to: #35476a;
+  --cover-pink: linear-gradient(140deg, #ca5786, #73304f);
+  --cover-blue: linear-gradient(140deg, #348b9d, #233e72);
+  --cover-coral: linear-gradient(140deg, #dd735c, #733247);
+  --cover-teal: linear-gradient(140deg, #298f92, #254577);
+  --cover-purple: linear-gradient(140deg, #935eaa, #4c386e);
+  --cover-green: linear-gradient(140deg, #649053, #2d5843);
 }
 
 :root[data-theme="image"][data-image-scheme="light"],
@@ -169,8 +185,12 @@
   --segment-selected-text: #17181b;
   --track-badge-bg: #364052;
   --track-badge-hover: #475268;
-  --hero-cover-from: color-mix(in srgb, var(--accent) 40%, #3b3d55);
-  --hero-cover-to: #394d66;
+  --cover-pink: linear-gradient(140deg, #cf5d92, #78375d);
+  --cover-blue: linear-gradient(140deg, #328caa, #334b85);
+  --cover-coral: linear-gradient(140deg, #eb8065, #874059);
+  --cover-teal: linear-gradient(140deg, #319e9a, #2e578d);
+  --cover-purple: linear-gradient(140deg, #a069c4, #573d86);
+  --cover-green: linear-gradient(140deg, #71a561, #38664f);
 }
 
 :root[data-theme="dynamic"] .player-bar {

@@ -105,6 +105,7 @@ async function fixture(options: { playback?: boolean } = {}) {
     const { dataTransfer, relatedTarget, preventDefault, ...init } = fields;
     const options = { bubbles: true, cancelable: true, ...init };
     const event = type.startsWith("composition") ? new window.CompositionEvent(type, options) : type === "input" ? new window.InputEvent(type, options) : type.startsWith("key") ? new window.KeyboardEvent(type, options) : ["click", "dblclick"].includes(type) ? new window.MouseEvent(type, options) : new window.Event(type, options);
+    if (fields.clientX !== undefined && !("clientX" in event)) Object.defineProperty(event, "clientX", { value: fields.clientX });
     if (Object.hasOwn(fields, "dataTransfer")) Object.defineProperty(event, "dataTransfer", { value: fields.dataTransfer });
     if (Object.hasOwn(fields, "relatedTarget")) Object.defineProperty(event, "relatedTarget", { value: fields.relatedTarget });
     if (fields.preventDefault) { const native = event.preventDefault.bind(event); event.preventDefault = () => { native(); fields.preventDefault?.(); }; }

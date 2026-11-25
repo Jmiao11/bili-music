@@ -20,6 +20,9 @@ const vueImports: Record<string, string[]> = {
   "ui/features/tracks/components/ListHost.vue": ["vue"],
   "ui/app/root-mount.ts": ["vue"],
   "ui/features/library/components/PlaylistList.vue": ["vue"],
+  "ui/features/library/components/PlaylistCard.vue": ["vue"],
+  "ui/features/library/components/LibraryCover.vue": ["vue"],
+  "ui/features/library/components/StackedCover.vue": ["vue"],
   "ui/features/tracks/components/TrackList.vue": ["vue"],
   "ui/features/tracks/components/TrackRow.vue": ["vue"],
   "ui/features/library/components/LibraryModalBody.vue": ["vue"],
@@ -27,7 +30,8 @@ const vueImports: Record<string, string[]> = {
   "tests/dom/vue-smoke.dom.ts": ["vue"],
   "tests/dom/pages-runtime.ts": ["vue"],
 };
-const sfcAdditionalForbidden: Record<string, string[]> = { "ui/features/library/components/PlaylistList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/tracks/components/TrackList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/tracks/components/TrackRow.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/library/components/LibraryModalBody.vue": ["focus"] };
+const playlistForbidden = ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"];
+const sfcAdditionalForbidden: Record<string, string[]> = { "ui/features/library/components/PlaylistList.vue": playlistForbidden, "ui/features/library/components/PlaylistCard.vue": playlistForbidden, "ui/features/tracks/components/TrackList.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/tracks/components/TrackRow.vue": ["focus", "queueSource", "queueSearchVersion", "getApplicationStore", "useAppState"], "ui/features/library/components/LibraryModalBody.vue": ["focus"] };
 function inspect(source: string, file: string, visit: (node: ts.Node) => void) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   function walk(node: ts.Node) { visit(node); ts.forEachChild(node, walk); }

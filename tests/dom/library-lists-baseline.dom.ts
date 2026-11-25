@@ -10,22 +10,22 @@ for (const kind of ["favorites", "playlistItems", "playlists"] as const) {
   test(`library list DOM ${kind} structure selected state and static handles`, () => run(async h => {
     await seed(h, [{ ...track(1), thumbnailUrl: "https://example.invalid/cover.jpg", title: "<&>" }], [playlist("a"), playlist("b")]);
     const host = list(h, kind), row = host.children[0]; assert.equal(row.tagName, "LI"); assert.equal(row.getAttribute("draggable"), "true");
-    if (kind === "playlists") { const button = row.querySelector("button")!; assert.equal(button.className, "playlist-card is-selected"); assert.equal(button.getAttribute("data-playlist-id"), "a"); assert.equal(button.querySelector("span")?.textContent, "歌单a"); assert.equal(button.querySelector("small")?.textContent, "2 首"); }
+    if (kind === "playlists") { const button = row.querySelector("button")!; assert.equal(button.className, "playlist-card is-selected"); assert.equal(button.getAttribute("data-playlist-id"), "a"); assert.equal(button.querySelector(".playlist-name")?.textContent, "歌单a"); assert.equal(button.querySelector("small")?.textContent, "2 首"); }
     else { assert.equal(row.className, "track-row"); assert.equal(row.querySelector("button.track")?.getAttribute("data-library-index"), "0"); assert.equal(row.querySelector(".track-play"), null); assert.equal(row.querySelector(".track-duration")?.textContent, "1:00"); assert.equal(row.querySelector(".favorite-button")?.textContent, "♥"); assert.equal(row.querySelector(".track-actions")?.lastElementChild?.textContent, kind === "favorites" ? "+" : "−"); }
   }));
   for (const outcome of ["success", "failure"] as const) test(`library list DOM ${kind} drag ${outcome} preserves visuals saving order and selection`, () => run(async h => {
     await seed(h); const host = list(h, kind), first = host.children[0], second = host.children[1], before = JSON.stringify(h.state());
     const data = transfer(); await h.fire(first, "dragstart", { dataTransfer: data }); assert.equal(first.classList.contains("is-dragging"), true); assert.equal(data.effectAllowed, "move"); assert.deepEqual(data.written, [["text/plain", "0"]]);
-    const over = await h.fire(second, "dragover", { dataTransfer: data }); assert.equal(over.defaultPrevented, true); assert.equal(second.classList.contains("is-drop-after"), true);
+    const over = await h.fire(second, "dragover", { dataTransfer: data, clientX: 100 }); assert.equal(over.defaultPrevented, true); assert.equal(second.classList.contains("is-drop-after"), true);
     await h.fire(second, "dragleave", { relatedTarget: second.querySelector("button") }); assert.equal(second.classList.contains("is-drop-after"), true);
     await h.fire(second, "dragleave", { relatedTarget: h.doc.body }); assert.equal(second.classList.contains("is-drop-after"), false);
-    await h.fire(second, "dragover", { dataTransfer: data });
-    const gate = deferred(); h.reply(() => gate.promise); await h.fire(second, "drop", { dataTransfer: data });
+    await h.fire(second, "dragover", { dataTransfer: data, clientX: 100 });
+    const gate = deferred(); h.reply(() => gate.promise); await h.fire(second, "drop", { dataTransfer: data, clientX: 100 });
     assert.equal(h.state().drags[kind].saving, true); assert.equal(first.classList.contains("is-dragging"), false); assert.equal(second.classList.contains("is-drop-after"), false);
     assert.equal((await h.fire(first, "dragstart", { dataTransfer: transfer() })).defaultPrevented, true); assert.equal(h.calls.length, 1);
     if (outcome === "failure") gate.reject(Error("保存失败")); else gate.resolve(kind === "favorites" ? [track(2), track(1)] : kind === "playlistItems" ? [playlist("a", [track(2), track(1)]), playlist("b")] : [playlist("b"), playlist("a")]);
     await h.microtasks(); assert.equal(h.state().drags[kind].saving, false); assert.equal(h.state().selectedPlaylistId, "a");
-    const firstLabel = host.children[0].querySelector(kind === "playlists" ? ".playlist-card span" : ".track-title")?.textContent;
+    const firstLabel = host.children[0].querySelector(kind === "playlists" ? ".playlist-card .playlist-name" : ".track-title")?.textContent;
     assert.equal(firstLabel, kind === "playlists" ? outcome === "success" ? "歌单b" : "歌单a" : outcome === "success" ? "曲目2" : "曲目1");
     if (outcome === "failure") assert.equal(h.warnings.some(args => String(args[0]).includes("reorder failed")), true);
   }));
@@ -73,4 +73,72 @@ test("library list DOM unavailable markers and badges retain content refresh tim
   assert.equal(h.nodes.favoritesList.querySelector(".track-unavailable"), null); h.store.actions.library.refreshViews();
   for (const host of [h.nodes.favoritesList, h.nodes.playlistTracks]) { assert.equal(host.children[0].classList.contains("is-unavailable"), true); assert.equal(host.querySelector(".track-unavailable")?.textContent, "!"); }
   h.store.actions.pages.remember(track(1).bvid, videoMeta); for (const host of [h.nodes.favoritesList, h.nodes.playlistTracks]) assert.equal(host.querySelector(".track-actions")?.firstElementChild?.textContent, "2P");
+}));
+
+test("playlist grid keeps the tone of each id through reorder and rename", () => run(async h => {
+  const a = playlist("a"), b = playlist("b");
+  await seed(h, [], [a, b]);
+  const tone = (id: string) => h.nodes.playlistsList.querySelector(`[data-playlist-id="${id}"] .stacked-cover`)?.getAttribute("data-tone");
+  const before = tone("a");
+  assert.ok(before);
+  assert.notEqual(tone("b"), before);
+  await seed(h, [], [b, { ...a, name: "新名称", items: [] }]);
+  assert.equal(tone("a"), before, "调整顺序后色调不变");
+}));
+
+test("playlist grid has independent controls and starts the same queue as the first detail row", () => run(async h => {
+  await seed(h, [], [playlist("a", []), playlist("b", [track(3), track(2)])]);
+  await h.fire(h.doc.querySelector('[data-view="playlists"]')!, "click");
+  const grid = h.nodes.playlistsList;
+  assert.equal(grid.children.length, 2);
+  assert.equal(grid.children[0].querySelector(".playlist-card-play"), null);
+  const open = grid.querySelector<HTMLButtonElement>('[aria-label="打开歌单 歌单b"]')!;
+  const play = grid.querySelector<HTMLButtonElement>('[aria-label="播放歌单 歌单b"]')!;
+  assert.equal(open.parentElement, play.parentElement);
+  for (const button of [open, play]) { button.focus(); assert.equal(h.doc.activeElement, button); }
+  h.reply(responses());
+  await h.fire(play, "click");
+  assert.equal(h.state().view.playlistDetail, false);
+  const queue = () => {
+    const { queueSource, currentIndex, playlistId, queue } = h.store.getState().playbackQueue;
+    return { queueSource, currentIndex, playlistId, entries: queue.map(item => item.entryId) };
+  };
+  const card = queue();
+  assert.deepEqual(card, { queueSource: "playlist", currentIndex: 0, playlistId: "b", entries: [track(3), track(2)].map(item => "video:" + item.bvid.toLowerCase()) });
+  await h.fire(open, "click");
+  h.store.actions.playbackQueue.replaceQueue([], "none");
+  await h.fire(h.nodes.playlistTracks.querySelector(".track")!, "click", { detail: 0 });
+  assert.deepEqual(queue(), card);
+  for (const [selector, kind] of [["#rename-playlist-button", "name"], ["#delete-playlist-button", "delete"]]) {
+    await h.fire(h.doc.querySelector(selector)!, "click");
+    assert.equal(h.state().session.kind, kind);
+    h.store.actions.library.closeModal();
+  }
+}));
+
+test("playlist grid inserts at the horizontal edge using the current card width", () => run(async h => {
+  const items = ["a", "b", "c", "d", "e"].map(id => playlist(id));
+  await seed(h, [], items);
+  let expected = [...items];
+  const grid = h.nodes.playlistsList;
+  h.reply(async (cmd, args) => {
+    assert.equal(cmd, "reorder_playlist");
+    const [moving] = expected.splice(Number(args.fromIndex), 1);
+    expected.splice(Number(args.toIndex), 0, moving);
+    return [...expected];
+  });
+  for (const [from, onto, left, width, x, to] of [
+    [0, 2, 500, 220, 501, 1], [0, 4, 8, 220, 227, 4], [4, 1, 204, 176, 210, 1],
+  ]) {
+    const target = grid.children[onto], source = grid.children[from], data = transfer();
+    const sequence = [...expected];
+    sequence.splice(to, 0, ...sequence.splice(from, 1));
+    Object.defineProperty(target, "getBoundingClientRect", { configurable: true, value: () => ({ left, width }) });
+    await h.fire(source, "dragstart", { dataTransfer: data });
+    await h.fire(target, "dragover", { dataTransfer: data, clientX: x });
+    assert.ok(target.classList.contains(x < left + width / 2 ? "is-drop-before" : "is-drop-after"));
+    await h.fire(target, "drop", { dataTransfer: data, clientX: x });
+    assert.deepEqual(h.calls.at(-1)?.args, { fromIndex: from, toIndex: to });
+    assert.deepEqual([...grid.querySelectorAll(".playlist-card")].map(button => button.getAttribute("data-playlist-id")), sequence.map(item => item.id));
+  }
 }));

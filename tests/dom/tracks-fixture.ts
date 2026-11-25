@@ -35,14 +35,16 @@ type Modules = {
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { queueLifecycle?: boolean; queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
+async function fixture(options: { coverCounters?: boolean; queueLifecycle?: boolean; queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
+  if (options.coverCounters) for (const name of ["PlaylistCard","StackedCover"]) renderCounts[name] = 0;
   if(options.displayCounters) for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel"]) renderCounts[name]=0;
   if(options.queueLifecycle) renderCounts.mount = renderCounts.unmount = 0;
   if(options.queueCounters) for(const name of ["QueueDrawer","QueueDrawerRow"]) renderCounts[name]=0;
   const ipcListeners = new Map<string,(event:{payload?:unknown})=>void>(), emissions: {label:string;name:string;payload:unknown}[]=[];
+  const cardRenders: string[] = [];
   const rowRenders: { list: string | null; bvid: string }[] = [];
   const regions: { operation: string; host: Element }[] = [], warnings: unknown[][] = [];
   const savedWarn = console.warn;
@@ -128,7 +130,7 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
   Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const value=reply(command,args); return command==="get_music_ranking"?value.then(result=>feedReply(command,args,result,epoch+now)):value; } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
-  for (const [name, value] of Object.entries({ __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
+  for (const [name, value] of Object.entries({ __playlistCardRenders: cardRenders, __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   if (options.playback) install("HTMLMediaElement", window.HTMLMediaElement);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
   const fire = async (target: EventTarget, type: string, fields: MouseEventInit & KeyboardEventInit & InputEventInit & CompositionEventInit = {}) => {
@@ -161,6 +163,10 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
           .replace("render(h(App, {", "render(h(App, { onVnodeUpdated: () => globalThis.__rootRenderProbe.during?.(),");
       }
       if(options.normalizationFailure && file.endsWith("/features/settings/appearance.ts")) return code.replace(/function applyLoudnessNormalization[^{]+\{/, match => match + ' if(enabled === true) throw Error("normalization test failure");');
+      if (options.coverCounters) {
+        const cover = /\/components\/(PlaylistCard|StackedCover)\.vue/.exec(file);
+        if (cover) return instrumentComponentRender(code, cover[1]);
+      }
       const component = /\/components\/(TrackList|TrackRow|PlaylistList|PlaybackBar|PlaybackNotice|ImmersivePlayer|LyricsDisplay|SettingsPanel|QueueDrawer|QueueDrawerRow)\.vue/.exec(file)?.[1];
       if (component && (options.displayCounters && !component.startsWith("QueueDrawer") || options.queueCounters && component.startsWith("QueueDrawer") || ["TrackList","TrackRow","PlaylistList"].includes(component))) return instrumentComponentRender(code, component);
       if (file.includes("/features/tracks/components/ListHost.vue") && /h\((?:TrackList|PlaylistList),/.test(code)) {
@@ -180,7 +186,7 @@ async function fixture(options: { queueLifecycle?: boolean; queueCounters?: bool
     } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
     await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, clock:()=>epoch+now, renderCounts, rowRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
+    return { ...modules, clock:()=>epoch+now, renderCounts, rowRenders, cardRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
       visible(target: Element) { intersection([{ target, isIntersecting: true }]); },
       async advance(milliseconds: number) {
         const end = now + milliseconds;

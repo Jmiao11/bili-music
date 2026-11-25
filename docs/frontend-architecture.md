@@ -82,6 +82,9 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 
 控制器中剩余选择器只用于原有事件、焦点、测量和缺节点降级；不承担显示写入。守卫 scripts/vue/native-writes.ts 用TypeScript符号识别DOM/CSS写入，排除组件与两个根挂载适配器，例外按文件+完整表达式精确登记并拒绝失效登记。DOM写入别名同样被检查。
 
+叠放封面的尺寸端口在 `ui/platform/cover-size.ts`。组件指令在挂载及更新后读取占位盒宽度和设备像素比，按档位请求缩略图。隐藏视图使用布局标称宽度，打开时复测。该端口只读，不注册尺寸监听。
+
+
 ## 测试结构与守卫
 
 安装前用 Node 自带runner，依赖限内置/本地模块；安装后用精确登记的 `.dom.ts`，Vite编译实际App/SFC并由jsdom执行。`.test.ts`不能重复登记到DOM组。类型项目为主窗vue-tsc、mini vue-tsc / node tsc及SFC fixture，均零诊断；依赖精确锁定。

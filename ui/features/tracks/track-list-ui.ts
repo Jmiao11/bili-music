@@ -32,6 +32,13 @@ let projectedSearchRows: number | null = null;
 function createProjection(state: Snapshot, source: string, play: Play): Projection {
   return { inputs: [], generation: 0, videos: [], source, skeleton: false, unavailable: state.library.unavailableBvids, play, sessions: new Map() };
 }
+function activeLibraryIndex(queue: Snapshot["playbackQueue"], source: string, playlistId: string, entries: Snapshot["library"]["favorites"]): number {
+  if (queue.queueSource !== source || source === "playlist" && queue.playlistId !== playlistId) return -1;
+  const active = queue.queue[queue.currentIndex];
+  if (!active) return -1;
+  const bvid = active.bvid.toLowerCase();
+  return entries.findIndex(entry => active.entryId ? entry.entryId === active.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === bvid);
+}
 function projectRows(target: TrackListTarget, projection: Projection, state: Snapshot, search: boolean): void {
   const queue = state.playbackQueue;
   const queueIndex = projection.source === "collection"
@@ -39,12 +46,11 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : search
     ? queue.queueSearchVersion === state.search.requestVersion ? queue.currentIndex : -1
     : projection.source === "recent" ? queue.queueSource === "recent" ? queue.currentIndex : -1
-    : projection.source === "favorites" ? queue.queueSource === "favorites" ? queue.currentIndex : -1
-    : projection.source === "playlist" ? queue.queueSource === "playlist" && queue.playlistId === state.library.selectedPlaylistId ? queue.currentIndex : -1
     : queue.queueSource === projection.source ? queue.currentIndex : -1;
   const activeBvid = queue.queue[queueIndex]?.bvid.toLowerCase();
-  const activeEntry = queue.queue[queueIndex];
-  const activeIndex = projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : projection.library ? projection.library.entries.findIndex(entry => activeEntry?.entryId ? entry.entryId === activeEntry.entryId : entry.kind === "video" && entry.video.bvid.toLowerCase() === activeBvid) : queueIndex;
+  const activeIndex = projection.library
+    ? activeLibraryIndex(queue, projection.source, state.library.selectedPlaylistId, projection.library.entries)
+    : projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : queueIndex;
   const homeFeed = state.home.aiHasKey === false && (projection.source === "ranking" || projection.source === "newSongs");
   const inputs = [projection.videos, projection.source, projection.generation, projection.skeleton, projection.unavailable, activeIndex, state.pages.videoPageCounts, state.library.favoriteBvids, state.library.favorites, pagesUiVersion(),projection.library?.playlistId, projection.library?.visual, projection.recent, homeFeed];
   if (inputs.length === projection.inputs.length && inputs.every((value, index) => Object.is(value, projection.inputs[index]))) return;
@@ -187,4 +193,4 @@ function projectApplicationLists(state: Snapshot): void {
 function playRankingTrack(index: number, selection?: PageSelection): void { playHomeTrack("ranking", index, selection); }
 function initializeRootLists(): void { installRootListProjection(projectApplicationLists); }
 
-export { initializeRootLists, playHomeTrack, renderLibraryTrackRows };
+export { activeLibraryIndex, initializeRootLists, playHomeTrack, renderLibraryTrackRows };

@@ -1,16 +1,14 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { TrackRowModel } from "../../tracks/track-list-model.ts";
-import { displayThumbnailUrl } from "../../../shared/track-utils.ts";
+import { coverWindow, type CoverTone } from "../cover-art.ts";
+import StackedCover from "./StackedCover.vue";
 
-defineProps<{ rows: readonly TrackRowModel[] }>();
+const props = defineProps<{ rows: readonly TrackRowModel[]; tone: CoverTone; shown: boolean }>();
+const tracks = computed(() => coverWindow(props.rows, props.rows.findIndex(row => row.active),
+  row => ({ key: row.key, url: row.video.thumbnailUrl })));
 </script>
 
 <template>
-  <div class="playlist-art-grid" aria-hidden="true">
-    <template v-if="rows.length">
-      <span v-for="index in 4" :key="index">
-        <img v-if="rows[index - 1]?.video.thumbnailUrl" :src="displayThumbnailUrl(rows[index - 1].video.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
-      </span>
-    </template>
-  </div>
+  <StackedCover :tracks="tracks" :tone="tone" :shown="shown" :nominal-side="200" />
 </template>

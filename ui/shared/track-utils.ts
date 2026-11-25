@@ -93,7 +93,7 @@ function displayThumbnailUrl(url: string): string {
   }
   return url
     .replace(/^\/\//, "https://")
-    .replace(/@[^/?#]*(?=([?#]|$))/, "");
+    .replace(/^([^?#]*?)@[^/?#]*(?=[?#]|$)/, "$1");
 }
 
 function homeTrackThumbnail(url: string): string {

@@ -20,6 +20,7 @@ import type {SettingsControls} from "../../features/settings/settings-controls.t
 import type {SettingsCallbacks} from "../../features/settings/root-settings.ts";
 import PlaylistActions from "../../features/library/components/PlaylistActions.vue";
 import PlaylistCreateActions from "../../features/library/components/PlaylistCreateActions.vue";
+import { playlistTone } from "../../features/library/cover-art.ts";
 import LibraryCover from "../../features/library/components/LibraryCover.vue";
 import SearchTabs from "../../features/search/components/SearchTabs.vue";
 import SearchForm from "../../features/search/components/SearchForm.vue";
@@ -140,7 +141,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
 
         <section id="view-favorites" class="view library-view" :class="{'is-active':shell.currentView === 'favorites'}" :hidden="shell.currentView !== 'favorites'">
           <header class="list-head library-hero">
-            <LibraryCover :rows="lists.favorites.rows" />
+            <LibraryCover :shown="shell.currentView === 'favorites'" :rows="lists.favorites.rows" tone="pink" />
             <div class="library-hero-copy">
               <p class="library-hero-source">资料库</p>
               <h1>我的收藏</h1>
@@ -156,7 +157,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
 
         <section id="view-recent" class="view library-view" :class="{'is-active':shell.currentView === 'recent'}" :hidden="shell.currentView !== 'recent'">
           <header class="list-head recent-head library-hero">
-            <LibraryCover :rows="lists.recent.rows" />
+            <LibraryCover :shown="shell.currentView === 'recent'" :rows="lists.recent.rows" tone="blue" />
             <div class="library-hero-copy">
               <p class="library-hero-source">资料库</p>
               <h1>最近播放</h1>
@@ -182,11 +183,11 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
           </header>
           <div class="playlist-layout">
             <div class="playlist-directory-surface" :hidden="snapshot.library.view.playlistDetail">
-            <ListHost id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
+            <ListHost :shown="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             </div>
             <section class="playlist-detail" aria-label="歌单内容" :hidden="!snapshot.library.view.playlistDetail">
               <header class="playlist-detail-head library-hero">
-                <LibraryCover :rows="lists.playlist.rows" />
+                <LibraryCover :shown="shell.currentView === 'playlists' && snapshot.library.view.playlistDetail" :rows="lists.playlist.rows" :tone="playlistTone(snapshot.library.selectedPlaylistId)" />
                 <div class="library-hero-copy">
                   <p class="library-hero-source">歌单</p>
                   <h2 id="playlist-title">{{ shell.playlistTitle }}</h2>

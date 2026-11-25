@@ -66,7 +66,7 @@ function activateCard(event: MouseEvent): void {
       <ul class="home-recent-items">
         <li v-for="(item, index) in items.slice(0, 10)" :key="item.bvid">
           <button type="button" :title="item.title" class="home-recent-item" @click="callbacks.playRecent(index)">
-            <span class="home-recent-cover"><img v-if="item.thumbnailUrl" :src="displayThumbnailUrl(item.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" /></span>
+            <span class="home-recent-cover"><img v-if="item.thumbnailUrl" :src="displayThumbnailUrl(item.thumbnailUrl)" alt="" loading="lazy" referrerpolicy="no-referrer" /><span class="recent-play-hint" aria-hidden="true"><Icon name="play" :size="14" /></span></span>
             <span class="home-recent-track">{{ item.title }}</span>
             <span class="home-recent-uploader">{{ item.uploader }}</span>
           </button>

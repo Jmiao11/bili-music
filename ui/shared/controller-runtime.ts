@@ -1,6 +1,7 @@
 import type { LibraryDragHandlers } from "../features/tracks/track-list-model.ts";
 
 type RowDragSession = {
+  horizontal?: boolean;
   suppressed(): boolean; blocked(): boolean;
   start(index: number, key: string): void; source(): number | null;
   canHover?(): boolean; target(): string | null; hover(key: string | null, direction: "before" | "after" | null): void;
@@ -8,6 +9,11 @@ type RowDragSession = {
 };
 
 function rowDragHandlers(session: RowDragSession): LibraryDragHandlers {
+  function direction(event: DragEvent, from: number, index: number): "before" | "after" {
+    if (!session.horizontal) return index < from ? "before" : "after";
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    return event.clientX < rect.left + rect.width / 2 ? "before" : "after";
+  }
   return {
     capture(event) { if (session.suppressed()) { event.preventDefault(); event.stopImmediatePropagation(); } },
     start(event, index, key) {
@@ -21,7 +27,7 @@ function rowDragHandlers(session: RowDragSession): LibraryDragHandlers {
       const from = session.source();
       if (!event.dataTransfer || from === null || session.canHover?.() === false) return;
       event.preventDefault(); event.dataTransfer.dropEffect = "move";
-      session.hover(index === from ? null : key, index < from ? "before" : "after");
+      session.hover(index === from ? null : key, direction(event, from, index));
     },
     leave(event, key) {
       if (session.target() === key && !(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) session.hover(null, null);
@@ -29,8 +35,13 @@ function rowDragHandlers(session: RowDragSession): LibraryDragHandlers {
     drop(event, index) {
       const from = session.source();
       if (from === null) return;
-      event.preventDefault(); event.stopPropagation(); session.finish(from !== index);
-      if (from !== index) session.move(from, index);
+      let to = index;
+      if (session.horizontal && from !== index) {
+        const insertion = index + (direction(event, from, index) === "after" ? 1 : 0);
+        to = insertion - (from < insertion ? 1 : 0);
+      }
+      event.preventDefault(); event.stopPropagation(); session.finish(from !== to);
+      if (from !== to) session.move(from, to);
     },
     end() { session.finish(false); },
   };

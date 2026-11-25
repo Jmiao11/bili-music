@@ -25,9 +25,9 @@ test("Vue library list projections skip fifty unrelated commits in all three reg
 }));
 for (const kind of ["favorites", "playlistItems", "playlists"] as const) test(`Vue library ${kind} reorder moves keyed nodes and changes current indexes`, () => run(async h => {
   await seed(h); const host = kind === "favorites" ? h.nodes.favoritesList : kind === "playlistItems" ? h.nodes.playlistTracks : h.nodes.playlistsList, nodes = [...host.children];
-  const data = transfer(); await h.fire(nodes[0], "dragstart", { dataTransfer: data }); await h.fire(nodes[1], "dragover", { dataTransfer: data });
+  const data = transfer(); await h.fire(nodes[0], "dragstart", { dataTransfer: data }); await h.fire(nodes[1], "dragover", { dataTransfer: data, clientX: 100 });
   h.reply(async () => kind === "favorites" ? [track(2), track(1)] : kind === "playlistItems" ? [playlist("a", [track(2), track(1)]), playlist("b")] : [playlist("b"), playlist("a")]);
-  await h.fire(nodes[1], "drop", { dataTransfer: data }); await h.microtasks();
+  await h.fire(nodes[1], "drop", { dataTransfer: data, clientX: 100 }); await h.microtasks();
   assert.deepEqual([...host.children], [nodes[1], nodes[0]]);
   if (kind !== "playlists") assert.equal(nodes[1].querySelector("button.track")?.getAttribute("data-library-index"), "0");
   assert.equal(host.querySelectorAll(".is-dragging,.is-drop-before,.is-drop-after").length, 0);
@@ -51,7 +51,7 @@ test("Vue library lists create only on content and unload all empty hosts", () =
 }));
 test("Vue library drag survives unrelated patches and ends on existing row refresh boundary", () => run(async h => {
   await seed(h); const row = h.nodes.favoritesList.children[0], target = h.nodes.favoritesList.children[1], data = transfer();
-  await h.fire(row, "dragstart", { dataTransfer: data }); await h.fire(target, "dragover", { dataTransfer: data });
+  await h.fire(row, "dragstart", { dataTransfer: data }); await h.fire(target, "dragover", { dataTransfer: data, clientX: 100 });
   h.store.actions.pages.remember(track(1).bvid, videoMeta); h.store.actions.playbackQueue.replaceQueue([track(1)], "favorites");
   assert.equal(h.nodes.favoritesList.children[0], row); assert.equal(row.classList.contains("is-dragging"), true); assert.equal(target.classList.contains("is-drop-after"), true);
   h.store.actions.library.refreshViews(); assert.equal(h.state().drags.favorites.drag, null); assert.equal(h.nodes.favoritesList.querySelectorAll(".is-dragging,.is-drop-after").length, 0);

@@ -393,6 +393,7 @@ test("discovery recent preview hides when empty and plays through the full histo
   assert.equal(recent.querySelector("h2")?.textContent,"最近播放");
   assert.equal(recent.querySelectorAll(".home-recent-item").length,10);
   const preview=recent.querySelectorAll(".home-recent-item")[1];
+  assert.equal(preview.querySelector(".recent-play-hint")?.getAttribute("aria-hidden"), "true");
   assert.equal(preview.querySelector(".home-recent-track")?.textContent,"历史 1");
   assert.equal(preview.querySelector(".home-recent-uploader")?.textContent,"作者");
   await h.fire(preview,"click");

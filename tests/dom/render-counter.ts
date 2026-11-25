@@ -3,7 +3,8 @@ import ts from "typescript";
 function instrumentComponentRender(source: string, name: string): string {
   const tree = ts.createSourceFile("component.ts", source, ts.ScriptTarget.Latest, true);
   const edits: { start: number; end: number; text: string }[] = [];
-  const count = `globalThis.__rootRenderCounts[${JSON.stringify(name)}]++;` + (name === "TrackRow" ? `globalThis.__rootRowRenders?.push({ list: item?.parentElement?.id ?? null, bvid: props.row.video.bvid });` : "");
+  const cardCount = name === "PlaylistCard" ? "globalThis.__playlistCardRenders.push(props.row.key);" : "";
+  const count = cardCount + `globalThis.__rootRenderCounts[${JSON.stringify(name)}]++;` + (name === "TrackRow" ? `globalThis.__rootRowRenders?.push({ list: item?.parentElement?.id ?? null, bvid: props.row.video.bvid });` : "");
   function visit(node: ts.Node): void {
     if (ts.isReturnStatement(node) && node.expression && ts.isArrowFunction(node.expression)) {
       const body = node.expression.body;
