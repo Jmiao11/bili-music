@@ -9,7 +9,6 @@ type SearchState = {
   results: ReturnType<typeof normalizeTrack>[];
   userKeyword: string; requestKeyword: string; tids: number; order: string | null;
   rerank: boolean; sortMode: string; page: number; isLoadingMore: boolean; hasMore: boolean; requestVersion: number;
-  pendingSearchRestore: string | null;
   searchBusy: boolean; playbackBusy: boolean;
   view: { rowsVersion: number | null; musicVersion: number | null; sortVersion: number | null; status: string | null; buttonDisabled: boolean | null; buttonSource: "search" | "playback" | null; resultVisible: boolean | null };
 };
@@ -26,7 +25,7 @@ function searchFailureStatus(error: unknown, context: string): string {
 
 function initialSearchState(): SearchState {
   return { results: [], userKeyword: "", requestKeyword: "", tids: DEFAULT_MUSIC_TIDS, order: null, rerank: true, sortMode: "all", page: 0, isLoadingMore: false, hasMore: false, requestVersion: 0,
-    pendingSearchRestore: null, searchBusy: false, playbackBusy: false,
+    searchBusy: false, playbackBusy: false,
     view: { rowsVersion: null, musicVersion: null, sortVersion: null, status: null, buttonDisabled: null, buttonSource: null, resultVisible: null } };
 }
 
@@ -35,8 +34,6 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
     const current = read();
     commitSearch({ ...current, ...fields, view: Object.keys(view).length ? { ...current.view, ...view } : current.view });
   };
-  function setPendingRestore(pendingSearchRestore: string): void { updateSearch({ pendingSearchRestore }); }
-  function takePendingRestore(): string | null { const keyword = read().pendingSearchRestore; updateSearch({ pendingSearchRestore: null }); return keyword; }
   const rows = () => (read().view.rowsVersion ?? 0) + 1;
 
   function appendResults(videos: readonly CommandContract.SearchVideo[], beforeCommit?: (unique: SearchSnapshot["results"]) => void, page?: SearchPageCommit): SearchSnapshot["results"] {
@@ -58,12 +55,12 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
     return unique;
   }
 
-  async function searchNow({ userKeyword, recordHistory = false, restored = false, saveKeyword }: { userKeyword: string; recordHistory?: boolean; restored?: boolean; saveKeyword?: (keyword: string) => void }): Promise<void> {
+  async function searchNow({ userKeyword, recordHistory = false, saveKeyword }: { userKeyword: string; recordHistory?: boolean; saveKeyword?: (keyword: string) => void }): Promise<void> {
     const trimmed = userKeyword.trim();
     const version = read().requestVersion + 1;
     updateSearch({ userKeyword: trimmed, requestKeyword: trimmed || MUSIC_HOT_KEYWORD, order: trimmed ? null : "click", rerank: !!trimmed,
       page: 1, hasMore: false, isLoadingMore: false, requestVersion: version, searchBusy: true }, {
-      buttonDisabled: true, buttonSource: "search", status: trimmed ? restored ? `已复用上次搜索关键词「${trimmed}」，正在搜索…` : "正在搜索…" : "正在加载该分区热门…",
+      buttonDisabled: true, buttonSource: "search", status: trimmed ? "正在搜索…" : "正在加载该分区热门…",
     });
     try {
       const state = read();
@@ -80,11 +77,11 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
       const found = videos.length ? `找到 ${videos.length} 个普通视频${modeLabel}。${hasMore ? "" : "没有更多了"}` : "没有找到普通视频。";
       updateSearch({ results: videos.map(normalizeTrack), hasMore, searchBusy: false }, {
         rowsVersion: rows(), resultVisible: true, buttonDisabled: false, buttonSource: "search",
-        status: restored ? `已复用上次搜索关键词「${read().userKeyword}」刷新完成，${found}` : found,
+        status: found,
       });
     } catch (error) {
       if (version !== read().requestVersion) return;
-      updateSearch({ searchBusy: false }, { buttonDisabled: false, buttonSource: "search", status: searchFailureStatus(error, restored ? `复用上次搜索关键词「${read().userKeyword}」搜索失败` : "搜索失败") });
+      updateSearch({ searchBusy: false }, { buttonDisabled: false, buttonSource: "search", status: searchFailureStatus(error, "搜索失败") });
     }
   }
 
@@ -128,7 +125,7 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
   function refreshSort(): void { updateSearch({}, { sortVersion: (read().view.sortVersion ?? 0) + 1 }); }
   function chooseDivision(tids: number): void { updateSearch({ tids }, { musicVersion: (read().view.musicVersion ?? 0) + 1 }); }
   function chooseSort(sortMode: string): void { updateSearch({ sortMode: read().sortMode === sortMode ? "all" : sortMode }, { sortVersion: (read().view.sortVersion ?? 0) + 1 }); }
-  return { setPendingRestore, takePendingRestore, appendResults, chooseDivision, chooseSort, loadMoreSearchResults: loadNextPage, recognizeBv, refreshDivision, refreshResults, refreshSort, resetForBv, runSearch: searchNow, setPlaybackBusy: playbackButtonBusy, updateMetadata };
+  return { appendResults, chooseDivision, chooseSort, loadMoreSearchResults: loadNextPage, recognizeBv, refreshDivision, refreshResults, refreshSort, resetForBv, runSearch: searchNow, setPlaybackBusy: playbackButtonBusy, updateMetadata };
 }
 
 export { DEFAULT_MUSIC_TIDS, createSearchActions, initialSearchState };

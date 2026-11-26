@@ -60,13 +60,13 @@ function setup({ keyword = "", results = [] }: { keyword?: string; results?: { b
     if (state.search.view.resultVisible !== null) context.result.hidden = !state.search.view.resultVisible;
   });
   if (results.length) store.actions.search.appendResults(results.map(normalizeTrack));
-  context.__api.runSearch = (options: { userKeyword?: string; restored?: boolean } = {}) => store.actions.search.runSearch({
+  context.__api.runSearch = (options: { userKeyword?: string } = {}) => store.actions.search.runSearch({
     ...options, userKeyword: options.userKeyword ?? context.searchKeyword.value, saveKeyword: context.__api.saveLastSearchKeyword,
   });
   return { context, storage };
 }
 
-test("restored search announces the reused keyword while loading and after success", async () => {
+test("explicit search of the restored draft announces loading and success", async () => {
   const { context, storage } = setup({ keyword: "周杰伦" });
   let calls = 0;
   context.__api.runSearch;
@@ -77,19 +77,20 @@ test("restored search announces the reused keyword while loading and after succe
     assert.equal(payload.keyword, "周杰伦");
     return [{ bvid: "BV0000000001" }, { bvid: "BV0000000002" }];
   };
-  const p = ctx.__api.runSearch({ userKeyword: "周杰伦", restored: true });
-  assert.match(ctx.searchStatus.textContent, /已复用上次搜索关键词「周杰伦」，正在搜索…/);
+  const p = ctx.__api.runSearch();
+  assert.equal(ctx.searchStatus.textContent, "正在搜索…");
   await p;
-  assert.match(ctx.searchStatus.textContent, /已复用上次搜索关键词「周杰伦」刷新完成，找到 2 个普通视频/);
+  assert.match(ctx.searchStatus.textContent, /找到 2 个普通视频/);
   assert.equal(calls, 1);
   assert.equal(storage.get("bilibili-music.last-search"), "周杰伦");
 });
 
-test("restored search failure keeps the reuse notice in the error message", async () => {
-  const { context } = setup();
+test("explicit search failure reports the error and preserves the saved draft", async () => {
+  const { context, storage } = setup({ keyword: "洛天依" });
   context.invoke = async () => Promise.reject("网络中断");
-  await context.__api.runSearch({ userKeyword: "洛天依", restored: true });
-  assert.match(context.searchStatus.textContent, /复用上次搜索关键词「洛天依」搜索失败：网络中断/);
+  await context.__api.runSearch();
+  assert.equal(context.searchStatus.textContent, "搜索失败：网络中断");
+  assert.equal(storage.get("bilibili-music.last-search"), "洛天依");
 });
 
 test("successful keyword search persists the keyword; empty tab search does not", async () => {

@@ -91,6 +91,7 @@
           "class": "music-tab is-active",
           "data-tids": "3",
           "role": "tab",
+          "tabindex": "0",
           "type": "button"
         },
         "children": [
@@ -104,6 +105,7 @@
           "class": "music-tab",
           "data-tids": "28",
           "role": "tab",
+          "tabindex": "-1",
           "type": "button"
         },
         "children": [
@@ -117,6 +119,7 @@
           "class": "music-tab",
           "data-tids": "31",
           "role": "tab",
+          "tabindex": "-1",
           "type": "button"
         },
         "children": [
@@ -128,7 +131,7 @@
   "search-sort-modes": {
     "tag": "div",
     "attributes": {
-      "aria-label": "搜索排序模式",
+      "aria-label": "搜索类型",
       "class": "music-tabs search-tab-group",
       "id": "search-sort-modes",
       "role": "tablist"
@@ -137,10 +140,25 @@
       {
         "tag": "button",
         "attributes": {
+          "aria-selected": "true",
+          "class": "music-tab is-active",
+          "data-sort-mode": "all",
+          "role": "tab",
+          "tabindex": "0",
+          "type": "button"
+        },
+        "children": [
+          "全部"
+        ]
+      },
+      {
+        "tag": "button",
+        "attributes": {
           "aria-selected": "false",
           "class": "music-tab",
           "data-sort-mode": "single",
           "role": "tab",
+          "tabindex": "-1",
           "type": "button"
         },
         "children": [
@@ -154,6 +172,7 @@
           "class": "music-tab",
           "data-sort-mode": "collection",
           "role": "tab",
+          "tabindex": "-1",
           "type": "button"
         },
         "children": [

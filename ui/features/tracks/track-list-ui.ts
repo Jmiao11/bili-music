@@ -110,10 +110,12 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     const rowVideo = video as TrackRowModel["video"];
     const sameVideo = previous && (previous.video === video || previous.video.bvid === video.bvid && previous.video.title === video.title && previous.video.uploader === video.uploader && previous.video.thumbnailUrl === video.thumbnailUrl && previous.video.durationSeconds === video.durationSeconds && previous.video.playCount === rowVideo.playCount && previous.video.pubdate === rowVideo.pubdate);
     if (previous && previous.cached === cached && previous.needsNetwork === needsNetwork && previous.playCountText === playCountText && previous.durationText === durationText && previous.thumbnailSrc === thumbnailSrc && previous.collection === collection && sameVideo && previous.index === index && previous.active === active && previous.pageCount === pageCount && previous.favorited === favorited && previous.unavailableReason === unavailableReason && previous.playlistId === projection.library?.playlistId && previous.dragClass === dragClass && previous.playPagesVersion === playPagesVersion && previous.badgePagesVersion === badgePagesVersion && previous.pageCountBvid === pageCountBvid) return previous;
-    return session.model = { key, index, search, video, cached, needsNetwork, collection, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active,
+    const pubdateText = formatPubdate((video as Readonly<CommandContract.TrackSnapshotInput & { pubdate?: number | null }>).pubdate);
+    const creatorTitle = target === "search" ? [video.uploader || video.bvid, pubdateText].filter(Boolean).join(" · ") : undefined;
+    return session.model = { key, index, search, video, cached, needsNetwork, collection, draggable: projection.library ? true : undefined, showPlayCount: !projection.library, playlistId: projection.library?.playlistId, dragClass, active, creatorTitle,
       durationText, thumbnailSrc,
       playCountText,
-      pubdateText: formatPubdate((video as Readonly<CommandContract.TrackSnapshotInput & { pubdate?: number | null }>).pubdate),
+      pubdateText,
       pageCount,playPagesVersion,badgePagesVersion,pageCountBvid,
       favorited,
       unavailableReason, ...session.callbacks };

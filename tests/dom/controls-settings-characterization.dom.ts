@@ -11,7 +11,7 @@ test("controls real DOM preserves initial settings search hint and playlist mark
   for (const id of Object.keys(baseline)) assert.deepEqual(controlsStructure(h.node(id)), baseline[id]);
   assert.equal(h.doc.querySelectorAll("[data-home-mode]:not(#view-home)").length, 0);
   assert.equal(h.doc.querySelectorAll("[data-tids]").length, 3);
-  assert.equal(h.doc.querySelectorAll("[data-sort-mode]").length, 2);
+  assert.equal(h.doc.querySelectorAll("[data-sort-mode]").length, 3);
 });
 
 test("controls real DOM keeps search draft through input composition submits divisions sorting and playback", async t => {

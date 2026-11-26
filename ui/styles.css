@@ -4894,8 +4894,6 @@ input[type="range"]::-webkit-slider-thumb {
     column-gap: var(--space-2);
   }
   :root #app :is(#home-ranking-list, #home-new-songs, #home-for-you, #search-results, #favorites-list, #playlist-tracks, #collection-results, #recent-list) .track-play { display: none; }
-  :root #app #search-results .track-pubdate { display: none; }
-  :root #app #search-results .track:has(.track-pubdate) .track-up { align-self: center; padding-top: 0; }
 }
 
 :root #app .player-bar {
@@ -5054,8 +5052,10 @@ input[type="range"]::-webkit-slider-thumb {
   & #view-search .search-submit { height: 34px; min-height: 34px; flex: none; margin: 0; padding-inline: 18px; }
   & #view-search .search-hint { display: none; }
   & #view-search .search-tabs-row { height: 38px; min-height: 38px; justify-content: flex-start; margin: 0 0 10px; padding: 0; border: 0; background: transparent; }
-  & #view-search .search-tabs-groups { display: flex; gap: 4px; padding: 4px; border-radius: var(--r-pill); background: var(--segments-bg); }
-  & #view-search .music-tabs { display: flex; gap: 4px; padding: 0; border: 0; background: transparent; }
+  & #view-search .search-tabs-groups { display: flex; gap: 8px; }
+  & #view-search .search-filter-label { color: var(--text3); font-size: var(--fs-sm); white-space: nowrap; }
+  & #view-search .search-filter-label:not(:first-child) { margin-inline-start: 8px; }
+  & #view-search .music-tabs { display: flex; gap: 4px; padding: 4px; border: 0; border-radius: var(--r-pill); background: var(--segments-bg); }
   & #view-search .music-tab { height: 30px; min-height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-pill); background: transparent; color: var(--text2); font-size: var(--fs-md); font-weight: 400; box-shadow: none; }
   & #view-search .music-tab.is-active { background: var(--segment-selected-bg); color: var(--segment-selected-text); font-weight: 600; }
   & #view-search .search-results-head { display: none; }
@@ -5098,10 +5098,14 @@ input[type="range"]::-webkit-slider-thumb {
 :root[data-theme="image"] #app .window-titlebar { background: var(--bar); }
 :root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
 :root #app #view-search { --track-columns: 24px 32px minmax(0, 1fr) auto minmax(120px, 200px) 64px 64px 68px; }
-:root #app #search-results .track-creator { display: flex; grid-column: 5; grid-row: 1; min-width: 0; align-items: center; overflow: hidden; text-align: left; white-space: nowrap; }
-:root #app #search-results .track:has(.track-pubdate) .track-up { display: block; align-self: center; min-width: 0; flex: 0 1 auto; overflow: hidden; margin: 0; padding: 0; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-:root #app #search-results .track-pubdate { align-self: center; flex: none; min-width: 0; padding: 0; color: var(--text3); line-height: 1.35; text-align: left; white-space: nowrap; }
+:root #app #search-results { overflow-anchor: none; }
+:root #app #search-results .track-creator { display: flex; grid-column: 5; grid-row: 1; min-width: 0; align-items: center; overflow: hidden; text-align: left; white-space: nowrap; container: search-creator / inline-size; }
+:root #app #search-results .track:has(.track-pubdate) .track-up { display: block; align-self: center; min-width: min(4em, 100%); flex: 0 1 auto; overflow: hidden; margin: 0; padding: 0; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+:root #app #search-results .track-pubdate { align-self: center; flex: 0 999 auto; min-width: 0; overflow: hidden; padding: 0; color: var(--text3); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 :root #app #search-results .track-pubdate::before { content: " · "; white-space: pre; }
+@container search-creator (inline-size < 9em) {
+  :root #app #search-results .track-pubdate { display: none; }
+}
 :root #app #view-playlists .playlist-card:not(.is-selected),
 :root #app #view-search .music-tab:not(.is-active) { color: var(--text2); opacity: 1; }
 @container (max-width: 680px) {
@@ -5110,7 +5114,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* Header and rows share their column tracks and scrollbar gutter. */
 :root #app .playlist-directory-surface { position: relative; min-height: 0; max-height: 132px; flex: none; }
-:root #app .track-surface { position: relative; display: flex; min-height: 0; flex: 0 1 auto; flex-direction: column; container-type: inline-size; }
+:root #app .track-surface { position: relative; display: flex; min-height: 0; flex: 0 1 auto; flex-direction: column; container: track-list-surface / inline-size; }
 :root #app .track-surface > .tracklist { min-height: 0; flex: 0 1 auto; }
 :root #app .track-surface > :is(#home-ranking-list, #home-new-songs, #home-for-you, #search-results, #favorites-list, #playlist-tracks, #collection-results, #recent-list) { container-type: normal; }
 :root #app .track-surface > :is(.track-columns, .tracklist) { scrollbar-gutter: stable; scrollbar-width: thin; }
@@ -5348,20 +5352,20 @@ body:has(#immersive-player.is-open) #app .window-titlebar {
 :root #app .track-surface:has(#favorites-list, #playlist-tracks, #recent-list):not(:has(.track-play)) > :is(.track-columns, .tracklist) { --track-min-width: 0px; --fit-plays-min: 0px; --fit-plays-pref: 0px; --fit-plays-capacity: 0; --track-columns: 24px 32px var(--fit-title) var(--fit-up) var(--fit-pages) 0px var(--fit-duration) minmax(0px, 1fr) 104px; }
 :root #app .track-surface > :is(.track-columns, .tracklist) { min-width: 0; width: 100%; overflow-x: hidden; }
 /* Thresholds include content padding and the stable scrollbar gutter. */
-@container (max-width: 780px) {
+@container track-list-surface (max-width: 780px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-plays-min: 0px; --fit-plays-pref: 0px; --fit-plays-capacity: 0; }
   :root #app .track-surface :is(.column-play, .track-play) { visibility: hidden; }
 }
-@container (max-width: 716px) {
+@container track-list-surface (max-width: 716px) {
   :root #app #search-results .track-pubdate { display: none; }
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-pages-min: 0px; --fit-pages-pref: 0px; --fit-pages-capacity: 0; }
   :root #app .track-surface :is(.column-pages, .page-count-badge, .track-unavailable) { visibility: hidden; }
 }
-@container (max-width: 652px) {
+@container track-list-surface (max-width: 652px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-up-min: 0px; --fit-up-pref: 0px; --fit-up-capacity: 0; }
   :root #app .track-surface :is(.column-uploader, .track-up, .track-creator) { visibility: hidden; }
 }
-@container (max-width: 552px) {
+@container track-list-surface (max-width: 552px) {
   :root #app .track-surface > :is(.track-columns, .tracklist) { --fit-duration-min: 0px; --fit-duration-pref: 0px; --fit-duration-capacity: 0; }
   :root #app .track-surface :is(.column-duration, .track-duration) { visibility: hidden; }
 }

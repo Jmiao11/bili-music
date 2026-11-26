@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
-import { fixture as realFixture, deferred } from "./tracks-fixture.ts";
+import { fixture as realFixture, deferred, responses } from "./tracks-fixture.ts";
+import { nextDomEventTurn } from "./event-turn.ts";
 const track = (index: number) => ({ bvid: "BV" + String(index).padStart(10, "0"), title: "曲目" + index, uploader: "作者", thumbnailUrl: "", durationSeconds: 60, playCount: 1, pubdate: 1 });
 const batch = (start = 1) => Array.from({ length: 20 }, (_, i) => track(start + i));
 type Snapshot = { results: ReturnType<typeof track>[]; requestVersion: number; page: number; isLoadingMore: boolean; hasMore: boolean; tids: number; sortMode: string; rerank: boolean; userKeyword: string; requestKeyword: string };
@@ -69,7 +70,10 @@ test("search division and sort clicks preserve hot versus keyword reranking para
     assert.equal(h.calls.some(c => c.command === "record_search_history"), false);
     h.nodes.searchKeyword.value = " 输入 "; await h.musicTabs[2].fire("click"); await h.flush(); await h.sortModeTabs[1].fire("click"); await h.flush();
     request = h.calls.filter(c => c.command === "search_videos").at(-1)!; assert.deepEqual(request.args, { keyword: "输入", page: 1, tids: 31, rerank: true, sortMode: "title" });
-    await h.sortModeTabs[1].fire("click"); await h.flush(); assert.equal(h.state().sortMode, "all"); assert.equal(h.nodes.searchKeyword.value, " 输入 ");
+    const count = h.calls.filter(c => c.command === "search_videos").length;
+    await h.sortModeTabs[1].fire("click"); await h.flush();
+    assert.equal(h.calls.filter(c => c.command === "search_videos").length, count);
+    await h.sortModeTabs[0].fire("click"); await h.flush(); assert.equal(h.state().sortMode, "all"); assert.equal(h.nodes.searchKeyword.value, " 输入 ");
   } finally { h.dispose(); }
 });
 
@@ -78,7 +82,8 @@ test("search history is fire and forget and restored search skips history while 
     assert.equal(h.nodes.searchKeyword.value, "上次"); assert.equal(h.search.readLastSearchKeyword(), "上次");
     h.reply(async command => command === "record_search_history" ? new Promise(() => {}) : [track(1)]);
     await h.windowNode.fire("bilibili-music-viewchange", { view: "search" }); await h.flush();
-    assert.equal(h.calls.some(c => c.command === "record_search_history"), false); assert.match(h.nodes.searchStatus.textContent, /已复用上次搜索关键词「上次」刷新完成/);
+    assert.equal(h.calls.some(c => c.command === "record_search_history"), false);
+    assert.equal(h.nodes.searchStatus.textContent, "搜索结果会显示在这里。");
     await h.search.runSearch({ userKeyword: "新", recordHistory: true }); assert.equal(h.nodes.searchButton.disabled, false); assert.equal(h.storage.get("bilibili-music.last-search"), "新");
     assert.equal(h.calls.filter(c => c.command === "record_search_history").length, 1);
     h.reply(async () => { throw new Error("failed"); }); await h.search.runSearch({ userKeyword: "失败" }); assert.equal(h.storage.get("bilibili-music.last-search"), "新");
@@ -112,4 +117,91 @@ test("search playback metadata fills the display and queue consistently without 
     assert.equal(h.nodes.searchResults.children[0].querySelector(".track-title")?.textContent, "回填");
     assert.equal(h.nodes.searchKeyword.value, "搜索原值"); assert.equal(h.nodes.searchButton.disabled, false);
   } finally { h.dispose(); }
+});
+
+test("search filter groups combine parameters, support keyboard selection and ignore the active choice", async t => {
+  const h = await realFixture({ playback: true }); t.after(h.dispose);
+  h.reply(responses([{ ...track(1), addedAt: "" }]));
+  await h.fire(h.doc.querySelector('#sidebar [data-view="search"]')!, "click");
+  h.nodes.searchKeyword.value = "组合测试";
+  const tabs = [...h.doc.querySelectorAll<HTMLElement>('#view-search [role="tablist"]')];
+  assert.deepEqual(tabs.map(group => group.getAttribute("aria-label")), ["音乐分区", "搜索类型"]);
+  assert.deepEqual(tabs.map(group => group.querySelector('[aria-selected="true"]')?.textContent), ["全部", "全部"]);
+  await h.fire(tabs[0].querySelector('[data-tids="28"]')!, "click");
+  const current = tabs[1].querySelector<HTMLButtonElement>('[data-sort-mode="all"]')!;
+  current.focus();
+  await nextDomEventTurn();
+  await h.fire(current, "keydown", { key: "ArrowRight" });
+  const single = tabs[1].querySelector('[data-sort-mode="single"]')!;
+  assert.equal(h.doc.activeElement, single);
+  assert.equal(single.getAttribute("aria-selected"), "true");
+  await h.fire(single, "click");
+  await h.fire(tabs[0].querySelector('[data-tids="28"]')!, "click");
+  await h.fire(tabs[0].querySelector('[data-tids="31"]')!, "click");
+  await h.fire(current, "click");
+  assert.deepEqual(h.calls.filter(call => call.command === "search_videos").map(call => call.args), [
+    { keyword: "组合测试", page: 1, tids: 28, rerank: true, sortMode: "all" },
+    { keyword: "组合测试", page: 1, tids: 28, rerank: true, sortMode: "single" },
+    { keyword: "组合测试", page: 1, tids: 31, rerank: true, sortMode: "single" },
+    { keyword: "组合测试", page: 1, tids: 31, rerank: true, sortMode: "all" },
+  ]);
+  assert.equal(h.doc.querySelector("#search-results .track-creator")?.getAttribute("title"), "作者 · 1970-01-01");
+});
+
+test("search return, theme and resize preserve the list and ignore stationary or layout scroll events", async t => {
+  const h = await realFixture({ playback: true }); t.after(h.dispose);
+  const base = responses();
+  h.reply(async (command, args) => command === "search_videos" ? batch(1 + 20 * (Number(args.page) - 1)) : base(command));
+  const results = h.nodes.searchResults;
+  let height = 300, content = 1000;
+  Object.defineProperties(results, {
+    clientWidth: { get: () => 750 },
+    clientHeight: { get: () => height },
+    scrollHeight: { get: () => content },
+  });
+  const navigate = (view: string) => h.fire(h.doc.querySelector(`#sidebar [data-view="${view}"]`)!, "click");
+  const requests = () => h.calls.filter(call => call.command === "search_videos");
+  await navigate("search");
+  h.nodes.searchKeyword.value = "合成曲目";
+  await h.fire(h.doc.querySelector('[data-tids="28"]')!, "click");
+  await h.fire(h.doc.querySelector('[data-sort-mode="collection"]')!, "click");
+  const first = results.children[0];
+  await h.fire(first.querySelector("button.track")!, "click", { detail: 0 });
+  results.scrollTop = 680;
+  await h.fire(results, "scroll");
+  assert.equal(requests().at(-1)?.args.page, 2);
+  assert.equal(requests().at(-1)?.args.sortMode, "collection");
+  assert.equal(results.children.length, 40);
+  assert.equal(results.children[0], first);
+  assert.equal(results.children[20].querySelector("button.track")?.getAttribute("data-bvid"), track(21).bvid);
+  assert.equal(h.store.getState().playbackQueue.queue.length, 40);
+  assert.equal(results.scrollTop, 680);
+  const count = requests().length;
+  await navigate("home");
+  await h.fire(results, "scroll");
+  await navigate("search");
+  await h.fire(results, "scroll");
+  const nextTheme = h.store.getState().settings.theme === "dark" ? "light" : "dark";
+  h.store.actions.settings.setTheme(nextTheme, false);
+  assert.equal(h.store.getState().settings.theme, nextTheme);
+  await h.fire(results, "scroll");
+  height = 310;
+  h.window.dispatchEvent(new h.window.Event("resize"));
+  await h.fire(results, "scroll");
+  assert.equal(requests().length, count);
+  assert.equal(results.scrollTop, 680);
+  assert.equal(results.children[0], first);
+  assert.equal(h.nodes.searchKeyword.value, "合成曲目");
+  assert.equal(h.doc.querySelector('[data-tids="28"]')?.getAttribute("aria-selected"), "true");
+  assert.equal(h.doc.querySelector('[data-sort-mode="collection"]')?.getAttribute("aria-selected"), "true");
+  height = 320;
+  results.scrollTop = 684;
+  await h.fire(results, "scroll");
+  assert.equal(requests().length, count, "layout-induced offset changes do not load the next page");
+  content = 1800;
+  results.scrollTop = 1480;
+  await h.fire(results, "scroll");
+  assert.equal(requests().length, count + 1);
+  assert.equal(requests().at(-1)?.args.page, 3);
+  assert.equal(results.children[40].querySelector("button.track")?.getAttribute("data-bvid"), track(41).bvid);
 });

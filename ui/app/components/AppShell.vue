@@ -121,7 +121,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             </section>
 
             <section class="search-results-panel" aria-label="搜索结果">
-              <SearchTabs :tids="snapshot.search.tids" :sort="snapshot.search.sortMode" :callbacks="pageCallbacks" />
+              <SearchTabs :tids="snapshot.search.tids" :sort="snapshot.search.sortMode" :active="shell.currentView === 'search'" :callbacks="pageCallbacks" />
 
               <header class="list-head search-results-head">
                 <div>

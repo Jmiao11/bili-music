@@ -129,9 +129,9 @@ test("search actions record history without waiting and restore without recordin
   assert.deepEqual(saved, ["歌曲"]);
   history.reject(new Error("历史失败")); await Promise.resolve();
   assert.equal(h.reports.length, 1);
-  await h.actions.runSearch({ userKeyword: "歌曲", restored: true, saveKeyword: keyword => saved.push(keyword) });
+  await h.actions.runSearch({ userKeyword: "歌曲", saveKeyword: keyword => saved.push(keyword) });
   assert.equal(h.calls.filter(call => call.command === "record_search_history").length, 1);
-  assert.match(h.read().view.status ?? "", /复用上次搜索/);
+  assert.match(h.read().view.status ?? "", /找到 1 个普通视频/);
   h.reply(async () => { throw new Error("请求失败"); });
   await h.actions.runSearch({ userKeyword: "不保存", saveKeyword: keyword => saved.push(keyword) });
   assert.deepEqual(saved, ["歌曲", "歌曲"]);
@@ -171,12 +171,13 @@ test("search busy actions preserve last writer button behavior across search and
   h.actions.setPlaybackBusy(false);
   assert.equal(h.read().view.buttonDisabled, false);
 });
-test("搜索受限时首屏、恢复和翻页都在搜索区域显示同一提示", async () => {
+test("搜索受限时首屏、切分区和翻页都在搜索区域显示同一提示", async () => {
   const h = fixture();
   const reject = async () => { throw "SEARCH_TEMPORARILY_RESTRICTED"; };
-  for (const restored of [false, true]) {
+  for (const tids of [3, 28]) {
+    h.actions.chooseDivision(tids);
     h.reply(reject);
-    await h.actions.runSearch({ userKeyword: "歌曲", restored });
+    await h.actions.runSearch({ userKeyword: "歌曲" });
     assert.equal(h.read().view.status, "搜索暂时受限，请稍后再试");
     assert.equal(h.read().view.buttonDisabled, false);
   }
