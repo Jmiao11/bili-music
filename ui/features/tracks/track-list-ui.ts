@@ -62,7 +62,7 @@ function projectRows(target: TrackListTarget, projection: Projection, state: Sna
     : projection.source === "recent" ? projection.videos.findIndex(video => video.bvid.toLowerCase() === activeBvid) : queueIndex;
   const activeIndex = filterable && filter.terms.length ? projection.lastActiveIndex ?? currentIndex : currentIndex;
   projection.lastActiveIndex = activeIndex;
-  const homeFeed = state.home.aiHasKey === false && Object.hasOwn(homeFeeds, projection.source);
+  const homeFeed = state.home.aiHasKey !== null && (Object.hasOwn(homeFeeds, projection.source) || projection.source === "recommendation");
   const view = state.settings.session.currentView;
   const shown = !state.collection.active && (target === "playlist" ? view === "playlists" && state.library.view.playlistDetail : target === view);
   const terms = projection.cross?.terms ?? projection.terms ?? noTerms;
@@ -236,24 +236,23 @@ function renderPlaylistSearch(state: Snapshot): void {
   projectRows("playlistSearch", projection, state, false);
 }
 function playHomeTrack(source: HomeFeed, index: number, selection?: PageSelection): void {
-  playListItem(source, getHomeSnapshot()[source], index, selection);
+  if (source === "ai") playListItem("recommendation", getHomeSnapshot().recommendations, index, selection);
+  else playListItem(source, getHomeSnapshot()[source], index, selection);
 }
 function projectApplicationLists(state: Snapshot): void {
   const home = state.home;
-  if (home.view.content !== projectedHomeContent || home.aiHasKey === false && homeProjection?.source !== "ranking") {
+  const aiRows = home.view.section === "ai" || home.aiHasKey === null && home.view.content.kind === "recommendations";
+  const source = aiRows ? "recommendation" : "ranking";
+  if (home.view.content !== projectedHomeContent || homeProjection?.source !== source) {
     projectedHomeContent = home.view.content;
-    const kind = home.view.content.kind;
-    if (home.aiHasKey === false || kind === "ranking" || kind === "recommendations") {
-      const source = home.aiHasKey === false || kind === "ranking" ? "ranking" : "recommendation";
-      const skeleton = source === "ranking" ? home.loading && !home.ranking.length : home.recommendationLoading;
-      const error = source === "ranking" ? home.error : "";
-      const videos = skeleton || error ? [] : source === "ranking" ? home.ranking : home.recommendations;
-      renderHomeRows(state, videos, source, skeleton, source === "ranking"
-        ? playRankingTrack
-        : (index, selection) => playListItem(source, getHomeSnapshot().recommendations, index, selection));
+    if (home.aiHasKey !== null || home.view.content.kind !== "mode") {
+      const skeleton = aiRows ? home.recommendationLoading : home.loading && !home.ranking.length;
+      const videos = skeleton || !aiRows && home.error ? [] : aiRows ? home.recommendations : home.ranking;
+      renderHomeRows(state, videos, source, skeleton, aiRows
+        ? (index, selection) => playHomeTrack("ai", index, selection) : playRankingTrack);
     }
   }
-  if(home.aiHasKey===false) {
+  if(home.aiHasKey !== null) {
     for (const source of ["newSongs", "forYou"] as const) {
       const projection = discoveryProjections[source] ??= createProjection(state, source, (index, selection) => playHomeTrack(source, index, selection));
       if (projection.videos !== home[source]) projection.generation++;

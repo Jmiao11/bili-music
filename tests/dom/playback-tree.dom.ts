@@ -10,6 +10,7 @@ test("list commits repaint only affected highlights favorites and page metadata"
   const onePage = { videos: 1, pages: [{ cid: 11, page: 1, part: "一", duration: 60 }] };
   h.reply(async command => command === "get_ai_config" ? { hasKey: true } : command === "get_video_meta" ? onePage : command === "get_video_pages" ? onePage.pages.map(page => ({ ...page, durationSeconds: page.duration })) : responses(items)(command));
   await h.home.refreshAiKeyState();
+  h.store.actions.openHomeSection("ai");
   for (const video of items) h.store.actions.pages.remember(video.bvid, onePage);
   h.core.playListItem("recommendation", items, 0); await h.microtasks();
   let previous = h.store.getState(), rows = h.rowRenders.length;
@@ -58,6 +59,7 @@ test("all list sources retain row props for highlights and favorite refreshes", 
   const items = Array.from({ length: 20 }, (_, index) => track(index + 1));
   h.reply(async command => command === "get_ai_config" ? { hasKey: true } : command === "list_favorites" ? items.slice(0, -1) : command === "list_playlists" ? [{ id: "test", name: "歌单", items }] : command === "list_unavailable_tracks" ? [] : responses(items)(command));
   await h.home.refreshAiKeyState();
+  h.store.actions.openHomeSection("ai");
   h.nodes.searchKeyword.value = "共享列表"; await h.search.runSearch();
   await h.store.actions.library.loadLibrary();
   for (const [source, list] of [["recommendation", "home-ranking-list"], ["search", "search-results"], ["favorites", "favorites-list"], ["playlist", "playlist-tracks"]]) {

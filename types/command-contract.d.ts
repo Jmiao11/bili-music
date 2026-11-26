@@ -1,6 +1,8 @@
 // JSON wire types: output Option fields are present and nullable; input Option
 // fields may be omitted. Numbers describe JSON representation, not u64 validation.
 declare namespace CommandContract {
+  interface SavedRecommendations { version: number; items: SearchVideo[]; generated_at: number; description?: string }
+
   type AudioQuality = "highest" | "192k" | "132k" | "64k";
   interface AvailableUpdate { version: string; }
   interface AudioResponse { audioUrl: string; audioId: number | null; isFallback: boolean; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
@@ -127,7 +129,8 @@ interface CommandMap {
   get_ai_config: { args: undefined; result: CommandContract.AiConfigView };
   set_ai_config: { args: { apiFormat: string; baseUrl: string; model: string; apiKey: string }; result: CommandContract.AiConfigView };
   test_ai_connection: { args: { apiFormat?: string | null; baseUrl?: string | null; model?: string | null; apiKey?: string | null }; result: CommandContract.AiConnectionTestResult };
-  get_saved_recommendations: { args: undefined; result: CommandContract.SearchVideo[] };
+  delete_ai_key: { args: undefined; result: CommandContract.AiConfigView };
+  get_saved_recommendations: { args: undefined; result: CommandContract.SavedRecommendations };
   get_lyrics_by_id: { args: { songId: string }; result: CommandContract.Lyrics };
   search_lyrics_songs: { args: { keyword: string }; result: CommandContract.Candidate[] };
   clear_lyrics_cache: { args: undefined; result: number };
@@ -137,7 +140,7 @@ interface CommandMap {
   get_lyrics_binding: { args: { bvid: string; cid: number }; result: CommandContract.LyricsBinding | null };
   set_lyrics_binding: { args: { bvid: string; cid: number; songId: string; songName: string; singer: string }; result: null };
   clear_lyrics_binding: { args: { bvid: string; cid: number }; result: null };
-  get_recommendations: { args: { userHint?: string | null }; result: CommandContract.SearchVideo[] };
+  get_recommendations: { args: { userHint?: string | null }; result: CommandContract.SavedRecommendations };
   export_data: { args: undefined; result: string | null };
   import_data: { args: undefined; result: string | null };
 }

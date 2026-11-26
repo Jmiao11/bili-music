@@ -176,7 +176,8 @@ DOM CustomEvent 的 detail 继续在 WindowEventMap/DocumentEventMap 中维护�
 | `get_ai_config` | `AiConfigView` | DTO；`ai-config-view-none.json`, `ai-config-view-some.json`；不需要额外 fixture |
 | `set_ai_config` | `AiConfigView` | DTO；`ai-config-view-none.json`, `ai-config-view-some.json`；不需要额外 fixture |
 | `test_ai_connection` | `AiConnectionTestResult` | DTO；`ai-connection-test-result.json`；不需要额外 fixture |
-| `get_saved_recommendations` | `SearchVideo[]` | 数组元素；`search-video-none.json`, `search-video-some.json`；不需要额外 fixture |
+| `delete_ai_key` | `AiConfigView` | 仅清除已保存的 Key |
+| `get_saved_recommendations` | `SavedRecommendations` | 数组元素；`search-video-none.json`, `search-video-some.json`；不需要额外 fixture |
 | `get_lyrics_by_id` | `Lyrics` | DTO；`lyrics.json`；不需要额外 fixture |
 | `search_lyrics_songs` | `Candidate[]` | 数组元素；`candidate.json`；不需要额外 fixture |
 | `clear_lyrics_cache` | `number` | 基本类型；不需要额外 fixture |
@@ -186,6 +187,6 @@ DOM CustomEvent 的 detail 继续在 WindowEventMap/DocumentEventMap 中维护�
 | `get_lyrics_binding` | `LyricsBinding 或 null` | DTO；`lyrics-binding.json`；不需要额外 fixture |
 | `set_lyrics_binding` | `null` | null；不需要额外 fixture |
 | `clear_lyrics_binding` | `null` | null；不需要额外 fixture |
-| `get_recommendations` | `SearchVideo[]` | 数组元素；`search-video-none.json`, `search-video-some.json`；不需要额外 fixture |
+| `get_recommendations` | `SavedRecommendations` | 数组元素；`search-video-none.json`, `search-video-some.json`；不需要额外 fixture |
 | `export_data` | `string 或 null` | 基本类型或 null；不需要额外 fixture |
 | `import_data` | `string 或 null` | 基本类型或 null；不需要额外 fixture |

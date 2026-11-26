@@ -239,6 +239,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
           <small class="setting-note">鼠标悬浮 Base URL 旁的“?”可查看填写说明</small>
           <div class="setting-actions">
             <button id="save-ai-config-button" @click="callbacks.saveAi()" class="secondary-button" type="button" :disabled="field('saveAiConfigButton').disabled ?? false">保存 AI 配置</button>
+            <button v-if="state.ai.hasKey" id="delete-ai-key-button" class="secondary-button" type="button" :disabled="state.ai.request !== 'idle'" @click="callbacks.deleteAiKey()">删除 API Key</button>
             <button id="test-ai-connection-button" @click="callbacks.testAi()" class="small-button quiet" type="button" :disabled="field('testAiConnectionButton').disabled ?? false">测试连接</button>
           </div>
           <small id="ai-config-status">{{ field('aiConfigStatus').text ?? "尚未读取 AI 配置" }}</small>

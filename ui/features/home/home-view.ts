@@ -1,6 +1,7 @@
 import type { HomeSnapshot } from "../../store/app-state.ts";
 
 const homeFeeds = {
+  ai: { title: "AI 推荐", source: "AI 根据你的描述生成", listId: "home-ranking-list" },
   forYou: { title: "为你推荐", source: "根据你最近的收听", listId: "home-for-you" },
   ranking: { title: "音乐热门", source: "B 站音乐区排行", listId: "home-ranking-list" },
   newSongs: { title: "新歌速递", source: "B 站音乐中心", listId: "home-new-songs" },

@@ -2,7 +2,7 @@ import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
 import type { HomeFeed } from "../features/home/home-view.ts";
 type PageCallbacks = {
-  retryFeed(source:HomeFeed):void;
+  retryFeed(source:Exclude<HomeFeed,"ai">):void;
   openFeed(source:HomeFeed|null):void;
   playFeed(source:HomeFeed):void;
   openRecent():void;
@@ -43,7 +43,7 @@ function projectHomeControls(home: ApplicationSnapshot["home"]): HomeControls {
   if (home.view.hintText !== null) next.hintText = home.view.hintText;
   if (home.view.content !== previousHome?.view.content) {
     const popular = isHomePopular(home), kind = home.view.content.kind;
-    next.hintHidden = popular;
+    next.hintHidden = popular && !home.aiHasKey;
     if (kind !== "mode") {
       next.setupHidden = true; next.setupInline = false; next.setupSettingsHidden = false;
       if (kind === "ranking" && !home.loading && !home.error && popular) Object.assign(next, { setupHidden: false, setupInline: true, setupTitle: "配置 API Key 后可生成专属推荐", setupSub: "" });

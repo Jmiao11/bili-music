@@ -42,12 +42,6 @@ pub(crate) async fn get_music_ranking(
 pub(crate) async fn get_recommendations(
     state: tauri::State<'_, AppState>,
     user_hint: Option<String>,
-) -> Result<Vec<SearchVideo>, String> {
-    let recommendations = ai::generate_recommendations(&state.search, user_hint).await?;
-    if !recommendations.is_empty() {
-        if let Err(error) = ai::save_recommendations(&recommendations) {
-            eprintln!("failed to save recommendations: {error}");
-        }
-    }
-    Ok(recommendations)
+) -> Result<ai::RecommendationsFile, String> {
+    ai::generate_recommendations(&state.search, user_hint).await
 }

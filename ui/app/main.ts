@@ -95,11 +95,7 @@ installPlaybackCallbacks({ favorite: track => { if (track) void toggleFavorite(t
 
 
 refreshRankingButton?.addEventListener("click", () => {
-  if (getHomeSnapshot().aiHasKey === false) {
-    loadHomeRanking({ forceRefresh: true });
-  } else {
-    loadRecommendations({ forceRefresh: true });
-  }
+  if (getHomeSnapshot().aiHasKey !== null) void loadHomeRanking({ forceRefresh: true });
 });
 installPageCallbacks({
   retryFeed: source => { void getApplicationStore().actions.retryHomeSection(source); },
@@ -116,6 +112,7 @@ installPageCallbacks({
   update: () => { void openUpdateDownload(); },
   createPlaylist, renamePlaylist: renameSelectedPlaylist, deletePlaylist: deleteSelectedPlaylist, importPlaylist: importFavoritePlaylist,
   hint: () => {
+  if (getHomeSnapshot().view.section !== "ai" || !getHomeSnapshot().aiHasKey) return;
   setHomeHint(readHomeHintDraft());
   loadRecommendations({ forceRefresh: true });
   },
@@ -210,7 +207,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("bilibili-music-viewchange", (event) => {
   if (event.detail?.view === "home") {
     getApplicationStore().actions.openHomeSection(null);
-    loadRecommendationHome();
+    if (getHomeSnapshot().aiHasKey !== null) void loadRecommendationHome();
   }
   if (["favorites", "playlists"].includes(event.detail?.view)) {
     loadLibrary();
@@ -224,7 +221,7 @@ getApplicationStore();
 void checkForUpdate();
 const initialHome = getApplicationStore().actions.refreshAiKeyState(true);
 void Promise.all([initialHome,windowReady]).then(() => {
-  if (getHomeSnapshot().aiHasKey === false && getApplicationStore().getState().settings.session.currentView === "home") void loadHomeRanking();
+  if (getHomeSnapshot().aiHasKey !== null && getApplicationStore().getState().settings.session.currentView === "home") void loadHomeRanking();
 });
 window.addEventListener("DOMContentLoaded", restorePlaybackState, { once: true });
 const restoreKeyword = readLastSearchKeyword();

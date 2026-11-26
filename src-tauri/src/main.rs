@@ -195,6 +195,7 @@ fn main() {
             ai::set_ai_config,
             ai::test_ai_connection,
             ai::get_saved_recommendations,
+            ai::delete_ai_key,
             lyrics::get_lyrics_by_id,
             lyrics::search_lyrics_songs,
             lyrics::clear_lyrics_cache,

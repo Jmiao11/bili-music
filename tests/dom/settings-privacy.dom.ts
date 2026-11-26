@@ -48,7 +48,7 @@ for (const mode of ["save", "test"] as const) test(`settings ${mode} keeps a tem
 
 test("settings input and repeated slider commits skip every list and playback component", async t => {
   const h=await controlsSettingsFixture({displayCounters:true}); t.after(h.dispose);
-  await h.home.refreshAiKeyState(); await h.microtasks();
+  await h.home.refreshAiKeyState(); h.store.actions.openHomeSection("ai"); await h.microtasks();
   for(const name of ["PlaybackBar","PlaybackNotice","ImmersivePlayer","LyricsDisplay","SettingsPanel","TrackList","TrackRow"]) assert.ok(h.renderCounts[name]>0,name);
   for(const name of Object.keys(h.renderCounts)) h.renderCounts[name]=0;
   await h.input("search-keyword","中文草稿"); await h.input("home-hint-input","提示草稿"); await h.input("ai-api-key-input","temporary-draft");

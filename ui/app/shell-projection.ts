@@ -24,7 +24,7 @@ function createShellProjection() {
       if(home.view.status !== null && home.view.status !== before?.view.status) view.homeStatus=home.view.status;
       if(home.view.rankingError !== null && home.view.rankingError !== before?.view.rankingError) view.homeError=home.view.rankingError.text;
       if(home.view.refreshDisabled !== null && home.view.refreshDisabled !== before?.view.refreshDisabled) view.homeRefreshDisabled=home.view.refreshDisabled;
-      if(content !== before?.view.content || home.aiHasKey === false && before?.aiHasKey !== false) {
+      if(content !== before?.view.content || home.aiHasKey !== before?.aiHasKey) {
         const popular=isHomePopular(home);
         view.homeMode=popular ? "popular" : "recommendation";
         view.homeSource=popular ? "B站音乐区" : "AI 推荐";
@@ -35,12 +35,12 @@ function createShellProjection() {
         if(content.kind !== "mode") {
           view.homeNeedsSetup=false;
           if(content.kind === "ranking" && !home.loading) view.homeError=home.error ? "拉取失败，点击重试" : "";
-          if(content.kind === "recommendations" && !home.recommendationLoading) { view.homeError=""; view.homeNeedsSetup=Boolean(home.recommendationError); }
+          if(content.kind === "recommendations" && !home.recommendationLoading) { view.homeError=""; view.homeNeedsSetup=!popular && Boolean(home.recommendationError); }
         }
       }
     }
     if (isHomePopular(home)) view.homeDay = new Date(now).setHours(0, 0, 0, 0);
-    if(home.aiHasKey===false || (home.aiHasKey===null && home.view.content.kind==="ranking")) {
+    if(home.aiHasKey!==null || (home.aiHasKey===null && home.view.content.kind==="ranking")) {
       view.homeRefreshDisabled=home.cooling || Object.values(home.feed).some(section => section.busy);
       view.homeRefreshTitle=home.cooling?"刚刚更新，请稍后再试":home.forYouAvailable?"刷新为你推荐、音乐热门与新歌速递":"刷新音乐热门与新歌速递";
     }

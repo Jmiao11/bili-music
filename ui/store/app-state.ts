@@ -37,13 +37,15 @@ type HomeState = {
   loaded: boolean;
   loading: boolean;
   error: string;
+  generatedAt: number;
+  description: string;
   recommendationLoaded: boolean;
   recommendationLoading: boolean;
   recommendationError: string;
   userHint: string;
   aiHasKey: boolean | null;
   view: {
-    section: FeedSource | null;
+    section: FeedSource | "ai" | null;
     content: { kind: "mode" | "ranking" | "recommendations" };
     status: string | null;
     rankingError: { text: string } | null;
@@ -65,14 +67,14 @@ type HomeAdapter = {
 };
 
 function isHomePopular(home: HomeSnapshot): boolean {
-  return home.aiHasKey === false;
+  return home.aiHasKey !== null;
 }
 
 function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreOptions = {}) {
   const initial: { recent: ReturnType<typeof initialRecentState>; lyricsDisplay: ReturnType<typeof initialLyricsDisplayState>; playbackMessages: ReturnType<typeof initialPlaybackMessagesState>; playbackSession: PlaybackSessionState; playbackRequest: PlaybackRequestState; playbackQueue: ReturnType<typeof initialPlaybackQueueState>; playbackDisplay: ReturnType<typeof initialPlaybackDisplayState>; playbackSettings: ReturnType<typeof initialPlaybackSettingsState>; settings: ReturnType<typeof initialSettingsState>; pages: ReturnType<typeof initialPagesState>; home: HomeState; search: ReturnType<typeof initialSearchState>; library: ReturnType<typeof initialLibraryState>; collection: ReturnType<typeof initialCollectionState> } = { recent: initialRecentState(), lyricsDisplay: initialLyricsDisplayState(), playbackMessages: initialPlaybackMessagesState(), collection: initialCollectionState(), home: {
     update: { version: null, opening: false, error: false },
     feed: {ranking: emptyFeed(),newSongs: emptyFeed(),forYou: emptyFeed()}, cooling:false,newSongs:[], forYou:[], forYouAvailable: false, forYouSeeds: [], forYouNoSeedsDate: "", ranking: [], recommendations: [], loaded: false, loading: false,
-    error: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
+    error: "", generatedAt: 0, description: "", recommendationLoaded: false, recommendationLoading: false, recommendationError: "",
     userHint: "", aiHasKey: null,
     view: { section: null, content: { kind: "mode" }, status: null, rankingError: null, hintDisabled: null, hintText: null, refreshDisabled: null },
   }, search: initialSearchState(), library: initialLibraryState(), pages: initialPagesState(), settings: initialSettingsState(), playbackSettings: initialPlaybackSettingsState(), playbackDisplay: initialPlaybackDisplayState(), playbackQueue: initialPlaybackQueueState(), playbackRequest: options.playbackRequest ?? initialPlaybackRequestState(), playbackSession: options.playbackSession ?? initialPlaybackSessionState() };
@@ -84,11 +86,12 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       commit({ ...current, home: { ...current.home, ...fields, view: Object.keys(view).length ? { ...current.home.view, ...view } : current.home.view } });
     };
     const content = (kind: "mode" | "ranking" | "recommendations") => ({ kind });
-    function openHomeSection(section: FeedSource | null) {
-      if (home().view.section !== section && (section === null || isHomePopular(home()))) update({}, { section });
+    function openHomeSection(section: FeedSource | "ai" | null) {
+      if (home().view.section === section || (section === "ai" && !home().aiHasKey)) return;
+      if (section === null || home().aiHasKey !== null) update({}, { section, content: content(section === "ai" ? "recommendations" : "ranking") });
     }
-    const rankingVisible = () => isHomePopular(home());
-    const recommendationVisible = () => !isHomePopular(home());
+
+    const recommendationVisible = () => home().view.section === "ai" || home().aiHasKey === null;
 
     const clock = () => {
       if (!adapter.now) throw new Error("首页缺少时钟适配器");
@@ -134,7 +137,7 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
       const patchSection = (fields: Partial<FeedView>) => ({
         ...home().feed, [source]: { ...home().feed[source], ...fields },
       });
-      const contentView = () => home().aiHasKey === true ? {} : { content: content("ranking") };
+      const contentView = () => home().view.section === "ai" ? {} : { content: content("ranking") };
       const refreshDisabled = (feed: HomeSnapshot["feed"]) => home().aiHasKey === true
         ? home().view.refreshDisabled : home().cooling || Object.values(feed).some(section => section.busy);
       update({
@@ -206,9 +209,10 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         hintDisabled: true, refreshDisabled: true, status: "正在读取上次推荐…", content: content("recommendations"),
       });
       try {
-        const recommendations = (await adapter.invoke("get_saved_recommendations")).map(normalizeTrack);
+        const saved = await adapter.invoke("get_saved_recommendations");
+        const recommendations = saved.items.map(normalizeTrack);
         if (version !== recommendationRequestVersion) return;
-        update({ recommendations, recommendationLoaded: true, recommendationLoading: false }, {
+        update({ recommendations, generatedAt: saved.generated_at * 1000, description: saved.description ?? "", recommendationLoaded: true, recommendationLoading: false }, {
           status: recommendations.length > 0 ? `已加载 ${recommendations.length} 首上次推荐。` : "点击「生成推荐」获取你的专属推荐",
           hintDisabled: false, refreshDisabled: false,
           ...(recommendationVisible() ? { content: content("recommendations") } : {}),
@@ -223,17 +227,28 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
     }
 
     function loadRecommendation(): Promise<void> {
-      return home().aiHasKey === false ? loadRanking() : loadSavedRecommendations();
+      if (home().aiHasKey === null) return loadSavedRecommendations();
+      return Promise.all([loadRanking(), ...(home().aiHasKey ? [loadSavedRecommendations()] : [])]).then(() => {});
     }
 
+    let keyVersion = 0;
     async function refreshKey(cacheOnly = false): Promise<void> {
+      const version = ++keyVersion;
+      ++recommendationRequestVersion;
+      let aiHasKey: boolean | null;
       try {
-        const aiHasKey = !!(await adapter.invoke("get_ai_config")).hasKey;
-        update({ aiHasKey }, aiHasKey ? { section: null } : {});
+        aiHasKey = !!(await adapter.invoke("get_ai_config")).hasKey;
+      } catch {
+        aiHasKey = null;
       }
-      catch (_error) { update({ aiHasKey: null }, { section: null }); }
-      if(cacheOnly && home().aiHasKey===false) await loadRanking({cacheOnly:true});
-      else await loadRecommendation();
+      if (version !== keyVersion) return;
+      ++recommendationRequestVersion;
+      update({ aiHasKey, recommendationLoaded: false, recommendationLoading: false, recommendationError: "" }, {
+        section: home().view.section === "ai" && !aiHasKey ? null : home().view.section,
+        hintDisabled: false, hintText: "生成推荐",
+      });
+      if (aiHasKey === null) return;
+      await Promise.all([loadRanking({cacheOnly}), ...(aiHasKey ? [loadSavedRecommendations()] : [])]);
     }
 
     async function generateRecommendations({ forceRefresh = false, userHint = home().userHint }: { forceRefresh?: boolean; userHint?: string } = {}): Promise<void> {
@@ -253,11 +268,11 @@ function createApplicationStore(adapter: HomeAdapter, options: ApplicationStoreO
         const timeout: Promise<never> = new Promise((_, reject) => {
           timeoutId = adapter.setTimeout(() => reject(new Error("推荐耗时较长，请稍后重试。")), 95000);
         });
-        const tracks = await Promise.race([adapter.invoke("get_recommendations", hint ? { userHint: hint } : {}), timeout])
+        const saved = await Promise.race([adapter.invoke("get_recommendations", hint ? { userHint: hint } : {}), timeout])
           .finally(() => adapter.clearTimeout(timeoutId));
         if (version !== recommendationRequestVersion) return;
-        const recommendations = tracks.map(normalizeTrack);
-        update({ recommendations, recommendationLoaded: true, recommendationError: "", recommendationLoading: false }, {
+        const recommendations = saved.items.map(normalizeTrack);
+        update({ recommendations, generatedAt: saved.generated_at * 1000, description: saved.description ?? "", recommendationLoaded: true, recommendationError: "", recommendationLoading: false }, {
           status: recommendations.length > 0 ? `已生成 ${recommendations.length} 首推荐。` : "暂无推荐结果。",
           refreshDisabled: false, hintDisabled: false, hintText: "生成推荐", content: content("recommendations"),
         });

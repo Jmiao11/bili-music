@@ -66,12 +66,12 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
       <main :data-image-region-scheme="foreground?.regions.content" class="main-panel panel" :class="{ 'queue-drawer-sliding': !drawer.stage.hidden, 'queue-drawer-open': drawer.stage.open, 'queue-drawer-reserved': drawer.stage.opening || drawer.stage.open }" aria-labelledby="queue-heading">
         <section id="view-home" class="view" :class="{'is-active':shell.currentView === 'home','needs-setup':shell.homeNeedsSetup}" :hidden="shell.currentView !== 'home'" :data-home-mode="shell.homeMode">
           <div class="home-stage">
-            <header class="home-head" :hidden="snapshot.home.aiHasKey === false && snapshot.home.view.section !== null">
+            <header class="home-head" :hidden="snapshot.home.view.section !== null">
               <div class="home-title-block">
                 <div class="home-title-copy">
                   <span id="home-source-label" class="home-source-label" hidden>{{ shell.homeSource }}</span>
                   <h1 id="home-title">{{ shell.homeTitle }}</h1>
-                  <p class="home-subtitle">{{ snapshot.home.aiHasKey === false ? `${formatHomeDate(new Date(shell.homeDay))} · 每天自动更新` : shell.homeSubtitle }}</p>
+                  <p class="home-subtitle">{{ snapshot.home.aiHasKey !== null ? `${formatHomeDate(new Date(shell.homeDay))} · 每天自动更新` : shell.homeSubtitle }}</p>
                 </div>
               </div>
               <div class="home-actions">
@@ -81,8 +81,8 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
               </div>
             </header>
 
-            <HomeHint :main-window-refs="mainWindowRefs" :draft-bindings="draftBindings" :model="homeControls" :callbacks="pageCallbacks" />
-            <section v-if="snapshot.home.aiHasKey !== false" class="home-ranking-panel" aria-label="推荐列表">
+            <HomeHint v-if="snapshot.home.aiHasKey !== true" :main-window-refs="mainWindowRefs" :draft-bindings="draftBindings" :model="homeControls" :callbacks="pageCallbacks" />
+            <section v-if="snapshot.home.aiHasKey === null" class="home-ranking-panel" aria-label="推荐列表">
               <div class="home-ranking-bar">
                 <span id="home-list-label">{{ shell.homeList }}</span>
                 <span class="home-ranking-hint">点击条目开始播放</span>
@@ -98,7 +98,9 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             </section>
             <template v-else>
               <p id="home-ranking-status" class="sr-only" role="status" aria-live="polite">{{ shell.homeStatus }}</p>
-              <HomeDiscovery :home="snapshot.home" :items="snapshot.recent.items" :day="shell.homeDay" :list="snapshot.home.view.section === null ? null : lists[snapshot.home.view.section === 'ranking' ? 'home' : snapshot.home.view.section]" :callbacks="pageCallbacks" :focus-refs="mainWindowRefs">
+              <HomeDiscovery :home="snapshot.home" :items="snapshot.recent.items" :day="shell.homeDay" :list="snapshot.home.view.section === null ? null : lists[snapshot.home.view.section === 'ranking' || snapshot.home.view.section === 'ai' ? 'home' : snapshot.home.view.section]" :callbacks="pageCallbacks" :focus-refs="mainWindowRefs">
+                <template #ai-feedback><HomeSetupHint :model="homeControls" :callbacks="pageCallbacks" /></template>
+                <template #ai-input><HomeHint :main-window-refs="mainWindowRefs" :draft-bindings="draftBindings" :model="homeControls" :callbacks="pageCallbacks" /></template>
                 <template #default="{list, source}">
                   <div v-if="list" class="track-surface home-feed-tracks" :class="{ 'home-feed-no-pages': !list.rows.some(row => row.pageCount > 1) }">
                     <TrackColumns :list="homeFeeds[source].listId" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />

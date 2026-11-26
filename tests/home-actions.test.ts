@@ -75,7 +75,7 @@ test("home actions preserve saved read caching including an empty failed read", 
   const k = fixture();
   await k.store.actions.refreshAiKeyState();
   await k.store.actions.loadRecommendationHome();
-  assert.deepEqual(k.calls.map(call => call.command), ["get_ai_config", "get_saved_recommendations"]);
+  assert.deepEqual(k.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking", "get_music_ranking", "get_saved_recommendations"]);
 });
 
 test("home actions generation trims hint and releases its timer and controls on success and timeout", async () => {

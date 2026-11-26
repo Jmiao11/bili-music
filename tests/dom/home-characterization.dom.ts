@@ -89,17 +89,18 @@ test("home reads saved recommendations once and does not generate them automatic
     const saved = deferred();
     h.setResponse(async command => command === "get_ai_config" ? { hasKey: true } : saved.promise);
     const pending = h.module.refreshAiKeyState(); await h.flush();
-    assert.equal(h.nodes.homeRankingStatus.textContent, "正在读取上次推荐…");
-    assert.equal(h.nodes.homeHintApply.disabled, true);
-    assert.equal(h.nodes.homeRankingList.children.length, 8);
+    h.store.actions.openHomeSection("ai");
+    assert.equal(h.doc.querySelector("#home-ranking-status")?.textContent, "正在读取上次推荐…");
+    assert.equal(h.doc.querySelector<HTMLButtonElement>("#home-hint-apply")!.disabled, true);
+    assert.equal(h.doc.querySelector("#home-ranking-list")!.children.length, 8);
     saved.resolve([track]); await pending;
-    assert.equal(h.nodes.homeRankingStatus.textContent, "已加载 1 首上次推荐。");
-    assert.equal(h.nodes.homeHintApply.disabled, false);
-    assert.equal(h.nodes.homeTitle.textContent, "为你推荐");
+    assert.equal(h.doc.querySelector("#home-ranking-status")?.textContent, "已加载 1 首上次推荐。");
+    assert.equal(h.doc.querySelector<HTMLButtonElement>("#home-hint-apply")!.disabled, false);
+    assert.equal(h.doc.querySelector("#home-feed-title")?.textContent, "AI 推荐");
     assert.equal(h.doc.querySelector(".home-discovery"), null);
-    assert.equal(h.doc.querySelector(".home-feed-detail"), null);
+    assert.ok(h.doc.querySelector('.home-feed-detail[data-feed="ai"]'));
     await h.module.loadRecommendationHome();
-    assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_saved_recommendations"]);
+    assert.deepEqual(h.calls.map(call => call.command), ["get_ai_config", "get_music_ranking", "get_music_ranking", "get_music_ranking", "get_saved_recommendations"]);
   } finally { h.dispose(); }
 });
 
@@ -153,7 +154,8 @@ test("home Key changes keep late ranking results from replacing recommendation r
     assert.equal(h.nodes.homeTitle.textContent, "发现音乐");
     hasKey = true;
     await h.module.refreshAiKeyState();
-    assert.equal(h.nodes.homeTitle.textContent, "为你推荐");
+    assert.equal(h.nodes.homeTitle.textContent, "发现音乐");
+    h.store.actions.openHomeSection("ai");
     const list = h.doc.querySelector("#home-ranking-list")!;
     assert.equal(list.children.length, 1);
     const row = list.children[0];
@@ -203,6 +205,7 @@ test("home and search states stay isolated while ranking and recommendation clic
     assert.equal(h.states.playerState.queue.length, 0, "rendering does not start playback");
     hasKey = true;
     await h.module.refreshAiKeyState();
+    h.store.actions.openHomeSection("ai");
     const recommendation = h.doc.querySelector("#home-ranking-list") as typeof h.nodes.homeRankingList;
     recommendation.children[0].activate?.(0);
     assert.equal(h.played[1][0], "recommendation");
@@ -423,8 +426,9 @@ test("legacy listening records show For You first and use an independent twenty-
   assert.equal(h.calls.length, at, "当天收听记录变化无需自动拉取");
   key = true;
   await h.home.refreshAiKeyState();
-  assert.equal(h.doc.querySelector(".home-discovery, #home-for-you"),null);
-  assert.equal(h.nodes.homeTitle.textContent,"为你推荐");
+  await back();
+  assert.deepEqual([...h.doc.querySelectorAll(".home-feed-card")].map(card=>card.getAttribute("data-feed")), ["ai","forYou","ranking","newSongs"]);
+  assert.equal(h.nodes.homeTitle.textContent,"发现音乐");
   assert.deepEqual(h.calls.slice(at).map(call=>call.command),["get_ai_config","get_saved_recommendations"]);
 });
 
@@ -517,4 +521,71 @@ test("discovery recent preview hides when empty and plays through the full histo
   await h.fire(recent.querySelector(".home-text-button")!,"click");
   assert.equal(h.doc.querySelector<HTMLElement>("#view-recent")?.hidden,false);
   assert.equal(h.doc.querySelectorAll("#recent-list .track").length,12);
+});
+
+test("unified home refresh calls the three feeds once and never generates AI recommendations", async t => {
+  const h = await realFixture(); t.after(h.dispose);
+  const count = (cmd: string) => h.calls.filter(call => call.command === cmd).length;
+  const card = () => h.doc.querySelector('[data-feed="ai"]');
+  assert.equal(h.store.getState().home.aiHasKey, null);
+  assert.equal(card(), null);
+  h.reply(async cmd => cmd === "get_ai_config" ? {hasKey:true} : cmd === "get_saved_recommendations" ? [] : responses()(cmd));
+  await h.home.refreshAiKeyState();
+  assert.match(card()!.textContent!, /点击生成/);
+  assert.equal(card()!.querySelector(".home-feed-play"), null);
+  assert.equal(h.doc.querySelector('[data-feed="forYou"]'), null);
+  await h.advance(60_000);
+  const start = h.calls.length;
+  await h.fire(h.nodes.refreshRankingButton, "click");
+  assert.equal(count("get_recommendations"), 0);
+  assert.deepEqual(h.calls.slice(start).filter(c => c.command === "get_music_ranking").map(c => c.args.source), ["ranking","newSongs","forYou"]);
+});
+
+test("AI section restores the saved description, isolates playback and discards obsolete generations", async t => {
+  const h = await realFixture({playback:true}); t.after(h.dispose);
+  let hasKey = true;
+  let attempt = deferred();
+  const old = {version:1,items:[track],generated_at:Math.floor(h.clock()/1000),description:"上次的描述"};
+  h.reply(async cmd => cmd === "get_ai_config" ? {hasKey} : cmd === "get_saved_recommendations" ? old :
+    cmd === "get_recommendations" ? attempt.promise : responses()(cmd));
+  await h.home.refreshAiKeyState();
+  const q = (selector: string) => h.doc.querySelector<HTMLElement>(selector)!;
+  const open = async (source:string) => h.fire(q('[data-feed="'+source+'"] .home-feed-open'), "click");
+  const requests = () => h.calls.filter(c=>c.command === "get_recommendations").length;
+  assert.match(q('[data-feed="ai"] .home-feed-label').textContent!, /1 首 · 生成于/);
+  await open("ai");
+  assert.equal(q(".home-feed-seeds").textContent,"描述：上次的描述");
+  assert.equal(requests(),0);
+  await h.fire(q("#home-ranking-list .track"),"click",{detail:0});
+  assert.equal(h.store.getState().playbackQueue.queueSource,"recommendation");
+  assert.equal(q("#home-ranking-list .track").getAttribute("aria-current"),"true");
+  await h.fire(q(".home-feed-back"),"click"); await open("ranking");
+  assert.equal(h.doc.querySelector(".track[aria-current=true]"),null);
+  await h.fire(q(".home-feed-back"),"click"); await open("ai");
+  const generate = () => q("#home-hint-apply") as HTMLButtonElement;
+  await h.fire(generate(),"click");
+  assert.equal(generate().disabled,true);
+  await h.fire(generate(),"click");
+  assert.equal(requests(),1);
+  attempt.reject(Error("合成网络错误")); await h.microtasks();
+  assert.match(q(".home-feed-head #home-setup-sub").textContent!,/合成网络错误/);
+  assert.equal(q("#view-home").classList.contains("needs-setup"),false);
+  assert.equal(q(".home-feed-seeds").textContent,"描述：上次的描述");
+  assert.equal(q("#home-ranking-list .track-title").textContent,track.title);
+  for (const nextHasKey of [true,false]) {
+    attempt = deferred();
+    await h.fire(generate(),"click");
+    hasKey = nextHasKey;
+    h.window.dispatchEvent(new h.window.Event("ai-config-updated")); await h.microtasks();
+    attempt.resolve({...old, description:"失效请求",items:[]}); await h.microtasks();
+    assert.equal(h.store.getState().home.description,old.description);
+    assert.equal(h.store.getState().home.recommendations.length,1);
+  }
+  assert.equal(h.doc.querySelector(".home-feed-detail, [data-feed=ai]"),null);
+  assert.ok(q(".home-discovery-setup"));
+  hasKey=true;
+  h.window.dispatchEvent(new h.window.Event("ai-config-updated")); await h.microtasks();
+  await open("ai");
+  assert.equal(q(".home-feed-seeds").textContent,"描述：上次的描述");
+  assert.equal(requests(),3);
 });

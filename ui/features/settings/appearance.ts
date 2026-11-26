@@ -684,6 +684,11 @@ settingsModal.addEventListener("click", (event) => {
 installSettingsCallbacks({
   theme: value => applyTheme(value), slider: (kind,value) => { if(kind === "blur") setGlassBlur(value); else setBackgroundDim(value); },
   chooseBackground: async () => { await getSettingsActions().chooseBackground(); }, resetBackground: () => resetBackground(),
+  deleteAiKey: () => {
+    if (window.confirm("确定删除已保存的 API Key？服务地址、模型配置与历史推荐将保留。")) {
+      void getSettingsActions().deleteAiKey(() => window.dispatchEvent(new Event("ai-config-updated")));
+    }
+  },
   saveAi: saveAiConfig, testAi: testAiConnection, aiFormat: updateAiBaseUrlPlaceholder,
   source: async value => { await getSettingsActions().changeSource(value); }, quality: changeAudioQuality, cache: saveAudioCacheSettings,
   collection: (kind,value) => getSettingsActions().saveCollection(kind,value), clearCache: async () => { await getSettingsActions().clearCache(); },

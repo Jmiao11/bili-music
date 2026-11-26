@@ -30,7 +30,7 @@ function normalizeSettingsNumber(value: unknown, min: number, max: number, fallb
   }
   return Math.min(Math.max(number, min), max);
 }
-type SettingsCommand = "get_yt_dlp_availability" | "get_stream_source" | "set_stream_source" | "choose_background_image" | "load_background_image" | "get_audio_cache_settings" | "set_audio_cache_settings" | "get_audio_cache_usage" | "clear_audio_cache" | "get_shortcuts" | "set_shortcuts" | "get_ai_config" | "set_ai_config" | "test_ai_connection";
+type SettingsCommand = "get_yt_dlp_availability" | "get_stream_source" | "set_stream_source" | "choose_background_image" | "load_background_image" | "get_audio_cache_settings" | "set_audio_cache_settings" | "get_audio_cache_usage" | "clear_audio_cache" | "get_shortcuts" | "set_shortcuts" | "get_ai_config" | "set_ai_config" | "delete_ai_key" | "test_ai_connection";
 type SettingsPlatform = {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -640,6 +640,18 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
       });
     }
   }
+  async function deleteAiKey(onDeleted: () => void): Promise<void> {
+    aiView({ saveDisabled: true }, { request: "saving" });
+    try {
+      const config = await adapter.invoke("delete_ai_key");
+      aiView({ clearKeyVersion: read().view.ai.clearKeyVersion + 1, text: "已删除 API Key。" }, { hasKey: config.hasKey });
+      onDeleted();
+    } catch (error) {
+      aiView({ text: "删除 API Key 失败：" + error });
+    } finally {
+      aiView({ saveDisabled: false }, { request: "idle" });
+    }
+  }
   async function testAi(input: AiInput): Promise<void> {
     aiView({
       testDisabled: true, text: "正在测试 AI 连接…"
@@ -686,7 +698,7 @@ function createSettingsActions(read: () => SettingsSnapshot, commit: (next: Sett
   }
   function setDataBusy(kind: "backupExport" | "backupImport" | "history", busy: boolean): void { update({controls:{...read().controls,dataBusy:{...read().controls.dataBusy,[kind]:busy}}}); }
   return {
-    setDataBusy, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, setAudioQuality, restoreAudioQuality, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, testAi, setAiFormat, navigate, panel, setNotice: notice
+    setDataBusy, setTheme, setAccent, setSlider, applyImage, resetBackground: resetSettingsBackground, restoreBackground: restoreSettingsBackground, chooseBackground, refreshAvailability, restoreSource, changeSource, setAudioQuality, restoreAudioQuality, restoreCache, refreshCacheUsage, saveCache, clearCache, restoreCollection, saveCollection, beginRecording, cancelRecording, saveShortcut, loadShortcuts, restoreAi, saveAi, deleteAiKey, testAi, setAiFormat, navigate, panel, setNotice: notice
   };
 }
 export { accentChannels, createSettingsActions, initialSettingsState, normalizeSettingsAccent };

@@ -247,7 +247,12 @@ fn import_data_at<R: Read + Seek>(
     let (mut files, skipped) = read_import_files(input)?;
     let guard = crate::storage::lock_storage()?;
     complete_ai_key(&guard, root, &mut files)?;
-    import_files_at(&guard, root, files, skipped, write_file)
+    let imports_ai = files.iter().any(|(name, _)| name == AI_CONFIG_FILE);
+    let result = import_files_at(&guard, root, files, skipped, write_file)?;
+    if imports_ai {
+        crate::ai::invalidate_recommendations(&guard);
+    }
+    Ok(result)
 }
 
 fn complete_ai_key(

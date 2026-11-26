@@ -177,7 +177,8 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   get_ai_config: fixtureAiConfigViewSome,
   set_ai_config: fixtureAiConfigViewSome,
   test_ai_connection: fixtureAiConnectionTestResult,
-  get_saved_recommendations: [fixtureSearchVideoSome],
+  delete_ai_key: fixtureAiConfigViewNone,
+  get_saved_recommendations: {version:1,items:[fixtureSearchVideoSome],generated_at:1},
   get_lyrics_by_id: fixtureLyrics,
   search_lyrics_songs: [fixtureCandidate],
   clear_lyrics_cache: 1,
@@ -187,7 +188,7 @@ const commandResults: { [K in keyof CommandMap]: CommandMap[K]["result"] } = {
   get_lyrics_binding: fixtureLyricsBinding,
   set_lyrics_binding: null,
   clear_lyrics_binding: null,
-  get_recommendations: [fixtureSearchVideoSome],
+  get_recommendations: {version:1,items:[fixtureSearchVideoSome],generated_at:1,description:"合成"},
   export_data: "sample",
   import_data: "sample",
 } satisfies { [K in keyof CommandMap]: CommandMap[K]["result"] };

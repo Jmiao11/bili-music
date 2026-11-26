@@ -77,6 +77,8 @@ test("controls real DOM submits from the inline search button and keeps accessib
 
 test("controls real DOM home hint applies raw draft with trimmed request and opens AI setup", async t => {
   const h = await controlsSettingsFixture(); t.after(h.dispose);
+  await h.home.refreshAiKeyState();
+  await h.fire(h.doc.querySelector('[data-feed="ai"] .home-feed-open')!, "click");
   const hint = h.node<HTMLInputElement>("home-hint-input"); hint.value = "  想听纯音乐  ";
   await h.fire(hint, "keydown", { key: "Enter" });
   assert.equal(h.store.getState().home.userHint, "  想听纯音乐  ");
@@ -159,4 +161,26 @@ test("controls real DOM playlist toolbar dispatches unchanged library sessions",
     h.raf();
     await h.fire(h.node("close-library-modal-button"), "click");
   }
+});
+
+test("deleting a saved API Key requires confirmation and returns from AI to discovery", async t => {
+  const h = await controlsSettingsFixture(); t.after(h.dispose);
+  let hasKey = true, approved = false, confirms = 0;
+  h.window.confirm = () => { confirms++; return approved; };
+  h.reply(async (cmd,args) => {
+    if (cmd === "delete_ai_key") hasKey=false;
+    if (cmd === "get_ai_config" || cmd === "delete_ai_key") return {...await settingsReply("get_ai_config") as object, hasKey};
+    return settingsReply(cmd,args);
+  });
+  await h.home.refreshAiKeyState();
+  await h.fire(h.doc.querySelector('[data-feed="ai"] .home-feed-open')!, "click");
+  await h.open();
+  await h.fire(h.node("delete-ai-key-button"), "click");
+  assert.equal(h.calls.filter(c=>c.command==="delete_ai_key").length,0);
+  approved = true;
+  await h.fire(h.node("delete-ai-key-button"), "click");
+  assert.equal(confirms,2);
+  assert.equal(h.calls.filter(c=>c.command==="delete_ai_key").length,1);
+  assert.equal(h.doc.querySelector(".home-feed-detail, [data-feed=ai], #delete-ai-key-button"),null);
+  assert.ok(h.doc.querySelector(".home-discovery"));
 });

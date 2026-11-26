@@ -105,10 +105,12 @@ struct SearchIntent {
 }
 
 #[derive(Debug, Serialize)]
-struct RecommendationsFile {
+pub(crate) struct RecommendationsFile {
     version: u32,
     items: Vec<SearchVideo>,
     generated_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -116,6 +118,8 @@ struct StoredRecommendationsFile {
     version: u32,
     items: Vec<StoredSearchVideo>,
     generated_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -136,6 +140,7 @@ impl Default for RecommendationsFile {
             version: RECOMMENDATIONS_VERSION,
             items: Vec::new(),
             generated_at: 0,
+            description: None,
         }
     }
 }
@@ -168,6 +173,7 @@ impl<'de> Deserialize<'de> for RecommendationsFile {
                 })
                 .collect(),
             generated_at: stored.generated_at,
+            description: stored.description,
         })
     }
 }
@@ -216,18 +222,37 @@ pub fn get_ai_config() -> Result<AiConfigView, String> {
 }
 
 #[tauri::command]
-pub fn get_saved_recommendations() -> Result<Vec<SearchVideo>, String> {
-    let storage_guard = crate::storage::lock_storage()?;
-    let guard = &storage_guard;
-    let path = library_root()?.join(RECOMMENDATIONS_FILE);
-    Ok(read_saved_recommendations_from_path(guard, &path))
+pub(crate) fn get_saved_recommendations() -> Result<RecommendationsFile, String> {
+    let guard = crate::storage::lock_storage()?;
+    Ok(read_saved_recommendations_from_path(
+        &guard,
+        &library_root()?.join(RECOMMENDATIONS_FILE),
+    ))
 }
 
-pub(crate) fn save_recommendations(items: &[SearchVideo]) -> Result<(), String> {
-    let storage_guard = crate::storage::lock_storage()?;
-    let guard = &storage_guard;
-    let path = library_root()?.join(RECOMMENDATIONS_FILE);
-    write_recommendations_to_path(guard, &path, items)
+// Config changes and the final persistence check share the storage lock.
+static KEY_REVISION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+pub(crate) fn invalidate_recommendations(_guard: &crate::storage::StorageGuard) {
+    KEY_REVISION.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[tauri::command]
+pub(crate) fn delete_ai_key() -> Result<AiConfigView, String> {
+    let guard = crate::storage::lock_storage()?;
+    let path = ai_config_path(&guard)?;
+    delete_ai_key_at(&guard, &path)
+}
+
+fn delete_ai_key_at(
+    guard: &crate::storage::StorageGuard,
+    path: &Path,
+) -> Result<AiConfigView, String> {
+    let mut config = read_ai_config_from_path(guard, path)?;
+    config.api_key.clear();
+    write_ai_config(guard, path, &config)?;
+    invalidate_recommendations(guard);
+    Ok(config.view())
 }
 
 #[tauri::command]
@@ -247,10 +272,14 @@ pub fn set_ai_config(
     config.base_url = base_url;
     config.model = model;
     let api_key = api_key.trim();
-    if !api_key.is_empty() {
+    let key_changed = !api_key.is_empty() && api_key != config.api_key;
+    if key_changed {
         config.api_key = api_key.to_owned();
     }
     write_ai_config(guard, &ai_config_path(guard)?, &config)?;
+    if key_changed {
+        invalidate_recommendations(guard);
+    }
     Ok(config.view())
 }
 
@@ -316,11 +345,27 @@ pub async fn test_ai_connection(
     }
 }
 
-pub async fn generate_recommendations(
+pub(crate) async fn generate_recommendations(
     search: &SearchClient,
     user_hint: Option<String>,
-) -> Result<Vec<SearchVideo>, String> {
-    recommendation::generate(search, user_hint).await
+) -> Result<RecommendationsFile, String> {
+    use std::sync::atomic::Ordering;
+    let revision = KEY_REVISION.load(Ordering::SeqCst);
+    let items = recommendation::generate(search, user_hint.clone()).await?;
+    let result = RecommendationsFile {
+        items,
+        generated_at: now_unix_seconds(),
+        description: user_hint.filter(|s| !s.is_empty()),
+        ..Default::default()
+    };
+    let guard = crate::storage::lock_storage()?;
+    save_current_recommendations(
+        &guard,
+        &library_root()?.join(RECOMMENDATIONS_FILE),
+        &result,
+        revision,
+    )?;
+    Ok(result)
 }
 
 fn read_ai_config(guard: &crate::storage::StorageGuard) -> Result<AiConfig, String> {
@@ -684,33 +729,20 @@ fn write_ai_config(
 fn read_saved_recommendations_from_path(
     guard: &crate::storage::StorageGuard,
     path: &Path,
-) -> Vec<SearchVideo> {
-    read_json_or_default::<RecommendationsFile>(guard, path)
-        .map(|file| file.items)
-        .unwrap_or_default()
+) -> RecommendationsFile {
+    read_json_or_default(guard, path).unwrap_or_default()
 }
 
-fn write_recommendations_to_path(
+fn save_current_recommendations(
     guard: &crate::storage::StorageGuard,
     path: &Path,
-    items: &[SearchVideo],
+    result: &RecommendationsFile,
+    revision: u64,
 ) -> Result<(), String> {
-    #[derive(Serialize)]
-    struct RecommendationsFileRef<'a> {
-        version: u32,
-        items: &'a [SearchVideo],
-        generated_at: i64,
+    if revision != KEY_REVISION.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err("AI 配置已更改。".into());
     }
-
-    write_library_json_atomic(
-        guard,
-        path,
-        &RecommendationsFileRef {
-            version: RECOMMENDATIONS_VERSION,
-            items,
-            generated_at: now_unix_seconds(),
-        },
-    )
+    write_library_json_atomic(guard, path, result)
 }
 
 fn write_json_atomic<T: Serialize>(
@@ -914,8 +946,8 @@ mod tests {
     use super::{
         ai_request_error, chat_completion_with_config, filter_known_bvids, key_hint,
         parse_search_intents, read_ai_config_from_path, read_saved_recommendations_from_path,
-        write_ai_config, write_recommendations_to_path, AiConfig, ApiFormat, ChatMessage,
-        AI_CONFIG_FILE, VERSION,
+        save_current_recommendations, write_ai_config, AiConfig, ApiFormat, ChatMessage,
+        RecommendationsFile, AI_CONFIG_FILE, VERSION,
     };
     use crate::search::SearchVideo;
     use std::fs;
@@ -1073,10 +1105,44 @@ mod tests {
             pubdate: Some(1_700_000_000),
         }];
 
-        write_recommendations_to_path(&crate::storage::lock_storage().unwrap(), &path, &items)
-            .unwrap();
-        let saved =
-            read_saved_recommendations_from_path(&crate::storage::lock_storage().unwrap(), &path);
+        let result = RecommendationsFile {
+            items: items.to_vec(),
+            generated_at: 123,
+            description: Some("钢琴".into()),
+            ..Default::default()
+        };
+        let guard = crate::storage::lock_storage().unwrap();
+        let revision = super::KEY_REVISION.load(std::sync::atomic::Ordering::SeqCst);
+        save_current_recommendations(&guard, &path, &result, revision).unwrap();
+        let config_path = unique_temp_path("remove-api-key");
+        let config = AiConfig {
+            api_key: "synthetic".into(),
+            model: "test-model".into(),
+            ..Default::default()
+        };
+        write_ai_config(&guard, &config_path, &config).unwrap();
+        let view = super::delete_ai_key_at(&guard, &config_path).unwrap();
+        assert!(!view.has_key);
+        assert_eq!(view.model, config.model);
+        assert_eq!(view.base_url, config.base_url);
+        assert_eq!(view.api_format, config.view().api_format);
+        assert!(save_current_recommendations(
+            &guard,
+            &path,
+            &RecommendationsFile::default(),
+            revision
+        )
+        .is_err());
+        fs::remove_file(config_path).unwrap();
+        let saved = read_saved_recommendations_from_path(&guard, &path);
+        drop(guard);
+        assert_eq!(saved.generated_at, 123);
+        assert_eq!(saved.description.as_deref(), Some("钢琴"));
+        let mut legacy = serde_json::to_value(&saved).unwrap();
+        legacy.as_object_mut().unwrap().remove("description");
+        let restored: RecommendationsFile = serde_json::from_value(legacy).unwrap();
+        assert!(restored.description.is_none());
+        let saved = restored.items;
         assert_eq!(saved.len(), 1);
         assert_eq!(saved[0].bvid, items[0].bvid);
 
@@ -1085,6 +1151,7 @@ mod tests {
             &crate::storage::lock_storage().unwrap(),
             &path
         )
+        .items
         .is_empty());
         let _ = fs::remove_file(&path);
     }

@@ -130,7 +130,7 @@ async function fixture(options: { coverCounters?: boolean; queueLifecycle?: bool
     disconnect() { observed.clear(); platform.push({ operation: "disconnect" }); }
   }
   Object.defineProperty(window, "IntersectionObserver", { value: Observer, configurable: true });
-  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const value=reply(command,args); return command==="get_music_ranking"?value.then(result=>feedReply(command,args,result,epoch+now)):value; } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
+  Object.defineProperty(window, "__TAURI__", { value: { core: { invoke(command: string, args: Record<string, unknown> = {}) { calls.push({ command, args }); const value=reply(command,args); return ["get_music_ranking","get_saved_recommendations","get_recommendations"].includes(command)?value.then(result=>feedReply(command,args,result,epoch+now)):value; } }, event: { async listen(name: string, callback: (event:{payload?:unknown})=>void) { if(options.settingsPrivacy) ipcListeners.set(name,callback); platform.push({ operation: "tauri.listen", detail: name }); return () => platform.push({ operation: "tauri.unlisten", detail: name }); }, ...(options.settingsPrivacy ? {async emitTo(label:string,name:string,payload:unknown){emissions.push({label,name,payload});}} : {}) } } });
   for (const [name, value] of Object.entries({ __playlistCardRenders: cardRenders, __rootRowRenders: rowRenders, __rootRenderCounts: renderCounts, __rootFixtureBeforeMain: prepareRootInputs, __tracksHarness: harness, __tracksVueRecords: regions, window, document: doc, localStorage: window.localStorage, sessionStorage: window.sessionStorage, navigator: window.navigator, HTMLElement: window.HTMLElement, Element: window.Element, SVGElement: window.SVGElement, Node: window.Node, Event: window.Event, CustomEvent: window.CustomEvent, IntersectionObserver: Observer, ResizeObserver: Observer, MutationObserver: NativeMutationObserver, getComputedStyle: window.getComputedStyle.bind(window), requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame, performance: { now: () => now } })) install(name, value);
   if (options.playback) install("HTMLMediaElement", window.HTMLMediaElement);
   const microtasks = async () => { for (let i = 0; i < 40; i++) await Promise.resolve(); };
@@ -222,7 +222,7 @@ async function seed(h: Harness, source: Source, items = [track(1)]) {
   h.reply(command => command === "get_ai_config" ? Promise.resolve({ hasKey: source === "recommendation" }) : responses(items)(command));
   if (source === "search") { h.nodes.searchKeyword.value = "测试"; await h.search.runSearch(); }
   else await h.home.refreshAiKeyState();
-  if (source === "ranking") h.store.actions.openHomeSection("ranking");
+  if (source !== "search") h.store.actions.openHomeSection(source === "ranking" ? "ranking" : "ai");
   return source === "search" ? h.nodes.searchResults : h.doc.querySelector<HTMLUListElement>("#home-ranking-list")!;
 }
 
