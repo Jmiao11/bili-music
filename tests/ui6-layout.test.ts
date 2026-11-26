@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "./helpers/module-syntax.ts";
-import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn, trackColumnCapacities } from "../ui/features/tracks/track-column-state.ts";
+import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn } from "../ui/features/tracks/track-column-state.ts";
 import { effectiveImageMask } from "../ui/features/settings/dynamic-background.ts";
 
 test("long lists skip offscreen row painting without containing focus rings or insertion lines", () => {
@@ -30,11 +30,12 @@ test("image mode drops outlines and raises only the dark uniform mask for readab
   assert.equal(effectiveImageMask(40,"dark"),.65);
   assert.ok(Math.abs(effectiveImageMask(95,"dark")-.95)<1e-12);
 });
-test("non-title drag freezes rendered title, consumes only spacer, then stops", () => {
+test("divider drag changes only the adjacent fixed width and stops at both limits", () => {
   const properties=new Map<string,string>(),listeners=new Map<string,(event: unknown)=>void>();
   class Node {
     dataset: Record<string,string>={}; parentElement: Node | null=null;
     width=0; left=0; contains() {return true;}
+    getAttribute(){return '80';}
     getBoundingClientRect(){return {width:this.width,left:this.left};}
     closest(){return this;}
   }
@@ -45,20 +46,20 @@ test("non-title drag freezes rendered title, consumes only spacer, then stops", 
     setPointerCapture(){} hasPointerCapture(){return true;} releasePointerCapture(){}
   }
   const header=new Header(),handle=new Node();handle.dataset.trackColumn="uploader";handle.parentElement=cells[".column-uploader"];
-  const context=vm.createContext({Element:Node,HTMLElement:Node,shallowReactive:(x:unknown)=>x,TRACK_COLUMN_DEFAULTS,TRACK_COLUMN_LIMITS,TRACK_COLUMNS_KEY,parseTrackColumnWidths,resizeTrackColumn,trackColumnCapacities,
+  const context=vm.createContext({Element:Node,HTMLElement:Node,shallowReactive:(x:unknown)=>x,TRACK_COLUMN_DEFAULTS,TRACK_COLUMN_LIMITS,TRACK_COLUMNS_KEY,parseTrackColumnWidths,resizeTrackColumn,
     document:{documentElement:{style:{setProperty:(k:string,v:string)=>properties.set(k,v)}}},localStorage:{getItem:()=>null,setItem(){}},
     window:{addEventListener:(k:string,f:(event:unknown)=>void)=>listeners.set(k,f),removeEventListener:(k:string)=>listeners.delete(k)},console});
   vm.runInContext(readFileSync(fileURLToPath(new URL("../ui/app/track-columns.ts",import.meta.url)),"utf8"),context);
   context.event={target:handle,currentTarget:header,button:0,isPrimary:true,pointerId:1,clientX:500,clientY:0,timeStamp:1000};
   vm.runInContext("initializeTrackColumns();trackColumnCallbacks.pointerdown(event)",context);
-  assert.equal(properties.get("--track-title-width"),"400px");
+  assert.equal(properties.get("--track-title-width"),undefined);
   const move=listeners.get("pointermove");assert.ok(move);
-  move({pointerId:1,clientX:520,clientY:0});
+  move({pointerId:1,clientX:480,clientY:0});
   assert.equal(properties.get("--track-uploader-width"),"180px");
-  assert.equal(properties.get("--track-title-width"),"400px");
-  move({pointerId:1,clientX:600,clientY:0});assert.equal(properties.get("--track-uploader-width"),"192px");
+  assert.equal(properties.get("--track-title-width"),undefined);
+  move({pointerId:1,clientX:200,clientY:0});assert.equal(properties.get("--track-uploader-width"),"320px");
   for(const [name,value] of [["pages",72],["plays",80],["duration",72]])assert.equal(properties.get(`--track-${name}-width`),`${value}px`);
-  move({pointerId:1,clientX:490,clientY:0});assert.equal(properties.get("--track-uploader-width"),"150px");
+  move({pointerId:1,clientX:900,clientY:0});assert.equal(properties.get("--track-uploader-width"),"80px");
   listeners.get("pointerup")?.({pointerId:1});assert.equal(listeners.size,0);
 });
 

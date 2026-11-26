@@ -189,7 +189,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
           </div>
         </section>
 
-        <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists', 'library-search-view': snapshot.library.view.playlistDetail || shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length}" :hidden="shell.currentView !== 'playlists'" :onScroll="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length ? libraryFilterCallbacks.scroll : undefined">
+        <section id="view-playlists" class="view library-view library-search-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'" :onScroll="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length ? libraryFilterCallbacks.scroll : undefined">
           <header class="list-head library-head" :hidden="snapshot.library.view.playlistDetail">
             <div>
               <h1>我的歌单</h1>
@@ -197,7 +197,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             </div>
             <PlaylistCreateActions :callbacks="pageCallbacks" />
           </header>
-          <LibraryFilterBar v-if="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :count="shell.libraryFilter.terms.length ? lists.playlistSearch.total ?? 0 : snapshot.library.playlists.reduce((sum, playlist) => sum + playlist.items.length, 0)" placeholder="搜索歌单和歌曲" :callbacks="libraryFilterCallbacks" />
+          <LibraryFilterBar v-if="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :playlist-count="lists.directories.rows.length" :count="shell.libraryFilter.terms.length ? lists.playlistSearch.total ?? 0 : snapshot.library.playlists.reduce((sum, playlist) => sum + playlist.items.length, 0)" placeholder="搜索歌单和歌曲" :callbacks="libraryFilterCallbacks" />
           <div class="playlist-layout">
             <div class="playlist-directory-surface" :class="{'playlist-directory-filtered':shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length}" :hidden="snapshot.library.view.playlistDetail || shell.libraryFilter.scope === 'playlists' && Boolean(shell.libraryFilter.terms.length) && !lists.directories.rows.length">
               <h2 v-if="shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length && lists.directories.rows.length" class="playlist-filter-heading">歌单</h2>

@@ -185,8 +185,8 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
     const header = h.doc.getElementById("home-ranking-list-columns")!;
     const handle = (column: string) => header.querySelector<HTMLElement>(`[data-track-column="${column}"]`)!;
     assert.deepEqual(h.listeners.filter(l => l.target === header).map(l => l.type), ["pointerdown", "keydown"]);
-    assert.equal(handle("title").getAttribute("aria-valuenow"), "240");
-    assert.equal(handle("title").getAttribute("aria-valuetext"), "自适应");
+    assert.equal(header.querySelector(".column-title")?.textContent, "标题");
+    assert.equal(handle("title"), null);
     assert.equal(h.listeners.filter(l => l.target instanceof h.window.Element && l.target.matches(".column-resize")).length, 0);
     const captured = new Set<number>();
     Object.defineProperties(header, {
@@ -204,10 +204,10 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
     h.rowRenders.length = 0; h.regions.length = 0; const renders = probe.calls;
     await pointer(handle("uploader"), "pointerdown", 400);
     assert.equal(captured.has(7), true);
-    await pointer(h.window, "pointermove", 360);
+    await pointer(h.window, "pointermove", 440);
     assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "120px");
     assert.equal(h.window.localStorage.getItem("bilibili-music.track-columns"), null);
-    await pointer(h.window, "pointerup", 360);
+    await pointer(h.window, "pointerup", 440);
     assert.equal(captured.size, 0);
     await pointer(h.window, "pointermove", 100);
     assert.equal(h.doc.documentElement.style.getPropertyValue("--track-uploader-width"), "120px");
@@ -217,17 +217,17 @@ test("delegated columns drag keyboard reset and restart keep all lists untouched
     await pointer(h.window, "pointerup", 500);
     await pointer(handle("plays"), "pointerdown", 500);
     assert.equal(handle("plays").getAttribute("aria-valuenow"), "80");
-    for (const [column, expected] of [["pages", "82"], ["title", "250"], ["duration", "82"]] as const) {
+    for (const [column, expected, defaultWidth] of [["pages", "82", "72"], ["plays", "90", "80"], ["duration", "82", "72"]] as const) {
       await pointer(handle(column), "pointerdown", 600);
-      await pointer(h.window, "pointermove", 610);
-      await pointer(h.window, "pointerup", 610);
+      await pointer(h.window, "pointermove", 590);
+      await pointer(h.window, "pointerup", 590);
       assert.equal(handle(column).getAttribute("aria-valuenow"), expected);
       await h.fire(handle(column), "keydown", { key: "ArrowRight" });
       assert.equal(handle(column).getAttribute("aria-valuenow"), String(Number(expected) + 8));
       await pointer(handle(column), "pointerdown", 700);
       await pointer(h.window, "pointerup", 700);
       await pointer(handle(column), "pointerdown", 700);
-      assert.equal(handle(column).getAttribute(column === "title" ? "aria-valuetext" : "aria-valuenow"), column === "title" ? "自适应" : String(column === "pages" ? 72 : 72));
+      assert.equal(handle(column).getAttribute("aria-valuenow"), defaultWidth);
     }
     for (const separator of h.doc.querySelectorAll('[data-track-column="uploader"]')) assert.equal(separator.getAttribute("aria-valuenow"), "120");
     assert.equal(commits, 0); assert.equal(probe.calls, renders);

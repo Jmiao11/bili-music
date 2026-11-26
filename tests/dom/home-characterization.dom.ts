@@ -429,7 +429,7 @@ test("legacy listening records show For You first and use an independent twenty-
   await back();
   assert.deepEqual([...h.doc.querySelectorAll(".home-feed-card")].map(card=>card.getAttribute("data-feed")), ["ai","forYou","ranking","newSongs"]);
   assert.equal(h.nodes.homeTitle.textContent,"发现音乐");
-  assert.deepEqual(h.calls.slice(at).map(call=>call.command),["get_ai_config","get_saved_recommendations"]);
+  assert.deepEqual(h.calls.slice(at).map(call=>call.command),["get_ai_config","get_saved_recommendations","get_play_history"]);
 });
 
 test("For You failure hints preserve stale tracks and share the request-based cooldown", async t => {

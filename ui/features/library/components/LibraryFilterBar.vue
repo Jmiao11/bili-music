@@ -2,7 +2,7 @@
 import Icon from "../../../app/components/Icon.vue";
 import type { libraryFilterCallbacks } from "../../tracks/root-lists.ts";
 
-defineProps<{ draft: string; filtered: boolean; count: number; placeholder: string; callbacks: typeof libraryFilterCallbacks }>();
+defineProps<{ draft: string; filtered: boolean; count: number; playlistCount?: number; placeholder: string; callbacks: typeof libraryFilterCallbacks }>();
 </script>
 
 <template>
@@ -13,6 +13,8 @@ defineProps<{ draft: string; filtered: boolean; count: number; placeholder: stri
         @input="callbacks.input(($event.target as HTMLInputElement).value)" @keydown.esc.stop.prevent="callbacks.clear()" />
       <button v-if="draft" class="library-filter-clear" type="button" aria-label="清除搜索" @click="callbacks.clear()">×</button>
     </label>
-    <span class="library-filter-count" aria-live="polite">{{ filtered ? '找到 ' : '共 ' }}{{ count }} 首</span>
+    <span class="library-filter-count" aria-live="polite">{{ playlistCount === undefined
+      ? `${filtered ? '找到' : '共'} ${count} 首`
+      : filtered ? `找到 ${playlistCount} 个歌单、${count} 首` : `${playlistCount} 个歌单 · ${count} 首` }}</span>
   </div>
 </template>

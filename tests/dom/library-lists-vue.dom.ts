@@ -90,12 +90,15 @@ test("playlist overview filters cards and distinct playlist occurrences, caps ro
   ];
   libraryReplies(h, playlists);
   await navLibrary(h, "playlists"); await h.advance(800);
+  const count = () => h.doc.querySelector("#view-playlists .library-filter-count")?.textContent;
+  assert.equal(count(), "2 个歌单 · 211 首");
   const calls = h.calls.length;
   for (let i = 0; i < 10; i++) { await queryLibrary(h, "夜曲"); await queryLibrary(h, ""); }
   await queryLibrary(h, "夜曲");
   const cards = h.doc.querySelector("#playlists-list")!;
   const songs = h.doc.querySelector("#playlist-search-tracks")!;
   assert.equal(h.calls.length, calls);
+  assert.equal(count(), "找到 1 个歌单、210 首");
   assert.deepEqual([...cards.querySelectorAll(".playlist-name")].map(node => node.textContent), ["夜曲精选"]);
   assert.equal(cards.querySelector("li")?.getAttribute("draggable"), "false");
   assert.equal(songs.children.length, 200);

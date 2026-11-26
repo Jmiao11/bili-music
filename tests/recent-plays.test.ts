@@ -4,12 +4,14 @@ import { createApplicationStore } from "../ui/store/app-state.ts";
 import type { HomeAdapter } from "../ui/store/app-state.ts";
 import { formatPlayedAt, recentItems, recentPage } from "../ui/features/recent/recent-state.ts";
 import { installRecentController } from "../ui/features/recent/recent-controller.ts";
+import { feedReply } from "./helpers/home-feed.ts";
 
 const item = (bvid: string, time = "1", cid: number | null = 22): CommandContract.PlayHistoryItem => ({ bvid, lastPlayedAt: time, title: "曲目", uploader: "作者", thumbnailUrl: "", durationSeconds: 90, count: 1, lastCid: cid, lastPage: 2, lastPartName: "第二P" });
 function fixture() {
   const calls: { command: string; args: unknown }[] = [];
   let reply: (command: string) => Promise<unknown> = async command => command === "get_play_history" ? [item("BV1234567890")] : command === "check_audio_cache" ? [true] : null;
-  const adapter: HomeAdapter = { invoke: ((command: string, args: unknown) => { calls.push({ command, args }); return reply(command); }) as HomeAdapter["invoke"], setTimeout: () => 0, clearTimeout() {}, report() {} };
+  const now = 1700000000000;
+  const adapter: HomeAdapter = { now: () => now, invoke: (async (command: string, args: Record<string, unknown>) => { calls.push({ command, args }); return feedReply(command, args, await reply(command), now); }) as HomeAdapter["invoke"], setTimeout: () => 0, clearTimeout() {}, report() {} };
   const store = createApplicationStore(adapter, { freeze: true });
   return { store, calls, reply(fn: typeof reply) { reply = fn; } };
 }
@@ -71,5 +73,22 @@ test("page controller owns online/offline listeners only while recent is visible
   (target as unknown as { navigator: { onLine: boolean } }).navigator.onLine = true;
   target.dispatchEvent(new Event("online"));
   assert.equal(h.store.getState().recent.online, false);
+  stop();
+});
+
+test("the home preview reads local history after AI configuration settles, including when a key exists", async () => {
+  const h = fixture();
+  let hasKey = true;
+  h.reply(async command => command === "get_ai_config" ? { hasKey } : command === "get_play_history" ? [item("BV1234567890")] : []);
+  const stop = installRecentController(h.store, new EventTarget() as Window);
+  const historyReads = () => h.calls.filter(call => call.command === "get_play_history").length;
+  assert.equal(historyReads(), 0);
+  await h.store.actions.refreshAiKeyState();
+  assert.equal(historyReads(), 1);
+  assert.equal(h.store.getState().recent.items[0]?.bvid, "BV1234567890");
+  assert.equal(h.calls.some(call => call.command === "check_audio_cache"), false);
+  hasKey = false;
+  await h.store.actions.refreshAiKeyState();
+  assert.equal(historyReads(), 1);
   stop();
 });

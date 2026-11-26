@@ -109,7 +109,7 @@ G0 当前199条、首个trackchange索引155，Git/LF SHA256 `d73c88d40e8f9f1d0b
 
 旧 G0 fixture 以 Git 历史为准，不另行存档。G0 变更的报告写明新旧条数、首个 trackchange 索引与 SHA256。
 
-UI-2b补充的列宽文档根写入端口、设置初始化与9条授权监听变更，见 [列宽与G0登记](design/track-columns.md)。该端口只更新九项列宽偏好/余量CSS变量；表头ARIA由Vue显示模型管理，列表不重绘。
+列宽文档根写入端口、设置初始化和历史监听登记见 [列宽与 G0 登记](design/track-columns.md)。当前端口更新四项固定列的文档根 CSS 变量。表头 ARIA 由 Vue 管理，调整列宽时列表零重绘。
 
 ## 验证与交付
 
@@ -143,7 +143,7 @@ settings-view.ts 沿既有回调将外观状态交给 dynamic-background.ts，�
 
 AppShell装配稳定observeFloatingSurface回调，FloatingBackdrop以typed ref交回自己的节点。几何控制器仅观察parentElement，以同一个捕获阶段scroll监听处理自身及正文后代滚动并调用既有refreshPresentation；不提交store、不改FIX-1、不新增启动阶段。背景装饰只在浮层打开时挂载，隐藏时清理；浮层背景沿视口定位，不再单独采样前景；浮层clip仅为Vue style属性，不由控制器写宿主。新增条件ResizeObserver和局部scroll经UI-6单项授权；dark启动未挂载背景，G0事件不增减。Image/canvas离屏端口未新增。
 
-track-columns.ts非标题拖动先读取可见标题、数值列和末端spacer几何，临时CSS投影采用当前布局；只持久化用户拖动列与冻结后的标题，不改变存储格式。复用既有pointer capture、委托pointerdown/keydown及按下期间window监听；松开恢复常规偏好投影。原生写权仍九项文档根列宽/容量变量，仅数字来源扩展为当前几何或偏好。
+UI-12 起，track-columns.ts 读取所选固定列的实际宽度作为拖动起点，复用指针捕获、表头委托事件及拖动期间的 window 监听。松开后保存所选列，沿用既有偏好格式。标题和其他列的宽度由共享 CSS 模板计算。
 
 搜索页激活后绑定历史输入与关闭事件。再次点击当前搜索侧栏项时，由搜索控制器将结果容器的 `scrollTop` 置为 0，并同步分页滚动基准。
 

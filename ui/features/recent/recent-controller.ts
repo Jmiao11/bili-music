@@ -7,7 +7,7 @@ function installRecentController(store: ApplicationStore, target: Window): () =>
     const state = store.getState();
     const nextVisible = state.settings.session.currentView === "recent" && !state.collection.active;
     const nextPreview = state.settings.session.currentView === "home" && !state.collection.active &&
-      state.home.aiHasKey === false && state.home.view.section === null;
+      state.home.aiHasKey !== null && state.home.view.section === null;
     const nextCleared = state.settings.view.cache.status?.text === "缓存已清空";
     const refresh = state.settings.audioQuality !== quality || nextCleared && !cleared;
     quality = state.settings.audioQuality; cleared = nextCleared;

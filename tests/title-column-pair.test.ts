@@ -3,44 +3,93 @@ import assert from "node:assert/strict";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "./helpers/module-syntax.ts";
-import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn, trackColumnCapacities } from "../ui/features/tracks/track-column-state.ts";
-function fixture(title=400,uploader=160,spacer=0,fitted=false,hidden=false) {
-  const properties=new Map<string,string>(),listeners=new Map<string,(e:unknown)=>void>();let saved:string|null=null;
-  class Node {dataset:Record<string,string>={};parentElement:Node|null=null;width=0;contains(){return true;}closest(){return this;}getBoundingClientRect(){return {width:this.width,left:0};}}
-  const cells:Record<string,Node>={};for(const [name,width] of Object.entries({title,uploader,pages:fitted?66:72,play:hidden?0:fitted?74:80,duration:fitted?66:72,spacer})){const cell=new Node();cell.width=width;cells[".column-"+name]=cell;}
-  class Header extends Node {querySelector(name:string){return cells[name];}setPointerCapture(){}hasPointerCapture(){return true;}releasePointerCapture(){}}
-  const header=new Header(),handle=new Node();handle.dataset.trackColumn="title";handle.parentElement=cells[".column-title"];
-  const context=vm.createContext({Element:Node,HTMLElement:Node,shallowReactive:(x:unknown)=>x,TRACK_COLUMN_DEFAULTS,TRACK_COLUMN_LIMITS,TRACK_COLUMNS_KEY,parseTrackColumnWidths,resizeTrackColumn,trackColumnCapacities,
-    document:{documentElement:{style:{setProperty:(k:string,v:string)=>properties.set(k,v)}}},localStorage:{getItem:()=>saved,setItem:(_k:string,v:string)=>{saved=v;}},
-    window:{addEventListener:(k:string,f:(e:unknown)=>void)=>listeners.set(k,f),removeEventListener:(k:string)=>listeners.delete(k)},console});
-  vm.runInContext(readFileSync(fileURLToPath(new URL("../ui/app/track-columns.ts",import.meta.url)),"utf8"),context);
-  const press=(time=1000)=>{context.event={target:handle,currentTarget:header,button:0,isPrimary:true,pointerId:1,clientX:500,clientY:0,timeStamp:time};vm.runInContext("trackColumnCallbacks.pointerdown(event)",context);};
-  vm.runInContext("initializeTrackColumns()",context);
-  return {properties,press,move:(delta:number)=>listeners.get("pointermove")?.({pointerId:1,clientX:500+delta,clientY:0}),finish:()=>listeners.get("pointerup")?.({pointerId:1}),saved:()=>JSON.parse(saved??"null"),listeners};
+import { TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn } from "../ui/features/tracks/track-column-state.ts";
+
+function fixture(limit = 320, preferences = { ...TRACK_COLUMN_DEFAULTS }) {
+  const properties = new Map<string, string>();
+  const listeners = new Map<string, (event: unknown) => void>();
+  let saved = JSON.stringify(preferences);
+  class Node {
+    dataset = { trackColumn: "uploader" };
+    parentElement: Node | null = null;
+    getAttribute() { return "80"; }
+    contains() { return true; }
+    closest() { return this; }
+    getBoundingClientRect() {
+      return { width: Math.min(limit, parseFloat(properties.get("--track-uploader-width")!)) };
+    }
+    setPointerCapture() {}
+    hasPointerCapture() { return true; }
+    releasePointerCapture() {}
+  }
+  const header = new Node(), handle = new Node();
+  handle.parentElement = new Node();
+  const context = vm.createContext({
+    Element: Node, HTMLElement: Node, shallowReactive: (value: unknown) => value,
+    TRACK_COLUMN_DEFAULTS, TRACK_COLUMN_LIMITS, TRACK_COLUMNS_KEY, parseTrackColumnWidths, resizeTrackColumn,
+    document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } },
+    localStorage: { getItem: () => saved, setItem: (_key: string, value: string) => { saved = value; } },
+    window: { addEventListener: (key: string, callback: (event: unknown) => void) => listeners.set(key, callback), removeEventListener: (key: string) => listeners.delete(key) },
+    console,
+  });
+  vm.runInContext(readFileSync(fileURLToPath(new URL("../ui/app/track-columns.ts", import.meta.url)), "utf8"), context);
+  vm.runInContext("initializeTrackColumns()", context);
+  const press = (time = 1000) => {
+    context.event = { target: handle, currentTarget: header, button: 0, isPrimary: true, pointerId: 1, clientX: 500, clientY: 0, timeStamp: time };
+    vm.runInContext("trackColumnCallbacks.pointerdown(event)", context);
+  };
+  return {
+    properties, listeners, press,
+    move: (delta: number) => listeners.get("pointermove")?.({ pointerId: 1, clientX: 500 + delta, clientY: 0 }),
+    finish: () => listeners.get("pointerup")?.({ pointerId: 1 }),
+    saved: () => parseTrackColumnWidths(saved),
+    visible: () => handle.parentElement!.getBoundingClientRect().width,
+  };
 }
-test("auto title with zero spacer trades width with uploader in both directions and clamps each boundary",()=>{
-  const f=fixture();f.press();assert.equal(f.properties.get("--track-title-width"),"400px");
-  f.move(-80);assert.equal(f.properties.get("--track-title-width"),"320px");assert.equal(f.properties.get("--track-uploader-width"),"240px");
-  f.move(40);assert.equal(f.properties.get("--track-title-width"),"440px");assert.equal(f.properties.get("--track-uploader-width"),"120px");
-  f.move(300);assert.equal(f.properties.get("--track-title-width"),"460px");assert.equal(f.properties.get("--track-uploader-width"),"100px");
-  f.move(-300);assert.equal(f.properties.get("--track-title-width"),"240px");assert.equal(f.properties.get("--track-uploader-width"),"320px");
-  for(const [name,width] of [["pages",72],["plays",80],["duration",72]])assert.equal(f.properties.get(`--track-${name}-width`),`${width}px`);
-  f.finish();assert.equal(f.saved().title,240);assert.equal(f.saved().uploader,320);assert.equal(f.listeners.size,0);
-});
-test("title/uploader exchange stops when either column reaches its boundary and never uses spacer",()=>{
-  const f=fixture(260,310);f.press();f.move(-100);assert.equal(f.properties.get("--track-title-width"),"250px");assert.equal(f.properties.get("--track-uploader-width"),"320px");f.finish();
-  const g=fixture(400,100,64);g.press();g.move(50);assert.equal(g.properties.get("--track-title-width"),"400px");assert.equal(g.properties.get("--track-uploader-width"),"100px");g.finish();
-});
-test("double press on title still restores auto sizing",()=>{
-  const f=fixture();f.press();f.finish();f.press(1100);assert.equal(f.properties.get("--track-title-width"),"100%");assert.equal(f.saved().title,"auto");
+
+test("the title boundary adjusts only the uploader preference in either direction", () => {
+  const f = fixture();
+  f.press();
+  assert.equal(f.properties.has("--track-title-width"), false);
+  for (const [delta, width] of [[-80, 240], [40, 120], [300, 80], [-300, 320]]) {
+    f.move(delta);
+    assert.equal(f.visible(), width);
+    assert.equal(f.saved().uploader, 160);
+  }
+  f.finish();
+  assert.deepEqual(f.saved(), { ...TRACK_COLUMN_DEFAULTS, uploader: 320 });
+  assert.equal(f.listeners.size, 0);
 });
 
-test("an explicit pair resize keeps fitted neighboring tracks on release; a stationary press leaves their preferences alone",()=>{
-  const f=fixture(400,140,0,true);f.press();f.move(20);f.finish();
-  assert.equal(f.properties.get("--track-pages-width"),"66px");assert.equal(f.saved().pages,66);assert.equal(f.saved().uploader,120);
-  const g=fixture(400,140,0,true);g.press();g.finish();assert.equal(g.saved().pages,72);assert.equal(g.saved().uploader,160);
+test("the chosen width stops at the fitted limit and release saves that width", () => {
+  const f = fixture(190);
+  f.press(); f.move(-100);
+  assert.equal(f.visible(), 190);
+  f.move(-200);
+  assert.equal(f.visible(), 190);
+  f.finish();
+  assert.equal(f.saved().uploader, 190);
+  assert.equal(f.visible(), 190);
 });
 
-test("a hidden numeric column keeps its valid saved preference after pair resizing",()=>{
-  const f=fixture(400,160,0,false,true);f.press();f.move(20);f.finish();assert.equal(f.saved().plays,80);assert.deepEqual(parseTrackColumnWidths(JSON.stringify(f.saved())),f.saved());
+test("double press restores the fixed column to its default", () => {
+  const f = fixture(320, { ...TRACK_COLUMN_DEFAULTS, title: 400, uploader: 120 });
+  f.press(); f.finish(); f.press(1100);
+  assert.equal(f.visible(), 160);
+  assert.equal(f.saved().title, 400);
+});
+
+test("a stationary press and a change back to the start preserve the preference on a narrow list", () => {
+  const f = fixture(140);
+  f.press(); f.finish();
+  assert.deepEqual(f.saved(), TRACK_COLUMN_DEFAULTS);
+  f.press(1500); f.move(50); f.move(0); f.finish();
+  assert.deepEqual(f.saved(), TRACK_COLUMN_DEFAULTS);
+});
+
+test("resizing a fitted column preserves all other saved preferences", () => {
+  const f = fixture(140);
+  f.press(); f.move(20); f.finish();
+  assert.deepEqual(f.saved(), { ...TRACK_COLUMN_DEFAULTS, uploader: 120 });
+  assert.equal(f.properties.get("--track-plays-width"), "80px");
 });
