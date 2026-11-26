@@ -3,6 +3,11 @@ import type { ApplicationSnapshot } from "../../store/application-store.ts";
 export type PageSelection = { startPage?: CommandContract.VideoPage; pages?: CommandContract.VideoPage[] };
 export type TrackRowModel = Readonly<{
   creatorTitle?: string;
+  titleParts?: readonly import("../library/library-entry.ts").TitlePart[];
+  collectionHits?: number;
+  fromPlaylist?: string;
+  filterDragDisabled?: boolean;
+  localArtwork?: boolean;
   collection?: import("../library/library-entry.ts").CollectionEntry;
   key: string; index: number; search: boolean; video: Readonly<CommandContract.TrackSnapshotInput & { playCount?: number | null; pubdate?: number | null }>;
   playCountText: string; pubdateText: string; active: boolean; favorited: boolean; pageCount: number; unavailableReason: string;
@@ -19,4 +24,4 @@ export type TrackRowModel = Readonly<{
 
 export type LibraryDragVisual = Readonly<{ sourceKey: string | null; targetKey: string | null; direction: "before" | "after" | null; touched: ReadonlySet<string> }>;
 export type LibraryDragHandlers = Readonly<{ capture(event: MouseEvent): void; start(event: DragEvent, index: number, key: string): void; over(event: DragEvent, index: number, key: string): void; leave(event: DragEvent, key: string): void; drop(event: DragEvent, index: number): void; end(): void }>;
-export type PlaylistRowModel = Readonly<{ key: string; name: string; count: number; selected: boolean; dragClass?: string; handlers: LibraryDragHandlers; index: number; items: ApplicationSnapshot["library"]["favorites"]; start: number; onPlay(): void; onChoose(): void }>;
+export type PlaylistRowModel = Readonly<{ key: string; name: string; count: number; selected: boolean; dragClass?: string; handlers: LibraryDragHandlers | null; localArtwork?: boolean; index: number; items: ApplicationSnapshot["library"]["favorites"]; start: number; onPlay(): void; onChoose(): void }>;

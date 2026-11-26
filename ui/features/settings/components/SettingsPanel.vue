@@ -206,11 +206,11 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
           </label>
           <label class="settings-field" for="ai-model-input">
             <span>模型</span>
-            <input id="ai-model-input" v-field="field('aiModelInput')" class="settings-input" type="text" autocomplete="off" placeholder="gpt-4o-mini" />
+            <span class="settings-input-frame"><input id="ai-model-input" v-field="field('aiModelInput')" class="settings-input" type="text" autocomplete="off" placeholder="gpt-4o-mini" /></span>
           </label>
           <label class="settings-field" for="ai-api-key-input">
             <span>API Key</span>
-            <input id="ai-api-key-input" :ref="draftRef" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" />
+            <span class="settings-input-frame"><input id="ai-api-key-input" :ref="draftRef" class="settings-input" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 key" /></span>
           </label>
           <label class="settings-field" for="ai-base-url-input">
             <span>Base URL<span
@@ -234,7 +234,7 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
                       <li>智谱 Anthropic：open.bigmodel.cn/api/anthropic/v1</li>
                       <li>百炼：dashscope.aliyuncs.com/compatible-mode/v1</li>
                     </ul></span></span></span>
-            <input id="ai-base-url-input" :placeholder="field('aiBaseUrlInput').placeholder ?? 'https://api.openai.com/v1'" v-field="field('aiBaseUrlInput')" class="settings-input" type="url" autocomplete="off" />
+            <span class="settings-input-frame"><input id="ai-base-url-input" :placeholder="field('aiBaseUrlInput').placeholder ?? 'https://api.openai.com/v1'" v-field="field('aiBaseUrlInput')" class="settings-input" type="url" autocomplete="off" /></span>
           </label>
           <small class="setting-note">鼠标悬浮 Base URL 旁的“?”可查看填写说明</small>
           <div class="setting-actions">

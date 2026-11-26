@@ -109,12 +109,6 @@ body {
   user-select: text;
 }
 
-.mini-notice-more:focus-visible,
-.mini-notice-full:focus-visible {
-  outline: 1px solid var(--mini-text);
-  outline-offset: 1px;
-}
-
 .mini-track {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 26px;
@@ -261,6 +255,7 @@ body {
 .mini-icon-play { transform: translateX(1px); }
 .mini-favorite.is-favorited { color: var(--text); background: var(--mini-control); }
 .mini-icon-button:focus-visible, .mini-notice-more:focus-visible, .mini-notice-full:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mini-shell :is(button, [tabindex]):focus:not(:focus-visible) { outline: 0; }
 #mini-notice, .mini-notice-full { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-size: 12px; }
 
 /* UI-4: the main-window palette and image travel through mini-player-state. */

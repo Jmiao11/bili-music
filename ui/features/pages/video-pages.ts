@@ -17,6 +17,7 @@ let activePageCountLookups = 0;
 let lastPageCountLookupStartedAt = Number.NEGATIVE_INFINITY;
 let pageCountLookupTimer: ReturnType<typeof window.setTimeout> | null = null;
 let pageCacheLookupScheduled = false;
+const suspendedRowLookups = new WeakSet<HTMLElement>();
 let pagesMounted = false;
 let modalPlayCallback: ((selection: Required<PageSelection>) => void) | null = null;
 
@@ -57,7 +58,7 @@ async function loadCachedVideoPagesBatch(): Promise<void> {
       continue;
     }
     for (const target of targets) {
-      if (target.isConnected) {
+      if (target.isConnected && !suspendedRowLookups.has(target)) {
         observePageCount(target, bvid);
       }
     }
@@ -273,7 +274,14 @@ function createTrackActivationSession(item: HTMLElement, playButton: HTMLButtonE
     badge(trigger: HTMLElement) { if (openDetails) openDetails(trigger); else pageModalOpeners.get(playButton)?.(trigger); },
   };
 }
-function observeTrackRow(item: HTMLElement, bvid: string): void { queueCachedVideoPagesLookup(item, bvid); }
+function observeTrackRow(item: HTMLElement, bvid: string): void {
+  suspendedRowLookups.delete(item);
+  queueCachedVideoPagesLookup(item, bvid);
+}
+function suspendTrackRowLookup(item: HTMLElement): void {
+  suspendedRowLookups.add(item);
+  unobserveTrackRow(item);
+}
 function unobserveTrackRow(item: HTMLElement): void {
   pageCountObserver?.unobserve(item);
   for (const targets of [pendingPageCacheTargets, observedPageCountTargets, visiblePageCountTargets]) {
@@ -323,4 +331,4 @@ function getPagesActions() {
   }
   return store.actions.pages;
 }
-export { bindTrackActivation, changeDisabledPages, closePagesModal, createTrackActivationSession, getPagesSnapshot, observeTrackRow, openCurrentPagesModal, unobserveTrackRow };
+export { bindTrackActivation, changeDisabledPages, closePagesModal, createTrackActivationSession, getPagesSnapshot, observeTrackRow, openCurrentPagesModal, suspendTrackRowLookup, unobserveTrackRow };

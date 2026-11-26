@@ -19,6 +19,19 @@ test("native search scroll exception rejects other offsets", () => {
   }
 });
 
+test("native focus presentation exception rejects unrelated document attributes", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-focus-guard-"));
+  try {
+    const config = path.join(root, "scripts/typecheck"), app = path.join(root, "ui/app");
+    fs.mkdirSync(config, { recursive: true }); fs.mkdirSync(app, { recursive: true });
+    fs.writeFileSync(path.join(config, "tsconfig.main.json"), JSON.stringify({ compilerOptions: { lib: ["ES2023", "DOM"] }, include: ["../../ui"] }));
+    fs.writeFileSync(path.join(app, "main.ts"), 'document.documentElement.toggleAttribute("data-other", true);');
+    assert.throws(() => checkNativeWrites(root), /Native UI write: ui\/app\/main.ts:1: document.documentElement.toggleAttribute\("data-other", true\)/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("native writes baseline: appearance and purge status preserve last actual writer", async t => {
   const h = await fixture({ playback:true }); t.after(h.dispose);
   const status = h.doc.getElementById("appearance-status")!;

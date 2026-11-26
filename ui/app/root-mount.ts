@@ -14,7 +14,7 @@ import { h, render } from "vue";
 import { initializeStartupPlatform } from "./startup-platform.ts";
 import { initializeApplicationStore, readApplicationStore } from "../store/application-store.ts";
 import type { ApplicationSnapshot } from "../store/application-store.ts";
-import { installRootRefresh, projectRootLists } from "../features/tracks/root-lists.ts";
+import { installRootRefresh, projectRootLists, readLibraryFilter } from "../features/tracks/root-lists.ts";
 import { createSettingsPlatform } from "../features/settings/settings-adapter.ts";
 import { invoke } from "../platform/runtime-api.ts";
 import { collectionCallbacks } from "../features/collections/collection-port.ts";
@@ -49,7 +49,7 @@ function renderSnapshot(snapshot: ApplicationSnapshot): void {
     (pagesModalList?.contains(document.activeElement) || document.activeElement === pagesModalRestoreAll);
   lastPages = modals.pages;
   const drawer = projectDrawer(snapshot.playbackQueue, readQueueDrawerStage());
-  render(h(App, { drawer, drawerCallbacks:queueDrawerCallbacks, mainWindowRefs,draftBindings,shell:projectShell(snapshot, window.Date.now()), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(),foreground:readImageForegroundPresentation(drawer.stage.open), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
+  render(h(App, { drawer, drawerCallbacks:queueDrawerCallbacks, mainWindowRefs,draftBindings,shell:projectShell(snapshot, window.Date.now(), readLibraryFilter(snapshot)), stages:readShellStages(),sidebar:readSidebarPresentation(),maximized:readMaximizedPresentation(),background:readDynamicBackgroundPresentation(),foreground:readImageForegroundPresentation(drawer.stage.open), modals, libraryCallbacks, pagesCallbacks, settingsCallbacks, settingsControls:projectSettingsControls(snapshot.settings,document.documentElement.dataset.platform),homeControls: projectHomeControls(snapshot.home), pageCallbacks, snapshot, callbacks: playbackCallbacks, collectionCallbacks, lists, playback: projectRootPlayback(snapshot) }), host);
   syncQueueDrawer(drawer);
   if (pageFocus) pagesModalClose?.focus({preventScroll:true});
 }

@@ -4,6 +4,7 @@ import Icon from "../../../app/components/Icon.vue";
 import type { PropType } from "vue";
 import type { TrackRowModel } from "../track-list-model.ts";
 import { displayThumbnailUrl, formatDuration } from "../../../shared/track-utils.ts";
+import { localLibraryArtwork } from "../../library/library-entry.ts";
 
 function collectionDate(timestamp: string): string { const date = new Date(Number(timestamp)); return Number.isNaN(date.getTime()) ? timestamp : date.toLocaleDateString("zh-CN"); }
 
@@ -17,13 +18,21 @@ export default defineComponent({
     onBeforeUnmount(() => props.row.onNodes(null, null));
     return () => {
       const row = props.row, video = row.video;
+      const thumbnail = row.localArtwork ? localLibraryArtwork(video.thumbnailUrl) : video.thumbnailUrl;
+      const title = [
+        ...(row.titleParts?.map(part => part.match ? h("span", { class: "library-title-match" }, part.text) : part.text) ?? [video.title || video.bvid]),
+        ...(row.collectionHits ? [h("small", { class: "library-match-detail" }, "合集内 " + row.collectionHits + " 首匹配")] : []),
+      ];
+      const uploader = row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid;
       const content = [
-        h("span", { class: "track-cover" }, [video.thumbnailUrl
-          ? h("img", { src: row.thumbnailSrc ?? displayThumbnailUrl(video.thumbnailUrl), alt: "", ".loading": "lazy", ".referrerPolicy": "no-referrer", draggable: row.draggable ? false : undefined })
+        h("span", { class: "track-cover" }, [thumbnail
+          ? h("img", { src: row.thumbnailSrc ?? displayThumbnailUrl(thumbnail), alt: "", ".loading": "lazy", ".referrerPolicy": "no-referrer", draggable: row.draggable || row.filterDragDisabled ? false : undefined })
           : h("span", { class: "cover-placeholder" })]),
-        h("span", { class: "track-meta" }, [h("span", { class: "track-title" }, row.cached ? [h("span", { class: "track-title-text" }, video.title || video.bvid), h("span", { class: "track-cached", title: "已缓存,可离线播放" }, [h(Icon, { name: "bolt", size: 12 })])] : video.title || video.bvid), row.search
+        h("span", { class: "track-meta" }, [h("span", { class: "track-title" }, row.cached ? [h("span", { class: "track-title-text" }, title), h("span", { class: "track-cached", title: "已缓存,可离线播放" }, [h(Icon, { name: "bolt", size: 12 })])] : title), row.search
           ? h("span", { class: "track-creator", title: row.creatorTitle }, [h("span", { class: "track-up" }, row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid), h("span", { class: "track-pubdate" }, row.pubdateText)])
-          : h("span", { class: "track-up" }, row.collection ? `更新于 ${collectionDate(row.collection.snapshot.fetchedAt)}` : video.uploader || video.bvid)]),
+          : h("span", { class: "track-up" }, row.fromPlaylist
+            ? [uploader, h("small", { class: "library-match-detail", title: row.fromPlaylist }, " · " + row.fromPlaylist)]
+            : uploader)]),
         ...(row.showPlayCount === false ? [] : [h("span", { class: "track-play" }, row.playCountText)]),
         h("span", { class: "track-duration" }, row.collection ? `${row.collection.videoCount} 个视频` : row.durationText ?? (video.durationSeconds ? formatDuration(video.durationSeconds) : "0:00")),
         row.active
@@ -39,7 +48,7 @@ export default defineComponent({
         h("button", { type: "button", class: "track-action favorite-button" + (row.favorited ? " is-favorited" : ""), "data-favorite-bvid": row.collection ? undefined : video.bvid, title: row.collection ? row.favorited ? "取消收藏合集" : "收藏合集" : row.favorited ? "取消收藏" : "收藏", "aria-label": row.collection ? row.favorited ? "取消收藏合集" : "收藏合集" : row.favorited ? "取消收藏" : "收藏", onDblclick: row.collection ? withModifiers(() => {}, ["stop"]) : undefined, onClick: withModifiers(() => row.onFavorite(), ["stop"]) }, [h("span", { class: "sr-only", "aria-hidden": "true" }, row.favorited ? "♥" : "♡"), h(Icon, { name: "heart" })]),
         h("button", { type: "button", class: "track-action", title: row.playlistId ? "从歌单移除" : "加入歌单", "aria-label": row.playlistId ? "从歌单移除" : "加入歌单", onDblclick: row.collection ? withModifiers(() => {}, ["stop"]) : undefined, onClick: withModifiers(() => row.playlistId ? row.onRemove?.() : row.onAdd(), ["stop"]) }, [h("span", { class: "sr-only", "aria-hidden": "true" }, row.playlistId ? "−" : "+"), h(Icon, { name: row.playlistId ? "minus" : "plus" })]),
       ];
-      return h("li", {"data-page-count-bvid":row.pageCountBvid, title: row.needsNetwork ? "需要联网" : undefined, class: "track-row" + (row.needsNetwork ? " needs-network" : "") + (row.unavailableReason ? " is-unavailable" : "") + (row.dragClass ? " " + row.dragClass : ""), draggable: row.draggable, onClickCapture: row.onCapture, onDblclickCapture: row.onCapture, onDragstart: row.onDragStart, onDragover: row.onDragOver, onDragleave: row.onDragLeave, onDrop: row.onDrop, onDragend: row.onDragEnd, ref: itemRef, onDblclick: row.onDoubleClick }, [
+      return h("li", {"data-page-count-bvid":row.pageCountBvid, title: row.filterDragDisabled ? "搜索时不可调整顺序" : row.needsNetwork ? "需要联网" : undefined, class: "track-row" + (row.needsNetwork ? " needs-network" : "") + (row.unavailableReason ? " is-unavailable" : "") + (row.dragClass ? " " + row.dragClass : ""), draggable: row.draggable, onClickCapture: row.onCapture, onDblclickCapture: row.onCapture, onDragstart: row.onDragStart, onDragover: row.onDragOver, onDragleave: row.onDragLeave, onDrop: row.onDrop, onDragend: row.onDragEnd, ref: itemRef, onDblclick: row.onDoubleClick }, [
         h("button", {"aria-busy":row.playPagesVersion === undefined ? undefined : "true","data-pages-request-version":row.playPagesVersion, type: "button", class: "track", [row.search ? "data-result-index" : "data-library-index"]: String(row.index), "data-bvid": row.collection ? undefined : video.bvid, ...(row.active ? { "aria-current": "true" } : {}), ref: buttonRef, onClick: row.onClick }, content),
         h("span", { class: "track-actions" }, controls),
       ]);

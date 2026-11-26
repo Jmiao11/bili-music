@@ -1,5 +1,33 @@
 import { expectVideo } from "./helpers/library-entry.ts";
 import assert from "node:assert/strict";
+import { libraryEntryMatch, libraryFilterTerms, libraryTitleParts, matchesLibraryTerms } from "../ui/features/library/library-entry.ts";
+
+test("library filtering normalizes width and case and requires all words across local fields", () => {
+  const terms = libraryFilterTerms("  ＰＩＡＮＯ \t 夜曲   ");
+  assert.deepEqual(terms, ["piano", "夜曲"]);
+  assert.equal(matchesLibraryTerms(terms, "夜曲", "Piano Studio"), true);
+  assert.equal(matchesLibraryTerms(terms, "夜曲", "Studio", "Ｐｉａｎｏ"), true);
+  assert.equal(matchesLibraryTerms(terms, "夜曲", "Studio"), false);
+  assert.deepEqual(libraryFilterTerms("　 ̇  "), ["̇"]);
+  assert.deepEqual(libraryFilterTerms("　 \t  "), []);
+});
+
+test("library title highlights preserve source text through combining marks and NFKC expansion", () => {
+  assert.deepEqual(libraryTitleParts("前 聽Ａﬀe\u0301 夜曲", libraryFilterTerms("affé 夜曲")), [
+    { text: "前 聽", match: false }, { text: "Ａﬀé", match: true }, { text: " ", match: false }, { text: "夜曲", match: true },
+  ]);
+  assert.deepEqual(libraryTitleParts("abcabc", ["abc", "bc"]), [{ text: "abcabc", match: true }]);
+  assert.equal(libraryTitleParts("夜曲", ["作者"]), undefined);
+});
+
+test("collections match their own title or count locally matching member titles", () => {
+  const collection = { kind: "collection" as const, title: "钢琴合集", snapshot: { items: [{ title: "夜曲 1" }, { title: "夜曲 2" }, { title: "海风" }] } };
+  assert.equal(libraryEntryMatch(collection, ["钢琴"], ""), 0);
+  assert.equal(libraryEntryMatch(collection, ["夜曲"], "私人收藏"), 2);
+  assert.equal(libraryEntryMatch(collection, ["夜曲", "2"], ""), 1);
+  assert.equal(libraryEntryMatch(collection, ["私人"], "私人收藏"), -1);
+  assert.equal(libraryEntryMatch(collection, ["夜曲"]), -1);
+});
 import { test } from "node:test";
 import { createApplicationStore } from "../ui/store/app-state.ts";
 import type { HomeAdapter } from "../ui/store/app-state.ts";

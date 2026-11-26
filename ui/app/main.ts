@@ -1,6 +1,7 @@
 import { installQueueDrawerPlayback } from "../features/playback/queue-drawer.ts";
 import { clearPlaybackQueue, playListItem, playQueueIndex, removeQueueEntry } from "../features/playback/playback-core.ts";
 import { installRecentController } from "../features/recent/recent-controller.ts";
+import { focusLibraryFilter, installLibraryFilter } from "../features/tracks/root-lists.ts";
 import { readApplicationStore } from "../store/application-store.ts";
 import {finishPagesTransition} from "../features/pages/pages-view.ts";
 import { installPageCallbacks, pageCallbacks } from "./root-controls.ts";
@@ -17,13 +18,14 @@ import { initializeRootLists, playHomeTrack } from "../features/tracks/track-lis
 import { checkForUpdate, openUpdateDownload, getApplicationStore, getHomeSnapshot, loadHomeRanking, loadRecommendationHome, loadRecommendations, refreshAiKeyState, setHomeHint } from "../features/home/home.ts";
 import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
-import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
+import { cancelLibraryFilterDrag, choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "../features/pages/video-pages.ts";
 import { clearSavedSearchHistory, closeSearchHistory, closeSearchHistoryFromOutside, deleteSearchHistory, enterSearchView, getSearchSnapshot, initializeSearchState, onSearchFilterKey, onSearchHistoryKey, onSearchScroll, readLastSearchKeyword, refreshSearchFromSidebar, runSearch, selectSearchHistory, setSearchDivision, setSearchSort, showSearchHistory, updateMusicTabs } from "../features/search/search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, savePlaybackStateOnUnload, updateQueueUi } from "../features/playback/playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled, setActiveView } from "../features/settings/appearance.ts";
 initializeRootLists();
 installRecentController(readApplicationStore(), window);
+installLibraryFilter(readApplicationStore(), cancelLibraryFilterDrag);
 initPlaybackDiagnostics();
 initPlaybackNotice();
 
@@ -181,8 +183,19 @@ pagesModal?.addEventListener("transitionend", (event) => {
     finishPagesTransition();
   }
 });
+function setPointerFocus(pointer: boolean): void {
+  document.documentElement.toggleAttribute("data-pointer-focus", pointer);
+}
+let watchingPointerFocus = false;
 window.addEventListener("keydown", (event) => {
+  setPointerFocus(false);
+  // Chromium can carry keyboard focus visibility through a click on the focused card.
+  if (!watchingPointerFocus) {
+    watchingPointerFocus = true;
+    window.addEventListener("pointerdown", () => setPointerFocus(true), { capture: true, passive: true });
+  }
   keepFocusInLibraryModal(event);
+  if (focusLibraryFilter(event)) return;
   if (onSearchHistoryKey(event)) return;
   onSearchFilterKey(event, pageCallbacks);
   if (event.key === "Escape") {

@@ -14,6 +14,21 @@ test("controls real DOM preserves initial settings search hint and playlist mark
   assert.equal(h.doc.querySelectorAll("[data-sort-mode]").length, 3);
 });
 
+test("focus presentation follows keyboard and pointer without a startup pointer listener", async t => {
+  const h = await controlsSettingsFixture(); t.after(h.dispose);
+  const shell = h.doc.documentElement;
+  const pointerListeners = () => h.listeners.filter(item => item.target === h.window && item.type === "pointerdown").length;
+  const initial = pointerListeners();
+  assert.equal(shell.hasAttribute("data-pointer-focus"), false);
+  await h.fire(h.window, "keydown", { key: "Tab" });
+  assert.equal(pointerListeners(), initial + 1);
+  await h.fire(h.node("search-button"), "pointerdown");
+  assert.equal(shell.hasAttribute("data-pointer-focus"), true);
+  await h.fire(h.window, "keydown", { key: "Tab" });
+  assert.equal(shell.hasAttribute("data-pointer-focus"), false);
+  assert.equal(pointerListeners(), initial + 1);
+});
+
 test("controls real DOM keeps search draft through input composition submits divisions sorting and playback", async t => {
   const h = await controlsSettingsFixture(); t.after(h.dispose);
   const draft = h.node<HTMLInputElement>("search-keyword"); draft.value = "  中文草稿  ";

@@ -1,6 +1,7 @@
 import {readPlaybackRevealVersion} from "./shell-stages.ts";
 import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
+import type { readLibraryFilter } from "../features/tracks/root-lists.ts";
 
 function restoredSearchLabel(savedAt: number | null, now: number): string {
   if (savedAt === null) return "";
@@ -16,7 +17,7 @@ function createShellProjection() {
     searchStatus:"搜索结果会显示在这里。",searchRestored:"",resultHidden:false,queueCount:"0 首",favoritesStatus:"收藏的歌曲会显示在这里。",favoritesCount:"0 首",playlistsStatus:"创建歌单，把喜欢的歌放在一起。",playlistTitle:"选择一个歌单",playlistMeta:"歌单里的歌曲会显示在这里。",
     libraryTitle:"加入歌单",librarySubtitle:"选择一个歌单，或新建后加入。",libraryStatus:"",appearanceStatus:"",purgeBusy:false,pagesTitle:"选择分P",pagesSub:"",pagesStatus:"",restoreHidden:true,restoreDisabled:false,restoreText:"全部恢复",
     currentView:"home"};
-  return (snapshot:ApplicationSnapshot, now: number) => {
+  return (snapshot:ApplicationSnapshot, now: number, libraryFilter: ReturnType<typeof readLibraryFilter>) => {
     const {home,search,library,pages,settings}=snapshot;
     if(home !== previous?.home) {
       const before=previous?.home, content=home.view.content;
@@ -73,7 +74,7 @@ function createShellProjection() {
     if (snapshot.collection.active) view.currentView="collection";
     else if (previous?.collection.active) view.currentView=settings.session.currentView ?? "home";
     previous=snapshot;
-    return {...view};
+    return {...view, libraryFilter};
   };
 }
 export { createShellProjection };

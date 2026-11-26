@@ -1,10 +1,10 @@
 import { rowDragHandlers } from "../../shared/controller-runtime.ts";
 import { installModalBindings } from "../../app/root-modals.ts";
-import { refreshRootLists, setRootPlaylistList } from "../tracks/root-lists.ts";
+import { readLibraryFilter, refreshRootLists, setRootPlaylistList } from "../tracks/root-lists.ts";
 import { isLibraryDragClickSuppressed } from "./library-state.ts";
 import type { LibrarySnapshot } from "./library-state.ts";
 import { favoritesList, playlistTracks, playlistsList } from "../../platform/main-window-refs.ts";
-import type { LibraryDragHandlers, LibraryDragVisual, PlaylistRowModel } from "../tracks/track-list-model.ts";
+import type { LibraryDragHandlers, LibraryDragVisual, PageSelection, PlaylistRowModel } from "../tracks/track-list-model.ts";
 import { activeLibraryIndex, renderLibraryTrackRows } from "../tracks/track-list-ui.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { renderLibrarySnapshot } from "./library-view.ts";
@@ -13,6 +13,7 @@ import { currentPlayableTrack, playListItem } from "../playback/playback-core.ts
 import { getPlaybackMessagesActions } from "../playback/playback-messages.ts";
 import { libraryQueueEntries } from "../playback/playback-queue-state.ts";
 import type { CollectionEntry } from "./library-entry.ts";
+import { matchesLibraryTerms } from "./library-entry.ts";
 
 let libraryMounted = false;
 type DragKind = keyof LibrarySnapshot["drags"];
@@ -36,11 +37,26 @@ function finishLibraryDrag(kind: DragKind, save = false): void {
   if (libraryDragVisuals?.has(kind)) setLibraryDragVisual(kind, { sourceKey: null, targetKey: null, direction: null });
   getLibraryActions().finishDrag(kind, performance.now(), save);
 }
+function cancelLibraryFilterDrag(): void {
+  const { drags } = getLibrarySnapshot();
+  for (const kind of ["favorites", "playlistItems", "playlists"] as const) {
+    if (drags[kind].drag) finishLibraryDrag(kind);
+  }
+}
+function playPlaylistEntry(playlist: LibrarySnapshot["playlists"][number], index: number, selection?: PageSelection): void {
+  if (isLibraryDragClickSuppressed(getLibrarySnapshot(), "playlistItems", performance.now())) return;
+  playListItem("playlist", libraryQueueEntries(playlist.items), index, { playlistId: playlist.id, ...(selection ?? {}) });
+}
 function libraryDragHandlers(kind: DragKind, playlistId = ""): LibraryDragHandlers {
   return rowDragHandlers({
     horizontal: kind === "playlists",
     suppressed: () => isLibraryDragClickSuppressed(getLibrarySnapshot(), kind, performance.now()),
-    blocked: () => getLibrarySnapshot().drags[kind].saving,
+    blocked: () => {
+      const state = getApplicationStore().getState();
+      const { scope, terms } = readLibraryFilter(state);
+      const inFilter = kind === "playlistItems" ? scope.startsWith("playlist:") : scope === kind;
+      return state.library.drags[kind].saving || Boolean(inFilter && terms.length);
+    },
     start(index, key) {
       setLibraryDragVisual(kind, { sourceKey: key, targetKey: null, direction: null });
       getLibraryActions().startDrag(kind, index, kind === "playlistItems" ? playlistId : undefined);
@@ -78,11 +94,13 @@ function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationS
   });
   const selected = library.playlists.find(p => p.id === library.selectedPlaylistId) ?? library.playlists[0];
   if (playlistTracks) renderLibraryTrackRows(playlistTracks, state, selected?.items ?? (emptyLibraryTracks ??= []), "playlist", selected?.id ?? "", playlistsUnavailable ?? library.unavailableBvids, libraryDragVisuals?.get("playlistItems") ?? null, libraryDragHandlers("playlistItems", selected?.id), (index, selection) => {
-    if (!selected || isLibraryDragClickSuppressed(getLibrarySnapshot(), "playlistItems", performance.now())) return;
-    playListItem("playlist", libraryQueueEntries(selected.items), index, { playlistId: selected.id, ...(selection ?? {}) });
+    if (selected) playPlaylistEntry(selected, index, selection);
   });
   if (!playlistsList) return;
-  const visual = libraryDragVisuals?.get("playlists"), inputs = [library.playlists, library.selectedPlaylistId, visual];
+  const filter = readLibraryFilter(state);
+  const terms = filter.scope === "playlists" && filter.terms.length ? filter.terms : null;
+  const localArtwork = filter.scope === "playlists" && filter.pauseLookups;
+  const visual = libraryDragVisuals?.get("playlists"), inputs = [library.playlists, library.selectedPlaylistId, visual, terms, localArtwork];
   const queue = state.playbackQueue;
   const playing = queue.queueSource === "playlist" ? queue.queue[queue.currentIndex] : null;
   const playbackInputs = [playing && queue.playlistId, playing?.entryId, playing?.bvid];
@@ -90,18 +108,18 @@ function projectLibraryLists(state: ReturnType<ReturnType<typeof getApplicationS
   if (sameCards && playbackInputs.every((value, index) => value === playlistPlaybackInputs?.[index])) return;
   playlistCardInputs = inputs;
   playlistPlaybackInputs = playbackInputs;
-  const handlers = libraryDragHandlers("playlists");
+  const handlers = terms ? null : libraryDragHandlers("playlists");
   playlistCards = library.playlists.map((playlist, index) => {
     const start = Math.max(0, activeLibraryIndex(queue, "playlist", playlist.id, playlist.items));
     const before = playlistCards[index];
     if (sameCards) return before.start === start ? before : { ...before, start };
-    return { key: playlist.id, name: playlist.name, count: playlist.items.length, selected: playlist.id === library.selectedPlaylistId, index, handlers,
+    return { key: playlist.id, name: playlist.name, count: playlist.items.length, selected: playlist.id === library.selectedPlaylistId, index, handlers, localArtwork,
       items: playlist.items, start,
       onPlay: () => playListItem("playlist", libraryQueueEntries(playlist.items), 0, { playlistId: playlist.id }),
       onChoose: () => getLibraryActions().choosePlaylist(playlist.id),
       dragClass: visual?.sourceKey === playlist.id ? "is-dragging" : visual?.targetKey === playlist.id ? "is-drop-" + visual.direction : visual?.touched.has(playlist.id) ? "" : undefined };
   });
-  setRootPlaylistList(playlistCards);
+  setRootPlaylistList(terms ? playlistCards.filter(card => matchesLibraryTerms(terms, card.name)) : playlistCards);
 }
 
 function libraryBindings(): LibraryBindings {
@@ -157,4 +175,4 @@ function markLibraryUnavailable(bvid: string, reason: string): void { getLibrary
 function clearLibraryUnavailable(bvid: string): boolean { return getLibraryActions().clearUnavailable(bvid); }
 function openLoudnessModal(): void { getLibraryActions().openModal("loudness", "响度归一化", ""); }
 
-export { toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist, choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, projectLibraryLists, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleCurrentFavorite, toggleFavorite };
+export { cancelLibraryFilterDrag, toggleFavoriteCollection, choosePlaylistAndAddCollection, removeCollectionFromPlaylist, choosePlaylistAndAdd, clearLibraryUnavailable, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, getLibrarySnapshot, importFavoritePlaylist, loadLibrary, markLibraryUnavailable, openLoudnessModal, openPurgeUnavailableTracksModal, playPlaylistEntry, projectLibraryLists, removeTrackFromPlaylist, renameSelectedPlaylist, renderLibraryViews, toggleCurrentFavorite, toggleFavorite };

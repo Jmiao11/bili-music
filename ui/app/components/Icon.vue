@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{ name: keyof typeof paths; size?: number }>();
 const paths = {
+  search: "m20.3 21.7-5.7-5.7a8 8 0 1 1 1.4-1.4l5.7 5.7ZM4 10a6 6 0 1 0 12 0A6 6 0 0 0 4 10Z",
   note: "M9 18V6l11-3v12M9 18c0 1.7-1.6 3-3.5 3S2 20.2 2 18.8 3.6 16 5.5 16 9 16.6 9 18ZM20 15c0 1.7-1.6 3-3.5 3S13 17.2 13 15.8 14.6 13 16.5 13s3.5.6 3.5 2Z",
   bolt: "M13 2 4 14h7l-1 8 10-12h-7Z",
   play: "M8 5v14l11-7Z",

@@ -23,3 +23,78 @@ function completeCollection(collection: DeepReadonly<CommandContract.LibraryColl
 
 export { normalizeLibraryEntry, libraryVideos, libraryVideoBvids, sameCollection, collectionInput, completeCollection };
 export type { CollectionEntry };
+
+type TitlePart = Readonly<{ text: string; match: boolean }>;
+
+const normalize = (value: string) => value.normalize("NFKC").toLowerCase();
+const localLibraryArtwork = (url: string) => url.startsWith("data:") ? url : "";
+const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+function libraryFilterTerms(value: string): readonly string[] {
+  return [...new Set(normalize(value).trim().split(/\s+/u).filter(Boolean))];
+}
+
+function matchesLibraryTerms(terms: readonly string[], ...fields: string[]): boolean {
+  const text = fields.map(normalize);
+  return terms.every(term => text.some(field => field.includes(term)));
+}
+
+function libraryEntryMatch(entry: Readonly<{
+  kind: "video";
+  video: Readonly<Pick<CommandContract.TrackSnapshot, "title" | "uploader">>;
+}> | Readonly<{
+  kind: "collection";
+  title: string;
+  snapshot: Readonly<{items: readonly Readonly<Pick<CommandContract.TrackSnapshot, "title">>[]}>;
+}>, terms: readonly string[], playlistName?: string): number {
+  if (entry.kind === "video") {
+    return matchesLibraryTerms(terms, entry.video.title, entry.video.uploader, playlistName ?? "") ? 0 : -1;
+  }
+  if (matchesLibraryTerms(terms, entry.title)) return 0;
+  if (playlistName === undefined) return -1;
+  const count = entry.snapshot.items.filter(item => matchesLibraryTerms(terms, item.title)).length;
+  return count || -1;
+}
+
+function libraryTitleParts(title: string, terms: readonly string[]): readonly TitlePart[] | undefined {
+  const normalized = normalize(title);
+  const ranges: [number, number][] = [];
+  for (const term of terms) {
+    for (let index = normalized.indexOf(term); index >= 0; index = normalized.indexOf(term, index + 1)) {
+      ranges.push([index, index + term.length]);
+    }
+  }
+  if (!ranges.length) return undefined;
+  if (title.normalize("NFKC") !== title || normalized.length !== title.length) {
+    const starts: number[] = [], ends: number[] = [];
+    for (const { segment, index } of segmenter.segment(title)) {
+      for (let unit = 0; unit < normalize(segment).length; unit++) {
+        starts.push(index);
+        ends.push(index + segment.length);
+      }
+    }
+    for (const range of ranges) {
+      range[0] = starts[range[0]] ?? title.length;
+      range[1] = ends[range[1] - 1] ?? title.length;
+    }
+  }
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: [number, number][] = [];
+  for (const range of ranges) {
+    const last = merged.at(-1);
+    if (last && range[0] <= last[1]) last[1] = Math.max(last[1], range[1]);
+    else merged.push(range);
+  }
+  const parts: TitlePart[] = [];
+  let end = 0;
+  for (const [start, next] of merged) {
+    if (start > end) parts.push({ text: title.slice(end, start), match: false });
+    parts.push({ text: title.slice(start, next), match: true });
+    end = next;
+  }
+  if (end < title.length) parts.push({ text: title.slice(end), match: false });
+  return parts;
+}
+
+export { libraryEntryMatch, libraryFilterTerms, libraryTitleParts, localLibraryArtwork, matchesLibraryTerms };
+export type { TitlePart };

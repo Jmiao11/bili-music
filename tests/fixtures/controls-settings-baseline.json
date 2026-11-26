@@ -1425,17 +1425,25 @@
                         ]
                       },
                       {
-                        "tag": "input",
+                        "tag": "span",
                         "attributes": {
-                          "autocomplete": "off",
-                          "class": "settings-input",
-                          "id": "ai-model-input",
-                          "placeholder": "gpt-4o-mini",
-                          "type": "text"
+                          "class": "settings-input-frame"
                         },
-                        "value": "",
-                        "checked": false,
-                        "children": []
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "autocomplete": "off",
+                              "class": "settings-input",
+                              "id": "ai-model-input",
+                              "placeholder": "gpt-4o-mini",
+                              "type": "text"
+                            },
+                            "value": "",
+                            "checked": false,
+                            "children": []
+                          }
+                        ]
                       }
                     ]
                   },
@@ -1454,17 +1462,25 @@
                         ]
                       },
                       {
-                        "tag": "input",
+                        "tag": "span",
                         "attributes": {
-                          "autocomplete": "new-password",
-                          "class": "settings-input",
-                          "id": "ai-api-key-input",
-                          "placeholder": "留空则保留已保存的 key",
-                          "type": "password"
+                          "class": "settings-input-frame"
                         },
-                        "value": "",
-                        "checked": false,
-                        "children": []
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "autocomplete": "new-password",
+                              "class": "settings-input",
+                              "id": "ai-api-key-input",
+                              "placeholder": "留空则保留已保存的 key",
+                              "type": "password"
+                            },
+                            "value": "",
+                            "checked": false,
+                            "children": []
+                          }
+                        ]
                       }
                     ]
                   },
@@ -1581,17 +1597,25 @@
                         ]
                       },
                       {
-                        "tag": "input",
+                        "tag": "span",
                         "attributes": {
-                          "autocomplete": "off",
-                          "class": "settings-input",
-                          "id": "ai-base-url-input",
-                          "placeholder": "https://api.openai.com/v1",
-                          "type": "url"
+                          "class": "settings-input-frame"
                         },
-                        "value": "",
-                        "checked": false,
-                        "children": []
+                        "children": [
+                          {
+                            "tag": "input",
+                            "attributes": {
+                              "autocomplete": "off",
+                              "class": "settings-input",
+                              "id": "ai-base-url-input",
+                              "placeholder": "https://api.openai.com/v1",
+                              "type": "url"
+                            },
+                            "value": "",
+                            "checked": false,
+                            "children": []
+                          }
+                        ]
                       }
                     ]
                   },

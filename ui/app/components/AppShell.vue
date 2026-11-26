@@ -24,6 +24,9 @@ import { playlistTone } from "../../features/library/cover-art.ts";
 import LibraryCover from "../../features/library/components/LibraryCover.vue";
 import SearchTabs from "../../features/search/components/SearchTabs.vue";
 import SearchForm from "../../features/search/components/SearchForm.vue";
+import LibraryFilterBar from "../../features/library/components/LibraryFilterBar.vue";
+import LibraryFilterEmpty from "../../features/library/components/LibraryFilterEmpty.vue";
+import { libraryFilterCallbacks } from "../../features/tracks/root-lists.ts";
 import HomeSetupHint from "../../features/home/components/HomeSetupHint.vue";
 import HomeHint from "../../features/home/components/HomeHint.vue";
 import HomeUpdateNotice from "../../features/home/components/HomeUpdateNotice.vue";
@@ -140,9 +143,9 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
           </div>
         </section>
 
-        <section id="view-favorites" class="view library-view" :class="{'is-active':shell.currentView === 'favorites'}" :hidden="shell.currentView !== 'favorites'">
+        <section id="view-favorites" class="view library-view library-search-view" :class="{'is-active':shell.currentView === 'favorites'}" :hidden="shell.currentView !== 'favorites'" :onScroll="shell.libraryFilter.scope === 'favorites' && shell.libraryFilter.terms.length ? libraryFilterCallbacks.scroll : undefined">
           <header class="list-head library-hero">
-            <LibraryCover :shown="shell.currentView === 'favorites'" :rows="lists.favorites.rows" tone="pink" />
+            <LibraryCover :shown="shell.currentView === 'favorites'" :rows="lists.favorites.rows" :local-artwork="shell.libraryFilter.scope === 'favorites' && shell.libraryFilter.pauseLookups" tone="pink" />
             <div class="library-hero-copy">
               <p class="library-hero-source">资料库</p>
               <h1>我的收藏</h1>
@@ -150,15 +153,20 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
               <p id="favorites-status" class="search-status" role="status" :hidden="!snapshot.library.loadError">{{ shell.favoritesStatus }}</p>
             </div>
           </header>
-          <div class="track-surface">
+          <div class="track-surface library-search-surface" :class="{'is-library-filtering': shell.libraryFilter.scope === 'favorites' && shell.libraryFilter.terms.length}">
+          <LibraryFilterBar v-if="shell.currentView === 'favorites'" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :count="shell.libraryFilter.terms.length ? lists.favoritesFiltered.rows.length : lists.favorites.rows.length" placeholder="在收藏中搜索" :callbacks="libraryFilterCallbacks" />
           <TrackColumns list="favorites-list" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
-              <ListHost id="favorites-list" :on-host="mainWindowRefs.favoritesList" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
+              <ListHost :id="shell.libraryFilter.scope === 'favorites' && shell.libraryFilter.terms.length ? 'favorites-list-unfiltered' : 'favorites-list'" :hidden="shell.libraryFilter.scope === 'favorites' && Boolean(shell.libraryFilter.terms.length)" :on-host="mainWindowRefs.favoritesList" class="tracklist library-list" aria-label="我的收藏" :model="lists.favorites" />
+              <template v-if="shell.libraryFilter.scope === 'favorites' && shell.libraryFilter.terms.length">
+                <ListHost id="favorites-list" :first-row="shell.libraryFilter.firstRow" class="tracklist library-list library-filter-results" aria-label="筛选收藏" :model="lists.favoritesFiltered" />
+                <LibraryFilterEmpty v-if="!lists.favoritesFiltered.rows.length" :query="shell.libraryFilter.query" :clear="libraryFilterCallbacks.clear" />
+              </template>
           </div>
         </section>
 
-        <section id="view-recent" class="view library-view" :class="{'is-active':shell.currentView === 'recent'}" :hidden="shell.currentView !== 'recent'">
+        <section id="view-recent" class="view library-view library-search-view" :class="{'is-active':shell.currentView === 'recent'}" :hidden="shell.currentView !== 'recent'" :onScroll="shell.libraryFilter.scope === 'recent' && shell.libraryFilter.terms.length ? libraryFilterCallbacks.scroll : undefined">
           <header class="list-head recent-head library-hero">
-            <LibraryCover :shown="shell.currentView === 'recent'" :rows="lists.recent.rows" tone="blue" />
+            <LibraryCover :shown="shell.currentView === 'recent'" :rows="lists.recent.rows" :local-artwork="shell.libraryFilter.scope === 'recent' && shell.libraryFilter.pauseLookups" tone="blue" />
             <div class="library-hero-copy">
               <p class="library-hero-source">资料库</p>
               <h1>最近播放</h1>
@@ -168,13 +176,18 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
           <p v-if="snapshot.recent.error" class="search-status" role="status">{{ snapshot.recent.error }}</p>
           <p v-else-if="snapshot.recent.loading" class="search-status" role="status">正在读取播放记录…</p>
           <p v-else-if="!snapshot.recent.items.length" class="recent-empty">还没有播放记录</p>
-          <div class="track-surface">
+          <div class="track-surface library-search-surface">
+            <LibraryFilterBar v-if="shell.currentView === 'recent'" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :count="shell.libraryFilter.terms.length ? lists.recentFiltered.rows.length : lists.recent.rows.length" placeholder="在最近播放中搜索" :callbacks="libraryFilterCallbacks" />
             <TrackColumns v-if="shell.currentView === 'recent'" list="recent-list" plays-label="播放时间" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
-            <ListHost id="recent-list" class="tracklist" aria-label="最近播放" :model="lists.recent" />
+            <ListHost :id="shell.libraryFilter.scope === 'recent' && shell.libraryFilter.terms.length ? 'recent-list-unfiltered' : 'recent-list'" :hidden="shell.libraryFilter.scope === 'recent' && Boolean(shell.libraryFilter.terms.length)" class="tracklist" aria-label="最近播放" :model="lists.recent" />
+            <template v-if="shell.libraryFilter.scope === 'recent' && shell.libraryFilter.terms.length">
+              <ListHost id="recent-list" :first-row="shell.libraryFilter.firstRow" class="tracklist library-filter-results" aria-label="筛选最近播放" :model="lists.recentFiltered" />
+              <LibraryFilterEmpty v-if="!lists.recentFiltered.rows.length" :query="shell.libraryFilter.query" :clear="libraryFilterCallbacks.clear" />
+            </template>
           </div>
         </section>
 
-        <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists'}" :hidden="shell.currentView !== 'playlists'">
+        <section id="view-playlists" class="view library-view" :class="{'is-active':shell.currentView === 'playlists', 'library-search-view': snapshot.library.view.playlistDetail || shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length}" :hidden="shell.currentView !== 'playlists'" :onScroll="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length ? libraryFilterCallbacks.scroll : undefined">
           <header class="list-head library-head" :hidden="snapshot.library.view.playlistDetail">
             <div>
               <h1>我的歌单</h1>
@@ -182,13 +195,24 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
             </div>
             <PlaylistCreateActions :callbacks="pageCallbacks" />
           </header>
+          <LibraryFilterBar v-if="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :count="shell.libraryFilter.terms.length ? lists.playlistSearch.total ?? 0 : snapshot.library.playlists.reduce((sum, playlist) => sum + playlist.items.length, 0)" placeholder="搜索歌单和歌曲" :callbacks="libraryFilterCallbacks" />
           <div class="playlist-layout">
-            <div class="playlist-directory-surface" :hidden="snapshot.library.view.playlistDetail">
-            <ListHost :shown="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
+            <div class="playlist-directory-surface" :class="{'playlist-directory-filtered':shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length}" :hidden="snapshot.library.view.playlistDetail || shell.libraryFilter.scope === 'playlists' && Boolean(shell.libraryFilter.terms.length) && !lists.directories.rows.length">
+              <h2 v-if="shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length && lists.directories.rows.length" class="playlist-filter-heading">歌单</h2>
+              <ListHost :shown="shell.currentView === 'playlists' && !snapshot.library.view.playlistDetail" id="playlists-list" :on-host="mainWindowRefs.playlistsList" class="playlist-list" aria-label="歌单列表" :model="lists.directories" />
             </div>
+            <section v-if="shell.libraryFilter.scope === 'playlists' && shell.libraryFilter.terms.length" class="playlist-song-results">
+              <h2 class="playlist-filter-heading">歌单中的歌曲 {{ lists.playlistSearch.total ?? 0 }} 首</h2>
+              <div v-if="lists.playlistSearch.rows.length" class="track-surface library-search-surface">
+                <TrackColumns list="playlist-search-tracks" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
+                <ListHost id="playlist-search-tracks" class="tracklist library-list" aria-label="歌单中的歌曲" :model="lists.playlistSearch" />
+              </div>
+              <LibraryFilterEmpty v-else-if="!lists.directories.rows.length" :query="shell.libraryFilter.query" :clear="libraryFilterCallbacks.clear" />
+              <p v-if="(lists.playlistSearch.total ?? 0) > 200" class="library-filter-limit">仅显示前 200 首，请输入更具体的关键词</p>
+            </section>
             <section class="playlist-detail" aria-label="歌单内容" :hidden="!snapshot.library.view.playlistDetail">
               <header class="playlist-detail-head library-hero">
-                <LibraryCover :shown="shell.currentView === 'playlists' && snapshot.library.view.playlistDetail" :rows="lists.playlist.rows" :tone="playlistTone(snapshot.library.selectedPlaylistId)" />
+                <LibraryCover :shown="shell.currentView === 'playlists' && snapshot.library.view.playlistDetail" :rows="lists.playlist.rows" :local-artwork="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.pauseLookups" :tone="playlistTone(snapshot.library.selectedPlaylistId)" />
                 <div class="library-hero-copy">
                   <p class="library-hero-source">歌单</p>
                   <h2 id="playlist-title">{{ shell.playlistTitle }}</h2>
@@ -196,9 +220,14 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
                   <PlaylistActions :visible="snapshot.library.playlists.length > 0" :callbacks="pageCallbacks" />
                 </div>
               </header>
-              <div class="track-surface">
+              <div class="track-surface library-search-surface" :class="{'is-library-filtering': shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length}">
+              <LibraryFilterBar v-if="shell.currentView === 'playlists' && snapshot.library.view.playlistDetail" :draft="shell.libraryFilter.draft" :filtered="Boolean(shell.libraryFilter.terms.length)" :count="shell.libraryFilter.terms.length ? lists.playlistFiltered.rows.length : lists.playlist.rows.length" placeholder="在歌单中搜索" :callbacks="libraryFilterCallbacks" />
               <TrackColumns list="playlist-tracks" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
-              <ListHost id="playlist-tracks" :on-host="mainWindowRefs.playlistTracks" class="tracklist library-list" aria-label="歌单歌曲" :model="lists.playlist" />
+              <ListHost :id="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length ? 'playlist-tracks-unfiltered' : 'playlist-tracks'" :hidden="shell.libraryFilter.scope.startsWith('playlist:') && Boolean(shell.libraryFilter.terms.length)" :on-host="mainWindowRefs.playlistTracks" class="tracklist library-list" aria-label="歌单歌曲" :model="lists.playlist" />
+              <template v-if="shell.libraryFilter.scope.startsWith('playlist:') && shell.libraryFilter.terms.length">
+                <ListHost id="playlist-tracks" :first-row="shell.libraryFilter.firstRow" class="tracklist library-list library-filter-results" aria-label="筛选歌单歌曲" :model="lists.playlistFiltered" />
+                <LibraryFilterEmpty v-if="!lists.playlistFiltered.rows.length" :query="shell.libraryFilter.query" :clear="libraryFilterCallbacks.clear" />
+              </template>
               </div>
             </section>
           </div>

@@ -34,6 +34,7 @@ HTML直接引用的 `index.html`、`mini.html`、`app.ts`、`mini.ts`、`styles.
 - 设置、沉浸页和歌词隐藏时继续投影。打开/关闭的hidden、is-open、aria-hidden、RAF、transitionend、焦点与返回焦点保持，未用Vue Transition改变阶段。
 - audio唯一且在宿主外；原生播放恢复capture监听、媒体身份保护、系统命令仍走commands/adapter。bindTrackActivation保留给现有特征测试，真实行使用生命周期会话，保证计时器、observer、拖拽与ref释放。
 - 页面文案、导航与外壳由 app/shell-projection.ts 根据现有快照投影。app/shell-stages.ts 只保留动画阶段、侧栏几何和系统最大化的显示值，不建立第二个业务store。控制器保留原RAF/transitionend/焦点时序，通过 presentation-refresh.ts 请求公开render同步投影本地阶段。
+- 主窗键盘与指针的轮廓样式由文档根 `data-pointer-focus` 切换。首次键盘输入后才注册指针监听，监听只更新 CSS 标记。
 - 动态背景由 features/settings/components/DynamicBackground.vue 生成双层颜色/交叉淡化/暂停class；dynamic-background.ts只负责Image/canvas取色、任务身份、计时与显示模型。
 - appearance-status只有SettingsPanel写入；shell投影按原settings文本实际变化与后续purgeStatus写入的先后保留可见值。重复相同外观文案不覆盖后来出现的清理结果，这与旧实现一致。
 - 分P请求忙态与观察器data标记由pages-ui-state.ts保存节点关联的本地显示值，再进入稳定行props；每次仅受影响行变化。bindTrackActivation仍保留原生事件接线兼容接口，旧badge原生增删路径与注册表已删除；相关测试挂载真实TrackRow。
