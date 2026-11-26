@@ -308,9 +308,12 @@ test("quality select persists immediately and switches the current track at its 
   });
   const select = h.node<HTMLSelectElement>("audio-quality-select");
   assert.equal(select.value, "highest");
-  assert.deepEqual([...select.options].map(option => option.text), ["最高可用", "192K", "132K", "64K"]);
+  assert.deepEqual([...select.options].map(option => option.text), ["自动", "高品质", "标准", "省流"]);
+  assert.deepEqual([...select.options].map(option => option.title), ["按可用的最高音质", "AAC · 192 kbps", "AAC · 132 kbps", "AAC · 64 kbps"]);
+  assert.equal(h.node("audio-quality-description").textContent, "按可用的最高音质");
   h.core.playListItem("ranking", items, 0); await h.microtasks();
-  assert.equal(h.node("player-audio-quality").textContent, "192K");
+  assert.equal(h.node("player-audio-quality").textContent, "高品质");
+  assert.equal(h.node("player-audio-quality").getAttribute("aria-label"), "音质：高品质");
   const src = h.audio.src, count = h.calls.filter(call => call.command === "prepare_audio").length;
   const mediaOperations = () => h.platform.filter(item => ["load", "play", "pause"].includes(item.operation)).map(item => item.operation);
   const operationsBefore = mediaOperations().length;
@@ -318,6 +321,7 @@ test("quality select persists immediately and switches the current track at its 
   h.media.currentTime = 18;
   await h.fire(h.node("open-settings-button"), "click"); h.raf(); await h.microtasks();
   await nextDomEventTurn(); select.value = "64k"; await h.fire(select, "change");
+  assert.equal(h.node("audio-quality-description").textContent, "AAC · 64 kbps");
   assert.equal(h.window.localStorage.getItem("bilibili-music.audio-quality"), "64k");
   assert.equal(h.audio.src, src);
   const preparations = h.calls.filter(call => call.command === "prepare_audio");
@@ -325,13 +329,13 @@ test("quality select persists immediately and switches the current track at its 
   assert.equal(preparations.at(-1)?.args.bvId, items[0].bvid);
   assert.equal(preparations.at(-1)?.args.quality, "64k");
   assert.equal("audioId" in preparations.at(-1)!.args, false);
-  assert.equal(h.node("player-audio-quality").textContent, "192K");
+  assert.equal(h.node("player-audio-quality").textContent, "高品质");
   assert.deepEqual(mediaOperations().slice(operationsBefore), []);
   h.media.currentTime = 29;
   incoming.resolve(response(30216)); await h.microtasks();
   assert.equal(h.audio.src, response(30216).audioUrl);
   assert.equal(h.media.currentTime, 29);
-  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.equal(h.node("player-audio-quality").textContent, "省流");
   assert.deepEqual(mediaOperations().slice(operationsBefore), ["load", "play"]);
   for (const currentTime of [31, 32]) {
     h.media.currentTime = currentTime;
@@ -344,13 +348,20 @@ test("quality select persists immediately and switches the current track at its 
   audioId = 30232;
   h.core.playListItem("ranking", items, 1); await h.microtasks();
   assert.equal(h.calls.filter(call => call.command === "prepare_audio").at(-1)?.args.quality, "64k");
-  assert.equal(h.node("player-audio-quality").textContent, "132K");
+  assert.equal(h.node("player-audio-quality").textContent, "标准");
   let nextIndex = 0;
-  for (const [id, fallback, label] of [[30216, false, "64K"], [null, true, "兜底"], [null, false, "音质"]] as const) {
+  for (const [id, fallback, label] of [[30216, false, "省流"], [null, true, "兼容"], [null, false, "音质"]] as const) {
     audioId = id; isFallback = fallback;
     h.core.playListItem("ranking", items, nextIndex); await h.microtasks();
     nextIndex = 1 - nextIndex;
     assert.equal(h.doc.getElementById("player-audio-quality")?.textContent ?? null, label);
+    assert.equal(h.node("player-audio-quality").getAttribute("title"), fallback ? "通过兼容通道播放，音质以实际为准" : null);
+    if (fallback) {
+      await h.fire(h.node("player-audio-quality"), "click");
+      assert.equal(h.node("player-quality-menu").querySelectorAll('[role="menuitemradio"]').length, 4);
+      assert.doesNotMatch(h.node("player-quality-menu").textContent!, /兼容/);
+      await h.fire(h.node("player-audio-quality"), "click");
+    }
   }
 });
 
@@ -372,7 +383,8 @@ test("quality menu opens and closes with paired transient listeners and shares t
   assert.equal(button.getAttribute("aria-haspopup"), "menu"); assert.equal(button.getAttribute("aria-expanded"), "true");
   const menu = h.node("player-quality-menu"); assert.equal(menu.getAttribute("role"), "menu");
   const options = [...menu.querySelectorAll<HTMLButtonElement>("[role='menuitemradio']")];
-  assert.deepEqual(options.map(item => item.textContent), ["最高可用", "192K", "132K", "64K"]);
+  assert.deepEqual(options.map(item => item.querySelector(".quality-menu-copy > span")?.textContent), ["自动", "高品质", "标准", "省流"]);
+  assert.deepEqual(options.map(item => item.querySelector(".quality-menu-copy > small")?.textContent), ["按可用的最高音质", "AAC · 192 kbps", "AAC · 132 kbps", "AAC · 64 kbps"]);
   assert.equal(options[0].getAttribute("aria-checked"), "true"); assert.equal(h.doc.activeElement, options[0]);
   assert.equal(menu.querySelector("p")?.textContent, "切换后立即生效");
   const transient = h.listeners.slice(before).filter(item => item.target === h.doc || item.target === h.window);
@@ -419,7 +431,7 @@ test("late quality response cannot overwrite the current label or its cache iden
   h.core.playListItem("ranking", items, 1); await h.microtasks();
   old.resolve({ audioId: 30280, isFallback: false, audioUrl: "http://127.0.0.1/audio/old", title: "迟到", uploader: "作者", thumbnailUrl: "", durationSeconds: 60 });
   await h.microtasks();
-  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.equal(h.node("player-audio-quality").textContent, "省流");
   assert.equal(h.store.getState().playbackDisplay.audioQuality.audioId, 30216);
   h.media.currentTime = 31;
   await nextDomEventTurn(); await h.fire(h.audio, "timeupdate");
@@ -428,6 +440,27 @@ test("late quality response cannot overwrite the current label or its cache iden
   assert.equal(cache.args.bvid, items[1].bvid);
   assert.equal(cache.args.audioId, 30216);
   assert.equal(cache.args.audioUrl, "http://127.0.0.1/audio/new");
+});
+
+test("choosing a quality reports the actual track in the playback bar and the preference in settings", async t => {
+  const h = await playbackFixture(); t.after(h.dispose);
+  const items = [track(1), track(2)];
+  const audioIds = { highest: 30280, "192k": 30280, "132k": 30232, "64k": 30216 };
+  Object.defineProperties(h.audio, { currentSrc: { get: () => h.audio.src }, readyState: { get: () => 1 } });
+  h.reply(async (command, args) => {
+    if (command !== "prepare_audio") return responses(items)(command);
+    const id = audioIds[(args.quality ?? "highest") as CommandContract.AudioQuality];
+    return { ...items[0], audioId: id, isFallback: false, audioUrl: `http://127.0.0.1/audio/${id}` };
+  });
+  const button = h.node("player-audio-quality");
+  h.core.playListItem("ranking", items, 0); await h.microtasks();
+  for (const [value, name] of [["192k", "高品质"], ["132k", "标准"], ["64k", "省流"], ["highest", "高品质"]]) {
+    await h.fire(button, "click");
+    await h.fire(h.doc.querySelector(`[data-quality="${value}"]`)!, "click");
+    assert.equal(h.node<HTMLSelectElement>("audio-quality-select").value, value);
+    assert.equal(button.textContent, name);
+    assert.equal(button.getAttribute("aria-label"), `音质：${name}`);
+  }
 });
 
 test("next wins over a late manual quality result without cancelling the next request", async t => {
@@ -451,7 +484,7 @@ test("next wins over a late manual quality result without cancelling the next re
   assert.equal(h.audio.src, info("second", 30216).audioUrl);
   incoming.resolve(info("superseded", 30232)); await h.microtasks();
   assert.equal(h.audio.src, info("second", 30216).audioUrl);
-  assert.equal(h.node("player-audio-quality").textContent, "64K");
+  assert.equal(h.node("player-audio-quality").textContent, "省流");
   assert.equal(h.calls.some(call => call.command === "cancel_prepare_audio"), false);
   h.media.currentTime = 31;
   await nextDomEventTurn(); await h.fire(h.audio, "timeupdate");

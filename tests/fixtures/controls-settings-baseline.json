@@ -665,37 +665,45 @@
                           {
                             "tag": "select",
                             "attributes": {
-                              "aria-describedby": "audio-quality-note",
+                              "aria-describedby": "audio-quality-description audio-quality-note",
                               "class": "settings-select",
                               "id": "audio-quality-select"
                             },
                             "children": [
                               {
                                 "tag": "option",
-                                "attributes": {},
+                                "attributes": {
+                                  "title": "按可用的最高音质"
+                                },
                                 "children": [
-                                  "最高可用"
+                                  "自动"
                                 ]
                               },
                               {
                                 "tag": "option",
-                                "attributes": {},
+                                "attributes": {
+                                  "title": "AAC · 192 kbps"
+                                },
                                 "children": [
-                                  "192K"
+                                  "高品质"
                                 ]
                               },
                               {
                                 "tag": "option",
-                                "attributes": {},
+                                "attributes": {
+                                  "title": "AAC · 132 kbps"
+                                },
                                 "children": [
-                                  "132K"
+                                  "标准"
                                 ]
                               },
                               {
                                 "tag": "option",
-                                "attributes": {},
+                                "attributes": {
+                                  "title": "AAC · 64 kbps"
+                                },
                                 "children": [
-                                  "64K"
+                                  "省流"
                                 ]
                               }
                             ]
@@ -706,10 +714,20 @@
                         "tag": "small",
                         "attributes": {
                           "class": "setting-note",
+                          "id": "audio-quality-description"
+                        },
+                        "children": [
+                          "按可用的最高音质"
+                        ]
+                      },
+                      {
+                        "tag": "small",
+                        "attributes": {
+                          "class": "setting-note",
                           "id": "audio-quality-note"
                         },
                         "children": [
-                          "切换后立即生效；yt-dlp 兜底时保持原音质"
+                          "切换后立即生效。通过兼容通道播放，音质以实际为准"
                         ]
                       }
                     ]

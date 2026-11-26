@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import LibraryCover from "../../library/components/LibraryCover.vue";
 import Icon from "../../../app/components/Icon.vue";
 import type { PageCallbacks } from "../../../app/root-controls.ts";
 import type { HomeSnapshot } from "../../../store/app-state.ts";
@@ -90,11 +89,7 @@ function activateCard(event: MouseEvent): void {
   <section v-else class="home-feed-detail" :data-feed="home.view.section" aria-labelledby="home-feed-title">
     <button :ref="node => focusRefs.homeFeedBack(node as HTMLButtonElement | null)" class="home-feed-back secondary-button" type="button" @click="callbacks.openFeed(null)">‹ 发现音乐</button>
     <header class="home-feed-head">
-      <div v-if="home.view.section === 'ai'" class="ai-section-cover">
-        <HomeFeedCover title="AI 推荐" :thumbnail="home.recommendations[0]?.thumbnailUrl ?? ''" badge="AI 生成" />
-        <LibraryCover v-if="list" :rows="list.rows" tone="green" :shown="true" />
-      </div>
-      <HomeFeedCover v-else :title="homeFeeds[home.view.section].title" :thumbnail="feedItems(home.view.section)[0]?.thumbnailUrl ?? ''" :badge="badge(home.view.section)" />
+      <HomeFeedCover :title="homeFeeds[home.view.section].title" :thumbnail="feedItems(home.view.section)[0]?.thumbnailUrl ?? ''" :badge="badge(home.view.section)" />
       <div class="home-feed-copy">
         <p>栏目 · {{ homeFeeds[home.view.section].source }}</p>
         <h1 id="home-feed-title">{{ homeFeeds[home.view.section].title }}</h1>

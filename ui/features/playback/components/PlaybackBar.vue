@@ -3,7 +3,7 @@ import Icon from "../../../app/components/Icon.vue";
 import type {mainWindowRefs} from "../../../platform/main-window-refs.ts";
 import type { ApplicationSnapshot } from "../../../store/application-store.ts";
 import type { PlaybackCallbacks, PlaybackControls } from "../root-playback.ts";
-import { projectPlaybackProgress } from "../playback-display-view.ts";
+import { compatibilityQualityHint, projectAudioQualityLabel, projectPlaybackProgress } from "../playback-display-view.ts";
 import type { QueueDrawerView } from "../queue-drawer-view.ts";
 import type { queueDrawerCallbacks } from "../queue-drawer.ts";
 const props = defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks;mainWindowRefs:typeof mainWindowRefs; display: ApplicationSnapshot["playbackDisplay"]; settings: ApplicationSnapshot["playbackSettings"]; queue: ApplicationSnapshot["playbackQueue"]; controls: PlaybackControls; callbacks: PlaybackCallbacks; status: string }>();
@@ -11,7 +11,11 @@ const timeline = () => projectPlaybackProgress(props.display);
 const entry = () => props.queue.queue[props.queue.currentIndex];
 const group = () => entry()?.collection;
 const playing = () => props.display.view.buttonVersion ? String(props.display.buttonPlaying) : undefined;
-const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({ 30280: "192K", 30232: "132K", 30216: "64K" } as Record<number, string>)[props.display.audioQuality.audioId ?? 0] ?? "音质";
+const qualityLabel = () => projectAudioQualityLabel(props.display.audioQuality);
+const qualityAriaLabel = () => {
+  const label = qualityLabel();
+  return label === "音质" ? label : `音质：${label}`;
+};
 </script>
 <template>
 <footer id="result" :ref="element => mainWindowRefs.result(element as HTMLElement|null)" class="player-bar panel" aria-label="当前播放">
@@ -80,7 +84,7 @@ const qualityLabel = () => props.display.audioQuality.isFallback ? "兜底" : ({
           <button id="queue-position" :ref="element => mainWindowRefs.queueButton(element as HTMLButtonElement|null)" class="queue-position" type="button" aria-label="播放队列" aria-controls="queue-drawer" :aria-expanded="drawer.stage.open" :disabled="drawer.count === 0" @click="drawerCallbacks.toggle"><Icon name="queue" />{{ controls.queuePosition }}</button>
         </div>
         <div class="player-tool-group player-sound-tools">
-          <button id="player-audio-quality" :ref="element => mainWindowRefs.playerQualityButton(element as HTMLButtonElement|null)" class="player-quality-button" type="button" aria-label="音质" aria-haspopup="menu" aria-controls="player-quality-menu" :aria-expanded="!!display.audioQualityMenu" :disabled="!display.currentTrack.hasCurrent" :onClick="display.currentTrack.hasCurrent ? callbacks.qualityToggle : undefined" :onKeydown="display.currentTrack.hasCurrent ? callbacks.qualityKeydown : undefined"><span>{{ qualityLabel() }}</span><Icon name="chevronDown" :size="12" /></button>
+          <button id="player-audio-quality" :ref="element => mainWindowRefs.playerQualityButton(element as HTMLButtonElement|null)" class="player-quality-button" type="button" :aria-label="qualityAriaLabel()" :title="display.audioQuality.isFallback ? compatibilityQualityHint : undefined" aria-haspopup="menu" aria-controls="player-quality-menu" :aria-expanded="!!display.audioQualityMenu" :disabled="!display.currentTrack.hasCurrent" :onClick="display.currentTrack.hasCurrent ? callbacks.qualityToggle : undefined" :onKeydown="display.currentTrack.hasCurrent ? callbacks.qualityKeydown : undefined"><span>{{ qualityLabel() }}</span><Icon name="chevronDown" :size="12" /></button>
           <label class="volume-control" aria-label="音量">
             <Icon name="volume" />
             <input id="volume-slider" type="range" min="0" max="1" step="0.01"  :value="settings.userVolume" :style="settings.view.volumeVersion ? { '--progress': `${settings.userVolume * 100}%` } : undefined" @input="callbacks.volume(($event.target as HTMLInputElement).value)" />

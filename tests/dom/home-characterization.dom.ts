@@ -589,3 +589,29 @@ test("AI section restores the saved description, isolates playback and discards 
   assert.equal(q(".home-feed-seeds").textContent,"描述：上次的描述");
   assert.equal(requests(),3);
 });
+
+test("all home sections reuse the card cover and the empty AI cover keeps its gradient", async t => {
+  const h = await realFixture(); t.after(h.dispose);
+  const item = { ...track, thumbnailUrl: "https://i0.hdslb.com/ui13.jpg" };
+  h.reply(async (command, args) => {
+    if (command === "get_ai_config") return { hasKey: true };
+    if (command === "get_saved_recommendations") return [];
+    if (command === "get_music_ranking") {
+      return { section: { date: args.today, fetchedAt: h.clock(), items: [item] }, newSongs: [item], sequence: 0, error: null, restricted: false, requestAt: null, available: args.source === "forYou" };
+    }
+    return responses()(command);
+  });
+  await h.home.refreshAiKeyState();
+  for (const [source, title, badge] of [["ai", "AI 推荐", "AI 生成"], ["forYou", "为你推荐", "根据你的收听"], ["ranking", "音乐热门", "每日更新"], ["newSongs", "新歌速递", "每日更新"]]) {
+    const card = h.doc.querySelector(`[data-feed="${source}"] .home-feed-open`)!;
+    const cardCover = card.querySelector(".home-feed-cover")!.outerHTML;
+    await h.fire(card, "click");
+    const header = h.doc.querySelector(".home-feed-head")!;
+    assert.equal(header.querySelector(":scope > .home-feed-cover")?.outerHTML, cardCover);
+    assert.equal(header.querySelector("h1")?.textContent, title);
+    assert.equal(header.querySelector(".home-feed-badge")?.textContent, badge);
+    assert.equal(header.querySelector(".stacked-cover"), null);
+    assert.equal(header.querySelector(".home-feed-cover > img") !== null, source !== "ai");
+    await h.fire(h.doc.querySelector(".home-feed-back")!, "click");
+  }
+});

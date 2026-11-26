@@ -5,6 +5,22 @@ import { activeQueueTrack } from "./playback-queue-state.ts";
 import type { PlaybackSessionState } from "./playback-session-state.ts";
 import type { DeepReadonly } from "../../store/state-store.ts";
 
+const audioQualityOptions = {
+  highest: { label: "自动", description: "按可用的最高音质" },
+  "192k": { label: "高品质", description: "AAC · 192 kbps" },
+  "132k": { label: "标准", description: "AAC · 132 kbps" },
+  "64k": { label: "省流", description: "AAC · 64 kbps" },
+} satisfies Record<CommandContract.AudioQuality, { label: string; description: string }>;
+
+const compatibilityQualityHint = "通过兼容通道播放，音质以实际为准";
+const qualityByAudioId: Partial<Record<number, CommandContract.AudioQuality>> = { 30280: "192k", 30232: "132k", 30216: "64k" };
+
+function projectAudioQualityLabel({ audioId, isFallback }: PlaybackDisplaySnapshot["audioQuality"]): string {
+  if (isFallback) return "兼容";
+  const quality = audioId === null ? undefined : qualityByAudioId[audioId];
+  return quality ? audioQualityOptions[quality].label : "音质";
+}
+
 function projectPlaybackControls(queue: PlaybackQueueSnapshot, session: DeepReadonly<PlaybackSessionState>, favorites: ReadonlySet<string>) {
   const current = activeQueueTrack(queue), bvid = current?.bvid ?? "";
   const favorited = favorites.has(bvid.toLowerCase());
@@ -35,4 +51,4 @@ function renderPlaybackMediaSession(state: PlaybackDisplaySnapshot, previous: Pl
   if (state.view.sessionVersion && state.view.sessionVersion !== previous?.view.sessionVersion) bindings.setPlaybackState(state.sessionState);
   if (state.view.positionVersion && state.view.positionVersion !== previous?.view.positionVersion) bindings.setPosition(state.position);
 }
-export { projectPlaybackControls, projectPlaybackProgress, renderPlaybackMediaSession };
+export { audioQualityOptions, compatibilityQualityHint, projectAudioQualityLabel, projectPlaybackControls, projectPlaybackProgress, renderPlaybackMediaSession };

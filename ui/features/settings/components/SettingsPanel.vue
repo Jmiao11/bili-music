@@ -5,6 +5,7 @@ import type {ComponentPublicInstance} from "vue";
 import type {draftBindings} from "../../../platform/draft-ports.ts";
 import type {ObjectDirective} from 'vue';
 import {applySettingsField} from './field-directive.ts';
+import {audioQualityOptions, compatibilityQualityHint} from '../../playback/playback-display-view.ts';
 import type {SettingsControl,SettingsControls} from '../settings-controls.ts';
 import type {SettingsSnapshot} from '../settings-state.ts';
 import type {SettingsCallbacks} from '../root-settings.ts';
@@ -84,14 +85,12 @@ function aiDetailsRef(value:Element|ComponentPublicInstance|null):void {
           <div class="setting-subgroup">
             <label class="setting-row" for="audio-quality-select">
               <span>音质</span>
-              <select id="audio-quality-select" class="settings-select" :value="state.audioQuality" aria-describedby="audio-quality-note" :onChange="surfaceVisible ? changeQuality : undefined">
-                <option value="highest">最高可用</option>
-                <option value="192k">192K</option>
-                <option value="132k">132K</option>
-                <option value="64k">64K</option>
+              <select id="audio-quality-select" class="settings-select" :value="state.audioQuality" aria-describedby="audio-quality-description audio-quality-note" :onChange="surfaceVisible ? changeQuality : undefined">
+                <option v-for="(option, value) in audioQualityOptions" :key="value" :value="value" :title="option.description">{{ option.label }}</option>
               </select>
             </label>
-            <small id="audio-quality-note" class="setting-note">切换后立即生效；yt-dlp 兜底时保持原音质</small>
+            <small id="audio-quality-description" class="setting-note">{{ audioQualityOptions[state.audioQuality].description }}</small>
+            <small id="audio-quality-note" class="setting-note">切换后立即生效。{{ compatibilityQualityHint }}</small>
           </div>
           <div class="setting-subgroup audio-source-section">
             <label class="select-row audio-source-row" for="stream-source-select">
