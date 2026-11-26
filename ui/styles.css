@@ -5099,6 +5099,26 @@ input[type="range"]::-webkit-slider-thumb {
 :root[data-theme="image"] #app :is(.home-head, .list-head, .search-command-panel, .track-columns) { background: transparent; }
 :root #app #view-search { --track-columns: 24px 32px minmax(0, 1fr) auto minmax(120px, 200px) 64px 64px 68px; }
 :root #app #search-results { overflow-anchor: none; }
+:root #app #view-search .searchbar { position: relative; }
+:root #app #view-search .search-history {
+  position: absolute;
+  z-index: 3;
+  inset: calc(100% + 6px) 0 auto;
+  padding: 6px;
+  border: 1px solid var(--line2);
+  border-radius: var(--r-md);
+  color: var(--text);
+  background: var(--floating-surface);
+  box-shadow: var(--dialog-shadow);
+}
+.search-history ul { max-height: min(320px, 50vh); margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.search-history li { display: flex; align-items: center; }
+.search-history button { padding: 7px 10px; border: 0; border-radius: var(--r-sm); color: inherit; background: transparent; cursor: pointer; }
+.search-history-keyword { flex: 1; min-width: 0; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.search-history button:hover, .search-history button[aria-selected="true"] { background: var(--hover); }
+.search-history .search-history-delete, .search-history .search-history-clear { color: var(--text2); }
+.search-history .search-history-clear { display: block; margin-inline-start: auto; }
+.search-restored { margin: 0 0 8px; color: var(--text3); font-size: var(--fs-sm); }
 :root #app #search-results .track-creator { display: flex; grid-column: 5; grid-row: 1; min-width: 0; align-items: center; overflow: hidden; text-align: left; white-space: nowrap; container: search-creator / inline-size; }
 :root #app #search-results .track:has(.track-pubdate) .track-up { display: block; align-self: center; min-width: min(4em, 100%); flex: 0 1 auto; overflow: hidden; margin: 0; padding: 0; line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 :root #app #search-results .track-pubdate { align-self: center; flex: 0 999 auto; min-width: 0; overflow: hidden; padding: 0; color: var(--text3); line-height: 1.35; text-align: left; text-overflow: ellipsis; white-space: nowrap; }

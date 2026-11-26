@@ -117,7 +117,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
                 </div>
               </div>
 
-              <SearchForm :draft-bindings="draftBindings" :disabled="snapshot.search.view.buttonDisabled" :callbacks="pageCallbacks" />
+              <SearchForm :draft-bindings="draftBindings" :disabled="snapshot.search.view.buttonDisabled" :active="shell.currentView === 'search'" :search="snapshot.search" :callbacks="pageCallbacks" />
             </section>
 
             <section class="search-results-panel" aria-label="搜索结果">
@@ -131,6 +131,7 @@ defineProps<{drawer:QueueDrawerView; drawerCallbacks:typeof queueDrawerCallbacks
                 <span id="queue-count" class="queue-count">{{ shell.queueCount }}</span>
               </header>
 
+              <p v-if="shell.searchRestored" class="search-restored">{{ shell.searchRestored }}</p>
               <div class="track-surface">
               <TrackColumns list="search-results" :widths="trackColumnWidths" :drag="trackColumnDrag" :callbacks="trackColumnCallbacks" />
               <ListHost id="search-results" :on-host="mainWindowRefs.searchResults" class="tracklist" aria-label="搜索结果和播放队列" :model="lists.search" />

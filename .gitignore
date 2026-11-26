@@ -31,3 +31,5 @@ node_modules/
 # Local cover drafts
 design/bilibili-cover-4x3.jpg
 design/bilibili-cover-4x3.png
+
+.playwright-mcp/

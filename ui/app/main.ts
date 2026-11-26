@@ -19,7 +19,7 @@ import { keepFocusInPagesModal } from "../features/pages/pages-view.ts";
 import { finishLibraryModalTransition, keepFocusInLibraryModal } from "../features/library/library-view.ts";
 import { choosePlaylistAndAdd, closeLibraryModal, createPlaylist, deleteSelectedPlaylist, importFavoritePlaylist, loadLibrary, openPurgeUnavailableTracksModal, renameSelectedPlaylist, toggleFavorite } from "../features/library/library-ui.ts";
 import { changeDisabledPages, closePagesModal, getPagesSnapshot, openCurrentPagesModal } from "../features/pages/video-pages.ts";
-import { enterSearchView, getSearchSnapshot, onSearchFilterKey, onSearchScroll, readLastSearchKeyword, runSearch, setSearchDivision, setSearchSort, updateMusicTabs } from "../features/search/search.ts";
+import { clearSavedSearchHistory, closeSearchHistory, closeSearchHistoryFromOutside, deleteSearchHistory, enterSearchView, getSearchSnapshot, initializeSearchState, onSearchFilterKey, onSearchHistoryKey, onSearchScroll, readLastSearchKeyword, refreshSearchFromSidebar, runSearch, selectSearchHistory, setSearchDivision, setSearchSort, showSearchHistory, updateMusicTabs } from "../features/search/search.ts";
 import { advancePageWithinCurrentBv, analyzeCurrentTrackAtThreshold, clearPendingResume, currentPlayableTrack, currentVideoPage, emitCurrentTrackChanged, getQueueSnapshot, getRequestSnapshot, getSessionSnapshot, handleAudioRecoveryError, initPastedBvPages, initPlaybackAudioIdentity, initPlaybackModes, initPlaybackPersistenceAndCache, initPlaybackRecord, initPlaybackResume, initPlaybackSearch, playNext, restorePlaybackState, savePlaybackState, savePlaybackStateOnUnload, updateQueueUi } from "../features/playback/playback-core.ts";
 import { getPlaybackCommands, isLoudnessNormalizationEnabled, setActiveView } from "../features/settings/appearance.ts";
 initializeRootLists();
@@ -134,6 +134,9 @@ installPageCallbacks({
   },
 });
 installPageCallbacks({
+  showSearchHistory, closeSearchHistory: closeSearchHistoryFromOutside, selectSearchHistory, deleteSearchHistory,
+  clearSearchHistory: () => { void clearSavedSearchHistory(); },
+  refreshSearch: refreshSearchFromSidebar,
   division: value => {
     const tids = Number(value) || DEFAULT_MUSIC_TIDS;
     if (getSearchSnapshot().tids === tids) return;
@@ -180,6 +183,7 @@ pagesModal?.addEventListener("transitionend", (event) => {
 });
 window.addEventListener("keydown", (event) => {
   keepFocusInLibraryModal(event);
+  if (onSearchHistoryKey(event)) return;
   onSearchFilterKey(event, pageCallbacks);
   if (event.key === "Escape") {
     if (pagesModal?.classList.contains("is-open")) {
@@ -199,6 +203,7 @@ window.addEventListener("bilibili-music-viewchange", (event) => {
     loadLibrary();
   }
   if (event.detail?.view === "search") enterSearchView();
+  else closeSearchHistory();
 });
 window.addEventListener("ai-config-updated", refreshAiKeyState);
 
@@ -216,6 +221,7 @@ if (restoreKeyword && !readSearchDraft().trim()) {
 loadLibrary();
 updateMusicTabs();
 updateQueueUi();
+void Promise.resolve().then(initializeSearchState);
 emitCurrentTrackChanged();
 
 export {};

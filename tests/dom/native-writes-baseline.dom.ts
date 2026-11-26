@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { checkNativeWrites } from "../../scripts/vue/native-writes.ts";
 import { fixture } from "./tracks-fixture.ts";
+
+test("native search scroll exception rejects other offsets", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bili-search-scroll-guard-"));
+  try {
+    const config = path.join(root, "scripts/typecheck"), search = path.join(root, "ui/features/search");
+    fs.mkdirSync(config, { recursive: true }); fs.mkdirSync(search, { recursive: true });
+    fs.writeFileSync(path.join(config, "tsconfig.main.json"), JSON.stringify({ compilerOptions: { lib: ["ES2023", "DOM"] }, include: ["../../ui"] }));
+    fs.writeFileSync(path.join(search, "search.ts"), 'declare const searchResults: HTMLUListElement; searchResults.scrollTop = 1;');
+    assert.throws(() => checkNativeWrites(root), /Native UI write: ui\/features\/search\/search.ts:1: searchResults.scrollTop = 1/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("native writes baseline: appearance and purge status preserve last actual writer", async t => {
   const h = await fixture({ playback:true }); t.after(h.dispose);

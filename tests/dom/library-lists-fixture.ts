@@ -63,6 +63,7 @@ async function fixture(options: { playback?: boolean } = {}) {
   // audio_cache.rs:60,67; commands/runtime.rs:7,13. No API keys or runtime files are read.
   const startup: Reply = async command => {
     if (command === "check_for_update") return null;
+    if (command === "get_search_state") return { version: 1, history: [], lastResult: null };
     if (["list_favorites", "list_playlists", "list_unavailable_tracks"].includes(command)) return [];
     if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
     if (command === "get_ai_config") return new Promise(() => {});

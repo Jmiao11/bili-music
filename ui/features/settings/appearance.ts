@@ -1,4 +1,5 @@
-import { installPageCallbacks } from "../../app/root-controls.ts";
+import { installPageCallbacks, pageCallbacks } from "../../app/root-controls.ts";
+import { clearSavedSearchHistory } from "../search/search.ts";
 import { installSettingsCallbacks, initializeTrackColumnPreferences } from "./root-settings.ts";
 import { clearAiKeyDraft, readAiKeyDraft } from "../../platform/draft-ports.ts";
 import { installPlaybackCallbacks } from "../playback/root-playback.ts";
@@ -661,6 +662,11 @@ function startAppearance() {
 installPageCallbacks({ playlist: id => { setActiveView("playlists"); getApplicationStore().actions.library.choosePlaylist(id); } });
 for (const item of navItems) {
   item.addEventListener("click", () => {
+    const state = getApplicationStore().getState();
+    if (item.dataset.view === "search" && state.settings.session.currentView === "search" && !state.collection.active) {
+      pageCallbacks.refreshSearch();
+      return;
+    }
     if (item.dataset.view === "playlists") getApplicationStore().actions.library.showPlaylistOverview();
     setActiveView(item.dataset.view);
   });
@@ -691,6 +697,7 @@ installSettingsCallbacks({clearHistory: async () => {
   getSettingsActions().setNotice("正在清空搜索历史…");
   try {
     await invokeAppearance("clear_search_history");
+    await clearSavedSearchHistory();
     getSettingsActions().setNotice("搜索历史已清空。");
   } catch (error) {
     getSettingsActions().setNotice(`清空搜索历史失败：${error}`);

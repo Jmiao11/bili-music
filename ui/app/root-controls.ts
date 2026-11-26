@@ -10,6 +10,8 @@ type PageCallbacks = {
   update(): void;
   submit(event: SubmitEvent): void; hint(): void; hintKey(event: KeyboardEvent): void; setup(): void;
   division(tids: string): void; sort(mode: string): void;
+  showSearchHistory():void; closeSearchHistory(target:EventTarget|null):void;
+  selectSearchHistory(keyword:string):void; deleteSearchHistory(keyword:string):void; clearSearchHistory():void; refreshSearch():void;
   playlist(id: string): void; createPlaylist(): void; renamePlaylist(): void; deletePlaylist(): void; importPlaylist(): void;
 };
 const pageHandlers: Partial<PageCallbacks> = {};
@@ -22,6 +24,12 @@ const pageCallbacks = Object.freeze<PageCallbacks>({
   update: () => pageHandlers.update?.(),
   submit: event => pageHandlers.submit?.(event), hint: () => pageHandlers.hint?.(), hintKey: event => pageHandlers.hintKey?.(event), setup: () => pageHandlers.setup?.(),
   division: tids => pageHandlers.division?.(tids), sort: mode => pageHandlers.sort?.(mode),
+  showSearchHistory: () => pageHandlers.showSearchHistory?.(),
+  closeSearchHistory: target => pageHandlers.closeSearchHistory?.(target),
+  selectSearchHistory: keyword => pageHandlers.selectSearchHistory?.(keyword),
+  deleteSearchHistory: keyword => pageHandlers.deleteSearchHistory?.(keyword),
+  clearSearchHistory: () => pageHandlers.clearSearchHistory?.(),
+  refreshSearch: () => pageHandlers.refreshSearch?.(),
   playlist: id => pageHandlers.playlist?.(id), createPlaylist: () => pageHandlers.createPlaylist?.(), renamePlaylist: () => pageHandlers.renamePlaylist?.(), deletePlaylist: () => pageHandlers.deletePlaylist?.(), importPlaylist: () => pageHandlers.importPlaylist?.(),
 });
 function installPageCallbacks(handlers: Partial<PageCallbacks>): void { Object.assign(pageHandlers, handlers); }

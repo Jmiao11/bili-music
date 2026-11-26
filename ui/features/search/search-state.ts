@@ -10,6 +10,9 @@ type SearchState = {
   userKeyword: string; requestKeyword: string; tids: number; order: string | null;
   rerank: boolean; sortMode: string; page: number; isLoadingMore: boolean; hasMore: boolean; requestVersion: number;
   searchBusy: boolean; playbackBusy: boolean;
+  history: CommandContract.SearchStateHistoryItem[];
+  historyOpen: boolean; historyQuery: string; historyIndex: number;
+  restoredAt: number | null;
   view: { rowsVersion: number | null; musicVersion: number | null; sortVersion: number | null; status: string | null; buttonDisabled: boolean | null; buttonSource: "search" | "playback" | null; resultVisible: boolean | null };
 };
 type SearchSnapshot = DeepReadonly<SearchState>;
@@ -18,6 +21,12 @@ type SearchAdapter = {
   report: (level: "warn" | "error", message: string, error: unknown) => void;
 };
 type SearchPageCommit = { page: number; responseLength: number };
+type SaveSearchPage = (page: CommandContract.SearchStatePage) => void;
+
+function matchingSearchHistory(search: SearchSnapshot) {
+  const query = search.historyQuery.trim().toLowerCase();
+  return search.history.filter(item => item.keyword.toLowerCase().includes(query));
+}
 
 function searchFailureStatus(error: unknown, context: string): string {
   return error === "SEARCH_TEMPORARILY_RESTRICTED" ? "搜索暂时受限，请稍后再试" : context + "：" + error;
@@ -26,6 +35,7 @@ function searchFailureStatus(error: unknown, context: string): string {
 function initialSearchState(): SearchState {
   return { results: [], userKeyword: "", requestKeyword: "", tids: DEFAULT_MUSIC_TIDS, order: null, rerank: true, sortMode: "all", page: 0, isLoadingMore: false, hasMore: false, requestVersion: 0,
     searchBusy: false, playbackBusy: false,
+    history: [], historyOpen: false, historyQuery: "", historyIndex: -1, restoredAt: null,
     view: { rowsVersion: null, musicVersion: null, sortVersion: null, status: null, buttonDisabled: null, buttonSource: null, resultVisible: null } };
 }
 
@@ -35,6 +45,37 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
     commitSearch({ ...current, ...fields, view: Object.keys(view).length ? { ...current.view, ...view } : current.view });
   };
   const rows = () => (read().view.rowsVersion ?? 0) + 1;
+  const closedHistory = { historyOpen: false, historyIndex: -1 };
+
+  function setHistory(history: CommandContract.SearchStateHistoryItem[]): void {
+    updateSearch({ history, historyIndex: -1 });
+  }
+  function showHistory(historyQuery: string): void {
+    updateSearch({ historyQuery, historyOpen: true, historyIndex: -1 });
+  }
+  function closeHistory(): void {
+    if (read().historyOpen) updateSearch(closedHistory);
+  }
+  function moveHistory(direction: number): void {
+    const state = read();
+    const size = matchingSearchHistory(state).length;
+    if (!size) return;
+    const index = state.historyOpen ? state.historyIndex : -1;
+    updateSearch({ historyOpen: true, historyIndex: index < 0 ? (direction > 0 ? 0 : size - 1) : (index + direction + size) % size });
+  }
+  function restoreResult(saved: NonNullable<CommandContract.SavedSearchState["lastResult"]>): void {
+    const { keyword, tids, sortMode, items, page, hasMore, savedAt } = saved;
+    updateSearch({
+      userKeyword: keyword, requestKeyword: keyword || MUSIC_HOT_KEYWORD, tids, sortMode,
+      order: keyword ? null : "click", rerank: Boolean(keyword), results: items.map(normalizeTrack),
+      page, hasMore, restoredAt: savedAt,
+    }, { rowsVersion: rows(), resultVisible: true });
+  }
+  function savePage(page: number, items: readonly SearchSnapshot["results"][number][], saveResult?: SaveSearchPage): void {
+    if (!saveResult) return;
+    const { userKeyword, tids, sortMode, hasMore } = read();
+    saveResult({ keyword: userKeyword, tids, sortMode, hasMore, page, items: items.slice(0, 100) });
+  }
 
   function appendResults(videos: readonly CommandContract.SearchVideo[], beforeCommit?: (unique: SearchSnapshot["results"]) => void, page?: SearchPageCommit): SearchSnapshot["results"] {
     const current = read();
@@ -55,10 +96,11 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
     return unique;
   }
 
-  async function searchNow({ userKeyword, recordHistory = false, saveKeyword }: { userKeyword: string; recordHistory?: boolean; saveKeyword?: (keyword: string) => void }): Promise<void> {
+  async function searchNow({ userKeyword, recordHistory = false, saveKeyword, saveResult }: { userKeyword: string; recordHistory?: boolean; saveKeyword?: (keyword: string) => void; saveResult?: SaveSearchPage }): Promise<void> {
     const trimmed = userKeyword.trim();
     const version = read().requestVersion + 1;
     updateSearch({ userKeyword: trimmed, requestKeyword: trimmed || MUSIC_HOT_KEYWORD, order: trimmed ? null : "click", rerank: !!trimmed,
+      ...closedHistory, restoredAt: null,
       page: 1, hasMore: false, isLoadingMore: false, requestVersion: version, searchBusy: true }, {
       buttonDisabled: true, buttonSource: "search", status: trimmed ? "正在搜索…" : "正在加载该分区热门…",
     });
@@ -67,10 +109,9 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
       const payload: CommandMap["search_videos"]["args"] = { keyword: state.requestKeyword, page: 1, tids: state.tids, rerank: state.rerank };
       if (state.order) payload.order = state.order;
       if (state.rerank) payload.sortMode = state.sortMode;
-      const request = adapter.invoke("search_videos", payload);
-      if (recordHistory && state.userKeyword) adapter.invoke("record_search_history", { keyword: state.userKeyword }).catch(error => adapter.report("warn", "record_search_history failed:", error));
-      const videos = await request;
+      const videos = await adapter.invoke("search_videos", payload);
       if (version !== read().requestVersion) return;
+      if (recordHistory && state.userKeyword) adapter.invoke("record_search_history", { keyword: state.userKeyword }).catch(error => adapter.report("warn", "record_search_history failed:", error));
       const hasMore = videos.length >= SEARCH_PAGE_SIZE;
       if (read().userKeyword) saveKeyword?.(read().userKeyword);
       const modeLabel = read().userKeyword ? "" : "（分区热门）";
@@ -79,13 +120,14 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
         rowsVersion: rows(), resultVisible: true, buttonDisabled: false, buttonSource: "search",
         status: found,
       });
+      if (read().requestVersion === version) savePage(1, read().results, saveResult);
     } catch (error) {
       if (version !== read().requestVersion) return;
       updateSearch({ searchBusy: false }, { buttonDisabled: false, buttonSource: "search", status: searchFailureStatus(error, "搜索失败") });
     }
   }
 
-  async function loadNextPage(readDraft: () => string, appendPage?: (videos: readonly CommandContract.SearchVideo[], page: SearchPageCommit) => number): Promise<void> {
+  async function loadNextPage(readDraft: () => string, appendPage?: (videos: readonly CommandContract.SearchVideo[], page: SearchPageCommit) => number, saveResult?: SaveSearchPage): Promise<void> {
     const start = read();
     if (!start.requestKeyword || !start.hasMore || start.isLoadingMore) return;
     const nextPage = start.page + 1;
@@ -101,7 +143,11 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
         updateSearch({ isLoadingMore: false }, !read().hasMore && read().results.length > 0 ? { status: "没有更多了" } : {}); return;
       }
       const page = { page: nextPage, responseLength: videos.length };
+      const count = read().results.length;
       if (appendPage) appendPage(videos, page); else appendResults(videos, undefined, page);
+      if (count < 100 && read().requestVersion === version && read().page === nextPage) {
+        savePage(nextPage, read().results.slice(count), saveResult);
+      }
     } catch (error) {
       if (version !== read().requestVersion) return;
       updateSearch({ isLoadingMore: false }, { status: !read().hasMore && read().results.length > 0 ? "没有更多了" : searchFailureStatus(error, "加载更多失败") });
@@ -110,7 +156,7 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
 
   function resetForBv(): number {
     const version = read().requestVersion + 1;
-    updateSearch({ userKeyword: "", requestKeyword: "", order: null, rerank: true, page: 0, hasMore: false, isLoadingMore: false, searchBusy: false, requestVersion: version, results: [] }, { rowsVersion: rows() });
+    updateSearch({ userKeyword: "", requestKeyword: "", order: null, rerank: true, page: 0, hasMore: false, isLoadingMore: false, searchBusy: false, requestVersion: version, results: [], restoredAt: null, ...closedHistory }, { rowsVersion: rows() });
     return version;
   }
   function updateMetadata(index: number, version: number, metadata: Pick<CommandContract.AudioResponse, "title" | "uploader" | "thumbnailUrl" | "durationSeconds">): void {
@@ -125,8 +171,8 @@ function createSearchActions(read: () => SearchSnapshot, commitSearch: (next: Se
   function refreshSort(): void { updateSearch({}, { sortVersion: (read().view.sortVersion ?? 0) + 1 }); }
   function chooseDivision(tids: number): void { updateSearch({ tids }, { musicVersion: (read().view.musicVersion ?? 0) + 1 }); }
   function chooseSort(sortMode: string): void { updateSearch({ sortMode: read().sortMode === sortMode ? "all" : sortMode }, { sortVersion: (read().view.sortVersion ?? 0) + 1 }); }
-  return { appendResults, chooseDivision, chooseSort, loadMoreSearchResults: loadNextPage, recognizeBv, refreshDivision, refreshResults, refreshSort, resetForBv, runSearch: searchNow, setPlaybackBusy: playbackButtonBusy, updateMetadata };
+  return { appendResults, chooseDivision, chooseSort, closeHistory, loadMoreSearchResults: loadNextPage, moveHistory, recognizeBv, refreshDivision, refreshResults, refreshSort, resetForBv, restoreResult, runSearch: searchNow, setHistory, setPlaybackBusy: playbackButtonBusy, showHistory, updateMetadata };
 }
 
-export { DEFAULT_MUSIC_TIDS, createSearchActions, initialSearchState };
+export { DEFAULT_MUSIC_TIDS, createSearchActions, initialSearchState, matchingSearchHistory };
 export type { SearchSnapshot, SearchPageCommit };

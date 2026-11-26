@@ -16,6 +16,7 @@ mod proxy;
 mod ranking;
 mod resolve;
 mod search;
+mod search_state;
 mod shortcuts;
 mod state;
 mod storage;
@@ -172,6 +173,10 @@ fn main() {
             library::history::record_search_history,
             library::history::get_search_history,
             library::history::clear_search_history,
+            search_state::get_search_state,
+            search_state::write_search_state,
+            search_state::delete_search_state_history,
+            search_state::clear_search_state_history,
             library::shortcut_config::get_shortcuts,
             library::shortcut_config::set_shortcuts,
             library::history::record_play,

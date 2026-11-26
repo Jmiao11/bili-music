@@ -72,6 +72,7 @@ const allowedWrites:Readonly<Record<string,string>>={
   "ui/features/playback/playback-core.ts:audio.currentTime = Math.min(Math.max(0, position), maxPosition)": "Vue 宿主外唯一 audio",
   "ui/features/playback/playback-core.ts:audio.currentTime = Math.min( Math.max(0, Number(resumePosition) || 0), Number.isFinite(maxPosition) ? maxPosition : 0, )": "Vue 宿主外唯一 audio",
   "ui/features/immersive/lyrics.ts:linesElement.scrollTop = 0": "歌词几何滚动副作用",
+  "ui/features/search/search.ts:searchResults.scrollTop = 0": "再次点击搜索侧栏项时由控制器回顶",
   "ui/app/main-window-ready.ts:startupRoot.dataset.startupComplete = \"true\"": "documentElement 平台、主题与启动属性",
   "ui/mini/window-controller.ts:root.dataset.theme = [\"light\", \"image\", \"dynamic\"].includes(state.theme ?? \"\") ? state.theme ?? \"dark\" : \"dark\"": "documentElement 平台、主题与启动属性",
   "ui/mini/window-controller.ts:root.style.setProperty(\"--accent-r\",String(Number(state.accent.r)||0))": "documentElement 平台、主题与启动属性",

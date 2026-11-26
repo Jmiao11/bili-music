@@ -1,14 +1,18 @@
-import { readSearchDraft } from "../../platform/draft-ports.ts";
+import { readSearchDraft, writeSearchDraft } from "../../platform/draft-ports.ts";
 import type { SearchPageCommit } from "./search-state.ts";
+import { matchingSearchHistory } from "./search-state.ts";
 import type { PageCallbacks } from "../../app/root-controls.ts";
 import { LAST_SEARCH_KEY, LOAD_MORE_THRESHOLD_PX } from "../../shared/controller-runtime.ts";
 import { searchResults } from "../../platform/main-window-refs.ts";
+import { invoke } from "../../platform/runtime-api.ts";
 import { getApplicationStore } from "../home/home.ts";
 import { renderSearchSnapshot } from "./search-view.ts";
 import { appendSearchResults, updateQueueUi } from "../playback/playback-core.ts";
 let searchMounted = false;
 let scrollSample = { top: 0, width: 0, height: 0 };
 let resizeTrackingStarted = false;
+let searchStorage = Promise.resolve();
+let lastSidebarSearch = -Infinity;
 
 function readLastSearchKeyword(): string {
   try {
@@ -60,10 +64,72 @@ function appendSearchDisplay(videos: readonly CommandContract.SearchVideo[], bef
   return getSearchActions().appendResults(videos, beforeCommit, page);
 }
 function runSearch({ userKeyword = readSearchDraft().trim(), recordHistory = false }: { userKeyword?: string; recordHistory?: boolean } = {}): Promise<void> {
-  return getSearchActions().runSearch({ userKeyword, recordHistory, saveKeyword: saveLastSearchKeyword });
+  return getSearchActions().runSearch({ userKeyword, recordHistory, saveKeyword: saveLastSearchKeyword, saveResult: persistSearchPage });
 }
 function loadMoreSearchResults(): Promise<void> {
-  return getSearchActions().loadMoreSearchResults(() => readSearchDraft(), (videos, page) => appendSearchResults(videos, page));
+  return getSearchActions().loadMoreSearchResults(() => readSearchDraft(), (videos, page) => appendSearchResults(videos, page), persistSearchPage);
+}
+
+function persistHistoryChange(operation: () => Promise<CommandContract.SearchStateHistoryItem[]>): Promise<void> {
+  const next = searchStorage.then(async () => {
+    const history = await operation();
+    if (Array.isArray(history) && history.every(item => typeof item?.keyword === "string" && typeof item.searchedAt === "number")) {
+      getSearchActions().setHistory(history);
+    }
+  });
+  searchStorage = next.catch(error => console.warn("search state write failed:", error));
+  return next;
+}
+
+function persistSearchPage(page: CommandContract.SearchStatePage): void {
+  void persistHistoryChange(() => invoke("write_search_state", { page }));
+}
+
+function initializeSearchState(): void {
+  const originalDraft = readSearchDraft();
+  searchStorage = invoke("get_search_state").then(saved => {
+    if (!Array.isArray(saved?.history)) return;
+    const actions = getSearchActions();
+    actions.setHistory(saved.history);
+    if (saved.lastResult && getSearchSnapshot().requestVersion === 0 && readSearchDraft() === originalDraft) {
+      writeSearchDraft(saved.lastResult.keyword);
+      actions.restoreResult(saved.lastResult);
+    }
+  }).catch(error => console.warn("search state read failed:", error));
+}
+
+function showSearchHistory(): void {
+  getSearchActions().showHistory(readSearchDraft());
+}
+
+function closeSearchHistory(): void {
+  getSearchActions().closeHistory();
+}
+
+function closeSearchHistoryFromOutside(target: EventTarget | null): void {
+  if (!(target instanceof Element) || !target.closest("#search-form")) closeSearchHistory();
+}
+
+function selectSearchHistory(keyword: string): void {
+  writeSearchDraft(keyword);
+  void runSearch({ userKeyword: keyword, recordHistory: true });
+}
+
+function deleteSearchHistory(keyword: string): void {
+  void persistHistoryChange(() => invoke("delete_search_state_history", { keyword }));
+}
+
+function clearSavedSearchHistory(): Promise<void> {
+  return persistHistoryChange(() => invoke("clear_search_state_history"));
+}
+
+function refreshSearchFromSidebar(): void {
+  const now = performance.now();
+  if (getSearchSnapshot().searchBusy || now - lastSidebarSearch < 3000) return;
+  lastSidebarSearch = now;
+  searchResults.scrollTop = 0;
+  syncSearchScroll();
+  void runSearch();
 }
 
 function syncSearchScroll(): void {
@@ -75,6 +141,7 @@ function enterSearchView(): void {
   if (!resizeTrackingStarted) {
     resizeTrackingStarted = true;
     window.addEventListener("resize", syncSearchScroll);
+    document.addEventListener("click", event => closeSearchHistoryFromOutside(event.target));
   }
 }
 
@@ -111,4 +178,21 @@ function onSearchFilterKey(event: KeyboardEvent, callbacks: Pick<PageCallbacks, 
   else if (tab.dataset.sortMode !== undefined) callbacks.sort(tab.dataset.sortMode);
 }
 
-export { appendSearchDisplay, enterSearchView, fillSearchMetadata, getSearchSnapshot, loadMoreSearchResults, onSearchFilterKey, onSearchScroll, readLastSearchKeyword, recognizeSearchBv, renderSearchResults, resetSearchForBv, runSearch, setSearchDivision, setSearchPlaybackBusy, setSearchSort, updateMusicTabs };
+function onSearchHistoryKey(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented || event.isComposing || !(event.target instanceof HTMLElement) || event.target.id !== "search-keyword") return false;
+  const state = getSearchSnapshot();
+  const matches = matchingSearchHistory(state);
+  if ((event.key === "ArrowDown" || event.key === "ArrowUp") && matches.length) {
+    event.preventDefault();
+    getSearchActions().moveHistory(event.key === "ArrowDown" ? 1 : -1);
+  } else if (event.key === "Enter" && state.historyOpen && matches[state.historyIndex]) {
+    event.preventDefault();
+    selectSearchHistory(matches[state.historyIndex].keyword);
+  } else if (event.key === "Escape" && state.historyOpen) {
+    event.preventDefault();
+    closeSearchHistory();
+  } else return false;
+  return true;
+}
+
+export { appendSearchDisplay, clearSavedSearchHistory, closeSearchHistory, closeSearchHistoryFromOutside, deleteSearchHistory, enterSearchView, fillSearchMetadata, getSearchSnapshot, initializeSearchState, loadMoreSearchResults, onSearchFilterKey, onSearchHistoryKey, onSearchScroll, readLastSearchKeyword, recognizeSearchBv, refreshSearchFromSidebar, renderSearchResults, resetSearchForBv, runSearch, selectSearchHistory, setSearchDivision, setSearchPlaybackBusy, setSearchSort, showSearchHistory, updateMusicTabs };

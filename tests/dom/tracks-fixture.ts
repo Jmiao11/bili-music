@@ -35,7 +35,7 @@ type Modules = {
   nodes: import("./application-nodes.ts").ApplicationNodes & { status: HTMLParagraphElement }; store: Store; appearance: { setNormalizationGain(gain: unknown): void };
 };
 
-async function fixture(options: { coverCounters?: boolean; queueLifecycle?: boolean; queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
+async function fixture(options: { coverCounters?: boolean; queueLifecycle?: boolean; queueCounters?: boolean; updateReply?: Promise<unknown>; trackColumns?: string; nativeWrites?: boolean; homeSpy?: boolean; saved?: string; searchState?: CommandContract.SavedSearchState; draft?: string; legacySortTabs?: boolean; playback?: boolean; lyrics?: boolean; settingsPrivacy?: boolean; displayCounters?: boolean; shortcutReply?: Promise<unknown>; normalizationFailure?: boolean; rootRenderProbe?: RootRenderProbe } = {}) {
   const project = path.resolve(import.meta.dirname, "../.."), source = path.join(project, "ui");
   const tracked = execFileSync("git", ["ls-files", "-z", "--", "ui"], { cwd: project, encoding: "utf8" }).split("\0").filter(Boolean);
   const renderCounts: Record<string, number> = { TrackList: 0, TrackRow: 0, PlaylistList: 0 };
@@ -95,6 +95,7 @@ async function fixture(options: { coverCounters?: boolean; queueLifecycle?: bool
   // audio_cache.rs:60,67; commands/runtime.rs:7,13. No API keys or runtime files are read.
   const startup: Reply = async command => {
     if (command === "check_for_update") return options.updateReply ?? null;
+    if (command === "get_search_state") return options.searchState ?? { version: 1, history: [], lastResult: null };
     if (["list_favorites", "list_playlists", "list_unavailable_tracks"].includes(command)) return [];
     if (["list_disabled_pages", "get_cached_video_pages"].includes(command)) return {};
     if (command === "get_ai_config") return new Promise(() => {});
@@ -185,8 +186,9 @@ async function fixture(options: { coverCounters?: boolean; queueLifecycle?: bool
       }
     } }], define: vueFeatureFlags, resolve: { alias: { vue: path.join(project, "node_modules/vue/dist/vue.runtime.esm-bundler.js") } }, build: { outDir: path.join(root, "compiled"), minify: false, lib: { entry: path.join(root, "fixture-entry.ts"), formats: ["es"], fileName: "fixture" } } });
     const modules = await import(pathToFileURL(path.join(root, "compiled/fixture.js")).href) as Modules;
-    await microtasks(); calls.length = 0; platform.length = 0;
-    return { ...modules, clock:()=>epoch+now, renderCounts, rowRenders, cardRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
+    await microtasks(); const searchStateReads = calls.filter(call => call.command === "get_search_state").length;
+    calls.length = 0; platform.length = 0;
+    return { ...modules, searchStateReads, clock:()=>epoch+now, renderCounts, rowRenders, cardRenders, ipcListeners, emissions, window, doc, calls, listeners, platform, regions, warnings, fire, raf, microtasks, dispose, timers, observed, played, queueUpdates: () => queueUpdates, reply(next: Reply) { reply = next; },
       visible(target: Element) { intersection([{ target, isIntersecting: true }]); },
       async advance(milliseconds: number) {
         const end = now + milliseconds;

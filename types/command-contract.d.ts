@@ -6,6 +6,9 @@ declare namespace CommandContract {
   interface AudioResponse { audioUrl: string; audioId: number | null; isFallback: boolean; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; }
   interface VideoPage { page: number; cid: number; part: string; durationSeconds: number; }
   interface SearchVideo { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; playCount: number | null; pubdate: number | null; }
+  interface SearchStatePage { keyword: string; tids: number; sortMode: string; items: SearchVideo[]; page: number; hasMore: boolean; }
+  interface SearchStateHistoryItem { keyword: string; searchedAt: number; }
+  interface SavedSearchState { version: number; history: SearchStateHistoryItem[]; lastResult: (SearchStatePage & { savedAt: number }) | null; }
   interface RankingTrack { bvid: string; title: string; uploader: string; thumbnailUrl: string; durationSeconds: number; playCount: number | null; }
   interface YtDlpAvailability { available: boolean; path: string; }
   interface BackgroundImage { path: string; displayName: string; dataUrl: string; width: number; height: number; }
@@ -76,6 +79,10 @@ interface CommandMap {
   cancel_prepare_audio: { args: undefined; result: null };
   debug_register_local_stream: { args: { path: string }; result: string };
   search_videos: { args: { keyword: string; page?: number | null; tids?: number | null; order?: string | null; sortMode?: string | null; rerank: boolean }; result: CommandContract.SearchVideo[] };
+  get_search_state: { args: undefined; result: CommandContract.SavedSearchState };
+  write_search_state: { args: { page: CommandContract.SearchStatePage }; result: CommandContract.SearchStateHistoryItem[] };
+  delete_search_state_history: { args: { keyword: string }; result: CommandContract.SearchStateHistoryItem[] };
+  clear_search_state_history: { args: undefined; result: CommandContract.SearchStateHistoryItem[] };
   get_music_ranking: { args: { source: "ranking" | "newSongs" | "forYou"; mode: "cache" | "auto" | "retry" | "refresh"; today: string }; result: { section: { date: string; fetchedAt: number; items: CommandContract.RankingTrack[]; seeds?: CommandContract.HomeFeedSeed[]; noSeedsDate?: string }; newSongs: CommandContract.RankingTrack[]; sequence: number; restricted: boolean; error: string | null; requestAt: number | null; available?: boolean } };
   get_stream_source: { args: undefined; result: string };
   get_yt_dlp_availability: { args: undefined; result: CommandContract.YtDlpAvailability };

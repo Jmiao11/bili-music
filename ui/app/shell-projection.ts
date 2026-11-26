@@ -2,10 +2,18 @@ import {readPlaybackRevealVersion} from "./shell-stages.ts";
 import type { ApplicationSnapshot } from "../store/application-store.ts";
 import { isHomePopular } from "../store/app-state.ts";
 
+function restoredSearchLabel(savedAt: number | null, now: number): string {
+  if (savedAt === null) return "";
+  const date = new Date(savedAt);
+  const today = date.toDateString() === new Date(now).toDateString();
+  const day = today ? "今天" : `${date.getMonth() + 1} 月 ${date.getDate()} 日`;
+  return `上次搜索 · ${day} ${date.toTimeString().slice(0, 5)}`;
+}
+
 function createShellProjection() {
   let previous:ApplicationSnapshot|null=null, revealVersion=0;
   const view={homeMode:"recommendation",homeSource:"",homeTitle:"为你推荐",homeSubtitle:"根据收藏、搜索、歌单和听歌记录生成",homeDay:0,homeCache:"",homeList:"按你的口味生成",homeRefreshTitle:undefined as string|undefined,homeRefreshDisabled:false,homeStatus:"",homeError:"",homeNeedsSetup:false,
-    searchStatus:"搜索结果会显示在这里。",resultHidden:false,queueCount:"0 首",favoritesStatus:"收藏的歌曲会显示在这里。",favoritesCount:"0 首",playlistsStatus:"创建歌单，把喜欢的歌放在一起。",playlistTitle:"选择一个歌单",playlistMeta:"歌单里的歌曲会显示在这里。",
+    searchStatus:"搜索结果会显示在这里。",searchRestored:"",resultHidden:false,queueCount:"0 首",favoritesStatus:"收藏的歌曲会显示在这里。",favoritesCount:"0 首",playlistsStatus:"创建歌单，把喜欢的歌放在一起。",playlistTitle:"选择一个歌单",playlistMeta:"歌单里的歌曲会显示在这里。",
     libraryTitle:"加入歌单",librarySubtitle:"选择一个歌单，或新建后加入。",libraryStatus:"",appearanceStatus:"",purgeBusy:false,pagesTitle:"选择分P",pagesSub:"",pagesStatus:"",restoreHidden:true,restoreDisabled:false,restoreText:"全部恢复",
     currentView:"home"};
   return (snapshot:ApplicationSnapshot, now: number) => {
@@ -36,6 +44,7 @@ function createShellProjection() {
       view.homeRefreshTitle=home.cooling?"刚刚更新，请稍后再试":home.forYouAvailable?"刷新为你推荐、音乐热门与新歌速递":"刷新音乐热门与新歌速递";
     }
     if(search.view.status !== null && search.view.status !== previous?.search.view.status) view.searchStatus=search.view.status;
+    view.searchRestored=restoredSearchLabel(search.restoredAt, now);
     if(search.view.resultVisible !== null && search.view.resultVisible !== previous?.search.view.resultVisible) view.resultHidden=!search.view.resultVisible;
     if(revealVersion !== readPlaybackRevealVersion()) {revealVersion=readPlaybackRevealVersion();view.resultHidden=false;}
     view.queueCount=`${search.results.length} 首`;
